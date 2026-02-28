@@ -3439,15 +3439,21 @@
                             
                             const title = item.content.title || '제목 없음';
                             const contentType = item.content.content_type || 'text';
-                            const highlightsCount = (item.highlights || []).length;
+                            let wordCount = 0;
+                            if (contentType === 'mindmap') {
+                                try {
+                                    const md = item.content.mindmap_data ? JSON.parse(item.content.mindmap_data) : null;
+                                    if (md && md.branches) wordCount = md.branches.filter(b => b.level1).length;
+                                } catch (e) {}
+                            }
                             const isDuplicate = localTitles.has(title);
-                            
+
                             airtableItems.push({
                                 record: record,
                                 item: item,
                                 title: title,
                                 contentType: contentType,
-                                highlightsCount: highlightsCount,
+                                wordCount: wordCount,
                                 isDuplicate: isDuplicate,
                                 selected: !isDuplicate
                             });
@@ -3569,7 +3575,7 @@
                                     ${typeIcon} ${item.title}
                                 </div>
                                 <div class="airtable-import-item-details">
-                                    <span>하이라이트: ${item.highlightsCount}개</span>
+                                    <span>${item.contentType === 'mindmap' ? '단어: ' + item.wordCount + '개' : ''}</span>
                                     <span>타입: ${item.contentType}</span>
                                     ${duplicateTag}
                                 </div>
