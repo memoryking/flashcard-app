@@ -3690,9 +3690,7 @@
                         }
                         
                         importData.contents.push(item.content);
-                        if (item.highlights && Array.isArray(item.highlights)) {
-                            importData.highlights.push(...item.highlights);
-                        }
+                        // 학생 버전: 선생님 하이라이트는 가져오지 않음 (학생이 직접 학습)
                     });
                     
                     this.showToast(`${selectedItems.length}개 항목 처리 중...`, 'info');
