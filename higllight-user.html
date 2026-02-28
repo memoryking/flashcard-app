@@ -3689,6 +3689,17 @@
                             }
                         }
                         
+                        // 학생 버전: content에서 mindmap_data를 재생성 (에어테이블에서 content만 수정해도 반영)
+                        if (item.content.content_type === 'mindmap' && item.content.content) {
+                            const lines = item.content.content.trim().split('\n').filter(l => l.trim());
+                            const branches = [];
+                            lines.forEach(line => {
+                                const parts = line.split('@');
+                                const branch = { level1: (parts[0]||'').trim(), level2: (parts[1]||'').trim(), level3: (parts[2]||'').trim() };
+                                if (branch.level1) branches.push(branch);
+                            });
+                            item.content.mindmap_data = JSON.stringify({ title: item.content.title || '마인드맵', branches: branches });
+                        }
                         importData.contents.push(item.content);
                         // 학생 버전: 선생님 하이라이트는 가져오지 않음 (학생이 직접 학습)
                     });
