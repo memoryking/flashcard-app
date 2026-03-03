@@ -3409,8 +3409,8 @@
                         return;
                     }
 
-                    this.showAirtableImportDialog(filtered);
-                    
+                    await this.showAirtableImportDialog(filtered);
+
                 } catch (error) {
                     console.error('자료 불러오기 오류:', error);
                     this.showToast('자료 불러오기 중 오류가 발생했습니다', 'error');
@@ -3420,9 +3420,9 @@
             parseVersionedTitle(title) {
                 const match = title.match(/^(.+?)(\d+(?:\.\d+)?)$/);
                 if (match) {
-                    return { baseName: match[1], version: parseFloat(match[2]) };
+                    return { baseName: match[1].trimEnd(), version: parseFloat(match[2]) };
                 }
-                return { baseName: title, version: 0 };
+                return { baseName: title.trimEnd(), version: 0 };
             }
 
             selectUpdateItems() {
@@ -3434,21 +3434,32 @@
                 this.updateSelectedCount();
             }
 
-            showAirtableImportDialog(records) {
+            async showAirtableImportDialog(records) {
                 try {
                     console.log('자료 다이얼로그 표시 중...', records.length + '개 레코드');
 
+                    // IndexedDB에서 전체 콘텐츠 직접 조회 (url_path 필터 없이)
+                    const allLocalContents = await new Promise((resolve, reject) => {
+                        const tx = this.db.transaction(['contents'], 'readonly');
+                        const st = tx.objectStore('contents');
+                        const req = st.getAll();
+                        req.onsuccess = () => resolve(req.result || []);
+                        req.onerror = () => reject(req.error);
+                    });
+
                     // localVersionMap 구축: baseName → {version, contentId, title}
                     const localVersionMap = new Map();
-                    this.savedTexts.forEach(item => {
+                    console.log('[버전관리] 전체 로컬 콘텐츠 수:', allLocalContents.length, ', savedTexts 수:', this.savedTexts.length);
+                    allLocalContents.forEach(item => {
                         const { baseName, version } = this.parseVersionedTitle(item.title);
+                        console.log('[버전관리] 로컬:', JSON.stringify({title: item.title, id: item.id, baseName, version}));
                         const existing = localVersionMap.get(baseName);
                         if (!existing || version > existing.version) {
                             localVersionMap.set(baseName, { version, contentId: item.id, title: item.title });
                         }
                     });
 
-                    const localTitles = new Set(this.savedTexts.map(item => item.title));
+                    const localTitles = new Set(allLocalContents.map(item => item.title));
 
                     const airtableItems = [];
 
@@ -3487,6 +3498,7 @@
                             // 3가지 상태 분류: 업데이트 / 중복 / 신규
                             const { baseName: airBase, version: airVer } = this.parseVersionedTitle(title);
                             const localEntry = localVersionMap.get(airBase);
+                            console.log('[버전관리] 에어테이블:', JSON.stringify({title, airBase, airVer, localEntry: localEntry || 'NONE', exactMatch: localTitles.has(title)}));
                             let isDuplicate = false;
                             let isUpdate = false;
                             let updateTargetId = null;
@@ -3494,10 +3506,14 @@
                             if (localTitles.has(title)) {
                                 // 정확히 같은 제목 → 중복
                                 isDuplicate = true;
+                                console.log('[버전관리] → 중복(정확히 같은 제목)');
                             } else if (localEntry && airVer > localEntry.version) {
                                 // baseName 같고 에어테이블 version > 로컬 version → 업데이트
                                 isUpdate = true;
                                 updateTargetId = localEntry.contentId;
+                                console.log('[버전관리] → 업데이트 (targetId:', updateTargetId, ')');
+                            } else {
+                                console.log('[버전관리] → 신규');
                             }
 
                             airtableItems.push({
@@ -3819,6 +3835,7 @@
                         const updateInfo = updateMap[i] || { isUpdate: false, updateTargetId: null };
 
                         try {
+                            console.log('[버전관리] importAllDataBatch[' + i + ']:', JSON.stringify({title: content.title, isUpdate: updateInfo.isUpdate, targetId: updateInfo.updateTargetId}));
                             if (updateInfo.isUpdate && updateInfo.updateTargetId) {
                                 // === 업데이트 경로: 기존 콘텐츠를 store.put()으로 덮어쓰기 ===
                                 const targetId = updateInfo.updateTargetId;
