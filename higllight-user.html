@@ -768,6 +768,16 @@
             color: #c62828;
         }
 
+        .airtable-import-item.update {
+            background: #e8f5e9;
+            border-left: 3px solid #4caf50;
+        }
+
+        .airtable-import-tag.update-tag {
+            background: #c8e6c9;
+            color: #2e7d32;
+        }
+
         .airtable-import-actions {
             display: flex;
             justify-content: space-between;
@@ -3407,21 +3417,48 @@
                 }
             }
 
+            parseVersionedTitle(title) {
+                const match = title.match(/^(.+?)(\d+(?:\.\d+)?)$/);
+                if (match) {
+                    return { baseName: match[1], version: parseFloat(match[2]) };
+                }
+                return { baseName: title, version: 0 };
+            }
+
+            selectUpdateItems() {
+                if (!this.airtableImportItems) return;
+                this.airtableImportItems.forEach(item => {
+                    item.selected = !!item.isUpdate;
+                });
+                this.refreshAirtableList();
+                this.updateSelectedCount();
+            }
+
             showAirtableImportDialog(records) {
                 try {
                     console.log('자료 다이얼로그 표시 중...', records.length + '개 레코드');
-                    
+
+                    // localVersionMap 구축: baseName → {version, contentId, title}
+                    const localVersionMap = new Map();
+                    this.savedTexts.forEach(item => {
+                        const { baseName, version } = this.parseVersionedTitle(item.title);
+                        const existing = localVersionMap.get(baseName);
+                        if (!existing || version > existing.version) {
+                            localVersionMap.set(baseName, { version, contentId: item.id, title: item.title });
+                        }
+                    });
+
                     const localTitles = new Set(this.savedTexts.map(item => item.title));
-                    
+
                     const airtableItems = [];
-                    
+
                     records.forEach((record, index) => {
                         try {
                             const fields = record.fields;
                             const jsonData = fields.json;
-                            
+
                             if (!jsonData) return;
-                            
+
                             let item;
                             try {
                                 item = JSON.parse(jsonData);
@@ -3434,9 +3471,9 @@
                                     return;
                                 }
                             }
-                            
+
                             if (!item || !item.content) return;
-                            
+
                             const title = item.content.title || '제목 없음';
                             const contentType = item.content.content_type || 'text';
                             let wordCount = 0;
@@ -3446,7 +3483,22 @@
                                     if (md && md.branches) wordCount = md.branches.filter(b => b.level1).length;
                                 } catch (e) {}
                             }
-                            const isDuplicate = localTitles.has(title);
+
+                            // 3가지 상태 분류: 업데이트 / 중복 / 신규
+                            const { baseName: airBase, version: airVer } = this.parseVersionedTitle(title);
+                            const localEntry = localVersionMap.get(airBase);
+                            let isDuplicate = false;
+                            let isUpdate = false;
+                            let updateTargetId = null;
+
+                            if (localTitles.has(title)) {
+                                // 정확히 같은 제목 → 중복
+                                isDuplicate = true;
+                            } else if (localEntry && airVer > localEntry.version) {
+                                // baseName 같고 에어테이블 version > 로컬 version → 업데이트
+                                isUpdate = true;
+                                updateTargetId = localEntry.contentId;
+                            }
 
                             airtableItems.push({
                                 record: record,
@@ -3455,60 +3507,64 @@
                                 contentType: contentType,
                                 wordCount: wordCount,
                                 isDuplicate: isDuplicate,
-                                selected: !isDuplicate
+                                isUpdate: isUpdate,
+                                updateTargetId: updateTargetId,
+                                selected: !isDuplicate || isUpdate
                             });
-                            
+
                         } catch (error) {
                             console.error('레코드 파싱 오류:', error);
                         }
                     });
-                    
+
                     console.log('파싱된 아이템:', airtableItems.length + '개');
-                    
+
                     if (airtableItems.length === 0) {
                         this.showToast('가져올 수 있는 유효한 데이터가 없습니다', 'error');
                         return;
                     }
-                    
+
                     const existingModal = document.querySelector('.airtable-import-modal');
                     if (existingModal) {
                         existingModal.remove();
                     }
-                    
+
                     const modal = document.createElement('div');
                     modal.className = 'airtable-import-modal';
-                    
-                    const duplicateCount = airtableItems.filter(item => item.isDuplicate).length;
-                    const newCount = airtableItems.length - duplicateCount;
-                    
+
+                    const duplicateCount = airtableItems.filter(item => item.isDuplicate && !item.isUpdate).length;
+                    const updateCount = airtableItems.filter(item => item.isUpdate).length;
+                    const newCount = airtableItems.length - duplicateCount - updateCount;
+
                     modal.innerHTML = `
                         <div class="airtable-import-dialog">
                             <div class="airtable-import-header">
                                 <div class="airtable-import-title">자료에서 불러오기</div>
                                 <div class="airtable-import-subtitle">
-                                    총 ${airtableItems.length}개 항목 (신규: ${newCount}개, 중복: ${duplicateCount}개)
+                                    총 ${airtableItems.length}개 항목 (신규: ${newCount}개, 업데이트: ${updateCount}개, 중복: ${duplicateCount}개)
                                 </div>
                             </div>
-                            
+
                             <div class="airtable-import-controls">
                                 <button class="btn btn-secondary btn-small" id="selectAllBtn">
-                                    ✅ 전체 선택
+                                    전체 선택
                                 </button>
                                 <button class="btn btn-secondary btn-small" id="selectNoneBtn">
-                                    ❌ 전체 해제
+                                    전체 해제
                                 </button>
                                 <button class="btn btn-info btn-small" id="selectNewBtn">
-                                    🆕 중복 제외 선택
+                                    중복 제외 선택
                                 </button>
                                 <button class="btn btn-primary btn-small" id="selectDuplicateBtn">
-                                    🔄 중복 항목만 선택
+                                    중복 항목만 선택
                                 </button>
+                                ${updateCount > 0 ? '<button class="btn btn-small" id="selectUpdateBtn" style="background:#4caf50;color:#fff;">업데이트 항목만 선택</button>' : ''}
                             </div>
-                            
+
                             <div class="airtable-import-list" id="airtableImportList">
                                 ${this.renderAirtableItems(airtableItems)}
                             </div>
-                            
+
                             <div class="airtable-import-actions">
                                 <div class="airtable-import-summary">
                                     <span id="selectedCount">0</span>개 항목 선택됨
@@ -3524,35 +3580,37 @@
                             </div>
                         </div>
                     `;
-                    
+
                     document.body.appendChild(modal);
                     console.log('모달 DOM에 추가됨');
-                    
+
                     this.airtableImportItems = airtableItems;
                     this.updateSelectedCount();
-                    
+
                     const selectAllBtn = modal.querySelector('#selectAllBtn');
                     const selectNoneBtn = modal.querySelector('#selectNoneBtn');
                     const selectNewBtn = modal.querySelector('#selectNewBtn');
                     const selectDuplicateBtn = modal.querySelector('#selectDuplicateBtn');
+                    const selectUpdateBtn = modal.querySelector('#selectUpdateBtn');
                     const cancelBtn = modal.querySelector('#cancelBtn');
                     const importBtn = modal.querySelector('#importBtn');
-                    
+
                     selectAllBtn.addEventListener('click', () => this.selectAllAirtableItems(true));
                     selectNoneBtn.addEventListener('click', () => this.selectAllAirtableItems(false));
                     selectNewBtn.addEventListener('click', () => this.selectNonDuplicateItems());
                     selectDuplicateBtn.addEventListener('click', () => this.selectDuplicateItems());
+                    if (selectUpdateBtn) selectUpdateBtn.addEventListener('click', () => this.selectUpdateItems());
                     cancelBtn.addEventListener('click', () => this.closeAirtableImportDialog());
                     importBtn.addEventListener('click', () => this.importSelectedItems());
-                    
+
                     modal.addEventListener('click', (e) => {
                         if (e.target === modal) {
                             this.closeAirtableImportDialog();
                         }
                     });
-                    
+
                     console.log('이벤트 리스너 설정 완료');
-                    
+
                 } catch (error) {
                     console.error('다이얼로그 표시 오류:', error);
                     this.showToast('다이얼로그 표시에 실패했습니다', 'error');
@@ -3562,13 +3620,20 @@
             renderAirtableItems(items) {
                 return items.map((item, index) => {
                     const typeIcon = item.contentType === 'image' ? '🖼️' : (item.contentType === 'mindmap' ? '🧠' : '📝');
-                    const duplicateClass = item.isDuplicate ? 'duplicate' : '';
-                    const duplicateTag = item.isDuplicate ? '<span class="airtable-import-tag">중복</span>' : '';
-                    
+                    let statusClass = '';
+                    let statusTag = '';
+                    if (item.isUpdate) {
+                        statusClass = 'update';
+                        statusTag = '<span class="airtable-import-tag update-tag">업데이트</span>';
+                    } else if (item.isDuplicate) {
+                        statusClass = 'duplicate';
+                        statusTag = '<span class="airtable-import-tag">중복</span>';
+                    }
+
                     return `
-                        <div class="airtable-import-item ${duplicateClass}">
-                            <input type="checkbox" class="airtable-import-checkbox" 
-                                   ${item.selected ? 'checked' : ''} 
+                        <div class="airtable-import-item ${statusClass}">
+                            <input type="checkbox" class="airtable-import-checkbox"
+                                   ${item.selected ? 'checked' : ''}
                                    onchange="window.app.toggleAirtableItem(${index}, this.checked)">
                             <div class="airtable-import-info">
                                 <div class="airtable-import-item-title">
@@ -3577,7 +3642,7 @@
                                 <div class="airtable-import-item-details">
                                     <span>${item.contentType === 'mindmap' ? '암기할 갯수: ' + item.wordCount + '개' : ''}</span>
                                     <span>타입: ${item.contentType}</span>
-                                    ${duplicateTag}
+                                    ${statusTag}
                                 </div>
                             </div>
                         </div>
@@ -3650,27 +3715,28 @@
 
             async importSelectedItems() {
                 if (!this.airtableImportItems) return;
-                
+
                 const selectedItems = this.airtableImportItems.filter(item => item.selected);
-                
+
                 if (selectedItems.length === 0) {
                     this.showToast('선택된 항목이 없습니다', 'error');
                     return;
                 }
-                
+
                 this.closeAirtableImportDialog();
                 this.showToast(`${selectedItems.length}개 항목 불러오기 시작...`, 'info');
-                
+
                 try {
                     const importData = {
                         contents: [],
-                        highlights: []
+                        highlights: [],
+                        updateMap: []
                     };
-                    
+
                     selectedItems.forEach(airtableItem => {
                         const item = airtableItem.item;
                         const fields = airtableItem.record.fields;
-                        
+
                         const imageFields = [];
                         for (let i = 1; i <= 25; i++) {
                             const imageField = fields[`image${i}`];
@@ -3680,7 +3746,7 @@
                                 imageFields.push('');
                             }
                         }
-                        
+
                         if (imageFields.some(field => field)) {
                             const combinedImage = this.combineImageData(imageFields);
                             if (combinedImage.trim()) {
@@ -3688,7 +3754,7 @@
                                 console.log('이미지 복원됨:', item.content.title, '길이:', combinedImage.length);
                             }
                         }
-                        
+
                         // 학생 버전: content에서 mindmap_data를 재생성 (에어테이블에서 content만 수정해도 반영)
                         if (item.content.content_type === 'mindmap' && item.content.content) {
                             const lines = item.content.content.trim().split('\n').filter(l => l.trim());
@@ -3701,13 +3767,17 @@
                             item.content.mindmap_data = JSON.stringify({ title: item.content.title || '마인드맵', branches: branches });
                         }
                         importData.contents.push(item.content);
+                        importData.updateMap.push({
+                            isUpdate: !!airtableItem.isUpdate,
+                            updateTargetId: airtableItem.updateTargetId || null
+                        });
                         // 학생 버전: 선생님 하이라이트는 가져오지 않음 (학생이 직접 학습)
                     });
-                    
+
                     this.showToast(`${selectedItems.length}개 항목 처리 중...`, 'info');
-                    
+
                     await this.importAllDataBatch(importData);
-                    
+
                 } catch (error) {
                     console.error('선택 항목 불러오기 오류:', error);
                     this.showToast('선택한 항목 불러오기에 실패했습니다', 'error');
@@ -3740,45 +3810,81 @@
             async importAllDataBatch(data) {
                 try {
                     let importedCount = 0;
+                    let updatedCount = 0;
                     const contentIdMap = new Map();
-                    
-                    for (const content of data.contents) {
+                    const updateMap = data.updateMap || [];
+
+                    for (let i = 0; i < data.contents.length; i++) {
+                        const content = data.contents[i];
+                        const updateInfo = updateMap[i] || { isUpdate: false, updateTargetId: null };
+
                         try {
-                            const originalId = content.id;
-                            delete content.id;
-                            
-                            const uniqueTitle = await this.getUniqueTitle(content.title);
-                            content.title = uniqueTitle;
-                            content.imported_at = new Date();
-                            content.url_path = this.detectUrlPath();
-                            
-                            const transaction = this.db.transaction(['contents'], 'readwrite');
-                            const store = transaction.objectStore('contents');
-                            
-                            await new Promise((resolve, reject) => {
-                                const request = store.add(content);
-                                request.onsuccess = () => {
-                                    contentIdMap.set(originalId, request.result);
+                            if (updateInfo.isUpdate && updateInfo.updateTargetId) {
+                                // === 업데이트 경로: 기존 콘텐츠를 store.put()으로 덮어쓰기 ===
+                                const targetId = updateInfo.updateTargetId;
+
+                                // 기존 콘텐츠 조회
+                                const existing = await new Promise((resolve, reject) => {
+                                    const tx = this.db.transaction(['contents'], 'readonly');
+                                    const st = tx.objectStore('contents');
+                                    const req = st.get(targetId);
+                                    req.onsuccess = () => resolve(req.result);
+                                    req.onerror = () => reject(req.error);
+                                });
+
+                                if (!existing) {
+                                    console.warn('업데이트 대상을 찾을 수 없음, 신규로 추가:', targetId);
+                                    // 대상 없으면 신규로 추가
+                                    await this._addNewContent(content, contentIdMap);
                                     importedCount++;
-                                    console.log('콘텐츠 저장 완료:', content.title, 'ID:', request.result);
-                                    if (content.image_data) {
-                                        console.log('이미지 데이터 포함됨:', content.image_data.length, '바이트');
-                                    }
-                                    resolve();
+                                    continue;
+                                }
+
+                                // id, url_path, created_at 유지 / title, content, mindmap_data, image_data 등 교체
+                                const updatedContent = {
+                                    ...existing,
+                                    title: content.title,
+                                    content: content.content,
+                                    content_type: content.content_type,
+                                    mindmap_data: content.mindmap_data || existing.mindmap_data,
+                                    image_data: content.image_data || existing.image_data,
+                                    category1: content.category1 || existing.category1,
+                                    category2: content.category2 || existing.category2,
+                                    category3: content.category3 || existing.category3,
+                                    updated_at: new Date()
                                 };
-                                request.onerror = () => reject(request.error);
-                            });
-                            
+                                // id 보존 (기존 것 유지)
+                                updatedContent.id = existing.id;
+
+                                await new Promise((resolve, reject) => {
+                                    const tx = this.db.transaction(['contents'], 'readwrite');
+                                    const st = tx.objectStore('contents');
+                                    const req = st.put(updatedContent);
+                                    req.onsuccess = () => {
+                                        updatedCount++;
+                                        console.log('콘텐츠 업데이트 완료:', updatedContent.title, 'ID:', existing.id);
+                                        resolve();
+                                    };
+                                    req.onerror = () => reject(req.error);
+                                });
+                                // 하이라이트는 건드리지 않음 → is_priority(암기완료) 자동 보존
+
+                            } else {
+                                // === 신규 경로: 기존 store.add() 로직 ===
+                                await this._addNewContent(content, contentIdMap);
+                                importedCount++;
+                            }
+
                         } catch (error) {
                             console.error('콘텐츠 저장 오류:', error);
                         }
                     }
-                    
+
                     if (data.highlights && Array.isArray(data.highlights)) {
-                        const validHighlights = data.highlights.filter(highlight => 
+                        const validHighlights = data.highlights.filter(highlight =>
                             contentIdMap.has(highlight.content_id)
                         );
-                        
+
                         for (const highlight of validHighlights) {
                             try {
                                 const newContentId = contentIdMap.get(highlight.content_id);
@@ -3786,29 +3892,63 @@
                                 highlight.content_id = newContentId;
                                 highlight.imported_at = new Date();
                                 highlight.is_priority = false;
-                                
+
                                 const transaction = this.db.transaction(['highlights'], 'readwrite');
                                 const store = transaction.objectStore('highlights');
-                                
+
                                 await new Promise((resolve, reject) => {
                                     const request = store.add(highlight);
                                     request.onsuccess = () => resolve();
                                     request.onerror = () => reject(request.error);
                                 });
-                                
+
                             } catch (error) {
                                 console.error('하이라이트 저장 오류:', error);
                             }
                         }
                     }
-                    
+
                     await this.loadData();
-                    this.showToast(importedCount + '개의 콘텐츠를 성공적으로 불러왔습니다');
-                    
+                    let msg = '';
+                    if (importedCount > 0 && updatedCount > 0) {
+                        msg = importedCount + '개 신규, ' + updatedCount + '개 업데이트 완료';
+                    } else if (updatedCount > 0) {
+                        msg = updatedCount + '개의 콘텐츠를 업데이트했습니다';
+                    } else {
+                        msg = importedCount + '개의 콘텐츠를 성공적으로 불러왔습니다';
+                    }
+                    this.showToast(msg);
+
                 } catch (error) {
                     console.error('배치 데이터 불러오기 오류:', error);
                     this.showToast('데이터 불러오기에 실패했습니다', 'error');
                 }
+            }
+
+            async _addNewContent(content, contentIdMap) {
+                const originalId = content.id;
+                delete content.id;
+
+                const uniqueTitle = await this.getUniqueTitle(content.title);
+                content.title = uniqueTitle;
+                content.imported_at = new Date();
+                content.url_path = this.detectUrlPath();
+
+                const transaction = this.db.transaction(['contents'], 'readwrite');
+                const store = transaction.objectStore('contents');
+
+                await new Promise((resolve, reject) => {
+                    const request = store.add(content);
+                    request.onsuccess = () => {
+                        contentIdMap.set(originalId, request.result);
+                        console.log('콘텐츠 저장 완료:', content.title, 'ID:', request.result);
+                        if (content.image_data) {
+                            console.log('이미지 데이터 포함됨:', content.image_data.length, '바이트');
+                        }
+                        resolve();
+                    };
+                    request.onerror = () => reject(request.error);
+                });
             }
 
             combineImageData(chunks) {
