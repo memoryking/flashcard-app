@@ -3077,21 +3077,25 @@
 
             async loadData() {
                 if (!this.db) return;
-                
+
                 try {
-                    const transaction = this.db.transaction(['contents'], 'readonly');
-                    const store = transaction.objectStore('contents');
-                    const request = store.getAll();
-                    
-                    request.onsuccess = async () => {
-                        const currentPath = this.detectUrlPath();
-                        this.savedTexts = request.result
-                            .filter(item => item.url_path === currentPath)
-                            .sort((a, b) =>
-                                new Date(b.created_at) - new Date(a.created_at)
-                            );
-                        await this.renderSavedTexts();
-                    };
+                    await new Promise((resolve, reject) => {
+                        const transaction = this.db.transaction(['contents'], 'readonly');
+                        const store = transaction.objectStore('contents');
+                        const request = store.getAll();
+
+                        request.onsuccess = async () => {
+                            const currentPath = this.detectUrlPath();
+                            this.savedTexts = request.result
+                                .filter(item => item.url_path === currentPath)
+                                .sort((a, b) =>
+                                    new Date(b.created_at) - new Date(a.created_at)
+                                );
+                            await this.renderSavedTexts();
+                            resolve();
+                        };
+                        request.onerror = () => reject(request.error);
+                    });
                 } catch (error) {
                     console.error('데이터 로드 오류:', error);
                 }
@@ -3941,9 +3945,13 @@
                                     req.onsuccess = () => {
                                         updatedCount++;
                                         console.log('콘텐츠 업데이트 완료:', updatedContent.title, 'ID:', existing.id);
-                                        resolve();
                                     };
                                     req.onerror = () => reject(req.error);
+                                    tx.oncomplete = () => {
+                                        console.log('[DB] 업데이트 트랜잭션 커밋 완료:', updatedContent.title);
+                                        resolve();
+                                    };
+                                    tx.onerror = () => reject(tx.error);
                                 });
                                 // 하이라이트는 건드리지 않음 → is_priority(암기완료) 자동 보존
 
@@ -4042,9 +4050,13 @@
                         if (content.image_data) {
                             console.log('이미지 데이터 포함됨:', content.image_data.length, '바이트');
                         }
-                        resolve();
                     };
                     request.onerror = () => reject(request.error);
+                    transaction.oncomplete = () => {
+                        console.log('[DB] 트랜잭션 커밋 완료:', content.title);
+                        resolve();
+                    };
+                    transaction.onerror = () => reject(transaction.error);
                 });
             }
 
