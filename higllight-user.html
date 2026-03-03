@@ -3453,10 +3453,8 @@
 
                     // localVersionMap 구축: baseName → {version, contentId, title}
                     const localVersionMap = new Map();
-                    console.log('[버전관리] 전체 로컬 콘텐츠 수:', allLocalContents.length, ', savedTexts 수:', this.savedTexts.length);
                     allLocalContents.forEach(item => {
                         const { baseName, version } = this.parseVersionedTitle(item.title);
-                        console.log('[버전관리] 로컬:', JSON.stringify({title: item.title, id: item.id, baseName, version}));
                         const existing = localVersionMap.get(baseName);
                         if (!existing || version > existing.version) {
                             localVersionMap.set(baseName, { version, contentId: item.id, title: item.title });
@@ -3543,7 +3541,6 @@
                                 }
                             }
 
-                            console.log('[버전관리]', title, '→', isUpdate ? '업데이트(id:'+updateTargetId+')' : isDuplicate ? '중복' : '신규');
 
                             airtableItems.push({
                                 record: record,
@@ -3561,16 +3558,6 @@
                             console.error('레코드 파싱 오류:', error);
                         }
                     });
-
-                    console.log('파싱된 아이템:', airtableItems.length + '개');
-
-                    // 디버그: 버전 감지 결과를 alert로 표시
-                    const debugLines = airtableItems.map(ai => {
-                        const status = ai.isUpdate ? '업데이트→id:' + ai.updateTargetId : ai.isDuplicate ? '중복' : '신규';
-                        return ai.title + ' [' + status + ']';
-                    });
-                    const localLines = allLocalContents.map(lc => lc.title + '(id:' + lc.id + ')');
-                    alert('=== 버전관리 디버그 ===\n\n[로컬 콘텐츠]\n' + localLines.join('\n') + '\n\n[에어테이블 판정]\n' + debugLines.join('\n'));
 
                     if (airtableItems.length === 0) {
                         this.showToast('가져올 수 있는 유효한 데이터가 없습니다', 'error');
@@ -3869,38 +3856,9 @@
 
                     for (let i = 0; i < data.contents.length; i++) {
                         const content = data.contents[i];
-                        let updateInfo = updateMap[i] || { isUpdate: false, updateTargetId: null };
+                        const updateInfo = updateMap[i] || { isUpdate: false, updateTargetId: null };
 
                         try {
-                            // 실시간 버전 재검증: 다이얼로그 시점 판정이 stale할 수 있으므로 DB에서 재확인
-                            if (!updateInfo.isUpdate) {
-                                const { baseName: airBase, version: airVer } = this.parseVersionedTitle(content.title);
-                                if (airVer > 0) {
-                                    const freshContents = await new Promise((resolve, reject) => {
-                                        const tx = this.db.transaction(['contents'], 'readonly');
-                                        const st = tx.objectStore('contents');
-                                        const req = st.getAll();
-                                        req.onsuccess = () => resolve(req.result || []);
-                                        req.onerror = () => reject(req.error);
-                                    });
-                                    let bestMatch = null;
-                                    for (const lc of freshContents) {
-                                        if (lc.title === content.title) continue;
-                                        const { baseName: lcBase, version: lcVer } = this.parseVersionedTitle(lc.title);
-                                        if (lcBase === airBase && airVer > lcVer) {
-                                            if (!bestMatch || lcVer > bestMatch.version) {
-                                                bestMatch = { contentId: lc.id, version: lcVer, title: lc.title };
-                                            }
-                                        }
-                                    }
-                                    if (bestMatch) {
-                                        updateInfo = { isUpdate: true, updateTargetId: bestMatch.contentId };
-                                        console.log('[버전관리] 실시간 재검증: 업데이트 감지!', content.title, '→ 기존 ID:', bestMatch.contentId, '(기존:', bestMatch.title, ')');
-                                    }
-                                }
-                            }
-
-                            console.log('[버전관리] importAllDataBatch[' + i + ']:', JSON.stringify({title: content.title, isUpdate: updateInfo.isUpdate, targetId: updateInfo.updateTargetId}));
                             if (updateInfo.isUpdate && updateInfo.updateTargetId) {
                                 // === 업데이트 경로: 기존 콘텐츠를 store.put()으로 덮어쓰기 ===
                                 const targetId = updateInfo.updateTargetId;
@@ -3948,7 +3906,6 @@
                                     };
                                     req.onerror = () => reject(req.error);
                                     tx.oncomplete = () => {
-                                        console.log('[DB] 업데이트 트랜잭션 커밋 완료:', updatedContent.title);
                                         resolve();
                                     };
                                     tx.onerror = () => reject(tx.error);
@@ -4005,7 +3962,6 @@
                             req.onsuccess = () => {
                                 const updatedItem = req.result;
                                 if (updatedItem) {
-                                    console.log('[버전관리] 현재 콘텐츠 새로고침:', updatedItem.title);
                                     this.loadContent(updatedItem);
                                 }
                             };
@@ -4053,7 +4009,6 @@
                     };
                     request.onerror = () => reject(request.error);
                     transaction.oncomplete = () => {
-                        console.log('[DB] 트랜잭션 커밋 완료:', content.title);
                         resolve();
                     };
                     transaction.onerror = () => reject(transaction.error);
