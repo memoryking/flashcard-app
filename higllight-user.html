@@ -3498,7 +3498,6 @@
                             // 3가지 상태 분류: 업데이트 / 중복 / 신규
                             const { baseName: airBase, version: airVer } = this.parseVersionedTitle(title);
                             const localEntry = localVersionMap.get(airBase);
-                            console.log('[버전관리] 에어테이블:', JSON.stringify({title, airBase, airVer, localEntry: localEntry || 'NONE', exactMatch: localTitles.has(title)}));
                             let isDuplicate = false;
                             let isUpdate = false;
                             let updateTargetId = null;
@@ -3506,15 +3505,41 @@
                             if (localTitles.has(title)) {
                                 // 정확히 같은 제목 → 중복
                                 isDuplicate = true;
-                                console.log('[버전관리] → 중복(정확히 같은 제목)');
                             } else if (localEntry && airVer > localEntry.version) {
                                 // baseName 같고 에어테이블 version > 로컬 version → 업데이트
                                 isUpdate = true;
                                 updateTargetId = localEntry.contentId;
-                                console.log('[버전관리] → 업데이트 (targetId:', updateTargetId, ')');
-                            } else {
-                                console.log('[버전관리] → 신규');
                             }
+
+                            // 폴백: 버전 파싱 실패 시, 에어테이블 제목이 로컬 제목+숫자 형태인지 직접 확인
+                            if (!isUpdate && !isDuplicate) {
+                                for (const localItem of allLocalContents) {
+                                    if (title === localItem.title) continue;
+                                    // 에어테이블 제목이 로컬 제목으로 시작하고, 나머지가 숫자(버전)인 경우
+                                    if (title.startsWith(localItem.title)) {
+                                        const suffix = title.substring(localItem.title.length).trim();
+                                        if (/^\d+(\.\d+)?$/.test(suffix)) {
+                                            isUpdate = true;
+                                            updateTargetId = localItem.id;
+                                            break;
+                                        }
+                                    }
+                                    // 로컬 제목이 에어테이블 baseName으로 시작하고, 로컬 버전이 낮은 경우
+                                    if (localItem.title.startsWith(airBase)) {
+                                        const localSuffix = localItem.title.substring(airBase.length).trim();
+                                        if (localSuffix === '' || /^\d+(\.\d+)?$/.test(localSuffix)) {
+                                            const localVer = localSuffix === '' ? 0 : parseFloat(localSuffix);
+                                            if (airVer > localVer) {
+                                                isUpdate = true;
+                                                updateTargetId = localItem.id;
+                                                break;
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+
+                            console.log('[버전관리]', title, '→', isUpdate ? '업데이트(id:'+updateTargetId+')' : isDuplicate ? '중복' : '신규');
 
                             airtableItems.push({
                                 record: record,
@@ -3534,6 +3559,14 @@
                     });
 
                     console.log('파싱된 아이템:', airtableItems.length + '개');
+
+                    // 디버그: 버전 감지 결과를 alert로 표시
+                    const debugLines = airtableItems.map(ai => {
+                        const status = ai.isUpdate ? '업데이트→id:' + ai.updateTargetId : ai.isDuplicate ? '중복' : '신규';
+                        return ai.title + ' [' + status + ']';
+                    });
+                    const localLines = allLocalContents.map(lc => lc.title + '(id:' + lc.id + ')');
+                    alert('=== 버전관리 디버그 ===\n\n[로컬 콘텐츠]\n' + localLines.join('\n') + '\n\n[에어테이블 판정]\n' + debugLines.join('\n'));
 
                     if (airtableItems.length === 0) {
                         this.showToast('가져올 수 있는 유효한 데이터가 없습니다', 'error');
