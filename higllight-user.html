@@ -3795,6 +3795,17 @@
                             }
                         }
 
+                        // content1~7 필드에서 본문 복원
+                        const contentFields = [];
+                        for (let i = 1; i <= 7; i++) {
+                            const cf = fields[`content${i}`];
+                            contentFields.push(cf && cf.trim() ? cf : '');
+                        }
+                        if (contentFields.some(f => f)) {
+                            item.content.content = contentFields.filter(f => f).join('');
+                            console.log('콘텐츠 복원됨:', item.content.title, '길이:', item.content.content.length);
+                        }
+
                         // 학생 버전: content에서 mindmap_data를 재생성 (에어테이블에서 content만 수정해도 반영)
                         if (item.content.content_type === 'mindmap' && item.content.content) {
                             const lines = item.content.content.trim().split('\n').filter(l => l.trim());
