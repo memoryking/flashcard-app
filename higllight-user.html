@@ -3865,9 +3865,37 @@
 
                     for (let i = 0; i < data.contents.length; i++) {
                         const content = data.contents[i];
-                        const updateInfo = updateMap[i] || { isUpdate: false, updateTargetId: null };
+                        let updateInfo = updateMap[i] || { isUpdate: false, updateTargetId: null };
 
                         try {
+                            // 실시간 버전 재검증: 다이얼로그 시점 판정이 stale할 수 있으므로 DB에서 재확인
+                            if (!updateInfo.isUpdate) {
+                                const { baseName: airBase, version: airVer } = this.parseVersionedTitle(content.title);
+                                if (airVer > 0) {
+                                    const freshContents = await new Promise((resolve, reject) => {
+                                        const tx = this.db.transaction(['contents'], 'readonly');
+                                        const st = tx.objectStore('contents');
+                                        const req = st.getAll();
+                                        req.onsuccess = () => resolve(req.result || []);
+                                        req.onerror = () => reject(req.error);
+                                    });
+                                    let bestMatch = null;
+                                    for (const lc of freshContents) {
+                                        if (lc.title === content.title) continue;
+                                        const { baseName: lcBase, version: lcVer } = this.parseVersionedTitle(lc.title);
+                                        if (lcBase === airBase && airVer > lcVer) {
+                                            if (!bestMatch || lcVer > bestMatch.version) {
+                                                bestMatch = { contentId: lc.id, version: lcVer, title: lc.title };
+                                            }
+                                        }
+                                    }
+                                    if (bestMatch) {
+                                        updateInfo = { isUpdate: true, updateTargetId: bestMatch.contentId };
+                                        console.log('[버전관리] 실시간 재검증: 업데이트 감지!', content.title, '→ 기존 ID:', bestMatch.contentId, '(기존:', bestMatch.title, ')');
+                                    }
+                                }
+                            }
+
                             console.log('[버전관리] importAllDataBatch[' + i + ']:', JSON.stringify({title: content.title, isUpdate: updateInfo.isUpdate, targetId: updateInfo.updateTargetId}));
                             if (updateInfo.isUpdate && updateInfo.updateTargetId) {
                                 // === 업데이트 경로: 기존 콘텐츠를 store.put()으로 덮어쓰기 ===
@@ -3959,6 +3987,25 @@
                     }
 
                     await this.loadData();
+
+                    // 현재 보고 있는 콘텐츠가 업데이트된 경우 자동 새로고침
+                    if (updatedCount > 0 && this.currentTextId) {
+                        try {
+                            const tx = this.db.transaction(['contents'], 'readonly');
+                            const st = tx.objectStore('contents');
+                            const req = st.get(this.currentTextId);
+                            req.onsuccess = () => {
+                                const updatedItem = req.result;
+                                if (updatedItem) {
+                                    console.log('[버전관리] 현재 콘텐츠 새로고침:', updatedItem.title);
+                                    this.loadContent(updatedItem);
+                                }
+                            };
+                        } catch (e) {
+                            console.error('콘텐츠 새로고침 오류:', e);
+                        }
+                    }
+
                     let msg = '';
                     if (importedCount > 0 && updatedCount > 0) {
                         msg = importedCount + '개 신규, ' + updatedCount + '개 업데이트 완료';
