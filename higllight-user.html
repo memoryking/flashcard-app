@@ -86,7 +86,7 @@
             flex-direction: column;
             gap: 20px;
             height: 100%;
-            overflow: hidden;
+            overflow: visible;
         }
 
         .stats {
@@ -905,7 +905,7 @@
 
         .mobile-menu-btn { display: none; }
         .active-content-info { display: none; }
-        .mindmap-scroll-controls { display: none; position: fixed; bottom: 0; left: 0; right: 0; z-index: 999; gap: 8px; padding: 6px 10px; background: rgba(255,255,255,0.97); border-top: 1px solid #ddd; }
+        .mindmap-scroll-controls { display: none; gap: 8px; padding: 6px 10px; flex-shrink: 0; background: #f8f9fa; border-top: 1px solid #ddd; }
         .scroll-btn { flex: 1; padding: 12px 10px; min-height: 44px; border: 1px solid #ccc; border-radius: 8px; background: white; font-size: 14px; cursor: pointer; }
         .scroll-btn:hover { background: #e3f2fd; }
         .scroll-btn:active { background: #bbdefb; }
@@ -1268,13 +1268,13 @@
                         </ul>
                     </div>
                 </div>
+
+                <div class="mindmap-scroll-controls" id="mindmapScrollControls">
+                    <button class="scroll-btn" id="scrollDownBtn">▼ 아래로</button>
+                    <button class="scroll-btn" id="scrollTopBtn">▲ 맨위로</button>
+                </div>
             </div>
         </div>
-    </div>
-
-    <div class="mindmap-scroll-controls" id="mindmapScrollControls">
-        <button class="scroll-btn" id="scrollDownBtn">▼ 아래로</button>
-        <button class="scroll-btn" id="scrollTopBtn">▲ 맨위로</button>
     </div>
 
     <script>
