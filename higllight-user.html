@@ -86,7 +86,7 @@
             flex-direction: column;
             gap: 20px;
             height: 100%;
-            overflow: visible;
+            overflow: hidden;
         }
 
         .stats {
@@ -1565,6 +1565,12 @@
                 this.highlights = [];
                 this.highlightRanges = [];
                 this.clearAllMindmapStates();
+
+                // Show scroll controls, hide instructions
+                const controls = document.getElementById('mindmapScrollControls');
+                const instructions = document.querySelector('.instructions');
+                if (controls) controls.style.display = 'flex';
+                if (instructions) instructions.style.display = 'none';
 
                 const mindmapContainer = this.renderMindmap(mindmapData);
                 textDisplay.innerHTML = '';
@@ -3317,7 +3323,11 @@
 
             displayText(text, title) {
                 const textDisplay = document.getElementById('textDisplay');
-                
+                const controls = document.getElementById('mindmapScrollControls');
+                const instructions = document.querySelector('.instructions');
+                if (controls) controls.style.display = 'none';
+                if (instructions) instructions.style.display = '';
+
                 textDisplay.style.opacity = '0.7';
                 
                 setTimeout(() => {
@@ -3339,7 +3349,11 @@
 
             displayImage(imageData, title) {
                 const textDisplay = document.getElementById('textDisplay');
-                
+                const controls = document.getElementById('mindmapScrollControls');
+                const instructions = document.querySelector('.instructions');
+                if (controls) controls.style.display = 'none';
+                if (instructions) instructions.style.display = '';
+
                 textDisplay.style.opacity = '0.7';
                 
                 setTimeout(() => {
