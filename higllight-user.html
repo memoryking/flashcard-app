@@ -1067,7 +1067,11 @@
             }
 
             .active-content-info .saved-text-title {
-                margin: 0;
+                margin: 0 0 2px 0;
+            }
+
+            .active-content-info .saved-text-actions {
+                margin-top: 2px;
             }
 
             .left-panel {
@@ -1082,7 +1086,8 @@
             .mindmap-scroll-controls {
                 display: none !important;
                 gap: 8px;
-                padding: 4px 10px;
+                padding: 4px 10px 8px 10px;
+                margin-bottom: 10px;
                 flex-shrink: 0;
             }
 
@@ -1092,11 +1097,12 @@
 
             .scroll-btn {
                 flex: 1;
-                padding: 10px;
+                padding: 14px 10px;
+                min-height: 50px;
                 border: 1px solid #ccc;
                 border-radius: 8px;
                 background: white;
-                font-size: 14px;
+                font-size: 16px;
                 cursor: pointer;
                 touch-action: manipulation;
             }
@@ -1489,7 +1495,7 @@
                 container.classList.toggle('show');
             }
 
-            updateActiveContentInfo() {
+            async updateActiveContentInfo() {
                 const infoEl = document.getElementById('activeContentInfo');
                 if (!infoEl) return;
 
@@ -1505,7 +1511,29 @@
                 }
 
                 const typeIcon = item.content_type === 'image' ? '🖼️' : (item.content_type === 'mindmap' ? '🧠' : '📝');
-                infoEl.innerHTML = '<div class="saved-text-title">' + typeIcon + ' ' + item.title + '</div>';
+                const stats = await this.getHighlightStats(item.id);
+                const isMindmap = item.content_type === 'mindmap';
+                const badgeClickClass = isMindmap ? ' stat-badge-clickable' : '';
+                const displayTotal = stats.wordCount > 0 ? stats.wordCount : stats.total;
+
+                infoEl.innerHTML =
+                    '<div class="saved-text-title">' + typeIcon + ' ' + item.title + '</div>' +
+                    '<div class="saved-text-actions">' +
+                        (displayTotal > 0 ? '<span class="stat-badge' + badgeClickClass + '" data-filter="all" data-content-id="' + item.id + '" data-total-count="' + displayTotal + '">전체개수 ' + displayTotal + '</span>' : '') +
+                        (stats.priority > 0 ? '<span class="stat-badge' + badgeClickClass + '" data-filter="toggle" data-content-id="' + item.id + '" data-priority-count="' + stats.priority + '">암기완료 ' + stats.priority + '</span>' : '') +
+                    '</div>';
+
+                if (isMindmap) {
+                    infoEl.querySelectorAll('.stat-badge-clickable').forEach(badge => {
+                        badge.addEventListener('click', (e) => {
+                            e.preventDefault();
+                            e.stopPropagation();
+                            const filterMode = badge.getAttribute('data-filter');
+                            const contentId = badge.getAttribute('data-content-id');
+                            window.app && window.app.setMindmapFilter(filterMode, contentId);
+                        });
+                    });
+                }
             }
 
             updateScrollControls() {
