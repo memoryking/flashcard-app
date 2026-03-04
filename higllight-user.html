@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>암기 고수 - 학생</title>
+    <title>영리한 반복으로 반드시 암기 - 학생</title>
     <style>
         * {
             margin: 0;
@@ -931,17 +931,17 @@
                 grid-template-columns: 1fr;
                 grid-template-rows: auto 1fr;
                 padding: 0 10px 0 10px;
-                height: calc(var(--app-height, 100vh) - 120px);
+                height: calc(var(--app-height, 100vh) - 90px);
                 overflow: hidden;
-                gap: 10px;
+                gap: 6px;
             }
             
             .left-panel {
                 order: 1;
                 height: auto;
-                max-height: 300px;
-                overflow: hidden;
-                gap: 8px;
+                max-height: none;
+                overflow: visible;
+                gap: 4px;
             }
             
             .right-panel {
@@ -954,9 +954,9 @@
             }
             
             .header {
-                padding: 8px;
+                padding: 6px 8px;
                 flex-shrink: 0;
-                margin-bottom: 15px;
+                margin-bottom: 4px;
             }
             
             .header h1 {
@@ -964,8 +964,8 @@
             }
             
             .left-panel > .btn {
-                margin-bottom: 8px !important;
-                padding: 10px 20px;
+                margin-bottom: 4px !important;
+                padding: 8px 16px;
                 font-size: 14px;
             }
             
@@ -1021,13 +1021,13 @@
 
             .saved-texts-section {
                 max-height: 245px;
-                padding: 10px;
+                padding: 8px;
                 margin-top: 0;
             }
-            
+
             .saved-texts-section h3 {
-                font-size: 1em;
-                margin-bottom: 8px;
+                font-size: 0.95em;
+                margin-bottom: 4px;
             }
 
             .saved-texts-list-container {
@@ -1220,7 +1220,7 @@
 <body>
     <div class="container">
         <div class="header">
-            <h1>📚 암기 고수 </h1>
+            <h1>📚 영리한 반복으로 반드시 암기</h1>
         </div>
 
         <div class="main-content">
@@ -1333,7 +1333,7 @@
                         await this.loadLastViewedContent();
                     }, 500);
                     
-                    this.showToast('암기 고수 학생버전이 준비되었습니다!', 'info');
+                    this.showToast('영리한 반복으로 반드시 암기 - 준비되었습니다!', 'info');
                     console.log('앱 초기화 완료');
                 } catch (error) {
                     console.error('앱 초기화 오류:', error);
@@ -1388,7 +1388,7 @@
                             category3: match.fields.category3 || ''
                         };
                         console.log('페이지 카테고리 매핑 로드 성공:', this.pageCategory);
-                        this.showCategoryBadge();
+                        // this.showCategoryBadge();
                     } else {
                         console.log('이 URL에 매핑된 카테고리가 없습니다:', urlPath);
                         this.pageCategory = null;
@@ -1646,8 +1646,8 @@
                 const l3ColorLight = '#B0BEC5';
 
                 // Calculate total height
-                const titleH = 50;
-                let totalH = titleH + 10;
+                const titleH = 0;
+                let totalH = 10;
                 filteredData.branches.forEach(branch => {
                     if (!branch.level1) return;
                     const hasL2 = branch.level2 && branch.level2.trim() !== '';
@@ -1701,12 +1701,8 @@
                 defs.appendChild(grad3);
                 svg.appendChild(defs);
 
-                // Title node (centered at top)
-                const titleGroup = this.createMindmapNode(data.title, mapWidth / 2, 25, 'title', false, false, false, mapWidth);
-                svg.appendChild(titleGroup);
-
                 // Render brick rows
-                let currentY = titleH + 10;
+                let currentY = 10;
                 let level1Index = 0;
 
                 filteredData.branches.forEach((branch, index) => {
