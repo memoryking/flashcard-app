@@ -1426,6 +1426,8 @@
                     filteredBranches = data.branches;
                 }
 
+                console.log('[renderMindmap] filterMode:', filterMode, 'total:', data.branches.length, 'filtered:', filteredBranches.length, 'memorizedTexts:', [...memorizedTexts]);
+
                 const filteredData = { ...data, branches: filteredBranches };
 
                 const isMobile = window.innerWidth <= 768;
@@ -2008,8 +2010,10 @@
                     this.updateMindmapHighlightPriority(highlightData);
 
                     // Hide branch: switch to unmemorized filter after orange flash
+                    console.log('[toggleLevel1Priority] 암기완료:', text, 'currentFilter:', this.mindmapFilterMode);
                     if (this.mindmapFilterMode !== 'memorized') {
                         this.mindmapFilterMode = 'unmemorized';
+                        console.log('[toggleLevel1Priority] → unmemorized로 전환, 300ms 후 rerender');
                         setTimeout(() => this.rerenderMindmap(), 300);
                     }
                 } else {
@@ -2238,9 +2242,21 @@
             async rerenderMindmap() {
                 if (!this.currentMindmapData || this.currentContentType !== 'mindmap') return;
 
-                const memorizedTexts = await this.getMemorizedTexts();
-                const textDisplay = document.getElementById('textDisplay');
+                // 1) In-memory에서 먼저 수집 (DB 저장 전에도 동작하도록)
+                const memorizedTexts = new Set();
+                this.highlights
+                    .filter(h => h.type === 'mindmap' && h.level === 'level1' && h.isPriority)
+                    .forEach(h => memorizedTexts.add(h.text.trim()));
 
+                // 2) DB에서도 수집 (이전에 저장된 것들)
+                try {
+                    const dbTexts = await this.getMemorizedTexts();
+                    dbTexts.forEach(t => memorizedTexts.add(t));
+                } catch(e) {}
+
+                console.log('[rerenderMindmap] filterMode:', this.mindmapFilterMode, 'memorized:', [...memorizedTexts]);
+
+                const textDisplay = document.getElementById('textDisplay');
                 textDisplay.style.transition = 'opacity 0.2s';
                 textDisplay.style.opacity = '0.3';
 
@@ -2259,6 +2275,7 @@
 
                     await this.loadMindmapHighlightPriorities();
                     this.updateStats();
+                    await this.updateSingleItemStats(this.currentTextId);
 
                     textDisplay.style.opacity = '1';
 
@@ -2267,8 +2284,22 @@
             }
 
             setMindmapFilter(mode, contentId) {
-                // Only act if we're viewing this content
-                if (contentId && this.currentTextId != contentId) return;
+                console.log('[setMindmapFilter] mode:', mode, 'contentId:', contentId, 'currentTextId:', this.currentTextId, 'contentType:', this.currentContentType);
+
+                // 현재 보고 있는 콘텐츠가 아니면 먼저 로드
+                if (contentId && this.currentTextId != contentId) {
+                    const item = this.savedTexts.find(t => t.id == contentId);
+                    if (item && item.content_type === 'mindmap') {
+                        this.loadContent(item);
+                        // 로드 후 필터 적용
+                        setTimeout(() => {
+                            this.mindmapFilterMode = (mode === 'toggle') ? 'memorized' : mode;
+                            this.rerenderMindmap();
+                        }, 500);
+                    }
+                    return;
+                }
+
                 if (this.currentContentType !== 'mindmap') return;
 
                 if (mode === 'toggle') {
@@ -2282,6 +2313,7 @@
                     this.mindmapFilterMode = mode;
                 }
 
+                console.log('[setMindmapFilter] new filterMode:', this.mindmapFilterMode);
                 this.rerenderMindmap();
             }
 
