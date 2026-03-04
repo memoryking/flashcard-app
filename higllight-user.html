@@ -960,7 +960,8 @@
             }
             
             .header h1 {
-                font-size: 1.8em;
+                font-size: 1.2em;
+                white-space: nowrap;
             }
             
             .left-panel > .btn {
@@ -1207,6 +1208,9 @@
         function setAppHeight() {
             var h = window.visualViewport ? window.visualViewport.height : window.innerHeight;
             document.documentElement.style.setProperty('--app-height', h + 'px');
+            if (window.app && window.app.updateScrollControls) {
+                window.app.updateScrollControls();
+            }
         }
         setAppHeight();
         window.addEventListener('resize', setAppHeight);
@@ -1549,11 +1553,24 @@
             updateScrollControls() {
                 const controls = document.getElementById('mindmapScrollControls');
                 const instructions = document.querySelector('.instructions');
+                const textDisplay = document.getElementById('textDisplay');
                 if (!controls) return;
                 const isMobileMindmap = this.currentContentType === 'mindmap' && window.innerWidth <= 768;
                 controls.style.display = isMobileMindmap ? 'flex' : 'none';
                 if (instructions) {
                     instructions.style.display = isMobileMindmap ? 'none' : '';
+                }
+                if (isMobileMindmap && textDisplay) {
+                    requestAnimationFrame(() => {
+                        const vh = window.visualViewport ? window.visualViewport.height : window.innerHeight;
+                        const top = textDisplay.getBoundingClientRect().top;
+                        const ctrlH = controls.offsetHeight || 62;
+                        textDisplay.style.height = (vh - top - ctrlH - 4) + 'px';
+                        textDisplay.style.flex = 'none';
+                    });
+                } else if (textDisplay) {
+                    textDisplay.style.height = '';
+                    textDisplay.style.flex = '1';
                 }
             }
 
