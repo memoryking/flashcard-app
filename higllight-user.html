@@ -916,7 +916,6 @@
             body {
                 height: var(--app-height, 100vh);
                 overflow: hidden;
-                position: fixed;
                 width: 100%;
             }
 
@@ -1082,6 +1081,7 @@
 
             .mindmap-scroll-controls {
                 position: fixed;
+                bottom: 0;
                 left: 0;
                 right: 0;
                 z-index: 999;
@@ -1569,13 +1569,7 @@
             }
 
             positionScrollControls() {
-                const controls = document.getElementById('mindmapScrollControls');
-                if (!controls || controls.style.display === 'none') return;
-                const vh = window.visualViewport ? window.visualViewport.height : window.innerHeight;
-                const offsetTop = window.visualViewport ? window.visualViewport.offsetTop : 0;
-                const ctrlH = controls.offsetHeight || 52;
-                controls.style.top = (offsetTop + vh - ctrlH) + 'px';
-                controls.style.bottom = 'auto';
+                // position: fixed; bottom: 0 handles it via CSS
             }
 
             displayMindmap(mindmapData, title) {
