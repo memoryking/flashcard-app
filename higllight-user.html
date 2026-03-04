@@ -1084,15 +1084,10 @@
             }
 
             .mindmap-scroll-controls {
-                position: fixed;
-                bottom: 0;
-                left: 0;
-                right: 0;
-                z-index: 999;
                 gap: 8px;
-                padding: 8px 10px;
-                padding-bottom: calc(8px + env(safe-area-inset-bottom, 8px));
-                background: rgba(255,255,255,0.95);
+                padding: 6px 10px;
+                flex-shrink: 0;
+                background: #f8f9fa;
                 border-top: 1px solid #ddd;
             }
 
@@ -1186,6 +1181,10 @@
 
             .instructions {
                 margin-bottom: 10px;
+            }
+
+            .right-panel:has(.mindmap-scroll-controls[style*="flex"]) .instructions {
+                display: none;
             }
         }
 
@@ -1539,11 +1538,12 @@
 
             updateScrollControls() {
                 const controls = document.getElementById('mindmapScrollControls');
+                const instructions = document.querySelector('.instructions');
                 if (!controls) return;
-                if (this.currentContentType === 'mindmap' && window.innerWidth <= 768) {
-                    controls.style.display = 'flex';
-                } else {
-                    controls.style.display = 'none';
+                const isMobileMindmap = this.currentContentType === 'mindmap' && window.innerWidth <= 768;
+                controls.style.display = isMobileMindmap ? 'flex' : 'none';
+                if (instructions) {
+                    instructions.style.display = isMobileMindmap ? 'none' : '';
                 }
             }
 
