@@ -1464,9 +1464,13 @@
                 const rightColX = leftMargin + leftColW + gap;
                 const rightColW = mapWidth - rightColX - rightMargin;
 
-                // Rainbow colors for bricks
+                // Rainbow colors for L1 left bar only
                 const rainbowColors = ['#FF0000', '#FF7F00', '#FFD700', '#2DB400', '#0094FF', '#0041C2', '#9B30FF'];
-                const rainbowLighter = ['#FF4D4D', '#FFA04D', '#FFE44D', '#5DD55D', '#4DB8FF', '#4D7DE0', '#B96BFF'];
+                // Calm slate palette for right-side bricks (L2 dark, L3 light)
+                const l2Color = '#546E7A';
+                const l2ColorLight = '#78909C';
+                const l3Color = '#90A4AE';
+                const l3ColorLight = '#B0BEC5';
 
                 // Calculate total height
                 const titleH = 50;
@@ -1498,40 +1502,30 @@
                     svg.style.display = 'block';
                 }
 
-                // SVG defs for gradients
+                // SVG defs for gradients (calm slate palette)
                 const defs = document.createElementNS("http://www.w3.org/2000/svg", "defs");
-                rainbowColors.forEach((color, i) => {
-                    // Normal gradient (L2)
-                    const grad = document.createElementNS("http://www.w3.org/2000/svg", "linearGradient");
-                    grad.setAttribute("id", `brickGrad${i}`);
-                    grad.setAttribute("x1", "0"); grad.setAttribute("y1", "0");
-                    grad.setAttribute("x2", "0"); grad.setAttribute("y2", "1");
-                    const stop1 = document.createElementNS("http://www.w3.org/2000/svg", "stop");
-                    stop1.setAttribute("offset", "0%");
-                    stop1.setAttribute("stop-color", rainbowLighter[i]);
-                    const stop2 = document.createElementNS("http://www.w3.org/2000/svg", "stop");
-                    stop2.setAttribute("offset", "100%");
-                    stop2.setAttribute("stop-color", color);
-                    grad.appendChild(stop1);
-                    grad.appendChild(stop2);
-                    defs.appendChild(grad);
-
-                    // Lighter gradient (L3)
-                    const gradL = document.createElementNS("http://www.w3.org/2000/svg", "linearGradient");
-                    gradL.setAttribute("id", `brickGradL${i}`);
-                    gradL.setAttribute("x1", "0"); gradL.setAttribute("y1", "0");
-                    gradL.setAttribute("x2", "0"); gradL.setAttribute("y2", "1");
-                    const stopL1 = document.createElementNS("http://www.w3.org/2000/svg", "stop");
-                    stopL1.setAttribute("offset", "0%");
-                    stopL1.setAttribute("stop-color", rainbowLighter[i]);
-                    stopL1.setAttribute("stop-opacity", "0.7");
-                    const stopL2 = document.createElementNS("http://www.w3.org/2000/svg", "stop");
-                    stopL2.setAttribute("offset", "100%");
-                    stopL2.setAttribute("stop-color", rainbowLighter[i]);
-                    gradL.appendChild(stopL1);
-                    gradL.appendChild(stopL2);
-                    defs.appendChild(gradL);
-                });
+                // L2 gradient (dark slate)
+                const grad2 = document.createElementNS("http://www.w3.org/2000/svg", "linearGradient");
+                grad2.setAttribute("id", "brickGradL2");
+                grad2.setAttribute("x1", "0"); grad2.setAttribute("y1", "0");
+                grad2.setAttribute("x2", "0"); grad2.setAttribute("y2", "1");
+                const s2a = document.createElementNS("http://www.w3.org/2000/svg", "stop");
+                s2a.setAttribute("offset", "0%"); s2a.setAttribute("stop-color", l2ColorLight);
+                const s2b = document.createElementNS("http://www.w3.org/2000/svg", "stop");
+                s2b.setAttribute("offset", "100%"); s2b.setAttribute("stop-color", l2Color);
+                grad2.appendChild(s2a); grad2.appendChild(s2b);
+                defs.appendChild(grad2);
+                // L3 gradient (light slate)
+                const grad3 = document.createElementNS("http://www.w3.org/2000/svg", "linearGradient");
+                grad3.setAttribute("id", "brickGradL3");
+                grad3.setAttribute("x1", "0"); grad3.setAttribute("y1", "0");
+                grad3.setAttribute("x2", "0"); grad3.setAttribute("y2", "1");
+                const s3a = document.createElementNS("http://www.w3.org/2000/svg", "stop");
+                s3a.setAttribute("offset", "0%"); s3a.setAttribute("stop-color", l3ColorLight);
+                const s3b = document.createElementNS("http://www.w3.org/2000/svg", "stop");
+                s3b.setAttribute("offset", "100%"); s3b.setAttribute("stop-color", l3Color);
+                grad3.appendChild(s3a); grad3.appendChild(s3b);
+                defs.appendChild(grad3);
                 svg.appendChild(defs);
 
                 // Title node (centered at top)
@@ -1578,17 +1572,17 @@
                     l1Bar.setAttribute("rx", "2");
                     l1Bar.setAttribute("fill", rainbowColors[colorIdx]);
 
-                    // Level1 text (visible)
+                    // Level1 text (visible, large, centered)
                     const l1Text = document.createElementNS("http://www.w3.org/2000/svg", "text");
-                    l1Text.setAttribute("x", leftMargin + 14);
-                    l1Text.setAttribute("y", currentY + rowH / 2 + 5);
-                    l1Text.setAttribute("text-anchor", "start");
+                    l1Text.setAttribute("x", leftMargin + leftColW / 2);
+                    l1Text.setAttribute("y", currentY + rowH / 2 + 7);
+                    l1Text.setAttribute("text-anchor", "middle");
                     l1Text.setAttribute("font-family", "'Segoe UI', Arial, sans-serif");
-                    l1Text.setAttribute("font-size", isMobile ? 14 : 14);
-                    l1Text.setAttribute("font-weight", "600");
+                    l1Text.setAttribute("font-size", isMobile ? 20 : 22);
+                    l1Text.setAttribute("font-weight", "700");
                     l1Text.setAttribute("fill", "#333");
 
-                    const l1MaxLen = Math.floor((leftColW - 24) / 8);
+                    const l1MaxLen = Math.floor((leftColW - 20) / 12);
                     const l1Display = branch.level1.length > l1MaxLen ? branch.level1.substring(0, l1MaxLen - 2) + '...' : branch.level1;
                     l1Text.textContent = l1Display;
 
@@ -1616,21 +1610,21 @@
                         l2Rect.setAttribute("width", rightColW);
                         l2Rect.setAttribute("height", cellH);
                         l2Rect.setAttribute("rx", 5);
-                        l2Rect.setAttribute("fill", `url(#brickGrad${colorIdx})`);
-                        l2Rect.setAttribute("stroke", rainbowColors[colorIdx]);
+                        l2Rect.setAttribute("fill", "url(#brickGradL2)");
+                        l2Rect.setAttribute("stroke", l2Color);
                         l2Rect.setAttribute("stroke-width", "1");
 
                         const l2Text = document.createElementNS("http://www.w3.org/2000/svg", "text");
-                        l2Text.setAttribute("x", rightColX + rightColW / 2);
-                        l2Text.setAttribute("y", currentY + cellH / 2 + 5);
-                        l2Text.setAttribute("text-anchor", "middle");
+                        l2Text.setAttribute("x", rightColX + 12);
+                        l2Text.setAttribute("y", currentY + cellH / 2 + 6);
+                        l2Text.setAttribute("text-anchor", "start");
                         l2Text.setAttribute("font-family", "'Segoe UI', Arial, sans-serif");
-                        l2Text.setAttribute("font-size", isMobile ? 13 : 13);
-                        l2Text.setAttribute("font-weight", "500");
+                        l2Text.setAttribute("font-size", isMobile ? 15 : 16);
+                        l2Text.setAttribute("font-weight", "600");
                         l2Text.setAttribute("fill", "transparent");
                         l2Text.setAttribute("opacity", "0");
 
-                        const l2MaxLen = Math.floor((rightColW - 16) / 8);
+                        const l2MaxLen = Math.floor((rightColW - 20) / 9);
                         const l2Display = branch.level2.length > l2MaxLen ? branch.level2.substring(0, l2MaxLen - 2) + '...' : branch.level2;
                         l2Text.textContent = l2Display;
 
@@ -1656,21 +1650,21 @@
                         l3Rect.setAttribute("width", rightColW);
                         l3Rect.setAttribute("height", cellH);
                         l3Rect.setAttribute("rx", 5);
-                        l3Rect.setAttribute("fill", `url(#brickGradL${colorIdx})`);
-                        l3Rect.setAttribute("stroke", rainbowLighter[colorIdx]);
+                        l3Rect.setAttribute("fill", "url(#brickGradL3)");
+                        l3Rect.setAttribute("stroke", l3Color);
                         l3Rect.setAttribute("stroke-width", "1");
 
                         const l3Text = document.createElementNS("http://www.w3.org/2000/svg", "text");
-                        l3Text.setAttribute("x", rightColX + rightColW / 2);
+                        l3Text.setAttribute("x", rightColX + 12);
                         l3Text.setAttribute("y", l3Y + cellH / 2 + 5);
-                        l3Text.setAttribute("text-anchor", "middle");
+                        l3Text.setAttribute("text-anchor", "start");
                         l3Text.setAttribute("font-family", "'Segoe UI', Arial, sans-serif");
-                        l3Text.setAttribute("font-size", isMobile ? 13 : 13);
+                        l3Text.setAttribute("font-size", isMobile ? 13 : 14);
                         l3Text.setAttribute("font-weight", "500");
                         l3Text.setAttribute("fill", "transparent");
                         l3Text.setAttribute("opacity", "0");
 
-                        const l3MaxLen = Math.floor((rightColW - 16) / 8);
+                        const l3MaxLen = Math.floor((rightColW - 20) / 8);
                         const l3Display = branch.level3.length > l3MaxLen ? branch.level3.substring(0, l3MaxLen - 2) + '...' : branch.level3;
                         l3Text.textContent = l3Display;
 
