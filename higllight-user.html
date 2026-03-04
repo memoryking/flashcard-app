@@ -932,8 +932,12 @@
 
             .main-content {
                 grid-template-columns: 1fr;
+<<<<<<< HEAD
                 grid-template-rows: auto 1fr;
 
+=======
+                grid-template-rows: auto 1fr auto;
+>>>>>>> parent of 106bcd8 (버튼해결 아임웹이 문제)
                 padding: 0 10px 0 10px;
                 height: calc(var(--app-height, 100vh) - 90px);
                 overflow: hidden;
@@ -947,7 +951,6 @@
                 overflow: visible;
                 gap: 4px;
             }
-
             
             .right-panel {
                 order: 2;
@@ -1026,7 +1029,7 @@
             }
 
             .saved-texts-section {
-                max-height: none;
+                max-height: 245px;
                 padding: 8px;
                 margin-top: 0;
             }
@@ -1076,6 +1079,15 @@
                 margin-top: 2px;
             }
 
+            .left-panel {
+                max-height: none;
+                overflow: visible;
+            }
+
+            .saved-texts-section {
+                max-height: none;
+            }
+
             .mindmap-scroll-controls {
                 position: fixed;
                 bottom: 0;
@@ -1090,12 +1102,12 @@
 
             .scroll-btn {
                 flex: 1;
-                padding: 20px 10px;
-                min-height: 88px;
+                padding: 10px;
+                min-height: 44px;
                 border: 1px solid #ccc;
                 border-radius: 8px;
                 background: white;
-                font-size: 17px;
+                font-size: 15px;
                 cursor: pointer;
                 touch-action: manipulation;
             }
@@ -1179,6 +1191,10 @@
             .instructions {
                 margin-bottom: 10px;
             }
+
+            .right-panel:has(.mindmap-scroll-controls[style*="flex"]) .instructions {
+                display: none;
+            }
         }
 
         @media (hover: none) and (pointer: coarse) {
@@ -1204,8 +1220,9 @@
         function setAppHeight() {
             var h = window.visualViewport ? window.visualViewport.height : window.innerHeight;
             document.documentElement.style.setProperty('--app-height', h + 'px');
-            if (window.app && window.app.updateScrollControls) {
-                window.app.updateScrollControls();
+            if (window.app) {
+                if (window.app.updateScrollControls) window.app.updateScrollControls();
+                if (window.app.positionScrollControls) window.app.positionScrollControls();
             }
         }
         setAppHeight();
@@ -1388,6 +1405,7 @@
                             category3: match.fields.category3 || ''
                         };
                         console.log('페이지 카테고리 매핑 로드 성공:', this.pageCategory);
+                        // this.showCategoryBadge();
                     } else {
                         console.log('이 URL에 매핑된 카테고리가 없습니다:', urlPath);
                         this.pageCategory = null;
@@ -1554,6 +1572,13 @@
                 if (instructions) {
                     instructions.style.display = isMindmap ? 'none' : '';
                 }
+                if (isMobileMindmap) {
+                    this.positionScrollControls();
+                }
+            }
+
+            positionScrollControls() {
+                // position: fixed; bottom: 0 handles it via CSS
             }
 
             displayMindmap(mindmapData, title) {
