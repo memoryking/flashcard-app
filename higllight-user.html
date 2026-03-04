@@ -2329,10 +2329,9 @@
                     if (filterAttr === 'all' && this.mindmapFilterMode === 'all') {
                         // No highlight for 'all' - it's the default
                     } else if (filterAttr === 'toggle') {
-                        // 전체개수 배지에서 총 수 가져오기
                         const totalBadge = activeItem.querySelector('.stat-badge[data-filter="all"]');
-                        const totalCount = totalBadge ? parseInt(totalBadge.textContent.replace(/[^0-9]/g, '')) || 0 : 0;
-                        const memCount = parseInt(badge.textContent.replace(/[^0-9]/g, '')) || 0;
+                        const totalCount = totalBadge ? parseInt(totalBadge.getAttribute('data-total-count')) || 0 : 0;
+                        const memCount = parseInt(badge.getAttribute('data-priority-count')) || 0;
 
                         if (this.mindmapFilterMode === 'memorized') {
                             badge.classList.add('filter-active');
@@ -2733,6 +2732,7 @@
                             const totalBadge = document.createElement('span');
                             totalBadge.className = 'stat-badge' + badgeClickClass;
                             totalBadge.textContent = `전체개수 ${displayTotal}`;
+                            totalBadge.setAttribute('data-total-count', displayTotal);
                             if (isMindmap) {
                                 totalBadge.setAttribute('data-filter', 'all');
                                 totalBadge.setAttribute('data-content-id', contentId);
@@ -2753,6 +2753,7 @@
                             const priorityBadge = document.createElement('span');
                             priorityBadge.className = 'stat-badge' + badgeClickClass;
                             priorityBadge.textContent = `암기완료 ${stats.priority}`;
+                            priorityBadge.setAttribute('data-priority-count', stats.priority);
                             if (isMindmap) {
                                 priorityBadge.setAttribute('data-filter', 'toggle');
                                 priorityBadge.setAttribute('data-content-id', contentId);
@@ -3355,8 +3356,8 @@
                             typeIcon + ' ' + item.title +
                         '</div>' +
                         '<div class="saved-text-actions">' +
-                            (displayTotal > 0 ? '<span class="stat-badge' + badgeClickClass + '" data-filter="all" data-content-id="' + item.id + '">전체개수 ' + displayTotal + '</span>' : '') +
-                            (stats.priority > 0 ? '<span class="stat-badge' + badgeClickClass + '" data-filter="toggle" data-content-id="' + item.id + '">암기완료 ' + stats.priority + '</span>' : '') +
+                            (displayTotal > 0 ? '<span class="stat-badge' + badgeClickClass + '" data-filter="all" data-content-id="' + item.id + '" data-total-count="' + displayTotal + '">전체개수 ' + displayTotal + '</span>' : '') +
+                            (stats.priority > 0 ? '<span class="stat-badge' + badgeClickClass + '" data-filter="toggle" data-content-id="' + item.id + '" data-priority-count="' + stats.priority + '">암기완료 ' + stats.priority + '</span>' : '') +
                             '<button class="btn btn-small" onclick="window.app && window.app.deleteContent(' + item.id + ')" title="삭제">🗑️</button>' +
                         '</div>';
 
