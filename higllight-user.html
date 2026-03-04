@@ -1081,11 +1081,13 @@
             }
 
             .mindmap-scroll-controls {
-                order: 3;
+                position: fixed;
+                left: 0;
+                right: 0;
+                z-index: 999;
                 gap: 8px;
-                padding: 2px 10px 4px;
-                flex-shrink: 0;
-                background: #f8f9fa;
+                padding: 4px 10px;
+                background: rgba(255,255,255,0.97);
                 border-top: 1px solid #ddd;
             }
 
@@ -1209,8 +1211,9 @@
         function setAppHeight() {
             var h = window.visualViewport ? window.visualViewport.height : window.innerHeight;
             document.documentElement.style.setProperty('--app-height', h + 'px');
-            if (window.app && window.app.updateScrollControls) {
-                window.app.updateScrollControls();
+            if (window.app) {
+                if (window.app.updateScrollControls) window.app.updateScrollControls();
+                if (window.app.positionScrollControls) window.app.positionScrollControls();
             }
         }
         setAppHeight();
@@ -1560,6 +1563,19 @@
                 if (instructions) {
                     instructions.style.display = isMobileMindmap ? 'none' : '';
                 }
+                if (isMobileMindmap) {
+                    this.positionScrollControls();
+                }
+            }
+
+            positionScrollControls() {
+                const controls = document.getElementById('mindmapScrollControls');
+                if (!controls || controls.style.display === 'none') return;
+                const vh = window.visualViewport ? window.visualViewport.height : window.innerHeight;
+                const offsetTop = window.visualViewport ? window.visualViewport.offsetTop : 0;
+                const ctrlH = controls.offsetHeight || 52;
+                controls.style.top = (offsetTop + vh - ctrlH) + 'px';
+                controls.style.bottom = 'auto';
             }
 
             displayMindmap(mindmapData, title) {
