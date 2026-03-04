@@ -142,7 +142,6 @@
             user-select: text;
             flex: 1;
             overflow-y: auto;
-            transition: opacity 0.2s ease-in-out;
         }
         
         .text-display:not(:has(.mindmap-container))::after {
@@ -1829,9 +1828,6 @@
                     e.preventDefault();
                     e.stopPropagation();
 
-                    const currentScrollY = window.pageYOffset || document.documentElement.scrollTop;
-                    const currentScrollX = window.pageXOffset || document.documentElement.scrollLeft;
-
                     const now = Date.now();
                     if (now - lastClickTime < 300) {
                         this.toggleLevel1Priority(group, text, rect);
@@ -1839,10 +1835,6 @@
                     } else {
                         lastClickTime = now;
                     }
-
-                    setTimeout(() => {
-                        window.scrollTo(currentScrollX, currentScrollY);
-                    }, 10);
                 };
 
                 group.addEventListener('mousedown', handleClick);
@@ -2181,17 +2173,12 @@
                     
                     if (highlightData.id) {
                         const getRequest = store.get(highlightData.id);
-                        getRequest.onsuccess = async () => {
+                        getRequest.onsuccess = () => {
                             const existingData = getRequest.result;
                             if (existingData) {
                                 existingData.is_priority = highlightData.isPriority;
                                 existingData.updated_at = new Date();
-                                
-                                const putRequest = store.put(existingData);
-                                putRequest.onsuccess = async () => {
-                                    console.log('마인드맵 우선순위 업데이트됨:', highlightData.text, highlightData.isPriority);
-                                    await this.updateSingleItemStats(this.currentTextId);
-                                };
+                                store.put(existingData);
                             }
                         };
                     } else {
@@ -2205,13 +2192,11 @@
                             created_at: new Date(),
                             timestamp: highlightData.timestamp
                         };
-                        
+
                         const request = store.add(saveData);
-                        request.onsuccess = async () => {
+                        request.onsuccess = () => {
                             highlightData.id = request.result;
                             highlightData.element.setAttribute('data-id', request.result);
-                            console.log('새 마인드맵 하이라이트 저장됨:', highlightData.text);
-                            await this.updateSingleItemStats(this.currentTextId);
                         };
                     }
                 } catch (error) {
