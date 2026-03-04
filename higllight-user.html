@@ -932,7 +932,7 @@
             
             .main-content {
                 grid-template-columns: 1fr;
-                padding: 0 10px 20px 10px;
+                padding: 0 10px 0 10px;
                 height: calc(100vh - 120px);
                 height: calc(100dvh - 120px);
                 overflow: hidden;
@@ -1086,8 +1086,9 @@
             .mindmap-scroll-controls {
                 display: none !important;
                 gap: 8px;
-                padding: 4px 10px 8px 10px;
-                margin-bottom: 10px;
+                padding: 6px 10px;
+                padding-bottom: calc(6px + env(safe-area-inset-bottom, 8px));
+                margin-bottom: 0;
                 flex-shrink: 0;
             }
 
@@ -3705,6 +3706,18 @@
                     const contentRequest = contentStore.get(parseInt(contentId));
 
                     let wordCount = 0;
+                    let highlightResult = null;
+                    let contentDone = false;
+                    let highlightDone = false;
+
+                    const tryResolve = () => {
+                        if (contentDone && highlightDone) {
+                            const total = highlightResult ? highlightResult.length : 0;
+                            const priority = highlightResult ? highlightResult.filter(h => h.is_priority).length : 0;
+                            resolve({ total, priority, wordCount });
+                        }
+                    };
+
                     contentRequest.onsuccess = () => {
                         const item = contentRequest.result;
                         if (item && item.content_type === 'mindmap') {
@@ -3715,17 +3728,20 @@
                                 }
                             } catch (e) {}
                         }
+                        contentDone = true;
+                        tryResolve();
                     };
 
                     const request = highlightIndex.getAll(contentId);
                     request.onsuccess = () => {
-                        const highlights = request.result;
-                        const total = highlights.length;
-                        const priority = highlights.filter(h => h.is_priority).length;
-                        resolve({ total, priority, wordCount });
+                        highlightResult = request.result;
+                        highlightDone = true;
+                        tryResolve();
                     };
                     request.onerror = () => {
-                        resolve({ total: 0, priority: 0, wordCount: 0 });
+                        highlightResult = [];
+                        highlightDone = true;
+                        tryResolve();
                     };
                 });
             }
