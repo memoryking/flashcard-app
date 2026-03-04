@@ -527,6 +527,19 @@
             font-weight: 600;
         }
 
+        .stat-badge-clickable {
+            cursor: pointer;
+            transition: filter 0.15s, box-shadow 0.15s;
+        }
+
+        .stat-badge-clickable:hover {
+            filter: brightness(1.2);
+        }
+
+        .stat-badge.filter-active {
+            box-shadow: 0 0 0 2px white, 0 0 0 4px #667eea;
+        }
+
         .instructions {
             background: linear-gradient(135deg, #e3f2fd, #bbdefb);
             border-radius: 15px;
@@ -1165,6 +1178,7 @@
                 this.currentContentType = 'text';
                 this.currentImageData = null;
                 this.currentMindmapData = null;
+                this.mindmapFilterMode = 'all';
                 this.holdTimer = null;
                 this.holdDuration = 500;
                 this.isHolding = false;
@@ -1351,15 +1365,18 @@
 
             displayMindmap(mindmapData, title) {
                 const textDisplay = document.getElementById('textDisplay');
-                
+
+                this.currentMindmapData = mindmapData;
+                this.mindmapFilterMode = 'all';
+
                 textDisplay.style.opacity = '0.7';
-                
+
                 setTimeout(() => {
                     this.highlights = [];
                     this.highlightRanges = [];
-                    
+
                     this.clearAllMindmapStates();
-                    
+
                     const mindmapContainer = this.renderMindmap(mindmapData);
                     textDisplay.innerHTML = '';
                     textDisplay.appendChild(mindmapContainer);
@@ -1395,22 +1412,34 @@
                 allTooltips.forEach(tooltip => tooltip.remove());
             }
 
-            renderMindmap(data) {
+            renderMindmap(data, filterMode = 'all', memorizedTexts = new Set()) {
                 const container = document.createElement('div');
                 container.className = 'mindmap-container';
-                
+
+                // Filter branches based on filterMode
+                let filteredBranches;
+                if (filterMode === 'memorized') {
+                    filteredBranches = data.branches.filter(b => b.level1 && memorizedTexts.has(b.level1.trim()));
+                } else if (filterMode === 'unmemorized') {
+                    filteredBranches = data.branches.filter(b => b.level1 && !memorizedTexts.has(b.level1.trim()));
+                } else {
+                    filteredBranches = data.branches;
+                }
+
+                const filteredData = { ...data, branches: filteredBranches };
+
                 const isMobile = window.innerWidth <= 768;
                 const viewportWidth = window.innerWidth;
-                
+
                 let mapWidth;
                 if (isMobile) {
                     mapWidth = Math.min(viewportWidth * 0.95, 500);
                 } else {
                     mapWidth = 800;
                 }
-                
+
                 let calcY = 110;
-                data.branches.forEach(branch => {
+                filteredData.branches.forEach(branch => {
                     if (!branch.level1) return;
                     if (branch.level2 && branch.level2.trim() !== '') {
                         if (branch.level3 && branch.level3.trim() !== '') {
@@ -1448,9 +1477,9 @@
                 let currentY = 110;
                 const sizeMultiplier = isMobile ? 1.0 : 1;
                 
-                data.branches.forEach((branch, index) => {
+                filteredData.branches.forEach((branch, index) => {
                     if (!branch.level1) return;
-                    
+
                     const titleLine = this.createConnection(centerX, 75, centerX, currentY - 15);
                     svg.appendChild(titleLine);
                     
@@ -1539,7 +1568,7 @@
                         currentY += 80;
                     }
                     
-                    if (index < data.branches.length - 1) {
+                    if (index < filteredData.branches.length - 1) {
                         const nextBranchY = currentY;
                         const prevBranchHeight = branch.level2 && branch.level2.trim() !== '' ? 
                             (branch.level3 && branch.level3.trim() !== '' ? 120 : 90) : 
@@ -1557,7 +1586,7 @@
                 
                 currentY = 110;
                 let level1Index = 0;
-                data.branches.forEach((branch, index) => {
+                filteredData.branches.forEach((branch, index) => {
                     if (!branch.level1) return;
 
                     const node1 = this.createMindmapNode(branch.level1, centerX, currentY, 'level1', false, false, false, mapWidth, level1Index);
@@ -1977,6 +2006,11 @@
                         textEl.setAttribute("opacity", "1");
                     });
                     this.updateMindmapHighlightPriority(highlightData);
+
+                    // Hide branch after brief orange flash if filter is not 'memorized'
+                    if (this.mindmapFilterMode !== 'memorized') {
+                        setTimeout(() => this.rerenderMindmap(), 300);
+                    }
                 } else {
                     const rainbowColors = ['#FF0000', '#FF7F00', '#FFD700', '#2DB400', '#0094FF', '#0041C2', '#9B30FF'];
                     const colorIndex = parseInt(group.getAttribute('data-color-index') || '0');
@@ -1990,6 +2024,11 @@
                     });
                     this.deleteLevel1Highlight(highlightData);
                     this.highlights = this.highlights.filter(h => h !== highlightData);
+
+                    // Restore branch if filter is not 'unmemorized'
+                    if (this.mindmapFilterMode !== 'unmemorized' && this.mindmapFilterMode !== 'all') {
+                        setTimeout(() => this.rerenderMindmap(), 100);
+                    }
                 }
 
                 requestAnimationFrame(() => {
@@ -2168,6 +2207,112 @@
                 } catch (error) {
                     console.error('마인드맵 하이라이트 우선순위 로드 오류:', error);
                 }
+            }
+
+            async getMemorizedTexts() {
+                const memorizedTexts = new Set();
+                if (!this.db || !this.currentTextId) return memorizedTexts;
+
+                return new Promise((resolve) => {
+                    try {
+                        const transaction = this.db.transaction(['highlights'], 'readonly');
+                        const store = transaction.objectStore('highlights');
+                        const index = store.index('content_id');
+                        const request = index.getAll(parseInt(this.currentTextId));
+
+                        request.onsuccess = () => {
+                            const savedHighlights = request.result.filter(h =>
+                                h.highlight_type === 'mindmap' && h.is_priority
+                            );
+                            savedHighlights.forEach(h => memorizedTexts.add(h.text.trim()));
+                            resolve(memorizedTexts);
+                        };
+                        request.onerror = () => resolve(memorizedTexts);
+                    } catch (e) {
+                        resolve(memorizedTexts);
+                    }
+                });
+            }
+
+            async rerenderMindmap() {
+                if (!this.currentMindmapData || this.currentContentType !== 'mindmap') return;
+
+                const memorizedTexts = await this.getMemorizedTexts();
+                const textDisplay = document.getElementById('textDisplay');
+
+                textDisplay.style.transition = 'opacity 0.2s';
+                textDisplay.style.opacity = '0.3';
+
+                setTimeout(async () => {
+                    this.highlights = [];
+                    this.highlightRanges = [];
+                    this.clearAllMindmapStates();
+
+                    const mindmapContainer = this.renderMindmap(
+                        this.currentMindmapData,
+                        this.mindmapFilterMode,
+                        memorizedTexts
+                    );
+                    textDisplay.innerHTML = '';
+                    textDisplay.appendChild(mindmapContainer);
+
+                    await this.loadMindmapHighlightPriorities();
+                    this.updateStats();
+
+                    textDisplay.style.opacity = '1';
+
+                    this.updateFilterBadgeStyles();
+                }, 150);
+            }
+
+            setMindmapFilter(mode, contentId) {
+                // Only act if we're viewing this content
+                if (contentId && this.currentTextId != contentId) return;
+                if (this.currentContentType !== 'mindmap') return;
+
+                if (mode === 'toggle') {
+                    // Cycle: memorized -> unmemorized -> memorized
+                    if (this.mindmapFilterMode === 'memorized') {
+                        this.mindmapFilterMode = 'unmemorized';
+                    } else {
+                        this.mindmapFilterMode = 'memorized';
+                    }
+                } else {
+                    this.mindmapFilterMode = mode;
+                }
+
+                this.rerenderMindmap();
+            }
+
+            updateFilterBadgeStyles() {
+                const activeItem = document.querySelector(`.saved-text-item[data-id="${this.currentTextId}"]`);
+                if (!activeItem) return;
+
+                const badges = activeItem.querySelectorAll('.stat-badge');
+                badges.forEach(badge => {
+                    badge.classList.remove('filter-active');
+                    const filterAttr = badge.getAttribute('data-filter');
+
+                    if (filterAttr === 'all' && this.mindmapFilterMode === 'all') {
+                        // No highlight for 'all' - it's the default
+                    } else if (filterAttr === 'toggle') {
+                        if (this.mindmapFilterMode === 'memorized') {
+                            badge.classList.add('filter-active');
+                            // Update text to indicate showing memorized
+                            const count = badge.textContent.replace(/[^0-9]/g, '');
+                            badge.textContent = `암기완료 ${count}`;
+                        } else if (this.mindmapFilterMode === 'unmemorized') {
+                            badge.classList.add('filter-active');
+                            // Update text to indicate showing unmemorized
+                            const count = badge.textContent.replace(/[^0-9]/g, '');
+                            badge.textContent = `미암기 보기`;
+                        } else {
+                            // Reset to normal text
+                            const count = badge.textContent.replace(/[^0-9]/g, '');
+                            if (count) badge.textContent = `암기완료 ${count}`;
+                        }
+                    }
+                });
             }
 
             parseMindmapData(content) {
@@ -2545,11 +2690,25 @@
 
                         const deleteButton = actionsContainer.querySelector('button[onclick*="deleteContent"]');
 
+                        // Check if this is a mindmap content
+                        const contentItem = this.savedTexts.find(t => t.id == contentId);
+                        const isMindmap = contentItem && contentItem.content_type === 'mindmap';
+                        const badgeClickClass = isMindmap ? ' stat-badge-clickable' : '';
+
                         const displayTotal = stats.wordCount > 0 ? stats.wordCount : stats.total;
                         if (displayTotal > 0) {
                             const totalBadge = document.createElement('span');
-                            totalBadge.className = 'stat-badge';
+                            totalBadge.className = 'stat-badge' + badgeClickClass;
                             totalBadge.textContent = `전체개수 ${displayTotal}`;
+                            if (isMindmap) {
+                                totalBadge.setAttribute('data-filter', 'all');
+                                totalBadge.setAttribute('data-content-id', contentId);
+                                totalBadge.addEventListener('click', (e) => {
+                                    e.preventDefault();
+                                    e.stopPropagation();
+                                    this.setMindmapFilter('all', contentId);
+                                });
+                            }
                             if (deleteButton) {
                                 actionsContainer.insertBefore(totalBadge, deleteButton);
                             } else {
@@ -2559,13 +2718,27 @@
 
                         if (stats.priority > 0) {
                             const priorityBadge = document.createElement('span');
-                            priorityBadge.className = 'stat-badge';
+                            priorityBadge.className = 'stat-badge' + badgeClickClass;
                             priorityBadge.textContent = `암기완료 ${stats.priority}`;
+                            if (isMindmap) {
+                                priorityBadge.setAttribute('data-filter', 'toggle');
+                                priorityBadge.setAttribute('data-content-id', contentId);
+                                priorityBadge.addEventListener('click', (e) => {
+                                    e.preventDefault();
+                                    e.stopPropagation();
+                                    this.setMindmapFilter('toggle', contentId);
+                                });
+                            }
                             if (deleteButton) {
                                 actionsContainer.insertBefore(priorityBadge, deleteButton);
                             } else {
                                 actionsContainer.appendChild(priorityBadge);
                             }
+                        }
+
+                        // Update active filter badge style
+                        if (isMindmap && this.currentTextId == contentId) {
+                            this.updateFilterBadgeStyles();
                         }
                     }
                 } catch (error) {
@@ -3140,18 +3313,35 @@
                     
                     const stats = await this.getHighlightStats(item.id);
                     
-                    listItem.innerHTML = 
+                    const isMindmap = item.content_type === 'mindmap';
+                    const badgeClickClass = isMindmap ? ' stat-badge-clickable' : '';
+                    const displayTotal = stats.wordCount > 0 ? stats.wordCount : stats.total;
+
+                    listItem.innerHTML =
                         '<div class="saved-text-title">' +
                             typeIcon + ' ' + item.title +
                         '</div>' +
                         '<div class="saved-text-actions">' +
-                            ((stats.wordCount > 0 ? stats.wordCount : stats.total) > 0 ? '<span class="stat-badge">전체개수 ' + (stats.wordCount > 0 ? stats.wordCount : stats.total) + '</span>' : '') +
-                            (stats.priority > 0 ? '<span class="stat-badge">암기완료 ' + stats.priority + '</span>' : '') +
+                            (displayTotal > 0 ? '<span class="stat-badge' + badgeClickClass + '" data-filter="all" data-content-id="' + item.id + '">전체개수 ' + displayTotal + '</span>' : '') +
+                            (stats.priority > 0 ? '<span class="stat-badge' + badgeClickClass + '" data-filter="toggle" data-content-id="' + item.id + '">암기완료 ' + stats.priority + '</span>' : '') +
                             '<button class="btn btn-small" onclick="window.app && window.app.deleteContent(' + item.id + ')" title="삭제">🗑️</button>' +
                         '</div>';
-                    
+
+                    // Add badge click handlers for mindmap items
+                    if (isMindmap) {
+                        listItem.querySelectorAll('.stat-badge-clickable').forEach(badge => {
+                            badge.addEventListener('click', (e) => {
+                                e.preventDefault();
+                                e.stopPropagation();
+                                const filterMode = badge.getAttribute('data-filter');
+                                const contentId = badge.getAttribute('data-content-id');
+                                window.app && window.app.setMindmapFilter(filterMode, contentId);
+                            });
+                        });
+                    }
+
                     listItem.addEventListener('click', (e) => {
-                        if (e.target.closest('button')) return;
+                        if (e.target.closest('button') || e.target.closest('.stat-badge-clickable')) return;
                         
                         const currentScroll = scrollContainer ? scrollContainer.scrollTop : 0;
                         
