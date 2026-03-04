@@ -227,12 +227,12 @@
         }
 
         @keyframes tetris-clear {
-            0% { opacity: 1; transform: scaleY(1); filter: brightness(1); }
-            30% { opacity: 1; transform: scaleY(1.05) scaleX(1.02); filter: brightness(2); }
-            100% { opacity: 0; transform: scaleY(0) scaleX(0.95); filter: brightness(3); }
+            0% { opacity: 1; transform: translateY(0) scaleY(1); }
+            40% { opacity: 0.8; transform: translateY(-4px) scaleY(1.02); }
+            100% { opacity: 0; transform: translateY(10px) scaleY(0.3); }
         }
         .brick-clearing {
-            animation: tetris-clear 0.4s ease-out forwards;
+            animation: tetris-clear 0.5s ease-in forwards;
         }
 
         .mindmap-highlight {
@@ -1383,30 +1383,23 @@
                 this.currentMindmapData = mindmapData;
                 this.mindmapFilterMode = 'all';
 
-                textDisplay.style.opacity = '0.7';
+                this.highlights = [];
+                this.highlightRanges = [];
+                this.clearAllMindmapStates();
 
-                setTimeout(() => {
-                    this.highlights = [];
-                    this.highlightRanges = [];
+                const mindmapContainer = this.renderMindmap(mindmapData);
+                textDisplay.innerHTML = '';
+                textDisplay.appendChild(mindmapContainer);
 
-                    this.clearAllMindmapStates();
-
-                    const mindmapContainer = this.renderMindmap(mindmapData);
-                    textDisplay.innerHTML = '';
-                    textDisplay.appendChild(mindmapContainer);
-                    
-                    if (this.currentTextId) {
-                        setTimeout(async () => {
-                            await this.loadMindmapHighlightPriorities();
-                            this.updateStats();
-                            console.log('마인드맵 하이라이트 로드 완료, 총 개수:', this.highlights.length);
-                        }, 300);
-                    } else {
+                if (this.currentTextId) {
+                    setTimeout(async () => {
+                        await this.loadMindmapHighlightPriorities();
                         this.updateStats();
-                    }
-                    
-                    textDisplay.style.opacity = '1';
-                }, 100);
+                        console.log('마인드맵 하이라이트 로드 완료, 총 개수:', this.highlights.length);
+                    }, 300);
+                } else {
+                    this.updateStats();
+                }
             }
 
             clearAllMindmapStates() {
@@ -1696,8 +1689,8 @@
                 const isMobile = window.innerWidth <= 768;
                 
                 if (level === 'title') {
-                    width = Math.max(140, Math.min(text.length * 8 + 40, mapWidth * 0.5));
-                    height = isMobile ? 38 : 32;
+                    width = Math.max(200, Math.min(text.length * 11 + 40, mapWidth * 0.9));
+                    height = isMobile ? 42 : 38;
                 } else if (isHighlight) {
                     width = Math.min(isMobile ? 160 : 140, mapWidth * 0.4);
                     height = isMobile ? 32 : 28;
@@ -1740,10 +1733,10 @@
                 textElement.setAttribute("text-anchor", "middle");
                 textElement.setAttribute("font-family", "'Segoe UI', Arial, sans-serif");
                 
-                const baseFontSize = isMobile ? (level === 'title' ? 17 : 14) : (level === 'title' ? 16 : 14);
+                const baseFontSize = isMobile ? (level === 'title' ? 18 : 14) : (level === 'title' ? 18 : 14);
                 textElement.setAttribute("font-size", baseFontSize);
                 textElement.setAttribute("font-weight", level === 'title' ? "bold" : "500");
-                
+
                 if (level === 'title') {
                     textElement.setAttribute("fill", "white");
                 } else if (isHighlight) {
@@ -1752,10 +1745,15 @@
                 } else {
                     textElement.setAttribute("fill", "#333");
                 }
-                
-                const maxLength = isMobile ? (isHighlight ? 14 : 10) : (isHighlight ? 13 : 10);
-                
-                textElement.setAttribute("y", y + 4);
+
+                let maxLength;
+                if (level === 'title') {
+                    maxLength = Math.floor((width - 20) / 10);
+                } else {
+                    maxLength = isMobile ? (isHighlight ? 14 : 10) : (isHighlight ? 13 : 10);
+                }
+
+                textElement.setAttribute("y", y + 6);
                 const truncatedText = text.length > maxLength ? text.substring(0, maxLength - 2) + "..." : text;
                 textElement.textContent = truncatedText;
                 
@@ -2345,30 +2343,25 @@
                 console.log('[rerenderMindmap] filterMode:', this.mindmapFilterMode, 'memorized:', [...memorizedTexts]);
 
                 const textDisplay = document.getElementById('textDisplay');
-                textDisplay.style.transition = 'opacity 0.2s';
-                textDisplay.style.opacity = '0.3';
 
-                setTimeout(async () => {
-                    this.highlights = [];
-                    this.highlightRanges = [];
-                    this.clearAllMindmapStates();
+                // No flash - smooth swap
+                this.highlights = [];
+                this.highlightRanges = [];
+                this.clearAllMindmapStates();
 
-                    const mindmapContainer = this.renderMindmap(
-                        this.currentMindmapData,
-                        this.mindmapFilterMode,
-                        memorizedTexts
-                    );
-                    textDisplay.innerHTML = '';
-                    textDisplay.appendChild(mindmapContainer);
+                const mindmapContainer = this.renderMindmap(
+                    this.currentMindmapData,
+                    this.mindmapFilterMode,
+                    memorizedTexts
+                );
+                textDisplay.innerHTML = '';
+                textDisplay.appendChild(mindmapContainer);
 
-                    await this.loadMindmapHighlightPriorities();
-                    this.updateStats();
-                    await this.updateSingleItemStats(this.currentTextId);
+                await this.loadMindmapHighlightPriorities();
+                this.updateStats();
+                await this.updateSingleItemStats(this.currentTextId);
 
-                    textDisplay.style.opacity = '1';
-
-                    this.updateFilterBadgeStyles();
-                }, 150);
+                this.updateFilterBadgeStyles();
             }
 
             setMindmapFilter(mode, contentId) {
