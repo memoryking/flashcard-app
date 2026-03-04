@@ -208,22 +208,36 @@
         .mindmap-node {
             cursor: pointer;
             transition: none;
-            filter: drop-shadow(2px 2px 4px rgba(0,0,0,0.1));
+            filter: drop-shadow(2px 3px 0 rgba(0,0,0,0.2));
         }
 
         .mindmap-node:hover {
             transform: none;
-            filter: drop-shadow(2px 2px 4px rgba(0,0,0,0.1));
+            filter: drop-shadow(2px 3px 0 rgba(0,0,0,0.2));
+        }
+
+        .mindmap-brick {
+            cursor: pointer;
+            transition: opacity 0.3s, transform 0.3s;
+            filter: drop-shadow(2px 3px 0 rgba(0,0,0,0.2));
+        }
+
+        .mindmap-brick:hover {
+            filter: brightness(1.05) drop-shadow(2px 3px 0 rgba(0,0,0,0.2));
+        }
+
+        @keyframes tetris-clear {
+            0% { opacity: 1; transform: scaleY(1); filter: brightness(1); }
+            30% { opacity: 1; transform: scaleY(1.05) scaleX(1.02); filter: brightness(2); }
+            100% { opacity: 0; transform: scaleY(0) scaleX(0.95); filter: brightness(3); }
+        }
+        .brick-clearing {
+            animation: tetris-clear 0.4s ease-out forwards;
         }
 
         .mindmap-highlight {
             cursor: pointer;
             transition: all 0.3s ease;
-        }
-
-        .mindmap-highlight.masked rect {
-            fill: #ffd700 !important;
-            stroke: #ffcc00 !important;
         }
 
         .mindmap-highlight.priority.masked rect {
@@ -1440,23 +1454,36 @@
                     mapWidth = 800;
                 }
 
-                let calcY = 110;
+                // Brick grid layout constants
+                const leftMargin = 20;
+                const rightMargin = 20;
+                const gap = 6;
+                const brickGap = 3;
+                const cellH = 40;
+                const leftColW = Math.floor(mapWidth * 0.42);
+                const rightColX = leftMargin + leftColW + gap;
+                const rightColW = mapWidth - rightColX - rightMargin;
+
+                // Rainbow colors for bricks
+                const rainbowColors = ['#FF0000', '#FF7F00', '#FFD700', '#2DB400', '#0094FF', '#0041C2', '#9B30FF'];
+                const rainbowLighter = ['#FF4D4D', '#FFA04D', '#FFE44D', '#5DD55D', '#4DB8FF', '#4D7DE0', '#B96BFF'];
+
+                // Calculate total height
+                const titleH = 50;
+                let totalH = titleH + 10;
                 filteredData.branches.forEach(branch => {
                     if (!branch.level1) return;
-                    if (branch.level2 && branch.level2.trim() !== '') {
-                        if (branch.level3 && branch.level3.trim() !== '') {
-                            calcY += 120;
-                        } else {
-                            calcY += 90;
-                        }
-                    } else if (branch.level3 && branch.level3.trim() !== '') {
-                        calcY += 100;
+                    const hasL2 = branch.level2 && branch.level2.trim() !== '';
+                    const hasL3 = branch.level3 && branch.level3.trim() !== '';
+                    if (hasL2 && hasL3) {
+                        totalH += cellH * 2 + brickGap;
                     } else {
-                        calcY += 80;
+                        totalH += cellH;
                     }
+                    totalH += brickGap; // gap between branches
                 });
-                const mapHeight = Math.max(500, calcY + 100);
-                
+                const mapHeight = Math.max(300, totalH + 30);
+
                 const svg = document.createElementNS("http://www.w3.org/2000/svg", "svg");
                 svg.setAttribute("width", mapWidth);
                 svg.setAttribute("height", mapHeight);
@@ -1464,167 +1491,205 @@
                 svg.style.background = 'transparent';
                 svg.style.maxWidth = '100%';
                 svg.style.height = 'auto';
-                
+
                 if (isMobile) {
                     svg.style.width = '95vw';
                     svg.style.maxWidth = '95vw';
                     svg.style.display = 'block';
                 }
-                
-                const centerX = isMobile ? mapWidth * 0.25 : mapWidth * 0.35;
-                
-                const titleGroup = this.createMindmapNode(data.title, centerX, 50, 'title', false, false, false, mapWidth);
+
+                // SVG defs for gradients
+                const defs = document.createElementNS("http://www.w3.org/2000/svg", "defs");
+                rainbowColors.forEach((color, i) => {
+                    // Normal gradient (L2)
+                    const grad = document.createElementNS("http://www.w3.org/2000/svg", "linearGradient");
+                    grad.setAttribute("id", `brickGrad${i}`);
+                    grad.setAttribute("x1", "0"); grad.setAttribute("y1", "0");
+                    grad.setAttribute("x2", "0"); grad.setAttribute("y2", "1");
+                    const stop1 = document.createElementNS("http://www.w3.org/2000/svg", "stop");
+                    stop1.setAttribute("offset", "0%");
+                    stop1.setAttribute("stop-color", rainbowLighter[i]);
+                    const stop2 = document.createElementNS("http://www.w3.org/2000/svg", "stop");
+                    stop2.setAttribute("offset", "100%");
+                    stop2.setAttribute("stop-color", color);
+                    grad.appendChild(stop1);
+                    grad.appendChild(stop2);
+                    defs.appendChild(grad);
+
+                    // Lighter gradient (L3)
+                    const gradL = document.createElementNS("http://www.w3.org/2000/svg", "linearGradient");
+                    gradL.setAttribute("id", `brickGradL${i}`);
+                    gradL.setAttribute("x1", "0"); gradL.setAttribute("y1", "0");
+                    gradL.setAttribute("x2", "0"); gradL.setAttribute("y2", "1");
+                    const stopL1 = document.createElementNS("http://www.w3.org/2000/svg", "stop");
+                    stopL1.setAttribute("offset", "0%");
+                    stopL1.setAttribute("stop-color", rainbowLighter[i]);
+                    stopL1.setAttribute("stop-opacity", "0.7");
+                    const stopL2 = document.createElementNS("http://www.w3.org/2000/svg", "stop");
+                    stopL2.setAttribute("offset", "100%");
+                    stopL2.setAttribute("stop-color", rainbowLighter[i]);
+                    gradL.appendChild(stopL1);
+                    gradL.appendChild(stopL2);
+                    defs.appendChild(gradL);
+                });
+                svg.appendChild(defs);
+
+                // Title node (centered at top)
+                const titleGroup = this.createMindmapNode(data.title, mapWidth / 2, 25, 'title', false, false, false, mapWidth);
                 svg.appendChild(titleGroup);
-                
-                let currentY = 110;
-                const sizeMultiplier = isMobile ? 1.0 : 1;
-                
-                filteredData.branches.forEach((branch, index) => {
-                    if (!branch.level1) return;
 
-                    const titleLine = this.createConnection(centerX, 75, centerX, currentY - 15);
-                    svg.appendChild(titleLine);
-                    
-                    if (branch.level2 && branch.level2.trim() !== '') {
-                        const level2X = isMobile ? centerX + 120 : centerX + 120;
-                        const level2Y = currentY + 50;
-                        
-                        const level1BoxWidth = isMobile ? 120 : 100;
-                        const level2BoxWidth = isMobile ? 130 : 110;
-                        
-                        const horizontalLine = this.createConnection(
-                            centerX + level1BoxWidth/2,
-                            currentY,
-                            level2X - level2BoxWidth/2 - (isMobile ? 15 : 10),
-                            currentY
-                        );
-                        svg.appendChild(horizontalLine);
-                        
-                        const verticalLine = this.createConnection(
-                            level2X - level2BoxWidth/2 - (isMobile ? 15 : 10),
-                            currentY,
-                            level2X - level2BoxWidth/2 - (isMobile ? 15 : 10),
-                            level2Y
-                        );
-                        svg.appendChild(verticalLine);
-                        
-                        const finalHorizontalLine = this.createConnection(
-                            level2X - level2BoxWidth/2 - (isMobile ? 15 : 10),
-                            level2Y,
-                            level2X - level2BoxWidth/2,
-                            level2Y
-                        );
-                        svg.appendChild(finalHorizontalLine);
-                        
-                        if (branch.level3 && branch.level3.trim() !== '') {
-                            const level3Y = level2Y + 50;
-                            
-                            const level2ToLevel3Line = this.createConnection(
-                                level2X, 
-                                level2Y + 15,
-                                level2X, 
-                                level3Y - 15
-                            );
-                            svg.appendChild(level2ToLevel3Line);
-                        }
-                    } else if (branch.level3 && branch.level3.trim() !== '') {
-                        const level3X = isMobile ? centerX + 120 : centerX + 120;
-                        const level3Y = currentY + 50;
-                        const level1BoxWidth = isMobile ? 120 : 100;
-                        const level3BoxWidth = isMobile ? 130 : 110;
-                        
-                        const horizontalLine = this.createConnection(
-                            centerX + level1BoxWidth/2,
-                            currentY,
-                            level3X - level3BoxWidth/2 - (isMobile ? 15 : 10),
-                            currentY
-                        );
-                        svg.appendChild(horizontalLine);
-                        
-                        const verticalLine = this.createConnection(
-                            level3X - level3BoxWidth/2 - (isMobile ? 15 : 10),
-                            currentY,
-                            level3X - level3BoxWidth/2 - (isMobile ? 15 : 10),
-                            level3Y
-                        );
-                        svg.appendChild(verticalLine);
-                        
-                        const finalHorizontalLine = this.createConnection(
-                            level3X - level3BoxWidth/2 - (isMobile ? 15 : 10),
-                            level3Y,
-                            level3X - level3BoxWidth/2,
-                            level3Y
-                        );
-                        svg.appendChild(finalHorizontalLine);
-                    }
-                    
-                    if (branch.level2 && branch.level2.trim() !== '') {
-                        if (branch.level3 && branch.level3.trim() !== '') {
-                            currentY += 120;
-                        } else {
-                            currentY += 90;
-                        }
-                    } else if (branch.level3 && branch.level3.trim() !== '') {
-                        currentY += 100;
-                    } else {
-                        currentY += 80;
-                    }
-                    
-                    if (index < filteredData.branches.length - 1) {
-                        const nextBranchY = currentY;
-                        const prevBranchHeight = branch.level2 && branch.level2.trim() !== '' ? 
-                            (branch.level3 && branch.level3.trim() !== '' ? 120 : 90) : 
-                            (branch.level3 && branch.level3.trim() !== '' ? 100 : 80);
-                            
-                        const verticalConnLine = this.createConnection(
-                            centerX, 
-                            currentY - prevBranchHeight + 15, 
-                            centerX, 
-                            nextBranchY - 15
-                        );
-                        svg.appendChild(verticalConnLine);
-                    }
-                });
-                
-                currentY = 110;
+                // Render brick rows
+                let currentY = titleH + 10;
                 let level1Index = 0;
+
                 filteredData.branches.forEach((branch, index) => {
                     if (!branch.level1) return;
 
-                    const node1 = this.createMindmapNode(branch.level1, centerX, currentY, 'level1', false, false, false, mapWidth, level1Index);
-                    level1Index++;
-                    svg.appendChild(node1);
-                    
-                    if (branch.level2 && branch.level2.trim() !== '') {
-                        const level2X = isMobile ? centerX + 120 : centerX + 120;
-                        const level2Y = currentY + 50;
-                        
-                        const node2 = this.createMindmapNode(branch.level2, level2X, level2Y, 'level2', true, true, false, mapWidth);
-                        svg.appendChild(node2);
-                        
-                        if (branch.level3 && branch.level3.trim() !== '') {
-                            const level3Y = level2Y + 50;
-                            
-                            const node3 = this.createMindmapNode(branch.level3, level2X, level3Y, 'level3', true, false, false, mapWidth);
-                            svg.appendChild(node3);
-                            
-                            currentY += 120;
-                        } else {
-                            currentY += 90;
-                        }
-                    } else if (branch.level3 && branch.level3.trim() !== '') {
-                        const level3X = isMobile ? centerX + 120 : centerX + 120;
-                        const level3Y = currentY + 50;
-                        
-                        const node3 = this.createMindmapNode(branch.level3, level3X, level3Y, 'level3', true, false, false, mapWidth);
-                        svg.appendChild(node3);
-                        
-                        currentY += 100;
-                    } else {
-                        currentY += 80;
+                    const hasL2 = branch.level2 && branch.level2.trim() !== '';
+                    const hasL3 = branch.level3 && branch.level3.trim() !== '';
+                    const rowH = (hasL2 && hasL3) ? (cellH * 2 + brickGap) : cellH;
+                    const colorIdx = level1Index % rainbowColors.length;
+
+                    // Branch group wrapper
+                    const branchGroup = document.createElementNS("http://www.w3.org/2000/svg", "g");
+                    branchGroup.setAttribute("class", "mindmap-brick");
+                    branchGroup.setAttribute("data-branch-index", index);
+
+                    // === Level1 rect (left column, white bg, rainbow left border) ===
+                    const l1Group = document.createElementNS("http://www.w3.org/2000/svg", "g");
+                    l1Group.setAttribute("class", "mindmap-node");
+
+                    const l1Rect = document.createElementNS("http://www.w3.org/2000/svg", "rect");
+                    l1Rect.setAttribute("x", leftMargin);
+                    l1Rect.setAttribute("y", currentY);
+                    l1Rect.setAttribute("width", leftColW);
+                    l1Rect.setAttribute("height", rowH);
+                    l1Rect.setAttribute("rx", 5);
+                    l1Rect.setAttribute("fill", "white");
+                    l1Rect.setAttribute("stroke", "#e0e0e0");
+                    l1Rect.setAttribute("stroke-width", "1");
+
+                    // Rainbow left border bar
+                    const l1Bar = document.createElementNS("http://www.w3.org/2000/svg", "rect");
+                    l1Bar.setAttribute("x", leftMargin);
+                    l1Bar.setAttribute("y", currentY);
+                    l1Bar.setAttribute("width", 4);
+                    l1Bar.setAttribute("height", rowH);
+                    l1Bar.setAttribute("rx", "2");
+                    l1Bar.setAttribute("fill", rainbowColors[colorIdx]);
+
+                    // Level1 text (visible)
+                    const l1Text = document.createElementNS("http://www.w3.org/2000/svg", "text");
+                    l1Text.setAttribute("x", leftMargin + 14);
+                    l1Text.setAttribute("y", currentY + rowH / 2 + 5);
+                    l1Text.setAttribute("text-anchor", "start");
+                    l1Text.setAttribute("font-family", "'Segoe UI', Arial, sans-serif");
+                    l1Text.setAttribute("font-size", isMobile ? 14 : 14);
+                    l1Text.setAttribute("font-weight", "600");
+                    l1Text.setAttribute("fill", "#333");
+
+                    const l1MaxLen = Math.floor((leftColW - 24) / 8);
+                    const l1Display = branch.level1.length > l1MaxLen ? branch.level1.substring(0, l1MaxLen - 2) + '...' : branch.level1;
+                    l1Text.textContent = l1Display;
+
+                    l1Group.appendChild(l1Rect);
+                    l1Group.appendChild(l1Bar);
+                    l1Group.appendChild(l1Text);
+
+                    // Level1 data attributes & events
+                    l1Group.setAttribute('data-text', branch.level1);
+                    l1Group.setAttribute('data-level', 'level1');
+                    l1Group.setAttribute('data-color-index', colorIdx);
+                    l1Group.setAttribute('data-timestamp', Date.now() + Math.random());
+                    this.setupLevel1Events(l1Group, branch.level1, l1Rect);
+
+                    branchGroup.appendChild(l1Group);
+
+                    // === Level2 rect (right column, top) ===
+                    if (hasL2) {
+                        const l2Group = document.createElementNS("http://www.w3.org/2000/svg", "g");
+                        l2Group.setAttribute("class", "mindmap-node mindmap-highlight normal masked");
+
+                        const l2Rect = document.createElementNS("http://www.w3.org/2000/svg", "rect");
+                        l2Rect.setAttribute("x", rightColX);
+                        l2Rect.setAttribute("y", currentY);
+                        l2Rect.setAttribute("width", rightColW);
+                        l2Rect.setAttribute("height", cellH);
+                        l2Rect.setAttribute("rx", 5);
+                        l2Rect.setAttribute("fill", `url(#brickGrad${colorIdx})`);
+                        l2Rect.setAttribute("stroke", rainbowColors[colorIdx]);
+                        l2Rect.setAttribute("stroke-width", "1");
+
+                        const l2Text = document.createElementNS("http://www.w3.org/2000/svg", "text");
+                        l2Text.setAttribute("x", rightColX + rightColW / 2);
+                        l2Text.setAttribute("y", currentY + cellH / 2 + 5);
+                        l2Text.setAttribute("text-anchor", "middle");
+                        l2Text.setAttribute("font-family", "'Segoe UI', Arial, sans-serif");
+                        l2Text.setAttribute("font-size", isMobile ? 13 : 13);
+                        l2Text.setAttribute("font-weight", "500");
+                        l2Text.setAttribute("fill", "transparent");
+                        l2Text.setAttribute("opacity", "0");
+
+                        const l2MaxLen = Math.floor((rightColW - 16) / 8);
+                        const l2Display = branch.level2.length > l2MaxLen ? branch.level2.substring(0, l2MaxLen - 2) + '...' : branch.level2;
+                        l2Text.textContent = l2Display;
+
+                        l2Group.appendChild(l2Rect);
+                        l2Group.appendChild(l2Text);
+                        l2Group.setAttribute('data-text', branch.level2);
+                        l2Group.setAttribute('data-level', 'level2');
+                        l2Group.setAttribute('data-timestamp', Date.now() + Math.random());
+                        this.setupSVGHighlightEvents(l2Group, branch.level2, l2Rect);
+
+                        branchGroup.appendChild(l2Group);
                     }
+
+                    // === Level3 rect (right column, bottom or single row if no L2) ===
+                    if (hasL3) {
+                        const l3Y = hasL2 ? currentY + cellH + brickGap : currentY;
+                        const l3Group = document.createElementNS("http://www.w3.org/2000/svg", "g");
+                        l3Group.setAttribute("class", "mindmap-node mindmap-highlight normal masked");
+
+                        const l3Rect = document.createElementNS("http://www.w3.org/2000/svg", "rect");
+                        l3Rect.setAttribute("x", rightColX);
+                        l3Rect.setAttribute("y", l3Y);
+                        l3Rect.setAttribute("width", rightColW);
+                        l3Rect.setAttribute("height", cellH);
+                        l3Rect.setAttribute("rx", 5);
+                        l3Rect.setAttribute("fill", `url(#brickGradL${colorIdx})`);
+                        l3Rect.setAttribute("stroke", rainbowLighter[colorIdx]);
+                        l3Rect.setAttribute("stroke-width", "1");
+
+                        const l3Text = document.createElementNS("http://www.w3.org/2000/svg", "text");
+                        l3Text.setAttribute("x", rightColX + rightColW / 2);
+                        l3Text.setAttribute("y", l3Y + cellH / 2 + 5);
+                        l3Text.setAttribute("text-anchor", "middle");
+                        l3Text.setAttribute("font-family", "'Segoe UI', Arial, sans-serif");
+                        l3Text.setAttribute("font-size", isMobile ? 13 : 13);
+                        l3Text.setAttribute("font-weight", "500");
+                        l3Text.setAttribute("fill", "transparent");
+                        l3Text.setAttribute("opacity", "0");
+
+                        const l3MaxLen = Math.floor((rightColW - 16) / 8);
+                        const l3Display = branch.level3.length > l3MaxLen ? branch.level3.substring(0, l3MaxLen - 2) + '...' : branch.level3;
+                        l3Text.textContent = l3Display;
+
+                        l3Group.appendChild(l3Rect);
+                        l3Group.appendChild(l3Text);
+                        l3Group.setAttribute('data-text', branch.level3);
+                        l3Group.setAttribute('data-level', 'level3');
+                        l3Group.setAttribute('data-timestamp', Date.now() + Math.random());
+                        this.setupSVGHighlightEvents(l3Group, branch.level3, l3Rect);
+
+                        branchGroup.appendChild(l3Group);
+                    }
+
+                    svg.appendChild(branchGroup);
+
+                    currentY += rowH + brickGap;
+                    level1Index++;
                 });
-                
+
                 container.appendChild(svg);
                 return container;
             }
@@ -1656,7 +1721,7 @@
                 rect.setAttribute("y", y - height/2);
                 rect.setAttribute("width", width);
                 rect.setAttribute("height", height);
-                rect.setAttribute("rx", height/2);
+                rect.setAttribute("rx", 5);
                 rect.setAttribute("stroke-width", "2");
                 
                 if (level === 'title') {
@@ -1796,21 +1861,27 @@
                 const textElements = group.querySelectorAll('text');
                 const rect = group.querySelector('rect');
                 const currentClass = group.getAttribute("class") || "";
-                
+
+                // Save original fill/stroke for brick restore
+                if (rect && !group.getAttribute('data-original-fill')) {
+                    group.setAttribute('data-original-fill', rect.getAttribute('fill') || '');
+                    group.setAttribute('data-original-stroke', rect.getAttribute('stroke') || '');
+                }
+
                 if (currentClass.includes("priority")) {
                     group.setAttribute("class", "mindmap-node mindmap-highlight priority revealed");
                 } else {
                     group.setAttribute("class", "mindmap-node mindmap-highlight normal revealed");
                 }
-                
+
                 rect.setAttribute("fill", "white");
                 rect.setAttribute("stroke", "#999");
-                
+
                 textElements.forEach(textEl => {
                     textEl.setAttribute("fill", "#333");
                     textEl.setAttribute("opacity", "1");
                 });
-                
+
                 if (this.shouldShowTooltip(text, textElements[0])) {
                     this.activeTooltipTimer = setTimeout(() => {
                         if (this.currentActiveNode === group) {
@@ -1825,26 +1896,34 @@
                     clearTimeout(this.activeTooltipTimer);
                     this.activeTooltipTimer = null;
                 }
-                
+
                 if (this.activeTooltip) {
                     this.activeTooltip.remove();
                     this.activeTooltip = null;
                 }
-                
+
                 const textElements = group.querySelectorAll('text');
                 const rect = group.querySelector('rect');
                 const currentClass = group.getAttribute("class") || "";
-                
+
                 if (currentClass.includes("priority")) {
                     group.setAttribute("class", "mindmap-node mindmap-highlight priority masked");
                     rect.setAttribute("fill", "#ff9500");
                     rect.setAttribute("stroke", "#e6850e");
                 } else {
                     group.setAttribute("class", "mindmap-node mindmap-highlight normal masked");
-                    rect.setAttribute("fill", "#ffd700");
-                    rect.setAttribute("stroke", "#ffcc00");
+                    // Restore original gradient fill for brick nodes
+                    const origFill = group.getAttribute('data-original-fill');
+                    const origStroke = group.getAttribute('data-original-stroke');
+                    if (origFill && origFill.startsWith('url(')) {
+                        rect.setAttribute("fill", origFill);
+                        rect.setAttribute("stroke", origStroke || '#ccc');
+                    } else {
+                        rect.setAttribute("fill", "#ffd700");
+                        rect.setAttribute("stroke", "#ffcc00");
+                    }
                 }
-                
+
                 textElements.forEach(textEl => {
                     textEl.setAttribute("fill", "transparent");
                     textEl.setAttribute("opacity", "0");
@@ -1959,8 +2038,16 @@
                     });
                 } else {
                     group.setAttribute("class", "mindmap-node mindmap-highlight normal masked");
-                    rect.setAttribute("fill", "#ffd700");
-                    rect.setAttribute("stroke", "#ffcc00");
+                    // Restore original gradient fill for brick nodes
+                    const origFill = group.getAttribute('data-original-fill');
+                    const origStroke = group.getAttribute('data-original-stroke');
+                    if (origFill && origFill.startsWith('url(')) {
+                        rect.setAttribute("fill", origFill);
+                        rect.setAttribute("stroke", origStroke || '#ccc');
+                    } else {
+                        rect.setAttribute("fill", "#ffd700");
+                        rect.setAttribute("stroke", "#ffcc00");
+                    }
                     textElements.forEach(textEl => {
                         textEl.setAttribute("fill", "transparent");
                         textEl.setAttribute("opacity", "0");
@@ -1970,7 +2057,7 @@
                 requestAnimationFrame(() => {
                     group.style.transition = originalTransition;
                 });
-                
+
                 this.updateMindmapHighlightPriority(highlightData);
             }
 
@@ -2009,20 +2096,24 @@
                     });
                     this.updateMindmapHighlightPriority(highlightData);
 
-                    // Hide branch: switch to unmemorized filter after orange flash
+                    // Tetris clear animation on the branch group
+                    const branchGroup = group.closest('.mindmap-brick') || group.parentElement;
                     console.log('[toggleLevel1Priority] 암기완료:', text, 'currentFilter:', this.mindmapFilterMode);
                     if (this.mindmapFilterMode !== 'memorized') {
                         this.mindmapFilterMode = 'unmemorized';
-                        console.log('[toggleLevel1Priority] → unmemorized로 전환, 300ms 후 rerender');
-                        setTimeout(() => this.rerenderMindmap(), 300);
+                        console.log('[toggleLevel1Priority] → unmemorized로 전환, tetris clear 후 rerender');
+                        setTimeout(() => {
+                            if (branchGroup) branchGroup.classList.add('brick-clearing');
+                        }, 200);
+                        setTimeout(() => this.rerenderMindmap(), 600);
                     }
                 } else {
                     const rainbowColors = ['#FF0000', '#FF7F00', '#FFD700', '#2DB400', '#0094FF', '#0041C2', '#9B30FF'];
                     const colorIndex = parseInt(group.getAttribute('data-color-index') || '0');
                     group.setAttribute("class", "mindmap-node");
                     rect.setAttribute("fill", "white");
-                    rect.setAttribute("stroke", rainbowColors[colorIndex]);
-                    rect.setAttribute("stroke-width", "3");
+                    rect.setAttribute("stroke", "#e0e0e0");
+                    rect.setAttribute("stroke-width", "1");
                     textElements.forEach(textEl => {
                         textEl.setAttribute("fill", "#333");
                         textEl.setAttribute("opacity", "1");
@@ -2126,21 +2217,26 @@
                             
                             savedHighlights.forEach(savedHighlight => {
                                 let matchingElement = null;
-                                
+                                const savedText = savedHighlight.text.trim();
+
                                 svgGroups.forEach(group => {
+                                    // 1) data-text 속성으로 매칭 (가장 정확)
+                                    const dataText = group.getAttribute('data-text');
+                                    if (dataText && dataText.trim() === savedText) {
+                                        matchingElement = group;
+                                        return;
+                                    }
+                                    // 2) 텍스트 요소로 매칭 (폴백)
                                     const textElement = group.querySelector('text');
                                     if (textElement) {
                                         const displayText = textElement.textContent.trim();
-                                        const savedText = savedHighlight.text.trim();
-                                        
-                                        if (displayText === savedText || 
+                                        if (displayText === savedText ||
                                             (displayText.endsWith('...') && savedText.startsWith(displayText.slice(0, -3)))) {
                                             matchingElement = group;
-                                            console.log('텍스트 매칭 성공:', savedHighlight.text);
                                         }
                                     }
                                 });
-                                
+
                                 if (matchingElement) {
                                     const nodeLevel = matchingElement.getAttribute('data-level') || 'level2';
                                     const highlightData = {
@@ -2180,13 +2276,8 @@
                                                 rect.setAttribute("fill", "#ff9500");
                                                 rect.setAttribute("stroke", "#e6850e");
                                             }
-                                        } else {
-                                            matchingElement.setAttribute("class", "mindmap-node mindmap-highlight normal masked");
-                                            if (rect) {
-                                                rect.setAttribute("fill", "#ffd700");
-                                                rect.setAttribute("stroke", "#ffcc00");
-                                            }
                                         }
+                                        // non-priority: keep existing gradient fill (brick layout)
                                         textElements.forEach(textEl => {
                                             textEl.setAttribute("fill", "transparent");
                                             textEl.setAttribute("opacity", "0");
@@ -2195,7 +2286,10 @@
                                     
                                     console.log('하이라이트 복원됨:', savedHighlight.text, '우선순위:', savedHighlight.is_priority);
                                 } else {
-                                    console.log('매칭 실패:', savedHighlight.text);
+                                    if (this.mindmapFilterMode === 'all') {
+                                        console.log('매칭 실패:', savedHighlight.text);
+                                    }
+                                    // 필터 모드에서는 숨겨진 노드 매칭 실패는 정상
                                 }
                             });
                             
