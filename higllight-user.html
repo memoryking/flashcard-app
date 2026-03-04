@@ -909,33 +909,29 @@
 
         @media (max-width: 768px) {
             html {
-                height: 100vh;
-                height: 100dvh;
+                height: var(--app-height, 100vh);
                 overflow: hidden;
             }
-            
+
             body {
-                height: 100vh;
-                height: 100dvh;
+                height: var(--app-height, 100vh);
                 overflow: hidden;
                 position: fixed;
                 width: 100%;
             }
-            
+
             .container {
                 padding: 0;
                 margin: 0;
-                height: 100vh;
-                height: 100dvh;
+                height: var(--app-height, 100vh);
                 overflow: hidden;
             }
-            
+
             .main-content {
                 grid-template-columns: 1fr;
                 grid-template-rows: auto 1fr;
                 padding: 0 10px 0 10px;
-                height: calc(100vh - 120px);
-                height: calc(100dvh - 120px);
+                height: calc(var(--app-height, 100vh) - 120px);
                 overflow: hidden;
                 gap: 10px;
             }
@@ -1442,8 +1438,15 @@
             }
 
             setupEventListeners() {
+                // 모바일 실제 뷰포트 높이 설정
+                const setAppHeight = () => {
+                    document.documentElement.style.setProperty('--app-height', window.innerHeight + 'px');
+                };
+                setAppHeight();
+                window.addEventListener('resize', setAppHeight);
+
                 const textDisplay = document.getElementById('textDisplay');
-                
+
                 textDisplay.addEventListener('mouseup', (e) => this.handleSelection(e));
                 textDisplay.addEventListener('touchstart', (e) => this.handleTouchStart(e), { passive: false });
                 textDisplay.addEventListener('touchmove', (e) => this.handleTouchMove(e), { passive: false });
