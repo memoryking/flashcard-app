@@ -226,12 +226,15 @@
         }
 
         @keyframes tetris-clear {
-            0% { opacity: 1; transform: translateY(0) scaleY(1); }
-            40% { opacity: 0.8; transform: translateY(-4px) scaleY(1.02); }
-            100% { opacity: 0; transform: translateY(10px) scaleY(0.3); }
+            0%   { opacity: 1; transform: translateY(0) scaleY(1) scaleX(1); filter: brightness(1); }
+            15%  { opacity: 1; transform: translateY(0) scaleY(1.06) scaleX(1.02); filter: brightness(1.8); }
+            30%  { opacity: 1; transform: translateY(0) scaleY(1) scaleX(1); filter: brightness(1.4); }
+            50%  { opacity: 0.9; transform: translateY(0) scaleY(0.95) scaleX(1.01); filter: brightness(1); }
+            75%  { opacity: 0.4; transform: translateY(-8px) scaleY(0.5) scaleX(0.98); filter: brightness(0.8); }
+            100% { opacity: 0; transform: translateY(-20px) scaleY(0) scaleX(0.95); filter: brightness(0.5); }
         }
         .brick-clearing {
-            animation: tetris-clear 0.5s ease-in forwards;
+            animation: tetris-clear 0.8s ease-in-out forwards;
         }
 
         .mindmap-highlight {
@@ -2084,12 +2087,12 @@
                     if (this.mindmapFilterMode !== 'memorized' && branchGroup) {
                         this.mindmapFilterMode = 'unmemorized';
 
-                        // 1) Tetris shrink animation after orange flash
+                        // 1) Show orange for 500ms, then start clear animation
                         setTimeout(() => {
                             branchGroup.classList.add('brick-clearing');
-                        }, 250);
+                        }, 500);
 
-                        // 2) After animation: remove brick, slide remaining up
+                        // 2) After animation (500+800ms): remove brick, slide remaining up
                         setTimeout(() => {
                             const svg = branchGroup.closest('svg');
                             if (!svg) return;
@@ -2101,30 +2104,29 @@
                             // Remove the cleared brick
                             branchGroup.remove();
 
-                            // Slide all subsequent bricks up
+                            // Slide all subsequent bricks up smoothly
                             for (let i = brickIndex + 1; i < allBricks.length; i++) {
                                 const b = allBricks[i];
                                 if (!b.parentNode) continue;
-                                // Stack multiple translateY if already shifted
                                 const prev = parseFloat(b.getAttribute('data-shift') || '0');
                                 const newShift = prev + slideDistance;
                                 b.setAttribute('data-shift', newShift);
-                                b.style.transition = 'transform 0.4s ease-out';
+                                b.style.transition = 'transform 0.6s cubic-bezier(0.25, 0.1, 0.25, 1)';
                                 b.style.transform = `translateY(-${newShift}px)`;
                             }
 
-                            // Shrink SVG height
+                            // Shrink SVG height after slide completes
                             setTimeout(() => {
                                 const h = parseFloat(svg.getAttribute('height'));
                                 const newH = h - slideDistance;
                                 svg.setAttribute('height', newH);
                                 svg.setAttribute('viewBox', `0 0 ${svg.getAttribute('width')} ${newH}`);
-                            }, 420);
+                            }, 650);
 
                             this.updateStats();
                             this.updateSingleItemStats(this.currentTextId);
                             this.updateFilterBadgeStyles();
-                        }, 750);
+                        }, 1350);
                     }
                 } else {
                     const rainbowColors = ['#FF0000', '#FF7F00', '#FFD700', '#2DB400', '#0094FF', '#0041C2', '#9B30FF'];
