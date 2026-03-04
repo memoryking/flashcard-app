@@ -902,6 +902,11 @@
             to { opacity: 1; }
         }
 
+        .mobile-menu-btn { display: none; }
+        .active-content-info { display: none; }
+        .mindmap-scroll-controls { display: none; }
+        .saved-texts-header { display: flex; align-items: center; justify-content: space-between; }
+
         @media (max-width: 768px) {
             html {
                 height: 100vh;
@@ -1035,6 +1040,69 @@
                 -webkit-overflow-scrolling: touch;
                 padding-top: 2px;
                 padding-bottom: 30px;
+                display: none;
+            }
+
+            .saved-texts-list-container.show {
+                display: block;
+            }
+
+            .mobile-menu-btn {
+                display: block;
+                background: none;
+                border: 1px solid #ccc;
+                border-radius: 6px;
+                font-size: 20px;
+                padding: 2px 8px;
+                cursor: pointer;
+            }
+
+            .active-content-info {
+                display: block;
+                font-size: 12px;
+                padding: 6px 8px;
+                background: #e3f2fd;
+                border-radius: 8px;
+                margin-bottom: 4px;
+            }
+
+            .active-content-info .saved-text-title {
+                margin: 0;
+            }
+
+            .left-panel {
+                max-height: none;
+                overflow: visible;
+            }
+
+            .saved-texts-section {
+                max-height: none;
+            }
+
+            .mindmap-scroll-controls {
+                display: none !important;
+                gap: 8px;
+                padding: 4px 10px;
+                flex-shrink: 0;
+            }
+
+            .mindmap-scroll-controls.show {
+                display: flex !important;
+            }
+
+            .scroll-btn {
+                flex: 1;
+                padding: 10px;
+                border: 1px solid #ccc;
+                border-radius: 8px;
+                background: white;
+                font-size: 14px;
+                cursor: pointer;
+                touch-action: manipulation;
+            }
+
+            .scroll-btn:active {
+                background: #e3f2fd;
             }
 
             .saved-text-item {
@@ -1146,7 +1214,11 @@
                 </button>
                 
                 <div class="saved-texts-section">
-                    <h3>📋 저장된 콘텐츠 (<span id="savedTexts">0</span>)</h3>
+                    <div class="saved-texts-header">
+                        <h3>📋 저장된 콘텐츠 (<span id="savedTexts">0</span>)</h3>
+                        <button class="mobile-menu-btn" id="mobileMenuBtn" onclick="window.app && window.app.toggleSavedTextsList()">☰</button>
+                    </div>
+                    <div id="activeContentInfo" class="active-content-info"></div>
                     <div class="saved-texts-list-container">
                         <div id="savedTextsList">
                             <div class="empty-state" style="padding: 20px; font-size: 14px;">
@@ -1162,6 +1234,11 @@
                     <div class="empty-state">
                         💡 왼쪽에서 저장된 콘텐츠를 선택하거나 자료에서 불러오세요
                     </div>
+                </div>
+
+                <div class="mindmap-scroll-controls" id="mindmapScrollControls">
+                    <button class="scroll-btn" id="scrollDownBtn">▼ 아래로</button>
+                    <button class="scroll-btn" id="scrollTopBtn">▲ 맨위로</button>
                 </div>
 
                 <div class="instructions">
@@ -1377,6 +1454,68 @@
                     }
                     return true;
                 });
+
+                // Scroll buttons for mindmap
+                this.scrollInterval = null;
+                const scrollDownBtn = document.getElementById('scrollDownBtn');
+                const scrollTopBtn = document.getElementById('scrollTopBtn');
+
+                const startScroll = () => {
+                    this.scrollInterval = setInterval(() => {
+                        textDisplay.scrollBy(0, 3);
+                    }, 16);
+                };
+                const stopScroll = () => {
+                    if (this.scrollInterval) {
+                        clearInterval(this.scrollInterval);
+                        this.scrollInterval = null;
+                    }
+                };
+
+                scrollDownBtn.addEventListener('mousedown', startScroll);
+                scrollDownBtn.addEventListener('touchstart', (e) => { e.preventDefault(); startScroll(); }, { passive: false });
+                scrollDownBtn.addEventListener('mouseup', stopScroll);
+                scrollDownBtn.addEventListener('mouseleave', stopScroll);
+                scrollDownBtn.addEventListener('touchend', stopScroll);
+                scrollDownBtn.addEventListener('touchcancel', stopScroll);
+
+                scrollTopBtn.addEventListener('click', () => {
+                    textDisplay.scrollTo({ top: 0, behavior: 'smooth' });
+                });
+            }
+
+            toggleSavedTextsList() {
+                const container = document.querySelector('.saved-texts-list-container');
+                container.classList.toggle('show');
+            }
+
+            updateActiveContentInfo() {
+                const infoEl = document.getElementById('activeContentInfo');
+                if (!infoEl) return;
+
+                if (!this.currentTextId) {
+                    infoEl.innerHTML = '';
+                    return;
+                }
+
+                const item = this.savedTexts.find(t => t.id === this.currentTextId);
+                if (!item) {
+                    infoEl.innerHTML = '';
+                    return;
+                }
+
+                const typeIcon = item.content_type === 'image' ? '🖼️' : (item.content_type === 'mindmap' ? '🧠' : '📝');
+                infoEl.innerHTML = '<div class="saved-text-title">' + typeIcon + ' ' + item.title + '</div>';
+            }
+
+            updateScrollControls() {
+                const controls = document.getElementById('mindmapScrollControls');
+                if (!controls) return;
+                if (this.currentContentType === 'mindmap') {
+                    controls.classList.add('show');
+                } else {
+                    controls.classList.remove('show');
+                }
             }
 
             displayMindmap(mindmapData, title) {
@@ -3479,17 +3618,22 @@
 
                     listItem.addEventListener('click', (e) => {
                         if (e.target.closest('button') || e.target.closest('.stat-badge-clickable')) return;
-                        
+
                         const currentScroll = scrollContainer ? scrollContainer.scrollTop : 0;
-                        
+
                         const preserveScroll = () => {
                             if (scrollContainer) {
                                 scrollContainer.scrollTop = currentScroll;
                             }
                         };
-                        
+
                         this.loadContent(item);
-                        
+
+                        // Mobile: close list after selection
+                        if (window.innerWidth <= 768) {
+                            document.querySelector('.saved-texts-list-container').classList.remove('show');
+                        }
+
                         requestAnimationFrame(preserveScroll);
                         setTimeout(preserveScroll, 50);
                         setTimeout(preserveScroll, 100);
@@ -3517,6 +3661,8 @@
                 if (scrollContainer) {
                     scrollContainer.scrollTop = currentScrollTop;
                 }
+
+                this.updateActiveContentInfo();
             }
 
             async getHighlightStats(contentId) {
@@ -3578,15 +3724,17 @@
                     }
                     
                     this.updateActiveState(item.id);
-                    
+                    this.updateActiveContentInfo();
+                    this.updateScrollControls();
+
                     const transaction = this.db.transaction(['contents'], 'readwrite');
                     const store = transaction.objectStore('contents');
-                    
+
                     item.last_viewed = new Date();
                     store.put(item);
-                    
+
                     localStorage.setItem('lastViewedContentId', item.id.toString());
-                    
+
                 } catch (error) {
                     console.error('콘텐츠 로드 오류:', error);
                     this.showToast('콘텐츠 로드에 실패했습니다', 'error');
@@ -3683,9 +3831,10 @@
                                 '</div>';
                             
                             this.updateStats();
+                            this.updateScrollControls();
                             localStorage.removeItem('lastViewedContentId');
                         }
-                        
+
                         this.loadData();
                         this.showToast('콘텐츠가 삭제되었습니다');
                     };
