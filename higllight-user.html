@@ -925,13 +925,16 @@
                 margin: 0;
                 height: var(--app-height, 100vh);
                 overflow: hidden;
+                display: flex;
+                flex-direction: column;
             }
 
             .main-content {
                 grid-template-columns: 1fr;
                 grid-template-rows: auto 1fr auto;
                 padding: 0 10px 0 10px;
-                height: calc(var(--app-height, 100vh) - 50px);
+                flex: 1;
+                min-height: 0;
                 overflow: hidden;
                 gap: 6px;
             }
