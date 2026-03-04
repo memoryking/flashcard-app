@@ -2007,8 +2007,9 @@
                     });
                     this.updateMindmapHighlightPriority(highlightData);
 
-                    // Hide branch after brief orange flash if filter is not 'memorized'
+                    // Hide branch: switch to unmemorized filter after orange flash
                     if (this.mindmapFilterMode !== 'memorized') {
+                        this.mindmapFilterMode = 'unmemorized';
                         setTimeout(() => this.rerenderMindmap(), 300);
                     }
                 } else {
@@ -2025,8 +2026,8 @@
                     this.deleteLevel1Highlight(highlightData);
                     this.highlights = this.highlights.filter(h => h !== highlightData);
 
-                    // Restore branch if filter is not 'unmemorized'
-                    if (this.mindmapFilterMode !== 'unmemorized' && this.mindmapFilterMode !== 'all') {
+                    // Rerender to show the restored branch in filtered view
+                    if (this.mindmapFilterMode !== 'all') {
                         setTimeout(() => this.rerenderMindmap(), 100);
                     }
                 }
