@@ -2088,16 +2088,51 @@
                     });
                     this.updateMindmapHighlightPriority(highlightData);
 
-                    // Tetris clear animation on the branch group
                     const branchGroup = group.closest('.mindmap-brick') || group.parentElement;
-                    console.log('[toggleLevel1Priority] 암기완료:', text, 'currentFilter:', this.mindmapFilterMode);
-                    if (this.mindmapFilterMode !== 'memorized') {
+                    if (this.mindmapFilterMode !== 'memorized' && branchGroup) {
                         this.mindmapFilterMode = 'unmemorized';
-                        console.log('[toggleLevel1Priority] → unmemorized로 전환, tetris clear 후 rerender');
+
+                        // 1) Tetris shrink animation after orange flash
                         setTimeout(() => {
-                            if (branchGroup) branchGroup.classList.add('brick-clearing');
-                        }, 200);
-                        setTimeout(() => this.rerenderMindmap(), 600);
+                            branchGroup.classList.add('brick-clearing');
+                        }, 250);
+
+                        // 2) After animation: remove brick, slide remaining up
+                        setTimeout(() => {
+                            const svg = branchGroup.closest('svg');
+                            if (!svg) return;
+                            const allBricks = [...svg.querySelectorAll('.mindmap-brick')];
+                            const brickIndex = allBricks.indexOf(branchGroup);
+                            const brickBox = branchGroup.getBBox();
+                            const slideDistance = brickBox.height + 3;
+
+                            // Remove the cleared brick
+                            branchGroup.remove();
+
+                            // Slide all subsequent bricks up
+                            for (let i = brickIndex + 1; i < allBricks.length; i++) {
+                                const b = allBricks[i];
+                                if (!b.parentNode) continue;
+                                // Stack multiple translateY if already shifted
+                                const prev = parseFloat(b.getAttribute('data-shift') || '0');
+                                const newShift = prev + slideDistance;
+                                b.setAttribute('data-shift', newShift);
+                                b.style.transition = 'transform 0.4s ease-out';
+                                b.style.transform = `translateY(-${newShift}px)`;
+                            }
+
+                            // Shrink SVG height
+                            setTimeout(() => {
+                                const h = parseFloat(svg.getAttribute('height'));
+                                const newH = h - slideDistance;
+                                svg.setAttribute('height', newH);
+                                svg.setAttribute('viewBox', `0 0 ${svg.getAttribute('width')} ${newH}`);
+                            }, 420);
+
+                            this.updateStats();
+                            this.updateSingleItemStats(this.currentTextId);
+                            this.updateFilterBadgeStyles();
+                        }, 750);
                     }
                 } else {
                     const rainbowColors = ['#FF0000', '#FF7F00', '#FFD700', '#2DB400', '#0094FF', '#0041C2', '#9B30FF'];
@@ -2113,7 +2148,6 @@
                     this.deleteLevel1Highlight(highlightData);
                     this.highlights = this.highlights.filter(h => h !== highlightData);
 
-                    // Rerender to show the restored branch in filtered view
                     if (this.mindmapFilterMode !== 'all') {
                         setTimeout(() => this.rerenderMindmap(), 100);
                     }
@@ -2344,7 +2378,7 @@
 
                 const textDisplay = document.getElementById('textDisplay');
 
-                // No flash - smooth swap
+                // Smooth swap: add new before removing old
                 this.highlights = [];
                 this.highlightRanges = [];
                 this.clearAllMindmapStates();
@@ -2354,8 +2388,9 @@
                     this.mindmapFilterMode,
                     memorizedTexts
                 );
-                textDisplay.innerHTML = '';
+                const oldContainer = textDisplay.querySelector('.mindmap-container');
                 textDisplay.appendChild(mindmapContainer);
+                if (oldContainer) oldContainer.remove();
 
                 await this.loadMindmapHighlightPriorities();
                 this.updateStats();
