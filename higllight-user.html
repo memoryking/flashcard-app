@@ -2329,20 +2329,20 @@
                     if (filterAttr === 'all' && this.mindmapFilterMode === 'all') {
                         // No highlight for 'all' - it's the default
                     } else if (filterAttr === 'toggle') {
+                        // 전체개수 배지에서 총 수 가져오기
+                        const totalBadge = activeItem.querySelector('.stat-badge[data-filter="all"]');
+                        const totalCount = totalBadge ? parseInt(totalBadge.textContent.replace(/[^0-9]/g, '')) || 0 : 0;
+                        const memCount = parseInt(badge.textContent.replace(/[^0-9]/g, '')) || 0;
+
                         if (this.mindmapFilterMode === 'memorized') {
                             badge.classList.add('filter-active');
-                            // Update text to indicate showing memorized
-                            const count = badge.textContent.replace(/[^0-9]/g, '');
-                            badge.textContent = `암기완료 ${count}`;
+                            badge.textContent = `암기완료 ${memCount}`;
                         } else if (this.mindmapFilterMode === 'unmemorized') {
                             badge.classList.add('filter-active');
-                            // Update text to indicate showing unmemorized
-                            const count = badge.textContent.replace(/[^0-9]/g, '');
-                            badge.textContent = `미암기 보기`;
+                            const unmemorizedCount = totalCount - memCount;
+                            badge.textContent = `미암기 ${unmemorizedCount >= 0 ? unmemorizedCount : 0}`;
                         } else {
-                            // Reset to normal text
-                            const count = badge.textContent.replace(/[^0-9]/g, '');
-                            if (count) badge.textContent = `암기완료 ${count}`;
+                            badge.textContent = `암기완료 ${memCount}`;
                         }
                     }
                 });
