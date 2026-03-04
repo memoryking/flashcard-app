@@ -925,16 +925,13 @@
                 margin: 0;
                 height: var(--app-height, 100vh);
                 overflow: hidden;
-                display: flex;
-                flex-direction: column;
             }
 
             .main-content {
                 grid-template-columns: 1fr;
                 grid-template-rows: auto 1fr auto;
                 padding: 0 10px 0 10px;
-                flex: 1;
-                min-height: 0;
+                height: calc(var(--app-height, 100vh) - 90px);
                 overflow: hidden;
                 gap: 6px;
             }
@@ -957,9 +954,9 @@
             }
             
             .header {
-                padding: 6px 8px;
+                padding: 4px 8px;
                 flex-shrink: 0;
-                margin-bottom: 4px;
+                margin-bottom: 0;
             }
             
             .header h1 {
@@ -1086,7 +1083,7 @@
             .mindmap-scroll-controls {
                 order: 3;
                 gap: 8px;
-                padding: 6px 10px;
+                padding: 2px 10px 4px;
                 flex-shrink: 0;
                 background: #f8f9fa;
                 border-top: 1px solid #ddd;
@@ -1094,12 +1091,12 @@
 
             .scroll-btn {
                 flex: 1;
-                padding: 14px 10px;
-                min-height: 50px;
+                padding: 10px;
+                min-height: 44px;
                 border: 1px solid #ccc;
                 border-radius: 8px;
                 background: white;
-                font-size: 16px;
+                font-size: 15px;
                 cursor: pointer;
                 touch-action: manipulation;
             }
