@@ -141,6 +141,7 @@
             -ms-user-select: text;
             user-select: text;
             flex: 1;
+            min-height: 0;
             overflow-y: auto;
         }
         
@@ -904,7 +905,10 @@
 
         .mobile-menu-btn { display: none; }
         .active-content-info { display: none; }
-        .mindmap-scroll-controls { display: none; }
+        .mindmap-scroll-controls { display: none; gap: 8px; padding: 6px 10px; flex-shrink: 0; background: #f8f9fa; border-top: 1px solid #ddd; }
+        .scroll-btn { flex: 1; padding: 12px 10px; min-height: 44px; border: 1px solid #ccc; border-radius: 8px; background: white; font-size: 14px; cursor: pointer; }
+        .scroll-btn:hover { background: #e3f2fd; }
+        .scroll-btn:active { background: #bbdefb; }
         .saved-texts-header { display: flex; align-items: center; justify-content: space-between; }
 
         @media (max-width: 768px) {
@@ -929,6 +933,7 @@
             .main-content {
                 grid-template-columns: 1fr;
                 grid-template-rows: auto 1fr;
+
                 padding: 0 10px 0 10px;
                 height: calc(var(--app-height, 100vh) - 90px);
                 overflow: hidden;
@@ -1263,11 +1268,11 @@
                         </ul>
                     </div>
                 </div>
-            </div>
 
-            <div class="mindmap-scroll-controls" id="mindmapScrollControls">
-                <button class="scroll-btn" id="scrollDownBtn">▼ 아래로</button>
-                <button class="scroll-btn" id="scrollTopBtn">▲ 맨위로</button>
+                <div class="mindmap-scroll-controls" id="mindmapScrollControls">
+                    <button class="scroll-btn" id="scrollDownBtn">▼ 아래로</button>
+                    <button class="scroll-btn" id="scrollTopBtn">▲ 맨위로</button>
+                </div>
             </div>
         </div>
     </div>
@@ -1544,10 +1549,10 @@
                 const controls = document.getElementById('mindmapScrollControls');
                 const instructions = document.querySelector('.instructions');
                 if (!controls) return;
-                const isMobileMindmap = this.currentContentType === 'mindmap' && window.innerWidth <= 768;
-                controls.style.display = isMobileMindmap ? 'flex' : 'none';
+                const isMindmap = this.currentContentType === 'mindmap';
+                controls.style.display = isMindmap ? 'flex' : 'none';
                 if (instructions) {
-                    instructions.style.display = isMobileMindmap ? 'none' : '';
+                    instructions.style.display = isMindmap ? 'none' : '';
                 }
             }
 
