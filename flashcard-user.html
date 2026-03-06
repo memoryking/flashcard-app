@@ -2450,6 +2450,8 @@
                                 if (updatedItem) this.loadContent(updatedItem);
                             };
                         } catch (e) {}
+                    } else if (importedCount > 0 && this.savedTexts.length > 0 && !this.currentTextId) {
+                        this.loadContent(this.savedTexts[0]);
                     }
 
                     let msg = '';
