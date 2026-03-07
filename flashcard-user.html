@@ -262,10 +262,11 @@
             background: #2a2a4e;
             border: none;
             color: #888;
-            font-size: 9px;
-            padding: 2px 6px;
-            border-radius: 6px;
+            font-size: 11px;
+            padding: 5px 10px;
+            border-radius: 8px;
             cursor: pointer;
+            min-height: 28px;
         }
         .toggle-btn.active {
             background: #e94560;
@@ -839,8 +840,8 @@
                 <div class="stat-box-count" id="countNotMemorized">0</div>
                 <div class="stat-box-label">미암기</div>
                 <div class="stat-box-toggle">
-                    <button class="toggle-btn active" id="toggleTest" onclick="event.stopPropagation(); window.app && window.app.toggleNotMemorizedMode('test')">테스트</button>
-                    <button class="toggle-btn" id="toggleMemorize" onclick="event.stopPropagation(); window.app && window.app.toggleNotMemorizedMode('memorize')">암기</button>
+                    <button class="toggle-btn active" id="toggleTest" onclick="event.stopPropagation(); window.app && window.app.toggleNotMemorizedMode('test')">구분학습</button>
+                    <button class="toggle-btn" id="toggleMemorize" onclick="event.stopPropagation(); window.app && window.app.toggleNotMemorizedMode('memorize')">암기학습</button>
                 </div>
             </div>
             <div class="stat-box remaining" id="statRemaining" onclick="window.app && window.app.startQuiz('remaining')">
@@ -1627,10 +1628,33 @@
                     }, i * 120);
                 });
 
-                // After all cards distributed, update stat bar
+                // After all cards distributed, update stat bar then show encouragement
                 const totalTime = results.length * 120 + 600;
                 setTimeout(() => {
                     this.updateStatBar();
+
+                    // Replace score with encouragement message
+                    setTimeout(() => {
+                        const correct = results.filter(r => r.isCorrect).length;
+                        const pct = Math.round((correct / results.length) * 100);
+                        let icon, msg;
+                        if (pct === 100) {
+                            icon = '👑'; msg = '완벽 그 자체! 당신은 이미 천재입니다';
+                        } else if (pct >= 90) {
+                            icon = '🌟'; msg = '참 잘했어요! 거의 완벽에 가까워요';
+                        } else if (pct >= 70) {
+                            icon = '🧠'; msg = '영리한 반복은 당신을 천재로 만듭니다';
+                        } else if (pct >= 50) {
+                            icon = '🔥'; msg = '반드시 암기할 수 있어요!<br>노력하는 모습이 멋져요';
+                        } else {
+                            icon = '🌱'; msg = '씨앗은 심어졌어요!<br>반복할수록 꽃이 핍니다';
+                        }
+                        area.innerHTML =
+                            '<div class="quiz-complete">' +
+                                '<div class="quiz-complete-icon">' + icon + '</div>' +
+                                '<div class="quiz-complete-text">' + msg + '</div>' +
+                            '</div>';
+                    }, 500);
                 }, totalTime);
             }
 
