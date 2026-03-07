@@ -1143,17 +1143,19 @@
                     req.onerror = () => reject(req.error);
                 });
 
-                // known=2 oldest 20
-                const known2 = all.filter(w => w.known === 2)
-                    .sort((a, b) => (a.last_studied || '').localeCompare(b.last_studied || ''))
-                    .slice(0, 20);
+                const byOldest = (a, b) => (a.last_studied || '').localeCompare(b.last_studied || '');
+                const isToday = w => w.last_studied && w.last_studied.startsWith(todayKST);
 
-                // known=1 oldest 30
-                const known1 = all.filter(w => w.known === 1)
-                    .sort((a, b) => (a.last_studied || '').localeCompare(b.last_studied || ''))
-                    .slice(0, 30);
+                // 1순위: known=1, 오늘 제외, 오래된 순
+                const p1 = all.filter(w => w.known === 1 && !isToday(w)).sort(byOldest);
+                // 2순위: known=2, 오늘 제외, 오래된 순
+                const p2 = all.filter(w => w.known === 2 && !isToday(w)).sort(byOldest);
+                // 3순위: known=2, 오늘 학습, 오래된 순
+                const p3 = all.filter(w => w.known === 2 && isToday(w)).sort(byOldest);
+                // 4순위: known=1, 오늘 학습, 오래된 순
+                const p4 = all.filter(w => w.known === 1 && isToday(w)).sort(byOldest);
 
-                return [...known2, ...known1];
+                return [...p1, ...p2, ...p3, ...p4];
             }
 
             async updateWordKnown(wordProgress, isCorrect) {
