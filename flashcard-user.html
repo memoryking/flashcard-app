@@ -1155,6 +1155,12 @@
                 // 4순위: known=1, 오늘 학습, 오래된 순
                 const p4 = all.filter(w => w.known === 1 && isToday(w)).sort(byOldest);
 
+                console.log('[암기 우선순위] todayKST:', todayKST);
+                console.log('1순위(k1,과거):', p1.map(w => w.word + '|k=' + w.known + '|' + w.last_studied));
+                console.log('2순위(k2,과거):', p2.map(w => w.word + '|k=' + w.known + '|' + w.last_studied));
+                console.log('3순위(k2,오늘):', p3.map(w => w.word + '|k=' + w.known + '|' + w.last_studied));
+                console.log('4순위(k1,오늘):', p4.map(w => w.word + '|k=' + w.known + '|' + w.last_studied));
+
                 return [...p1, ...p2, ...p3, ...p4];
             }
 
