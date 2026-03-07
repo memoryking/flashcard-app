@@ -1390,12 +1390,11 @@
             generateChoices(word) {
                 const correctChar = word.meaning ? word.meaning.charAt(0) : '?';
 
-                // Get all words from current quiz set for wrong answers
+                // Get wrong answer from quiz set first, then fall back to all content words
                 const otherWords = this.quizWords.filter(w => w.word !== word.word && w.meaning);
-                let wrongChar = '?';
+                let wrongChar = '';
 
                 if (otherWords.length > 0) {
-                    // Pick a random wrong answer (first char of another word's meaning)
                     const shuffled = this.shuffleArray(otherWords);
                     for (const other of shuffled) {
                         const c = other.meaning.charAt(0);
@@ -1404,10 +1403,13 @@
                             break;
                         }
                     }
-                    // If all meanings start with same char, use a different approach
-                    if (wrongChar === '?') {
-                        wrongChar = shuffled[0].meaning.charAt(0);
-                    }
+                }
+
+                // Fallback: pick a random Korean syllable that differs from correctChar
+                if (!wrongChar) {
+                    const fallbacks = ['가','나','다','라','마','바','사','아','자','차','카','타','파','하','고','노','도','로','모','보','소','오','조','코','토','포'];
+                    const candidates = fallbacks.filter(c => c !== correctChar);
+                    wrongChar = candidates[Math.floor(Math.random() * candidates.length)];
                 }
 
                 // Random left/right placement
