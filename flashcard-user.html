@@ -1279,7 +1279,8 @@
                     return;
                 }
 
-                this.quizWords = this.shuffleArray(words);
+                // 암기 박스는 우선순위 순서 유지, 나머지는 셔플
+                this.quizWords = (mode === 'memorized') ? words : this.shuffleArray(words);
                 this.isQuizActive = true;
                 this.quizSessionResults = [];
 
