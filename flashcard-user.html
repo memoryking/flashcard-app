@@ -444,6 +444,81 @@
             animation: cascadeIn 0.4s ease-out;
         }
 
+        /* ===== Cascade Deck (Pour) Animation ===== */
+        @keyframes cascadePour {
+            0% { transform: translate(var(--pour-from-x, 0), var(--pour-from-y, -120px)) scale(0.5) rotate(var(--pour-rot, 0deg)); opacity: 0; }
+            40% { opacity: 1; }
+            100% { transform: translate(0, 0) scale(1) rotate(0deg); opacity: 1; }
+        }
+        .cascade-mini-card {
+            position: absolute;
+            width: 60px;
+            height: 40px;
+            background: #16213e;
+            border: 1.5px solid #533483;
+            border-radius: 8px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 10px;
+            color: #aaa;
+            pointer-events: none;
+            animation: cascadePour 0.45s ease-out forwards;
+            z-index: 5;
+        }
+
+        /* ===== Quiz Score Display ===== */
+        .quiz-score {
+            text-align: center;
+            padding: 30px 20px 10px;
+        }
+        .quiz-score-number {
+            font-size: 2.8em;
+            font-weight: 800;
+            color: #fff;
+            line-height: 1;
+        }
+        .quiz-score-percent {
+            font-size: 1.1em;
+            color: #aaa;
+            margin-top: 6px;
+        }
+
+        /* ===== Distribution Fly Animation ===== */
+        @keyframes distFly {
+            0% { transform: translate(0, 0) scale(1); opacity: 1; }
+            100% { transform: translate(var(--dist-x, 0), var(--dist-y, -200px)) scale(0.3); opacity: 0; }
+        }
+        .dist-flying-card {
+            position: absolute;
+            width: 56px;
+            height: 36px;
+            background: #16213e;
+            border: 1.5px solid #2a2a4e;
+            border-radius: 7px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 9px;
+            font-weight: 600;
+            color: #e0e0e0;
+            pointer-events: none;
+            animation: distFly 0.5s ease-in forwards;
+            z-index: 10;
+        }
+        .dist-flying-card.correct { border-color: #4caf50; color: #4caf50; }
+        .dist-flying-card.wrong { border-color: #e94560; color: #e94560; }
+
+        /* ===== Stat Box Count Bump ===== */
+        @keyframes statBump {
+            0% { transform: scale(1); }
+            40% { transform: scale(1.4); }
+            100% { transform: scale(1); }
+        }
+        .stat-bump .stat-box-count {
+            animation: statBump 0.35s ease-out;
+        }
+
         /* ===== Empty / Idle State ===== */
         .flashcard-idle {
             text-align: center;
@@ -760,10 +835,6 @@
 
         <!-- Stat Bar -->
         <div class="flashcard-stat-bar" id="statBar">
-            <div class="stat-box remaining" id="statRemaining" onclick="window.app && window.app.startQuiz('remaining')">
-                <div class="stat-box-count" id="countRemaining">0</div>
-                <div class="stat-box-label">남은 개수</div>
-            </div>
             <div class="stat-box not-memorized" id="statNotMemorized" onclick="window.app && window.app.startQuiz('notMemorized')">
                 <div class="stat-box-count" id="countNotMemorized">0</div>
                 <div class="stat-box-label">미암기</div>
@@ -771,6 +842,10 @@
                     <button class="toggle-btn active" id="toggleTest" onclick="event.stopPropagation(); window.app && window.app.toggleNotMemorizedMode('test')">테스트</button>
                     <button class="toggle-btn" id="toggleMemorize" onclick="event.stopPropagation(); window.app && window.app.toggleNotMemorizedMode('memorize')">암기</button>
                 </div>
+            </div>
+            <div class="stat-box remaining" id="statRemaining" onclick="window.app && window.app.startQuiz('remaining')">
+                <div class="stat-box-count" id="countRemaining">0</div>
+                <div class="stat-box-label">남은 개수</div>
             </div>
             <div class="stat-box memorized" id="statMemorized" onclick="window.app && window.app.startQuiz('memorized')">
                 <div class="stat-box-count" id="countMemorized">0</div>
@@ -827,6 +902,7 @@
                 this.notMemorizedMode = localStorage.getItem('notMemorizedMode') || 'test';
                 this.memorizeRevealed = false;
                 this.isProcessing = false;
+                this.quizSessionResults = [];
 
                 this.init();
             }
@@ -1202,24 +1278,49 @@
 
                 this.quizWords = this.shuffleArray(words);
                 this.isQuizActive = true;
+                this.quizSessionResults = [];
 
-                // Animate cascade from stat box
-                this.animateCascade(mode);
+                // Animate cascade deck from stat box
+                this.animateCascadeDeck(mode);
 
                 setTimeout(() => {
                     this.showNextCard();
-                }, 400);
+                }, 600);
             }
 
             showQuizComplete() {
                 const area = document.getElementById('flashcardArea');
-                area.innerHTML =
-                    '<div class="quiz-complete">' +
-                        '<div class="quiz-complete-icon">🎉</div>' +
-                        '<div class="quiz-complete-text">더 이상 학습할 단어가 없습니다</div>' +
-                    '</div>';
                 document.getElementById('choiceArea').style.display = 'none';
                 document.getElementById('timerBarContainer').style.display = 'none';
+
+                const results = this.quizSessionResults;
+                const total = results.length;
+
+                // No results (empty quiz) - show simple message
+                if (total === 0) {
+                    area.innerHTML =
+                        '<div class="quiz-complete">' +
+                            '<div class="quiz-complete-icon">🎉</div>' +
+                            '<div class="quiz-complete-text">더 이상 학습할 단어가 없습니다</div>' +
+                        '</div>';
+                    this.updateStatBar();
+                    return;
+                }
+
+                const correct = results.filter(r => r.isCorrect).length;
+                const pct = Math.round((correct / total) * 100);
+
+                // Show score
+                area.innerHTML =
+                    '<div class="quiz-score">' +
+                        '<div class="quiz-score-number">' + correct + ' / ' + total + '</div>' +
+                        '<div class="quiz-score-percent">' + pct + '% 정답</div>' +
+                    '</div>';
+
+                // After 1.2s, start card distribution animation
+                setTimeout(() => {
+                    this.animateCardDistribution(results);
+                }, 1200);
             }
 
             // ===== Show Next Card =====
@@ -1228,7 +1329,6 @@
                     this.isQuizActive = false;
                     this.stopQuizTimer();
                     this.showQuizComplete();
-                    this.updateStatBar();
                     return;
                 }
 
@@ -1327,6 +1427,9 @@
                 const choice = this.currentChoices[index];
                 const isCorrect = choice.correct;
 
+                // Track result
+                this.quizSessionResults.push({ word: word.word, isCorrect });
+
                 // Update known status
                 await this.updateWordKnown(word, isCorrect);
 
@@ -1421,6 +1524,9 @@
 
                 const word = this.quizWords[this.quizIndex];
 
+                // Track result
+                this.quizSessionResults.push({ word: word.word, isCorrect: false });
+
                 // Show word + meaning for 1 second
                 const card = document.getElementById('flashcardMain');
                 if (card) {
@@ -1450,17 +1556,92 @@
             }
 
             // ===== Animations =====
-            animateCascade(fromMode) {
+            animateCascadeDeck(fromMode) {
                 const boxMap = { remaining: 'statRemaining', notMemorized: 'statNotMemorized', memorized: 'statMemorized' };
                 const box = document.getElementById(boxMap[fromMode]);
                 if (!box) return;
 
+                const area = document.getElementById('flashcardArea');
                 const boxRect = box.getBoundingClientRect();
+                const areaRect = area.getBoundingClientRect();
+
+                const fromX = boxRect.left + boxRect.width / 2 - (areaRect.left + areaRect.width / 2);
+                const fromY = boxRect.bottom - areaRect.top - areaRect.height / 2;
+
+                // Also set legacy cascade-from-y for the cascade-in class on cards
+                document.documentElement.style.setProperty('--cascade-from-y', fromY + 'px');
+
+                const cardCount = Math.min(10, Math.max(8, this.quizWords.length));
+                for (let i = 0; i < cardCount; i++) {
+                    const card = document.createElement('div');
+                    card.className = 'cascade-mini-card';
+                    const rot = (Math.random() - 0.5) * 30;
+                    card.style.setProperty('--pour-from-x', fromX + 'px');
+                    card.style.setProperty('--pour-from-y', fromY + 'px');
+                    card.style.setProperty('--pour-rot', rot + 'deg');
+                    card.style.animationDelay = (i * 50) + 'ms';
+                    card.style.left = 'calc(50% - 30px + ' + ((Math.random() - 0.5) * 20) + 'px)';
+                    card.style.top = 'calc(50% - 20px + ' + ((Math.random() - 0.5) * 14) + 'px)';
+                    card.textContent = '📖';
+                    area.appendChild(card);
+
+                    // Remove after animation
+                    setTimeout(() => { if (card.parentNode) card.remove(); }, 500 + i * 50);
+                }
+            }
+
+            animateCardDistribution(results) {
                 const area = document.getElementById('flashcardArea');
                 const areaRect = area.getBoundingClientRect();
 
-                const fromY = boxRect.bottom - areaRect.top - areaRect.height / 2;
-                document.documentElement.style.setProperty('--cascade-from-y', fromY + 'px');
+                const memorizedBox = document.getElementById('statMemorized');
+                const notMemBox = document.getElementById('statNotMemorized');
+                const memRect = memorizedBox.getBoundingClientRect();
+                const notMemRect = notMemBox.getBoundingClientRect();
+
+                const centerX = areaRect.width / 2;
+                const centerY = areaRect.height / 2;
+
+                results.forEach((result, i) => {
+                    setTimeout(() => {
+                        const card = document.createElement('div');
+                        card.className = 'dist-flying-card ' + (result.isCorrect ? 'correct' : 'wrong');
+
+                        const targetBox = result.isCorrect ? memRect : notMemRect;
+                        const distX = targetBox.left + targetBox.width / 2 - (areaRect.left + centerX);
+                        const distY = targetBox.top + targetBox.height / 2 - (areaRect.top + centerY);
+
+                        card.style.setProperty('--dist-x', distX + 'px');
+                        card.style.setProperty('--dist-y', distY + 'px');
+                        card.style.left = (centerX - 28) + 'px';
+                        card.style.top = (centerY - 18) + 'px';
+                        card.textContent = result.word.length > 4 ? result.word.substring(0, 4) + '..' : result.word;
+
+                        area.appendChild(card);
+
+                        // Bump stat count when card arrives
+                        setTimeout(() => {
+                            this.bumpStatCount(result.isCorrect ? 'statMemorized' : 'statNotMemorized');
+                            if (card.parentNode) card.remove();
+                        }, 480);
+                    }, i * 120);
+                });
+
+                // After all cards distributed, update stat bar
+                const totalTime = results.length * 120 + 600;
+                setTimeout(() => {
+                    this.updateStatBar();
+                }, totalTime);
+            }
+
+            bumpStatCount(boxId) {
+                const box = document.getElementById(boxId);
+                if (!box) return;
+                box.classList.remove('stat-bump');
+                // Force reflow
+                void box.offsetWidth;
+                box.classList.add('stat-bump');
+                setTimeout(() => box.classList.remove('stat-bump'), 400);
             }
 
             animateFlyToBox(targetMode) {
