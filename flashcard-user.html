@@ -774,7 +774,7 @@
             </div>
             <div class="stat-box memorized" id="statMemorized" onclick="window.app && window.app.startQuiz('memorized')">
                 <div class="stat-box-count" id="countMemorized">0</div>
-                <div class="stat-box-label">암기된</div>
+                <div class="stat-box-label">암기</div>
             </div>
         </div>
 
@@ -1066,19 +1066,13 @@
                     req.onerror = () => reject(req.error);
                 });
 
-                // Exclude today's studied
-                const notToday = all.filter(w => {
-                    if (!w.last_studied) return true;
-                    return !w.last_studied.startsWith(todayKST);
-                });
-
                 // known=2 oldest 20
-                const known2 = notToday.filter(w => w.known === 2)
+                const known2 = all.filter(w => w.known === 2)
                     .sort((a, b) => (a.last_studied || '').localeCompare(b.last_studied || ''))
                     .slice(0, 20);
 
                 // known=1 oldest 30
-                const known1 = notToday.filter(w => w.known === 1)
+                const known1 = all.filter(w => w.known === 1)
                     .sort((a, b) => (a.last_studied || '').localeCompare(b.last_studied || ''))
                     .slice(0, 30);
 
