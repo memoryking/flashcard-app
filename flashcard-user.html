@@ -904,6 +904,7 @@
                 this.memorizeRevealed = false;
                 this.isProcessing = false;
                 this.quizSessionResults = [];
+                this.wordLimitRemaining = parseInt(localStorage.getItem('wordLimitRemaining')) || 30;
                 this.wordLimitNotMemorized = parseInt(localStorage.getItem('wordLimitNotMemorized')) || 30;
                 this.wordLimitMemorized = parseInt(localStorage.getItem('wordLimitMemorized')) || 30;
 
@@ -1265,7 +1266,7 @@
                 let words = [];
 
                 if (mode === 'remaining') {
-                    words = await this.queryWords(this.currentTextId, { known: null, limit: 30 });
+                    words = await this.queryWords(this.currentTextId, { known: null, limit: this.wordLimitRemaining });
                 } else if (mode === 'notMemorized') {
                     const nmLimit = this.wordLimitNotMemorized;
                     if (this.notMemorizedMode === 'test') {
@@ -1823,6 +1824,11 @@
                             '<div class="settings-value" id="timeLimitValue">' + (this.quizTimeLimit / 1000).toFixed(1) + '초</div>' +
                         '</div>' +
                         '<div class="settings-row">' +
+                            '<div class="settings-label">남은개수 단어 수</div>' +
+                            '<input type="range" class="settings-slider" id="wordLimitRSlider" min="10" max="100" step="10" value="' + this.wordLimitRemaining + '">' +
+                            '<div class="settings-value" id="wordLimitRValue">' + this.wordLimitRemaining + '개</div>' +
+                        '</div>' +
+                        '<div class="settings-row">' +
                             '<div class="settings-label">미암기 단어 수</div>' +
                             '<input type="range" class="settings-slider" id="wordLimitNMSlider" min="10" max="100" step="10" value="' + this.wordLimitNotMemorized + '">' +
                             '<div class="settings-value" id="wordLimitNMValue">' + this.wordLimitNotMemorized + '개</div>' +
@@ -1845,6 +1851,15 @@
                     this.quizTimeLimit = val;
                     localStorage.setItem('quizTimeLimit', val.toString());
                     valueDisplay.textContent = (val / 1000).toFixed(1) + '초';
+                });
+
+                const rSlider = modal.querySelector('#wordLimitRSlider');
+                const rValue = modal.querySelector('#wordLimitRValue');
+                rSlider.addEventListener('input', () => {
+                    const val = parseInt(rSlider.value);
+                    this.wordLimitRemaining = val;
+                    localStorage.setItem('wordLimitRemaining', val.toString());
+                    rValue.textContent = val + '개';
                 });
 
                 const nmSlider = modal.querySelector('#wordLimitNMSlider');
