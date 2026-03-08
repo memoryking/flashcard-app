@@ -904,6 +904,8 @@
                 this.memorizeRevealed = false;
                 this.isProcessing = false;
                 this.quizSessionResults = [];
+                this.wordLimitNotMemorized = parseInt(localStorage.getItem('wordLimitNotMemorized')) || 30;
+                this.wordLimitMemorized = parseInt(localStorage.getItem('wordLimitMemorized')) || 30;
 
                 this.init();
             }
@@ -1131,7 +1133,7 @@
                 return filtered.slice(0, limit);
             }
 
-            async queryMemorizedWords(contentId, todayKST) {
+            async queryMemorizedWords(contentId, todayKST, limit) {
                 if (!this.db) return [];
 
                 const all = await new Promise((resolve, reject) => {
@@ -1155,7 +1157,8 @@
                 // 4순위: known=1, 오늘 학습, 오래된 순
                 const p4 = all.filter(w => w.known === 1 && isToday(w)).sort(byOldest);
 
-                return [...p1, ...p2, ...p3, ...p4];
+                const result = [...p1, ...p2, ...p3, ...p4];
+                return limit ? result.slice(0, limit) : result;
             }
 
             async updateWordKnown(wordProgress, isCorrect) {
@@ -1264,14 +1267,15 @@
                 if (mode === 'remaining') {
                     words = await this.queryWords(this.currentTextId, { known: null, limit: 30 });
                 } else if (mode === 'notMemorized') {
+                    const nmLimit = this.wordLimitNotMemorized;
                     if (this.notMemorizedMode === 'test') {
-                        words = await this.queryWords(this.currentTextId, { known: 0, limit: 50 });
+                        words = await this.queryWords(this.currentTextId, { known: 0, limit: nmLimit });
                     } else {
-                        words = await this.queryWords(this.currentTextId, { known: 0, limit: 30 });
+                        words = await this.queryWords(this.currentTextId, { known: 0, limit: nmLimit });
                     }
                 } else if (mode === 'memorized') {
                     const todayKST = this.getKSTDateString();
-                    words = await this.queryMemorizedWords(this.currentTextId, todayKST);
+                    words = await this.queryMemorizedWords(this.currentTextId, todayKST, this.wordLimitMemorized);
                 }
 
                 if (words.length === 0) {
@@ -1818,6 +1822,16 @@
                             '<input type="range" class="settings-slider" id="timeLimitSlider" min="500" max="5000" step="100" value="' + this.quizTimeLimit + '">' +
                             '<div class="settings-value" id="timeLimitValue">' + (this.quizTimeLimit / 1000).toFixed(1) + '초</div>' +
                         '</div>' +
+                        '<div class="settings-row">' +
+                            '<div class="settings-label">미암기 단어 수</div>' +
+                            '<input type="range" class="settings-slider" id="wordLimitNMSlider" min="10" max="100" step="10" value="' + this.wordLimitNotMemorized + '">' +
+                            '<div class="settings-value" id="wordLimitNMValue">' + this.wordLimitNotMemorized + '개</div>' +
+                        '</div>' +
+                        '<div class="settings-row">' +
+                            '<div class="settings-label">암기 단어 수</div>' +
+                            '<input type="range" class="settings-slider" id="wordLimitMSlider" min="10" max="100" step="10" value="' + this.wordLimitMemorized + '">' +
+                            '<div class="settings-value" id="wordLimitMValue">' + this.wordLimitMemorized + '개</div>' +
+                        '</div>' +
                         previewHtml +
                         '<button class="settings-close-btn" id="settingsCloseBtn">닫기</button>' +
                     '</div>';
@@ -1831,6 +1845,24 @@
                     this.quizTimeLimit = val;
                     localStorage.setItem('quizTimeLimit', val.toString());
                     valueDisplay.textContent = (val / 1000).toFixed(1) + '초';
+                });
+
+                const nmSlider = modal.querySelector('#wordLimitNMSlider');
+                const nmValue = modal.querySelector('#wordLimitNMValue');
+                nmSlider.addEventListener('input', () => {
+                    const val = parseInt(nmSlider.value);
+                    this.wordLimitNotMemorized = val;
+                    localStorage.setItem('wordLimitNotMemorized', val.toString());
+                    nmValue.textContent = val + '개';
+                });
+
+                const mSlider = modal.querySelector('#wordLimitMSlider');
+                const mValue = modal.querySelector('#wordLimitMValue');
+                mSlider.addEventListener('input', () => {
+                    const val = parseInt(mSlider.value);
+                    this.wordLimitMemorized = val;
+                    localStorage.setItem('wordLimitMemorized', val.toString());
+                    mValue.textContent = val + '개';
                 });
 
                 modal.querySelector('#settingsCloseBtn').addEventListener('click', () => modal.remove());
