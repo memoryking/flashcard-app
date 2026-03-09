@@ -238,14 +238,14 @@
         }
 
         .stat-box-count {
-            font-size: 1.6em;
+            font-size: 2em;
             font-weight: 700;
             line-height: 1;
         }
         .stat-box-label {
-            font-size: 10px;
+            font-size: 13px;
             color: #888;
-            margin-top: 2px;
+            margin-top: 3px;
         }
 
         .stat-box.remaining .stat-box-count { color: #e94560; }
@@ -773,7 +773,10 @@
                 padding: 14px 8px;
             }
             .stat-box-count {
-                font-size: 1.3em;
+                font-size: 1.6em;
+            }
+            .stat-box-label {
+                font-size: 12px;
             }
             .airtable-import-dialog {
                 padding: 20px;
@@ -1085,7 +1088,7 @@
             }
 
             async getWordCounts(contentId) {
-                if (!this.db) return { remaining: 0, notMemorized: 0, memorized: 0 };
+                if (!this.db) return { remaining: 0, notMemorized: 0, memorized: 0, memorizedAllToday: false };
 
                 const all = await new Promise((resolve, reject) => {
                     const tx = this.db.transaction(['word_progress'], 'readonly');
@@ -1098,9 +1101,14 @@
 
                 const remaining = all.filter(w => w.known === null).length;
                 const notMemorized = all.filter(w => w.known === 0).length;
-                const memorized = all.filter(w => w.known === 1 || w.known === 2).length;
+                const memorizedWords = all.filter(w => w.known === 1 || w.known === 2);
+                const memorized = memorizedWords.length;
 
-                return { remaining, notMemorized, memorized };
+                // 암기 단어가 1개 이상이고, 모두 오늘 학습한 단어인지 확인
+                const todayKST = this.getKSTDateString();
+                const memorizedAllToday = memorized > 0 && memorizedWords.every(w => w.last_studied && w.last_studied.startsWith(todayKST));
+
+                return { remaining, notMemorized, memorized, memorizedAllToday };
             }
 
             async queryWords(contentId, { known = undefined, limit = 50, excludeToday = false } = {}) {
@@ -1217,10 +1225,12 @@
 
             // ===== Stat Bar =====
             async updateStatBar() {
+                const crown = document.getElementById('memorizedCrown');
                 if (!this.currentTextId) {
                     document.getElementById('countRemaining').textContent = '0';
                     document.getElementById('countNotMemorized').textContent = '0';
                     document.getElementById('countMemorized').textContent = '0';
+                    if (crown) crown.style.display = 'none';
                     return;
                 }
 
@@ -1228,6 +1238,9 @@
                 document.getElementById('countRemaining').textContent = counts.remaining;
                 document.getElementById('countNotMemorized').textContent = counts.notMemorized;
                 document.getElementById('countMemorized').textContent = counts.memorized;
+
+                // 암기 단어가 모두 오늘 학습한 단어일 때 왕관 표시
+                if (crown) crown.style.display = counts.memorizedAllToday ? 'inline' : 'none';
             }
 
             // ===== Toggle UI =====
@@ -1304,10 +1317,6 @@
             }
 
             showQuizComplete() {
-                // 퀴즈 종료 시 왕관 숨김
-                const crown = document.getElementById('memorizedCrown');
-                if (crown) crown.style.display = 'none';
-
                 const area = document.getElementById('flashcardArea');
                 document.getElementById('choiceArea').style.display = 'none';
                 document.getElementById('timerBarContainer').style.display = 'none';
@@ -1405,11 +1414,11 @@
             updateMemorizedCrown() {
                 const crown = document.getElementById('memorizedCrown');
                 if (!crown) return;
+                // 암기박스 퀴즈 중: 오늘 학습 단어 구간 진입 시 왕관 표시
                 if (this.quizMode === 'memorized' && this.memorizedTodayStartIndex >= 0 && this.quizIndex >= this.memorizedTodayStartIndex) {
                     crown.style.display = 'inline';
-                } else {
-                    crown.style.display = 'none';
                 }
+                // 암기박스 퀴즈가 아닐 때는 updateStatBar가 관리
             }
 
             escapeHtml(str) {
