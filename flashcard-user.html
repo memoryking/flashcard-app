@@ -850,7 +850,7 @@
             </div>
             <div class="stat-box memorized" id="statMemorized" onclick="window.app && window.app.startQuiz('memorized')">
                 <div class="stat-box-count" id="countMemorized">0</div>
-                <div class="stat-box-label">암기</div>
+                <div class="stat-box-label">암기 <span id="memorizedCrown" style="display:none;">👑</span></div>
             </div>
         </div>
 
@@ -904,9 +904,10 @@
                 this.memorizeRevealed = false;
                 this.isProcessing = false;
                 this.quizSessionResults = [];
-                this.wordLimitRemaining = parseInt(localStorage.getItem('wordLimitRemaining')) || 30;
-                this.wordLimitNotMemorized = parseInt(localStorage.getItem('wordLimitNotMemorized')) || 30;
-                this.wordLimitMemorized = parseInt(localStorage.getItem('wordLimitMemorized')) || 30;
+                this.memorizedTodayStartIndex = -1; // 암기박스에서 오늘 학습 단어 시작 인덱스
+                this.wordLimitRemaining = parseInt(localStorage.getItem('wordLimitRemaining')) || 10;
+                this.wordLimitNotMemorized = parseInt(localStorage.getItem('wordLimitNotMemorized')) || 10;
+                this.wordLimitMemorized = parseInt(localStorage.getItem('wordLimitMemorized')) || 10;
 
                 this.init();
             }
@@ -1158,8 +1159,12 @@
                 // 4순위: known=1, 오늘 학습, 오래된 순
                 const p4 = all.filter(w => w.known === 1 && isToday(w)).sort(byOldest);
 
+                const notTodayCount = p1.length + p2.length;
                 const result = [...p1, ...p2, ...p3, ...p4];
-                return limit ? result.slice(0, limit) : result;
+                const sliced = limit ? result.slice(0, limit) : result;
+                // 경계 인덱스: limit 적용 후에도 notTodayCount 이내인지 확인
+                this.memorizedTodayStartIndex = Math.min(notTodayCount, sliced.length);
+                return sliced;
             }
 
             async updateWordKnown(wordProgress, isCorrect) {
@@ -1256,6 +1261,7 @@
                 this.quizMode = mode;
                 this.quizIndex = 0;
                 this.isProcessing = false;
+                if (mode !== 'memorized') this.memorizedTodayStartIndex = -1;
 
                 // Update active stat box
                 document.querySelectorAll('.stat-box').forEach(b => b.classList.remove('active'));
@@ -1298,6 +1304,10 @@
             }
 
             showQuizComplete() {
+                // 퀴즈 종료 시 왕관 숨김
+                const crown = document.getElementById('memorizedCrown');
+                if (crown) crown.style.display = 'none';
+
                 const area = document.getElementById('flashcardArea');
                 document.getElementById('choiceArea').style.display = 'none';
                 document.getElementById('timerBarContainer').style.display = 'none';
@@ -1340,6 +1350,9 @@
                     this.showQuizComplete();
                     return;
                 }
+
+                // 암기박스: 오늘 학습 단어 구간 진입 시 왕관 표시
+                this.updateMemorizedCrown();
 
                 const word = this.quizWords[this.quizIndex];
                 const area = document.getElementById('flashcardArea');
@@ -1386,6 +1399,16 @@
                     document.getElementById('choiceRight').textContent = this.currentChoices[1].text;
 
                     this.startQuizTimer();
+                }
+            }
+
+            updateMemorizedCrown() {
+                const crown = document.getElementById('memorizedCrown');
+                if (!crown) return;
+                if (this.quizMode === 'memorized' && this.memorizedTodayStartIndex >= 0 && this.quizIndex >= this.memorizedTodayStartIndex) {
+                    crown.style.display = 'inline';
+                } else {
+                    crown.style.display = 'none';
                 }
             }
 
