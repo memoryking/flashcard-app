@@ -352,6 +352,7 @@
             text-align: center;
             display: none;
             font-style: italic;
+            white-space: pre-line;
         }
 
         .flashcard-main.revealed .flashcard-meaning,
@@ -1426,9 +1427,23 @@
                 return str.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
             }
 
+            // ===== Extract Hint Character =====
+            getHintChar(meaning) {
+                if (!meaning) return '?';
+                let s = meaning.trim();
+                let prev;
+                do {
+                    prev = s;
+                    s = s.replace(/^[~～]\s*/, '');
+                    s = s.replace(/^(에게|에서|으로|에|의|을|를|와|과|로|이|가)\s+/, '');
+                    s = s.replace(/^\([^)]*\)\s*/, '');
+                } while (s !== prev);
+                return s.charAt(0) || meaning.trim().charAt(0) || '?';
+            }
+
             // ===== Generate Choices =====
             generateChoices(word) {
-                const correctChar = word.meaning ? word.meaning.charAt(0) : '?';
+                const correctChar = this.getHintChar(word.meaning);
 
                 // Get wrong answer from quiz set first, then fall back to all content words
                 const otherWords = this.quizWords.filter(w => w.word !== word.word && w.meaning);
@@ -1437,7 +1452,7 @@
                 if (otherWords.length > 0) {
                     const shuffled = this.shuffleArray(otherWords);
                     for (const other of shuffled) {
-                        const c = other.meaning.charAt(0);
+                        const c = this.getHintChar(other.meaning);
                         if (c !== correctChar) {
                             wrongChar = c;
                             break;
@@ -1968,7 +1983,7 @@
                     const branch = {
                         level1: parts[0] ? parts[0].trim() : '',
                         level2: parts[1] ? parts[1].trim() : '',
-                        level3: parts[2] ? parts[2].trim() : ''
+                        level3: parts.length > 2 ? parts.slice(2).map(p => p.trim()).filter(p => p).join('\n') : ''
                     };
 
                     if (branch.level1) {
@@ -2598,10 +2613,10 @@
                             const branches = [];
                             lines.forEach(line => {
                                 const parts = line.split('@');
-                                const branch = { level1: (parts[0]||'').trim(), level2: (parts[1]||'').trim(), level3: (parts[2]||'').trim() };
+                                const branch = { level1: (parts[0]||'').trim(), level2: (parts[1]||'').trim(), level3: parts.length > 2 ? parts.slice(2).map(p => p.trim()).filter(p => p).join('\n') : '' };
                                 if (branch.level1) branches.push(branch);
                             });
-                            item.content.mindmap_data = JSON.stringify({ title: item.content.title || '마인드맵', branches: branches });
+                            item.content.mindmap_data = JSON.stringify({ title: item.content.title || '플래시카드', branches: branches });
                         }
                         importData.contents.push(item.content);
                         importData.updateMap.push({
