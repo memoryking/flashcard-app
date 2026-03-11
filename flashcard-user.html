@@ -879,6 +879,37 @@
     </div>
 
     <script>
+        // ===== 접속 제한: 허용된 도메인에서만 로드 가능 =====
+        (function() {
+            const ALLOWED_ORIGINS = [
+                'vipup.site',
+                'www.vipup.site',
+                'memoryking.github.io',
+                'localhost',
+                '127.0.0.1'
+            ];
+
+            function isAllowed() {
+                // 직접 접속 (iframe이 아닌 경우) - 개발용 허용
+                if (window.self === window.top) {
+                    const host = window.location.hostname;
+                    return ALLOWED_ORIGINS.some(d => host === d || host.endsWith('.' + d));
+                }
+                // iframe 내부인 경우 - referrer 검사
+                const ref = document.referrer;
+                if (!ref) return false;
+                try {
+                    const refHost = new URL(ref).hostname;
+                    return ALLOWED_ORIGINS.some(d => refHost === d || refHost.endsWith('.' + d));
+                } catch(e) { return false; }
+            }
+
+            if (!isAllowed()) {
+                document.body.innerHTML = '<div style="display:flex;align-items:center;justify-content:center;height:100vh;background:#1a1a2e;color:#e0e0e0;font-family:sans-serif;text-align:center;padding:20px;"><div><h2 style="margin-bottom:16px;">접속이 제한되었습니다</h2><p>이 서비스는 <a href="https://vipup.site" style="color:#4fc3f7;">vipup.site</a>에서만 이용 가능합니다.</p></div></div>';
+                throw new Error('Unauthorized origin');
+            }
+        })();
+
         class WordMemorizationApp {
             constructor() {
                 this.db = null;
@@ -1001,6 +1032,15 @@
                 return a;
             }
 
+            shuffleInChunks(arr, chunkSize = 10) {
+                const result = [];
+                for (let i = 0; i < arr.length; i += chunkSize) {
+                    const chunk = arr.slice(i, i + chunkSize);
+                    result.push(...this.shuffleArray(chunk));
+                }
+                return result;
+            }
+
             // ===== Word Progress Data Methods =====
             async initWordProgress(contentId) {
                 if (!this.db || !this.currentMindmapData) return;
@@ -1105,9 +1145,13 @@
                 const memorizedWords = all.filter(w => w.known === 1 || w.known === 2);
                 const memorized = memorizedWords.length;
 
-                // 암기 단어가 1개 이상이고, 모두 오늘 학습한 단어인지 확인
+                // 왕관: 1순위(known=1,오늘X) + 2순위(known=2,3일이전)가 없을 때
                 const todayKST = this.getKSTDateString();
-                const memorizedAllToday = memorized > 0 && memorizedWords.every(w => w.last_studied && w.last_studied.startsWith(todayKST));
+                const todayDate = new Date(todayKST + 'T00:00:00Z');
+                const cutoffStr = new Date(todayDate.getTime() - 3 * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
+                const hasP1 = memorizedWords.some(w => w.known === 1 && !(w.last_studied && w.last_studied.startsWith(todayKST)));
+                const hasP2 = memorizedWords.some(w => w.known === 2 && (w.last_studied ? w.last_studied.substring(0, 10) : '') <= cutoffStr);
+                const memorizedAllToday = memorized > 0 && !hasP1 && !hasP2;
 
                 return { remaining, notMemorized, memorized, memorizedAllToday };
             }
@@ -1158,21 +1202,26 @@
 
                 const byOldest = (a, b) => (a.last_studied || '').localeCompare(b.last_studied || '');
                 const isToday = w => w.last_studied && w.last_studied.startsWith(todayKST);
+                const studiedDate = w => w.last_studied ? w.last_studied.substring(0, 10) : '';
+
+                // 3일 전 날짜 계산 (오늘 3/11이면 3/8)
+                const todayDate = new Date(todayKST + 'T00:00:00Z');
+                const cutoffStr = new Date(todayDate.getTime() - 3 * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
 
                 // 1순위: known=1, 오늘 제외, 오래된 순
                 const p1 = all.filter(w => w.known === 1 && !isToday(w)).sort(byOldest);
-                // 2순위: known=2, 오늘 제외, 오래된 순
-                const p2 = all.filter(w => w.known === 2 && !isToday(w)).sort(byOldest);
-                // 3순위: known=2, 오늘 학습, 오래된 순
-                const p3 = all.filter(w => w.known === 2 && isToday(w)).sort(byOldest);
+                // 2순위: known=2, 3일 이전(cutoff 포함), 오래된 순
+                const p2 = all.filter(w => w.known === 2 && studiedDate(w) <= cutoffStr).sort(byOldest);
+                // 3순위: known=2, 최근(cutoff 이후 ~ 오늘), 오래된 순
+                const p3 = all.filter(w => w.known === 2 && studiedDate(w) > cutoffStr).sort(byOldest);
                 // 4순위: known=1, 오늘 학습, 오래된 순
                 const p4 = all.filter(w => w.known === 1 && isToday(w)).sort(byOldest);
 
-                const notTodayCount = p1.length + p2.length;
+                const priorityCount = p1.length + p2.length;
                 const result = [...p1, ...p2, ...p3, ...p4];
                 const sliced = limit ? result.slice(0, limit) : result;
-                // 경계 인덱스: limit 적용 후에도 notTodayCount 이내인지 확인
-                this.memorizedTodayStartIndex = Math.min(notTodayCount, sliced.length);
+                // 왕관 경계: 3순위(최근 known=2) 진입 시점
+                this.memorizedTodayStartIndex = Math.min(priorityCount, sliced.length);
                 return sliced;
             }
 
@@ -1304,8 +1353,12 @@
                     return;
                 }
 
-                // 암기 박스는 우선순위 순서 유지, 나머지는 셔플
-                this.quizWords = (mode === 'memorized') ? words : this.shuffleArray(words);
+                // 암기박스: 우선순위 유지, 남은박스: 저장순서 유지, 미암기: 10개 단위 셔플
+                if (mode === 'notMemorized') {
+                    this.quizWords = this.shuffleInChunks(words, 10);
+                } else {
+                    this.quizWords = words;
+                }
                 this.isQuizActive = true;
                 this.quizSessionResults = [];
 
