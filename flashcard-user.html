@@ -256,7 +256,7 @@
             display: flex;
             gap: 2px;
             justify-content: center;
-            margin-top: 4px;
+            margin-bottom: 4px;
         }
         .toggle-btn {
             background: #2a2a4e;
@@ -842,16 +842,18 @@
         <!-- Stat Bar -->
         <div class="flashcard-stat-bar" id="statBar">
             <div class="stat-box not-memorized" id="statNotMemorized" onclick="window.app && window.app.startQuiz('notMemorized')">
-                <div class="stat-box-count" id="countNotMemorized">0</div>
-                <div class="stat-box-label">미암기</div>
                 <div class="stat-box-toggle">
                     <button class="toggle-btn active" id="toggleTest" onclick="event.stopPropagation(); window.app && window.app.toggleNotMemorizedMode('test')">구분학습</button>
                     <button class="toggle-btn" id="toggleMemorize" onclick="event.stopPropagation(); window.app && window.app.toggleNotMemorizedMode('memorize')">암기학습</button>
                 </div>
+                <div class="stat-box-count" id="countNotMemorized">0</div>
+                <div class="stat-box-label">미암기</div>
             </div>
             <div class="stat-box remaining" id="statRemaining" onclick="window.app && window.app.startQuiz('remaining')">
                 <div class="stat-box-count" id="countRemaining">0</div>
                 <div class="stat-box-label">남은 개수</div>
+                <div class="stat-box-count" id="countStudiedToday" style="font-size:1.4em;color:#4fc3f7;margin-top:4px;">0</div>
+                <div class="stat-box-label">오늘 학습</div>
             </div>
             <div class="stat-box memorized" id="statMemorized" onclick="window.app && window.app.startQuiz('memorized')">
                 <div class="stat-box-count" id="countMemorized">0</div>
@@ -1154,7 +1156,10 @@
                 const hasP2 = memorizedWords.some(w => w.known === 2 && (w.last_studied ? w.last_studied.substring(0, 10) : '') <= cutoffStr);
                 const memorizedAllToday = memorized > 0 && !hasP1 && !hasP2;
 
-                return { remaining, notMemorized, memorized, memorizedAllToday };
+                // 오늘 학습한 단어 수 (known 값이 변경된 모든 단어)
+                const studiedToday = all.filter(w => w.last_studied && w.last_studied.startsWith(todayKST)).length;
+
+                return { remaining, notMemorized, memorized, memorizedAllToday, studiedToday };
             }
 
             async queryWords(contentId, { known = undefined, limit = 50, excludeToday = false } = {}) {
@@ -1281,6 +1286,7 @@
                     document.getElementById('countRemaining').textContent = '0';
                     document.getElementById('countNotMemorized').textContent = '0';
                     document.getElementById('countMemorized').textContent = '0';
+                    document.getElementById('countStudiedToday').textContent = '0';
                     if (crown) crown.style.display = 'none';
                     return;
                 }
@@ -1289,6 +1295,7 @@
                 document.getElementById('countRemaining').textContent = counts.remaining;
                 document.getElementById('countNotMemorized').textContent = counts.notMemorized;
                 document.getElementById('countMemorized').textContent = counts.memorized;
+                document.getElementById('countStudiedToday').textContent = counts.studiedToday;
 
                 // 암기 단어가 모두 오늘 학습한 단어일 때 왕관 표시
                 if (crown) crown.style.display = counts.memorizedAllToday ? 'inline' : 'none';
