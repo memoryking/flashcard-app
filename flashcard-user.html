@@ -263,10 +263,12 @@
             border: none;
             color: #888;
             font-size: 11px;
-            padding: 5px 10px;
+            padding: 4px 8px;
             border-radius: 8px;
             cursor: pointer;
             min-height: 28px;
+            line-height: 1.2;
+            text-align: center;
         }
         .toggle-btn.active {
             background: #e94560;
@@ -843,8 +845,8 @@
         <div class="flashcard-stat-bar" id="statBar">
             <div class="stat-box not-memorized" id="statNotMemorized" onclick="window.app && window.app.startQuiz('notMemorized')">
                 <div class="stat-box-toggle">
-                    <button class="toggle-btn active" id="toggleTest" onclick="event.stopPropagation(); window.app && window.app.toggleNotMemorizedMode('test')">구분학습</button>
-                    <button class="toggle-btn" id="toggleMemorize" onclick="event.stopPropagation(); window.app && window.app.toggleNotMemorizedMode('memorize')">암기학습</button>
+                    <button class="toggle-btn active" id="toggleTest" onclick="event.stopPropagation(); window.app && window.app.toggleNotMemorizedMode('test')">구분<br>학습</button>
+                    <button class="toggle-btn" id="toggleMemorize" onclick="event.stopPropagation(); window.app && window.app.toggleNotMemorizedMode('memorize')">암기<br>학습</button>
                 </div>
                 <div class="stat-box-count" id="countNotMemorized">0</div>
                 <div class="stat-box-label">미암기</div>
@@ -853,9 +855,9 @@
                 <div class="stat-box-count" id="countRemaining">0</div>
                 <div class="stat-box-label">남은 개수</div>
                 <div class="stat-box-count" id="countStudiedToday" style="font-size:1.4em;color:#4fc3f7;margin-top:4px;">0</div>
-                <div class="stat-box-label">오늘 학습</div>
+                <div class="stat-box-label" id="labelStudiedToday">오늘 학습</div>
             </div>
-            <div class="stat-box memorized" id="statMemorized" onclick="window.app && window.app.startQuiz('memorized')">
+            <div class="stat-box memorized" id="statMemorized" onclick="window.app && window.app.startQuiz('memorized')" style="display:flex;flex-direction:column;align-items:center;justify-content:center;">
                 <div class="stat-box-count" id="countMemorized">0</div>
                 <div class="stat-box-label">암기 <span id="memorizedCrown" style="display:none;">👑</span></div>
             </div>
@@ -1296,6 +1298,11 @@
                 document.getElementById('countNotMemorized').textContent = counts.notMemorized;
                 document.getElementById('countMemorized').textContent = counts.memorized;
                 document.getElementById('countStudiedToday').textContent = counts.studiedToday;
+
+                // 오늘 날짜를 M/D 형식으로 표시
+                const todayKST = this.getKSTDateString();
+                const [, m, d] = todayKST.split('-');
+                document.getElementById('labelStudiedToday').textContent = parseInt(m) + '/' + parseInt(d);
 
                 // 암기 단어가 모두 오늘 학습한 단어일 때 왕관 표시
                 if (crown) crown.style.display = counts.memorizedAllToday ? 'inline' : 'none';
