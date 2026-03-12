@@ -2104,9 +2104,6 @@
                             const total = counts.remaining + counts.notMemorized + counts.memorized;
                             if (total > 0) {
                                 badgeHtml = '<span class="sidebar-badge">' + total + '단어</span>';
-                                if (counts.memorized > 0) {
-                                    badgeHtml += '<span class="sidebar-badge" style="background:#2e7d32">' + counts.memorized + '암기</span>';
-                                }
                             }
                         } catch (e) {}
                     }
