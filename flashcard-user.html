@@ -2581,7 +2581,7 @@
                                 <div class="airtable-import-item-title">${typeIcon} ${item.title}</div>
                                 <div class="airtable-import-item-details">
                                     <span>${item.contentType === 'mindmap' ? '암기할 갯수: ' + item.wordCount + '개' : ''}</span>
-                                    <span>타입: ${item.contentType}</span>
+                                    <span>타입: ${item.contentType === 'mindmap' ? 'flashcard' : item.contentType}</span>
                                     ${statusTag}
                                 </div>
                             </div>
