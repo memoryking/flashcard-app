@@ -665,6 +665,7 @@
             align-items: center;
             justify-content: center;
             overflow: hidden;
+            position: relative;
         }
         .image-container {
             position: relative;
@@ -680,6 +681,23 @@
             user-select: none;
             -webkit-user-select: none;
             -moz-user-select: none;
+        }
+
+        .highlight-text-display {
+            position: absolute;
+            bottom: 0;
+            left: 0;
+            right: 0;
+            text-align: center;
+            padding: 12px 16px;
+            background: rgba(22, 33, 62, 0.92);
+            color: #ffc107;
+            font-size: 1.3em;
+            font-weight: 600;
+            border-top: 1px solid #2a2a4e;
+            display: none;
+            z-index: 20;
+            backdrop-filter: blur(6px);
         }
 
         /* ===== Text View Container ===== */
@@ -1766,6 +1784,7 @@
                             '<div class="image-container">' +
                                 '<img src="' + imageData + '" alt="' + this.escapeHtml(title) + '">' +
                             '</div>' +
+                            '<div class="highlight-text-display" id="highlightTextDisplay"></div>' +
                         '</div>';
 
                     this.highlights = [];
@@ -1992,7 +2011,8 @@
                         element: highlightElement,
                         isPriority: highlightData.is_priority || false,
                         isMemorized: highlightData.is_memorized || false,
-                        id: highlightData.id
+                        id: highlightData.id,
+                        highlightText: highlightData.highlight_text || ''
                     };
 
                     this.highlights.push(highlightObj);
@@ -2061,10 +2081,25 @@
                 element.classList.remove('masked', 'memorized');
                 element.classList.add('revealed');
                 this._revealedElement = element;
+
+                // Show highlight text label if available
+                const highlightId = parseInt(element.getAttribute('data-id'));
+                const highlightObj = this.highlights.find(h => h.id === highlightId);
+                const textEl = document.getElementById('highlightTextDisplay');
+                if (textEl && highlightObj && highlightObj.highlightText) {
+                    textEl.textContent = highlightObj.highlightText;
+                    textEl.style.display = '';
+                }
             }
 
             unrevealHighlight(element) {
                 if (!element) return;
+                // Hide highlight text display
+                const textEl = document.getElementById('highlightTextDisplay');
+                if (textEl) {
+                    textEl.textContent = '';
+                    textEl.style.display = 'none';
+                }
                 if (element.classList.contains('revealed')) {
                     element.classList.remove('revealed');
 
