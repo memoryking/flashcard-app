@@ -1,0 +1,3539 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>메모리킹 - 통합 학습</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        html, body {
+            margin: 0;
+            padding: 0;
+            width: 100%;
+            height: 100%;
+            overflow: hidden;
+            scroll-behavior: auto !important;
+            overscroll-behavior: none;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: #1a1a2e;
+            height: 100vh;
+            padding: 0;
+            margin: 0;
+            width: 100vw;
+            overflow: hidden;
+            -webkit-touch-callout: none;
+            -webkit-user-select: none;
+            -khtml-user-select: none;
+            -moz-user-select: none;
+            -ms-user-select: none;
+            user-select: none;
+            touch-action: manipulation;
+            color: #e0e0e0;
+        }
+
+        .container {
+            margin: 0;
+            background: #1a1a2e;
+            padding: 0;
+            width: 100%;
+            max-width: none;
+            height: 100vh;
+            height: var(--app-height, 100vh);
+            overflow: hidden;
+            display: flex;
+            flex-direction: column;
+        }
+
+        /* ===== Sidebar Overlay ===== */
+        .sidebar-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(0,0,0,0.6);
+            z-index: 1000;
+            display: none;
+            animation: fadeIn 0.2s ease;
+        }
+        .sidebar-overlay.open { display: block; }
+
+        .sidebar-panel {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 300px;
+            max-width: 85vw;
+            height: 100%;
+            background: #16213e;
+            z-index: 1001;
+            transform: translateX(-100%);
+            transition: transform 0.3s ease;
+            display: flex;
+            flex-direction: column;
+            padding: 20px;
+            overflow-y: auto;
+        }
+        .sidebar-overlay.open .sidebar-panel { transform: translateX(0); }
+
+        .sidebar-title {
+            font-size: 1.1em;
+            font-weight: 600;
+            color: #e0e0e0;
+            margin-bottom: 12px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+
+        .sidebar-close {
+            background: none;
+            border: none;
+            color: #aaa;
+            font-size: 24px;
+            cursor: pointer;
+            padding: 4px 8px;
+        }
+
+        .sidebar-import-btn {
+            width: 100%;
+            padding: 10px;
+            margin-bottom: 12px;
+            background: #0f3460;
+            color: #e0e0e0;
+            border: 1px solid #1a4a7a;
+            border-radius: 10px;
+            font-size: 14px;
+            cursor: pointer;
+            transition: background 0.2s;
+        }
+        .sidebar-import-btn:hover { background: #1a4a7a; }
+
+        .sidebar-count {
+            font-size: 12px;
+            color: #888;
+            margin-bottom: 8px;
+        }
+
+        .sidebar-list {
+            flex: 1;
+            overflow-y: auto;
+        }
+
+        .sidebar-item {
+            background: #1a1a2e;
+            border: 1px solid #2a2a4e;
+            border-radius: 8px;
+            padding: 10px;
+            margin-bottom: 8px;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+        .sidebar-item:hover { border-color: #533483; }
+        .sidebar-item.active { border-color: #e94560; background: #1e1e3a; }
+
+        .sidebar-item-title {
+            font-size: 13px;
+            font-weight: 600;
+            color: #ddd;
+            margin-bottom: 4px;
+        }
+
+        .sidebar-item-actions {
+            display: flex;
+            gap: 6px;
+            align-items: center;
+            flex-wrap: wrap;
+        }
+
+        .sidebar-badge {
+            background: #533483;
+            color: #e0e0e0;
+            padding: 2px 8px;
+            border-radius: 10px;
+            font-size: 10px;
+            font-weight: 600;
+        }
+
+        .sidebar-delete-btn {
+            background: none;
+            border: none;
+            color: #e94560;
+            font-size: 14px;
+            cursor: pointer;
+            padding: 2px 6px;
+            border-radius: 4px;
+            margin-left: auto;
+        }
+        .sidebar-delete-btn:hover { background: rgba(233,69,96,0.15); }
+
+        /* ===== Top Bar ===== */
+        .top-bar {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 8px 12px;
+            flex-shrink: 0;
+        }
+
+        .top-btn {
+            background: none;
+            border: none;
+            color: #aaa;
+            font-size: 22px;
+            cursor: pointer;
+            padding: 6px;
+            border-radius: 8px;
+            min-width: 40px;
+            min-height: 40px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        .top-btn:hover { background: rgba(255,255,255,0.1); }
+        .top-btn-menu { position: relative; }
+        .menu-badge {
+            position: absolute;
+            top: 2px;
+            right: 2px;
+            background: #e94560;
+            color: #fff;
+            font-size: 9px;
+            font-weight: 700;
+            padding: 1px 5px;
+            border-radius: 8px;
+            line-height: 1.3;
+            pointer-events: none;
+            animation: badgePulse 2s ease-in-out infinite;
+        }
+        @keyframes badgePulse {
+            0%, 100% { transform: scale(1); }
+            50% { transform: scale(1.15); }
+        }
+
+        .top-title {
+            font-size: 14px;
+            color: #aaa;
+            text-align: center;
+            flex: 1;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            padding: 0 8px;
+        }
+
+        /* ===== Stat Bar ===== */
+        .flashcard-stat-bar {
+            display: flex;
+            gap: 6px;
+            padding: 6px 12px;
+            flex-shrink: 0;
+        }
+
+        .stat-box {
+            flex: 1;
+            background: #16213e;
+            border: 1px solid #2a2a4e;
+            border-radius: 12px;
+            padding: 8px 4px;
+            text-align: center;
+            cursor: pointer;
+            transition: all 0.2s;
+            position: relative;
+        }
+        .stat-box:hover { border-color: #533483; }
+        .stat-box.active {
+            border-color: #e94560;
+            background: #1e1e3a;
+            box-shadow: 0 0 12px rgba(233,69,96,0.3);
+        }
+
+        .stat-box-count {
+            font-size: 2em;
+            font-weight: 700;
+            line-height: 1;
+        }
+        .stat-box-label {
+            font-size: 13px;
+            color: #888;
+            margin-top: 3px;
+        }
+
+        .stat-box.remaining .stat-box-count { color: #e94560; }
+        .stat-box.not-memorized .stat-box-count { color: #ff9800; }
+        .stat-box.memorized .stat-box-count { color: #4caf50; }
+
+        .stat-box-toggle {
+            display: flex;
+            gap: 2px;
+            justify-content: center;
+            margin-bottom: 4px;
+        }
+        .toggle-btn {
+            background: #2a2a4e;
+            border: none;
+            color: #888;
+            font-size: 11px;
+            padding: 4px 8px;
+            border-radius: 8px;
+            cursor: pointer;
+            min-height: 28px;
+            line-height: 1.2;
+            text-align: center;
+        }
+        .toggle-btn.active {
+            background: #e94560;
+            color: #fff;
+        }
+
+        /* ===== Flashcard Area ===== */
+        .flashcard-area {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            padding: 10px 20px;
+            min-height: 0;
+            position: relative;
+        }
+
+        .flashcard-counter {
+            font-size: 13px;
+            color: #666;
+            margin-bottom: 8px;
+        }
+
+        .flashcard-stack {
+            position: relative;
+            width: 90%;
+            max-width: 360px;
+            aspect-ratio: 3/2;
+            max-height: 45vh;
+        }
+
+        .flashcard-shadow {
+            position: absolute;
+            width: 100%;
+            height: 100%;
+            background: #16213e;
+            border: 1px solid #2a2a4e;
+            border-radius: 16px;
+        }
+        .flashcard-shadow-3 { top: 8px; left: 8px; opacity: 0.3; }
+        .flashcard-shadow-2 { top: 4px; left: 4px; opacity: 0.5; }
+
+        .flashcard-main {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: #16213e;
+            border: 2px solid #2a2a4e;
+            border-radius: 16px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            padding: 20px;
+            z-index: 2;
+            transition: transform 0.3s, opacity 0.3s;
+            cursor: pointer;
+        }
+
+        .flashcard-word {
+            font-size: 2em;
+            font-weight: 700;
+            color: #fff;
+            text-align: center;
+            word-break: break-word;
+        }
+
+        .flashcard-meaning {
+            font-size: 1.1em;
+            color: #aaa;
+            margin-top: 12px;
+            text-align: center;
+            display: none;
+        }
+
+        .flashcard-association {
+            font-size: 0.9em;
+            color: #666;
+            margin-top: 8px;
+            text-align: center;
+            display: none;
+            font-style: italic;
+            white-space: pre-line;
+        }
+
+        .flashcard-main.revealed .flashcard-meaning,
+        .flashcard-main.revealed .flashcard-association {
+            display: block;
+        }
+
+        .flashcard-timer-bar-container {
+            width: 90%;
+            max-width: 360px;
+            height: 4px;
+            background: #2a2a4e;
+            border-radius: 2px;
+            margin-top: 10px;
+            overflow: hidden;
+        }
+
+        .flashcard-timer-bar {
+            height: 100%;
+            background: linear-gradient(90deg, #e94560, #ff9800);
+            border-radius: 2px;
+            width: calc(var(--timer-progress, 1) * 100%);
+            transition: none;
+        }
+
+        /* ===== Choice Buttons ===== */
+        .choice-area {
+            display: flex;
+            gap: 12px;
+            padding: 12px 20px;
+            flex-shrink: 0;
+            justify-content: center;
+        }
+
+        .choice-btn {
+            flex: 1;
+            max-width: 170px;
+            padding: 16px 10px;
+            background: #16213e;
+            border: 2px solid #2a2a4e;
+            border-radius: 14px;
+            color: #e0e0e0;
+            font-size: 1.5em;
+            font-weight: 700;
+            cursor: pointer;
+            transition: all 0.15s;
+            min-height: 60px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        .choice-btn:hover { border-color: #533483; background: #1e1e3a; }
+        .choice-btn:active { transform: scale(0.97); }
+
+        /* ===== Flash Effects ===== */
+        .flash-correct {
+            animation: flashCorrect 0.3s ease;
+        }
+        @keyframes flashCorrect {
+            0% { background: #16213e; }
+            30% { background: rgba(255, 193, 7, 0.3); border-color: #ffc107; }
+            100% { background: #16213e; }
+        }
+
+        .flash-wrong {
+            animation: flashWrong 0.3s ease;
+        }
+        @keyframes flashWrong {
+            0% { background: #16213e; }
+            30% { background: rgba(255, 255, 255, 0.2); border-color: #fff; }
+            100% { background: #16213e; }
+        }
+
+        /* ===== Fly to Box Animation ===== */
+        @keyframes flyToBox {
+            0% { transform: translate(0, 0) scale(1); opacity: 1; }
+            100% { transform: translate(var(--fly-x, 0), var(--fly-y, -200px)) scale(0.2); opacity: 0; }
+        }
+        .flying-card {
+            animation: flyToBox 0.5s ease-in forwards;
+            pointer-events: none;
+        }
+
+        /* ===== Cascade In Animation ===== */
+        @keyframes cascadeIn {
+            0% { transform: translateY(var(--cascade-from-y, -100px)) scale(0.3); opacity: 0; }
+            60% { opacity: 1; }
+            100% { transform: translateY(0) scale(1); opacity: 1; }
+        }
+        .cascade-in {
+            animation: cascadeIn 0.4s ease-out;
+        }
+
+        /* ===== Cascade Deck (Pour) Animation ===== */
+        @keyframes cascadePour {
+            0% { transform: translate(var(--pour-from-x, 0), var(--pour-from-y, -120px)) scale(0.5) rotate(var(--pour-rot, 0deg)); opacity: 0; }
+            40% { opacity: 1; }
+            100% { transform: translate(0, 0) scale(1) rotate(0deg); opacity: 1; }
+        }
+        .cascade-mini-card {
+            position: absolute;
+            width: 60px;
+            height: 40px;
+            background: #16213e;
+            border: 1.5px solid #533483;
+            border-radius: 8px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 10px;
+            color: #aaa;
+            pointer-events: none;
+            animation: cascadePour 0.45s ease-out forwards;
+            z-index: 5;
+        }
+
+        /* ===== Quiz Score Display ===== */
+        .quiz-score {
+            text-align: center;
+            padding: 30px 20px 10px;
+        }
+        .quiz-score-number {
+            font-size: 2.8em;
+            font-weight: 800;
+            color: #fff;
+            line-height: 1;
+        }
+        .quiz-score-percent {
+            font-size: 1.1em;
+            color: #aaa;
+            margin-top: 6px;
+        }
+
+        /* ===== Distribution Fly Animation ===== */
+        @keyframes distFly {
+            0% { transform: translate(0, 0) scale(1); opacity: 1; }
+            100% { transform: translate(var(--dist-x, 0), var(--dist-y, -200px)) scale(0.3); opacity: 0; }
+        }
+        .dist-flying-card {
+            position: absolute;
+            width: 56px;
+            height: 36px;
+            background: #16213e;
+            border: 1.5px solid #2a2a4e;
+            border-radius: 7px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 9px;
+            font-weight: 600;
+            color: #e0e0e0;
+            pointer-events: none;
+            animation: distFly 0.5s ease-in forwards;
+            z-index: 10;
+        }
+        .dist-flying-card.correct { border-color: #4caf50; color: #4caf50; }
+        .dist-flying-card.wrong { border-color: #e94560; color: #e94560; }
+
+        /* ===== Stat Box Count Bump ===== */
+        @keyframes statBump {
+            0% { transform: scale(1); }
+            40% { transform: scale(1.4); }
+            100% { transform: scale(1); }
+        }
+        .stat-bump .stat-box-count {
+            animation: statBump 0.35s ease-out;
+        }
+
+        /* ===== Highlight Styles ===== */
+        .highlight {
+            background: linear-gradient(120deg, #fff3cd 0%, #ffeaa7 100%);
+            padding: 4px 6px;
+            border-radius: 6px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            position: relative;
+            box-shadow: 0 2px 4px rgba(255, 193, 7, 0.2);
+            border: 2px solid #ffc107;
+            min-height: 32px;
+            display: inline-flex;
+            align-items: center;
+            margin: 2px;
+        }
+        .highlight:hover {
+            transform: scale(1.02);
+            box-shadow: 0 4px 8px rgba(255, 193, 7, 0.3);
+        }
+        .highlight.masked {
+            color: transparent;
+            background: linear-gradient(120deg, #ffeaa7 0%, #fdcb6e 100%);
+            text-shadow: 0 0 8px rgba(0, 0, 0, 0.3);
+        }
+        .highlight.revealed {
+            color: inherit;
+            background: linear-gradient(120deg, #a8e6cf 0%, #81c784 100%);
+            animation: reveal 0.3s ease;
+        }
+        .highlight.priority {
+            background: linear-gradient(120deg, #ff6b6b 0%, #ff5252 100%);
+            border-color: #f44336;
+            box-shadow: 0 2px 4px rgba(244, 67, 54, 0.3);
+        }
+        .highlight.priority:hover {
+            box-shadow: 0 4px 8px rgba(244, 67, 54, 0.4);
+        }
+        .highlight.priority.masked {
+            color: transparent;
+            background: linear-gradient(120deg, #ff5252 0%, #e53935 100%);
+            text-shadow: 0 0 8px rgba(0, 0, 0, 0.4);
+        }
+        .highlight.priority.revealed {
+            color: inherit;
+            background: linear-gradient(120deg, #ffcdd2 0%, #ef9a9a 100%);
+        }
+        @keyframes reveal {
+            from { color: transparent; transform: scale(0.98); }
+            to { color: inherit; transform: scale(1); }
+        }
+        @keyframes priorityPulse {
+            0% { transform: scale(1); }
+            50% { transform: scale(1.05); }
+            100% { transform: scale(1); }
+        }
+        .highlight.priority-added {
+            animation: priorityPulse 0.5s ease;
+        }
+
+        /* ===== Image Highlight Styles ===== */
+        .image-highlight {
+            position: absolute;
+            border: 3px solid #ffc107;
+            background: rgba(255, 193, 7, 0.2);
+            cursor: pointer;
+            transition: all 0.3s ease;
+            border-radius: 4px;
+            pointer-events: all;
+            min-width: 20px;
+            min-height: 20px;
+        }
+        .image-highlight:hover {
+            transform: scale(1.02);
+            box-shadow: 0 4px 8px rgba(255, 193, 7, 0.4);
+        }
+        .image-highlight.masked {
+            background: rgba(255, 193, 7, 0.6);
+            backdrop-filter: blur(8px);
+        }
+        .image-highlight.revealed {
+            background: rgba(168, 230, 207, 0.3);
+            border-color: #81c784;
+            animation: reveal 0.3s ease;
+        }
+        .image-highlight.priority {
+            border-color: #f44336;
+            background: rgba(244, 67, 54, 0.2);
+        }
+        .image-highlight.priority.masked {
+            background: rgba(244, 67, 54, 0.6);
+        }
+        .image-highlight.priority.revealed {
+            background: rgba(255, 205, 210, 0.3);
+            border-color: #ef9a9a;
+        }
+
+        /* ===== Image Container ===== */
+        .image-container {
+            position: relative;
+            display: inline-block;
+            max-width: 100%;
+            touch-action: none;
+        }
+        .image-container img {
+            display: block;
+            max-width: 100%;
+            height: auto;
+            user-select: none;
+            -webkit-user-select: none;
+            -moz-user-select: none;
+            touch-action: none;
+        }
+
+        /* ===== Text View Container ===== */
+        .text-view-container {
+            width: 100%;
+            height: 100%;
+            overflow-y: auto;
+            overflow-x: hidden;
+            -webkit-overflow-scrolling: touch;
+            padding: 16px;
+            font-size: 1.05em;
+            line-height: 1.8;
+            color: #e0e0e0;
+            white-space: pre-wrap;
+            word-break: break-word;
+        }
+
+        /* ===== Empty / Idle State ===== */
+        .flashcard-idle {
+            text-align: center;
+            color: #666;
+            font-size: 14px;
+            padding: 40px 20px;
+        }
+        .flashcard-idle-icon {
+            font-size: 3em;
+            margin-bottom: 12px;
+        }
+
+        /* ===== Quiz Complete Message ===== */
+        .quiz-complete {
+            text-align: center;
+            padding: 40px 20px;
+        }
+        .quiz-complete-icon {
+            font-size: 3em;
+            margin-bottom: 12px;
+        }
+        .quiz-complete-text {
+            font-size: 16px;
+            color: #aaa;
+        }
+
+        /* ===== Settings Modal ===== */
+        .settings-modal {
+            position: fixed;
+            top: 0; left: 0; right: 0; bottom: 0;
+            background: rgba(0,0,0,0.7);
+            z-index: 1005;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            animation: fadeIn 0.3s ease;
+        }
+        .settings-dialog {
+            background: #16213e;
+            border-radius: 16px;
+            padding: 24px;
+            max-width: 400px;
+            width: 90%;
+            color: #e0e0e0;
+        }
+        .settings-title {
+            font-size: 1.2em;
+            font-weight: 600;
+            margin-bottom: 20px;
+            text-align: center;
+        }
+        .settings-row {
+            margin-bottom: 16px;
+        }
+        .settings-label {
+            font-size: 13px;
+            color: #aaa;
+            margin-bottom: 6px;
+        }
+        .settings-slider {
+            width: 100%;
+            accent-color: #e94560;
+        }
+        .settings-value {
+            text-align: center;
+            font-size: 1.2em;
+            font-weight: 600;
+            color: #e94560;
+        }
+        .settings-preview {
+            background: #1a1a2e;
+            border-radius: 10px;
+            padding: 12px;
+            margin-top: 12px;
+            font-size: 13px;
+        }
+        .settings-preview-label {
+            color: #888;
+            font-size: 11px;
+            margin-bottom: 6px;
+        }
+        .settings-close-btn {
+            width: 100%;
+            padding: 10px;
+            margin-top: 16px;
+            background: #e94560;
+            color: white;
+            border: none;
+            border-radius: 10px;
+            font-size: 15px;
+            cursor: pointer;
+        }
+
+        /* ===== Button CSS (kept) ===== */
+        .btn {
+            padding: 12px 24px;
+            border: none;
+            border-radius: 25px;
+            font-size: 16px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            position: relative;
+            overflow: hidden;
+            min-height: 44px;
+        }
+        .btn-secondary { background: #6c757d; color: white; }
+        .btn-secondary:hover { background: #5a6268; }
+        .btn-danger { background: #dc3545; color: white; }
+        .btn-small { padding: 6px 12px; font-size: 12px; border-radius: 15px; }
+        .btn-primary { background: #667eea; color: white; }
+        .btn-primary:hover { background: #5a6fd6; }
+        .btn-info { background: #17a2b8; color: white; }
+
+        .empty-state {
+            text-align: center;
+            color: #666;
+            font-style: italic;
+            padding: 40px;
+        }
+
+        .loading {
+            display: inline-block;
+            width: 20px;
+            height: 20px;
+            border: 3px solid #333;
+            border-top: 3px solid #e94560;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        /* ===== Toast ===== */
+        .toast {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            background: #333;
+            color: white;
+            padding: 15px 20px;
+            border-radius: 10px;
+            box-shadow: 0 5px 15px rgba(0,0,0,0.3);
+            transform: translateX(100%);
+            transition: transform 0.3s ease;
+            z-index: 9999;
+            max-width: 300px;
+            pointer-events: none;
+        }
+        .toast.show { transform: translateX(0); }
+        .toast.error { background: #dc3545; }
+        .toast.info { background: #17a2b8; }
+
+        /* ===== Airtable Import Modal (kept) ===== */
+        .airtable-import-modal {
+            position: fixed;
+            top: 0; left: 0; right: 0; bottom: 0;
+            background: rgba(0,0,0,0.85);
+            z-index: 1005;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            animation: fadeIn 0.3s ease;
+        }
+        .airtable-import-dialog {
+            background: #1a1a2e;
+            border-radius: 16px;
+            padding: 20px;
+            max-width: 800px;
+            width: 94%;
+            max-height: 90vh;
+            box-shadow: 0 20px 40px rgba(0,0,0,0.5);
+            display: flex;
+            flex-direction: column;
+            color: #e0e0e0;
+            border: 1px solid #2a2a4e;
+        }
+        .airtable-import-header { text-align: center; margin-bottom: 14px; border-bottom: 1px solid #2a2a4e; padding-bottom: 12px; }
+        .airtable-import-title { font-size: 1.2em; font-weight: 700; color: #e0e0e0; margin-bottom: 6px; }
+        .airtable-import-subtitle { color: #888; font-size: 0.8em; }
+        .airtable-import-controls { display: flex; gap: 6px; margin-bottom: 12px; flex-wrap: wrap; }
+        .airtable-import-controls .btn { padding: 6px 10px; font-size: 12px; border-radius: 8px; border: 1px solid #2a2a4e; background: #16213e; color: #aaa; cursor: pointer; }
+        .airtable-import-controls .btn-primary { background: #e94560; color: #fff; border-color: #e94560; }
+        .airtable-import-controls .btn-info { background: #1976d2; color: #fff; border-color: #1976d2; }
+        .airtable-import-list { flex: 1; overflow-y: auto; border: 1px solid #2a2a4e; border-radius: 10px; max-height: 50vh; margin-bottom: 12px; background: #16213e; }
+        .airtable-import-item { display: flex; align-items: center; padding: 12px; border-bottom: 1px solid #2a2a4e; transition: background 0.2s; }
+        .airtable-import-item:last-child { border-bottom: none; }
+        .airtable-import-item:hover { background: rgba(255,255,255,0.03); }
+        .airtable-import-item.duplicate { background: rgba(244,67,54,0.1); border-left: 3px solid #f44336; }
+        .airtable-import-item.duplicate:hover { background: rgba(244,67,54,0.15); }
+        .airtable-import-checkbox { margin-right: 12px; transform: scale(1.3); accent-color: #e94560; }
+        .airtable-import-info { flex: 1; min-width: 0; }
+        .airtable-import-item-title { font-weight: 600; color: #e0e0e0; margin-bottom: 4px; font-size: 14px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+        .airtable-import-item.duplicate .airtable-import-item-title { color: #ef9a9a; }
+        .airtable-import-item-details { font-size: 11px; color: #888; display: flex; gap: 10px; flex-wrap: wrap; }
+        .airtable-import-item.duplicate .airtable-import-item-details { color: #ef9a9a; }
+        .airtable-import-tag { background: #1976d2; color: #fff; padding: 2px 8px; border-radius: 10px; font-size: 10px; }
+        .airtable-import-item.duplicate .airtable-import-tag { background: #c62828; color: #fff; }
+        .airtable-import-item.update { background: rgba(76,175,80,0.1); border-left: 3px solid #4caf50; }
+        .airtable-import-tag.update-tag { background: #2e7d32; color: #fff; }
+        .airtable-import-actions { display: flex; justify-content: space-between; align-items: center; gap: 10px; }
+        .airtable-import-summary { font-size: 13px; color: #888; }
+        .airtable-import-buttons { display: flex; gap: 8px; }
+        .airtable-import-buttons .btn { padding: 10px 16px; font-size: 14px; border-radius: 10px; border: none; cursor: pointer; font-weight: 600; }
+        .airtable-import-buttons .btn-secondary { background: #2a2a4e; color: #aaa; }
+        .airtable-import-buttons .btn-primary { background: #e94560; color: #fff; }
+
+        /* ===== Confirm Modal (kept) ===== */
+        .confirm-modal {
+            position: fixed;
+            top: 0; left: 0; right: 0; bottom: 0;
+            background: rgba(0,0,0,0.5);
+            z-index: 1002;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            animation: fadeIn 0.3s ease;
+        }
+        .confirm-dialog { background: #16213e; border-radius: 15px; padding: 30px; max-width: 400px; width: 90%; box-shadow: 0 10px 30px rgba(0,0,0,0.3); text-align: center; color: #e0e0e0; }
+        .confirm-title { font-size: 1.3em; font-weight: 600; margin-bottom: 15px; }
+        .confirm-message { color: #aaa; margin-bottom: 25px; line-height: 1.5; }
+        .confirm-buttons { display: flex; gap: 15px; justify-content: center; }
+        .confirm-button { padding: 12px 24px; border: none; border-radius: 8px; font-size: 16px; font-weight: 500; cursor: pointer; transition: all 0.2s; min-width: 100px; }
+        .confirm-button.confirm { background: #e94560; color: white; }
+        .confirm-button.confirm:hover { background: #d63851; }
+        .confirm-button.cancel { background: #6c757d; color: white; }
+        .confirm-button.cancel:hover { background: #5a6268; }
+
+        @keyframes fadeIn {
+            from { opacity: 0; }
+            to { opacity: 1; }
+        }
+
+        /* ===== Mobile Responsive ===== */
+        @media (max-width: 768px) {
+            html {
+                height: var(--app-height, 100vh);
+                overflow: hidden;
+            }
+            body {
+                height: var(--app-height, 100vh);
+                overflow: hidden;
+            }
+            .container {
+                height: var(--app-height, 100vh);
+            }
+            .flashcard-stack {
+                max-width: 320px;
+            }
+            .flashcard-word {
+                font-size: 1.6em;
+            }
+            .choice-btn {
+                font-size: 1.3em;
+                padding: 14px 8px;
+            }
+            .stat-box-count {
+                font-size: 1.6em;
+            }
+            .stat-box-label {
+                font-size: 12px;
+            }
+            .airtable-import-dialog {
+                width: 100%;
+                max-height: 100vh;
+                border-radius: 0;
+                padding: 16px;
+                border: none;
+            }
+            .airtable-import-modal {
+                align-items: stretch;
+            }
+            .airtable-import-controls {
+                gap: 4px;
+            }
+            .airtable-import-controls .btn {
+                flex: 1;
+                min-width: 0;
+                padding: 8px 4px;
+                font-size: 11px;
+                text-align: center;
+            }
+            .airtable-import-list {
+                max-height: calc(100vh - 240px);
+            }
+            .airtable-import-actions {
+                flex-direction: column;
+                gap: 8px;
+            }
+            .airtable-import-buttons {
+                width: 100%;
+            }
+            .airtable-import-buttons .btn {
+                flex: 1;
+            }
+        }
+
+        @media (hover: none) and (pointer: coarse) {
+            .top-btn { min-width: 44px; min-height: 44px; }
+            .choice-btn { min-height: 60px; }
+        }
+    </style>
+    <script>
+    (function() {
+        function setAppHeight() {
+            var h = window.visualViewport ? window.visualViewport.height : window.innerHeight;
+            document.documentElement.style.setProperty('--app-height', h + 'px');
+        }
+        setAppHeight();
+        window.addEventListener('resize', setAppHeight);
+        window.addEventListener('orientationchange', function() { setTimeout(setAppHeight, 100); });
+        if (window.visualViewport) {
+            window.visualViewport.addEventListener('resize', setAppHeight);
+        }
+    })();
+    </script>
+</head>
+<body>
+    <div class="container">
+        <!-- Sidebar Overlay -->
+        <div class="sidebar-overlay" id="sidebarOverlay">
+            <div class="sidebar-panel" id="sidebarPanel">
+                <div class="sidebar-title">
+                    <span>저장된 콘텐츠</span>
+                    <button class="sidebar-close" onclick="window.app && window.app.toggleSidebar()">&times;</button>
+                </div>
+                <button class="sidebar-import-btn" onclick="window.app && window.app.importFromAirtable()">
+                    ☁️ 자료 불러오기
+                </button>
+                <div class="sidebar-count"><span id="savedTexts">0</span>개 콘텐츠</div>
+                <div class="sidebar-list" id="savedTextsList">
+                    <div class="flashcard-idle" style="padding:20px;font-size:13px;">저장된 콘텐츠가 없습니다</div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Top Bar -->
+        <div class="top-bar">
+            <button class="top-btn top-btn-menu" id="menuBtn" onclick="window.app && window.app.toggleSidebar()" title="메뉴">☰<span class="menu-badge" id="menuBadge" style="display:none;"></span></button>
+            <div class="top-title" id="topTitle">콘텐츠를 선택하세요</div>
+            <a class="top-btn" href="https://vipup.site/memoryking-app" target="_top" title="홈" style="text-decoration:none;">🏠</a>
+            <button class="top-btn" onclick="window.app && window.app.openSettings()" title="설정">⚙</button>
+        </div>
+
+        <!-- Stat Bar -->
+        <div class="flashcard-stat-bar" id="statBar">
+            <div class="stat-box not-memorized" id="statNotMemorized" onclick="window.app && window.app.startQuiz('notMemorized')">
+                <div class="stat-box-toggle">
+                    <button class="toggle-btn active" id="toggleTest" onclick="event.stopPropagation(); window.app && window.app.toggleNotMemorizedMode('test')">구분<br>학습</button>
+                    <button class="toggle-btn" id="toggleMemorize" onclick="event.stopPropagation(); window.app && window.app.toggleNotMemorizedMode('memorize')">암기<br>학습</button>
+                </div>
+                <div class="stat-box-count" id="countNotMemorized">0</div>
+                <div class="stat-box-label">미암기</div>
+            </div>
+            <div class="stat-box remaining" id="statRemaining" onclick="window.app && window.app.startQuiz('remaining')">
+                <div class="stat-box-count" id="countRemaining">0</div>
+                <div class="stat-box-label">남은 개수</div>
+                <div class="stat-box-count" id="countStudiedToday" style="font-size:1.4em;color:#4fc3f7;margin-top:4px;">0</div>
+                <div class="stat-box-label" id="labelStudiedToday">오늘 학습</div>
+            </div>
+            <div class="stat-box memorized" id="statMemorized" onclick="window.app && window.app.startQuiz('memorized')" style="display:flex;flex-direction:column;align-items:center;justify-content:center;">
+                <div class="stat-box-count" id="countMemorized">0</div>
+                <div class="stat-box-label">암기 <span id="memorizedCrown" style="display:none;">👑</span></div>
+            </div>
+        </div>
+
+        <!-- Flashcard Area -->
+        <div class="flashcard-area" id="flashcardArea">
+            <div class="flashcard-idle" id="flashcardIdle">
+                <div class="flashcard-idle-icon">📚</div>
+                <div>위의 박스를 터치하여 학습을 시작하세요</div>
+            </div>
+        </div>
+
+        <!-- Choice Buttons (hidden by default) -->
+        <div class="choice-area" id="choiceArea" style="display:none;">
+            <button class="choice-btn" id="choiceLeft" onclick="window.app && window.app.selectChoice(0)"></button>
+            <button class="choice-btn" id="choiceRight" onclick="window.app && window.app.selectChoice(1)"></button>
+        </div>
+
+        <!-- Timer Bar -->
+        <div class="flashcard-timer-bar-container" id="timerBarContainer" style="display:none;">
+            <div class="flashcard-timer-bar" id="timerBar"></div>
+        </div>
+    </div>
+
+    <script>
+        // ===== 접속 제한: 허용된 도메인에서만 로드 가능 =====
+        (function() {
+            const ALLOWED_ORIGINS = [
+                'vipup.site',
+                'www.vipup.site',
+                'memoryking.github.io',
+                'localhost',
+                '127.0.0.1'
+            ];
+
+            function isAllowed() {
+                // 직접 접속 (iframe이 아닌 경우) - 개발용 허용
+                if (window.self === window.top) {
+                    const host = window.location.hostname;
+                    return ALLOWED_ORIGINS.some(d => host === d || host.endsWith('.' + d));
+                }
+                // iframe 내부인 경우 - referrer 검사
+                const ref = document.referrer;
+                if (!ref) return false;
+                try {
+                    const refHost = new URL(ref).hostname;
+                    return ALLOWED_ORIGINS.some(d => refHost === d || refHost.endsWith('.' + d));
+                } catch(e) { return false; }
+            }
+
+            if (!isAllowed()) {
+                document.body.innerHTML = '<div style="display:flex;align-items:center;justify-content:center;height:100vh;background:#1a1a2e;color:#e0e0e0;font-family:sans-serif;text-align:center;padding:20px;"><div><h2 style="margin-bottom:16px;">접속이 제한되었습니다</h2><p>이 서비스는 <a href="https://vipup.site" style="color:#4fc3f7;">vipup.site</a>에서만 이용 가능합니다.</p></div></div>';
+                throw new Error('Unauthorized origin');
+            }
+        })();
+
+        class WordMemorizationApp {
+            constructor() {
+                this.db = null;
+                this.savedTexts = [];
+                this.currentTextId = null;
+                this.currentTitle = '';
+                this.currentContentType = 'text';
+                this.currentText = '';
+                this.currentMindmapData = null;
+                this.currentImageData = null;
+
+                // Highlight state (for text/image view)
+                this.highlights = [];
+                this.highlightRanges = [];
+                this.holdDuration = 500;
+
+                this.isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
+
+                this.proxyUrl = 'https://airtable-proxy.memoryking.workers.dev';
+                this.pageCategory = null;
+
+                // Flashcard quiz state
+                this.quizMode = null; // 'remaining', 'notMemorized', 'memorized'
+                this.quizWords = [];
+                this.quizIndex = 0;
+                this.currentChoices = [];
+                this.quizTimerId = null;
+                this.quizTimeLimit = parseInt(localStorage.getItem('quizTimeLimit')) || 3000;
+                this.quizTimerStart = 0;
+                this.isQuizActive = false;
+                this.notMemorizedMode = localStorage.getItem('notMemorizedMode') || 'test';
+                this.memorizeRevealed = false;
+                this.isProcessing = false;
+                this.quizSessionResults = [];
+                this.memorizedTodayStartIndex = -1; // 암기박스에서 오늘 학습 단어 시작 인덱스
+                this.wordLimitRemaining = parseInt(localStorage.getItem('wordLimitRemaining')) || 10;
+                this.wordLimitNotMemorized = parseInt(localStorage.getItem('wordLimitNotMemorized')) || 10;
+                this.wordLimitMemorized = parseInt(localStorage.getItem('wordLimitMemorized')) || 10;
+
+                this.init();
+            }
+
+            async init() {
+                try {
+                    await this.loadPageCategory();
+                    await this.initDB();
+                    this.setupFlashcardEventListeners();
+                    await this.loadData();
+
+                    // Restore not-memorized toggle UI
+                    this.updateToggleUI();
+
+                    setTimeout(async () => {
+                        await this.loadLastViewedContent();
+                    }, 500);
+
+                    // 하루 1회 업데이트 체크 (앱 로드 2초 후)
+                    setTimeout(() => this.checkForUpdates(), 2000);
+
+                    console.log('앱 초기화 완료');
+                } catch (error) {
+                    console.error('앱 초기화 오류:', error);
+                    this.showToast('앱 초기화에 실패했습니다.', 'error');
+                }
+            }
+
+            // ===== IndexedDB v6 =====
+            async initDB() {
+                return new Promise((resolve, reject) => {
+                    const request = indexedDB.open('MemorykingDB_User', 6);
+
+                    request.onerror = () => reject(request.error);
+                    request.onsuccess = () => {
+                        this.db = request.result;
+                        console.log('DB 초기화 완료');
+                        resolve();
+                    };
+
+                    request.onupgradeneeded = (event) => {
+                        const db = event.target.result;
+                        const oldVersion = event.oldVersion;
+                        console.log('DB 업그레이드 중... 이전 버전:', oldVersion, '-> 새 버전: 6');
+
+                        if (!db.objectStoreNames.contains('contents')) {
+                            const contentStore = db.createObjectStore('contents', { keyPath: 'id', autoIncrement: true });
+                            contentStore.createIndex('created_at', 'created_at');
+                            contentStore.createIndex('title', 'title');
+                            contentStore.createIndex('content_type', 'content_type');
+                        }
+
+                        if (!db.objectStoreNames.contains('highlights')) {
+                            const highlightStore = db.createObjectStore('highlights', { keyPath: 'id', autoIncrement: true });
+                            highlightStore.createIndex('content_id', 'content_id');
+                            highlightStore.createIndex('created_at', 'created_at');
+                        }
+
+                        if (!db.objectStoreNames.contains('word_progress')) {
+                            const wpStore = db.createObjectStore('word_progress', { keyPath: 'id', autoIncrement: true });
+                            wpStore.createIndex('content_id', 'content_id');
+                            wpStore.createIndex('content_word', ['content_id', 'word'], { unique: true });
+                            wpStore.createIndex('known', 'known');
+                            wpStore.createIndex('last_studied', 'last_studied');
+                            console.log('word_progress 스토어 생성됨');
+                        }
+                    };
+                });
+            }
+
+            // ===== Utility: KST =====
+            getKSTISOString() {
+                const now = new Date();
+                const kst = new Date(now.getTime() + 9 * 60 * 60 * 1000);
+                return kst.toISOString();
+            }
+
+            getKSTDateString() {
+                const now = new Date();
+                const kst = new Date(now.getTime() + 9 * 60 * 60 * 1000);
+                return kst.toISOString().split('T')[0];
+            }
+
+            shuffleArray(arr) {
+                const a = [...arr];
+                for (let i = a.length - 1; i > 0; i--) {
+                    const j = Math.floor(Math.random() * (i + 1));
+                    [a[i], a[j]] = [a[j], a[i]];
+                }
+                return a;
+            }
+
+            shuffleInChunks(arr, chunkSize = 10) {
+                const result = [];
+                for (let i = 0; i < arr.length; i += chunkSize) {
+                    const chunk = arr.slice(i, i + chunkSize);
+                    result.push(...this.shuffleArray(chunk));
+                }
+                return result;
+            }
+
+            // ===== Word Progress Data Methods =====
+            async initWordProgress(contentId) {
+                if (!this.db || !this.currentMindmapData) return;
+
+                const branches = this.currentMindmapData.branches || [];
+                if (branches.length === 0) return;
+
+                // Get existing word_progress for this content
+                const existing = await new Promise((resolve, reject) => {
+                    const tx = this.db.transaction(['word_progress'], 'readonly');
+                    const store = tx.objectStore('word_progress');
+                    const idx = store.index('content_id');
+                    const req = idx.getAll(contentId);
+                    req.onsuccess = () => resolve(req.result || []);
+                    req.onerror = () => reject(req.error);
+                });
+
+                const existingMap = new Map();
+                existing.forEach(wp => existingMap.set(wp.word, wp));
+
+                // Get existing highlights for migration
+                const highlights = await new Promise((resolve, reject) => {
+                    const tx = this.db.transaction(['highlights'], 'readonly');
+                    const store = tx.objectStore('highlights');
+                    const idx = store.index('content_id');
+                    const req = idx.getAll(contentId);
+                    req.onsuccess = () => resolve(req.result || []);
+                    req.onerror = () => reject(req.error);
+                });
+
+                const priorityTexts = new Set(highlights.filter(h => h.is_priority).map(h => h.text));
+
+                const now = this.getKSTISOString();
+
+                for (const branch of branches) {
+                    const word = branch.level1;
+                    if (!word || existingMap.has(word)) continue;
+
+                    const meaning = branch.level2 || '';
+                    const association = branch.level3 || '';
+
+                    // Migrate: if this word had is_priority=true in highlights, set known=1
+                    const knownValue = priorityTexts.has(word) ? 1 : null;
+
+                    const record = {
+                        content_id: contentId,
+                        word: word,
+                        meaning: meaning,
+                        association: association,
+                        known: knownValue,
+                        last_studied: knownValue !== null ? now : null,
+                        study_count: 0,
+                        correct_count: 0,
+                        created_at: now
+                    };
+
+                    await new Promise((resolve, reject) => {
+                        const tx = this.db.transaction(['word_progress'], 'readwrite');
+                        const store = tx.objectStore('word_progress');
+                        const req = store.add(record);
+                        req.onsuccess = () => resolve();
+                        req.onerror = () => {
+                            // Duplicate - ignore
+                            resolve();
+                        };
+                    });
+                }
+
+                // Sync: update meaning/association if content changed
+                for (const branch of branches) {
+                    const word = branch.level1;
+                    if (!word) continue;
+                    const ex = existingMap.get(word);
+                    if (ex && (ex.meaning !== (branch.level2 || '') || ex.association !== (branch.level3 || ''))) {
+                        ex.meaning = branch.level2 || '';
+                        ex.association = branch.level3 || '';
+                        await new Promise((resolve, reject) => {
+                            const tx = this.db.transaction(['word_progress'], 'readwrite');
+                            const store = tx.objectStore('word_progress');
+                            store.put(ex);
+                            tx.oncomplete = () => resolve();
+                            tx.onerror = () => reject(tx.error);
+                        });
+                    }
+                }
+            }
+
+            async getWordCounts(contentId) {
+                if (!this.db) return { remaining: 0, notMemorized: 0, memorized: 0, memorizedAllToday: false };
+
+                const all = await new Promise((resolve, reject) => {
+                    const tx = this.db.transaction(['word_progress'], 'readonly');
+                    const store = tx.objectStore('word_progress');
+                    const idx = store.index('content_id');
+                    const req = idx.getAll(contentId);
+                    req.onsuccess = () => resolve(req.result || []);
+                    req.onerror = () => reject(req.error);
+                });
+
+                const remaining = all.filter(w => w.known === null).length;
+                const notMemorized = all.filter(w => w.known === 0).length;
+                const memorizedWords = all.filter(w => w.known === 1 || w.known === 2);
+                const memorized = memorizedWords.length;
+
+                // 왕관: 1순위(known=1,오늘X) + 2순위(known=2,3일이전)가 없을 때
+                const todayKST = this.getKSTDateString();
+                const todayDate = new Date(todayKST + 'T00:00:00Z');
+                const cutoffStr = new Date(todayDate.getTime() - 3 * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
+                const hasP1 = memorizedWords.some(w => w.known === 1 && !(w.last_studied && w.last_studied.startsWith(todayKST)));
+                const hasP2 = memorizedWords.some(w => w.known === 2 && (w.last_studied ? w.last_studied.substring(0, 10) : '') <= cutoffStr);
+                const memorizedAllToday = memorized > 0 && !hasP1 && !hasP2;
+
+                // 오늘 학습한 단어 수 (known 값이 변경된 모든 단어)
+                const studiedToday = all.filter(w => w.last_studied && w.last_studied.startsWith(todayKST)).length;
+
+                return { remaining, notMemorized, memorized, memorizedAllToday, studiedToday };
+            }
+
+            async queryWords(contentId, { known = undefined, limit = 50, excludeToday = false } = {}) {
+                if (!this.db) return [];
+
+                const all = await new Promise((resolve, reject) => {
+                    const tx = this.db.transaction(['word_progress'], 'readonly');
+                    const store = tx.objectStore('word_progress');
+                    const idx = store.index('content_id');
+                    const req = idx.getAll(contentId);
+                    req.onsuccess = () => resolve(req.result || []);
+                    req.onerror = () => reject(req.error);
+                });
+
+                let filtered = all;
+                if (known !== undefined) {
+                    if (Array.isArray(known)) {
+                        filtered = filtered.filter(w => known.includes(w.known));
+                    } else {
+                        filtered = filtered.filter(w => w.known === known);
+                    }
+                }
+
+                if (excludeToday) {
+                    const today = this.getKSTDateString();
+                    filtered = filtered.filter(w => {
+                        if (!w.last_studied) return true;
+                        return !w.last_studied.startsWith(today);
+                    });
+                }
+
+                return filtered.slice(0, limit);
+            }
+
+            async queryMemorizedWords(contentId, todayKST, limit) {
+                if (!this.db) return [];
+
+                const all = await new Promise((resolve, reject) => {
+                    const tx = this.db.transaction(['word_progress'], 'readonly');
+                    const store = tx.objectStore('word_progress');
+                    const idx = store.index('content_id');
+                    const req = idx.getAll(contentId);
+                    req.onsuccess = () => resolve(req.result || []);
+                    req.onerror = () => reject(req.error);
+                });
+
+                const byOldest = (a, b) => (a.last_studied || '').localeCompare(b.last_studied || '');
+                const isToday = w => w.last_studied && w.last_studied.startsWith(todayKST);
+                const studiedDate = w => w.last_studied ? w.last_studied.substring(0, 10) : '';
+
+                // 3일 전 날짜 계산 (오늘 3/11이면 3/8)
+                const todayDate = new Date(todayKST + 'T00:00:00Z');
+                const cutoffStr = new Date(todayDate.getTime() - 3 * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
+
+                // 1순위: known=1, 오늘 제외, 오래된 순
+                const p1 = all.filter(w => w.known === 1 && !isToday(w)).sort(byOldest);
+                // 2순위: known=2, 3일 이전(cutoff 포함), 오래된 순
+                const p2 = all.filter(w => w.known === 2 && studiedDate(w) <= cutoffStr).sort(byOldest);
+                // 3순위: known=2, 최근(cutoff 이후 ~ 오늘), 오래된 순
+                const p3 = all.filter(w => w.known === 2 && studiedDate(w) > cutoffStr).sort(byOldest);
+                // 4순위: known=1, 오늘 학습, 오래된 순
+                const p4 = all.filter(w => w.known === 1 && isToday(w)).sort(byOldest);
+
+                const priorityCount = p1.length + p2.length;
+                const result = [...p1, ...p2, ...p3, ...p4];
+                const sliced = limit ? result.slice(0, limit) : result;
+                // 왕관 경계: 3순위(최근 known=2) 진입 시점
+                this.memorizedTodayStartIndex = Math.min(priorityCount, sliced.length);
+                return sliced;
+            }
+
+            async updateWordKnown(wordProgress, isCorrect) {
+                if (!this.db) return;
+
+                const source = this.quizMode;
+                let newKnown;
+
+                if (isCorrect) {
+                    if (source === 'remaining') {
+                        newKnown = 1;
+                    } else if (source === 'notMemorized') {
+                        newKnown = 1;
+                    } else if (source === 'memorized') {
+                        newKnown = 2;
+                    } else {
+                        newKnown = wordProgress.known === 2 ? 2 : 1;
+                    }
+                } else {
+                    newKnown = 0;
+                }
+
+                wordProgress.known = newKnown;
+                wordProgress.last_studied = this.getKSTISOString();
+                wordProgress.study_count = (wordProgress.study_count || 0) + 1;
+                if (isCorrect) {
+                    wordProgress.correct_count = (wordProgress.correct_count || 0) + 1;
+                }
+
+                await new Promise((resolve, reject) => {
+                    const tx = this.db.transaction(['word_progress'], 'readwrite');
+                    const store = tx.objectStore('word_progress');
+                    store.put(wordProgress);
+                    tx.oncomplete = () => resolve();
+                    tx.onerror = () => reject(tx.error);
+                });
+            }
+
+            async getAllWordsForContent(contentId) {
+                if (!this.db) return [];
+                return new Promise((resolve, reject) => {
+                    const tx = this.db.transaction(['word_progress'], 'readonly');
+                    const store = tx.objectStore('word_progress');
+                    const idx = store.index('content_id');
+                    const req = idx.getAll(contentId);
+                    req.onsuccess = () => resolve(req.result || []);
+                    req.onerror = () => reject(req.error);
+                });
+            }
+
+            // ===== Stat Bar =====
+            async updateStatBar() {
+                const crown = document.getElementById('memorizedCrown');
+                if (!this.currentTextId) {
+                    document.getElementById('countRemaining').textContent = '0';
+                    document.getElementById('countNotMemorized').textContent = '0';
+                    document.getElementById('countMemorized').textContent = '0';
+                    document.getElementById('countStudiedToday').textContent = '0';
+                    if (crown) crown.style.display = 'none';
+                    return;
+                }
+
+                const counts = await this.getWordCounts(this.currentTextId);
+                document.getElementById('countRemaining').textContent = counts.remaining;
+                document.getElementById('countNotMemorized').textContent = counts.notMemorized;
+                document.getElementById('countMemorized').textContent = counts.memorized;
+                document.getElementById('countStudiedToday').textContent = counts.studiedToday;
+
+                // 오늘 날짜를 M/D 형식으로 표시
+                const todayKST = this.getKSTDateString();
+                const [, m, d] = todayKST.split('-');
+                document.getElementById('labelStudiedToday').textContent = parseInt(m) + '/' + parseInt(d);
+
+                // 암기 단어가 모두 오늘 학습한 단어일 때 왕관 표시
+                if (crown) crown.style.display = counts.memorizedAllToday ? 'inline' : 'none';
+            }
+
+            // ===== Toggle UI =====
+            updateToggleUI() {
+                const testBtn = document.getElementById('toggleTest');
+                const memBtn = document.getElementById('toggleMemorize');
+                if (this.notMemorizedMode === 'test') {
+                    testBtn.classList.add('active');
+                    memBtn.classList.remove('active');
+                } else {
+                    testBtn.classList.remove('active');
+                    memBtn.classList.add('active');
+                }
+            }
+
+            toggleNotMemorizedMode(mode) {
+                this.notMemorizedMode = mode;
+                localStorage.setItem('notMemorizedMode', mode);
+                this.updateToggleUI();
+            }
+
+            // ===== Quiz Start =====
+            async startQuiz(mode) {
+                if (!this.currentTextId) {
+                    this.showToast('먼저 콘텐츠를 선택하세요', 'error');
+                    return;
+                }
+
+                this.stopQuizTimer();
+                this.isQuizActive = false;
+                this.quizMode = mode;
+                this.quizIndex = 0;
+                this.isProcessing = false;
+                if (mode !== 'memorized') this.memorizedTodayStartIndex = -1;
+
+                // Update active stat box
+                document.querySelectorAll('.stat-box').forEach(b => b.classList.remove('active'));
+                const boxMap = { remaining: 'statRemaining', notMemorized: 'statNotMemorized', memorized: 'statMemorized' };
+                const activeBox = document.getElementById(boxMap[mode]);
+                if (activeBox) activeBox.classList.add('active');
+
+                let words = [];
+
+                if (mode === 'remaining') {
+                    words = await this.queryWords(this.currentTextId, { known: null, limit: this.wordLimitRemaining });
+                } else if (mode === 'notMemorized') {
+                    const nmLimit = this.wordLimitNotMemorized;
+                    if (this.notMemorizedMode === 'test') {
+                        words = await this.queryWords(this.currentTextId, { known: 0, limit: nmLimit });
+                    } else {
+                        words = await this.queryWords(this.currentTextId, { known: 0, limit: nmLimit });
+                    }
+                } else if (mode === 'memorized') {
+                    const todayKST = this.getKSTDateString();
+                    words = await this.queryMemorizedWords(this.currentTextId, todayKST, this.wordLimitMemorized);
+                }
+
+                if (words.length === 0) {
+                    this.showQuizComplete();
+                    return;
+                }
+
+                // 암기박스: 우선순위 유지, 남은박스: 저장순서 유지, 미암기: 10개 단위 셔플
+                if (mode === 'notMemorized') {
+                    this.quizWords = this.shuffleInChunks(words, 10);
+                } else {
+                    this.quizWords = words;
+                }
+                this.isQuizActive = true;
+                this.quizSessionResults = [];
+
+                // Animate cascade deck from stat box
+                this.animateCascadeDeck(mode);
+
+                setTimeout(() => {
+                    this.showNextCard();
+                }, 600);
+            }
+
+            showQuizComplete() {
+                const area = document.getElementById('flashcardArea');
+                document.getElementById('choiceArea').style.display = 'none';
+                document.getElementById('timerBarContainer').style.display = 'none';
+
+                const results = this.quizSessionResults;
+                const total = results.length;
+
+                // No results (empty quiz) - show simple message
+                if (total === 0) {
+                    area.innerHTML =
+                        '<div class="quiz-complete">' +
+                            '<div class="quiz-complete-icon">🎉</div>' +
+                            '<div class="quiz-complete-text">더 이상 학습할 단어가 없습니다</div>' +
+                        '</div>';
+                    this.updateStatBar();
+                    return;
+                }
+
+                const correct = results.filter(r => r.isCorrect).length;
+                const pct = Math.round((correct / total) * 100);
+
+                // Show score
+                area.innerHTML =
+                    '<div class="quiz-score">' +
+                        '<div class="quiz-score-number">' + correct + ' / ' + total + '</div>' +
+                        '<div class="quiz-score-percent">' + pct + '% 정답</div>' +
+                    '</div>';
+
+                // After 1.2s, start card distribution animation
+                setTimeout(() => {
+                    this.animateCardDistribution(results);
+                }, 1200);
+            }
+
+            // ===== Show Next Card =====
+            showNextCard() {
+                if (!this.isQuizActive || this.quizIndex >= this.quizWords.length) {
+                    this.isQuizActive = false;
+                    this.stopQuizTimer();
+                    this.showQuizComplete();
+                    return;
+                }
+
+                // 암기박스: 오늘 학습 단어 구간 진입 시 왕관 표시
+                this.updateMemorizedCrown();
+
+                const word = this.quizWords[this.quizIndex];
+                const area = document.getElementById('flashcardArea');
+                const choiceArea = document.getElementById('choiceArea');
+                const timerContainer = document.getElementById('timerBarContainer');
+
+                const isMemorizeMode = (this.quizMode === 'notMemorized' && this.notMemorizedMode === 'memorize');
+
+                if (isMemorizeMode) {
+                    // Memorize mode: show word, tap to reveal
+                    this.memorizeRevealed = false;
+                    choiceArea.style.display = 'none';
+                    timerContainer.style.display = 'none';
+
+                    area.innerHTML =
+                        '<div class="flashcard-counter">' + (this.quizIndex + 1) + ' / ' + this.quizWords.length + '</div>' +
+                        '<div class="flashcard-stack">' +
+                            (this.quizIndex + 2 < this.quizWords.length ? '<div class="flashcard-shadow flashcard-shadow-3"></div>' : '') +
+                            (this.quizIndex + 1 < this.quizWords.length ? '<div class="flashcard-shadow flashcard-shadow-2"></div>' : '') +
+                            '<div class="flashcard-main cascade-in" id="flashcardMain" onclick="window.app && window.app.revealMemorizeCard()">' +
+                                '<div class="flashcard-word">' + this.escapeHtml(word.word) + '</div>' +
+                                '<div class="flashcard-meaning">' + this.escapeHtml(word.meaning) + '</div>' +
+                                '<div class="flashcard-association">' + this.escapeHtml(word.association || '') + '</div>' +
+                            '</div>' +
+                        '</div>';
+                } else {
+                    // Quiz mode: show word + choices + timer
+                    this.generateChoices(word);
+                    choiceArea.style.display = 'flex';
+                    timerContainer.style.display = 'block';
+
+                    area.innerHTML =
+                        '<div class="flashcard-counter">' + (this.quizIndex + 1) + ' / ' + this.quizWords.length + '</div>' +
+                        '<div class="flashcard-stack">' +
+                            (this.quizIndex + 2 < this.quizWords.length ? '<div class="flashcard-shadow flashcard-shadow-3"></div>' : '') +
+                            (this.quizIndex + 1 < this.quizWords.length ? '<div class="flashcard-shadow flashcard-shadow-2"></div>' : '') +
+                            '<div class="flashcard-main cascade-in" id="flashcardMain">' +
+                                '<div class="flashcard-word">' + this.escapeHtml(word.word) + '</div>' +
+                            '</div>' +
+                        '</div>';
+
+                    // Set choice button text
+                    document.getElementById('choiceLeft').textContent = this.currentChoices[0].text;
+                    document.getElementById('choiceRight').textContent = this.currentChoices[1].text;
+
+                    this.startQuizTimer();
+                }
+            }
+
+            updateMemorizedCrown() {
+                const crown = document.getElementById('memorizedCrown');
+                if (!crown) return;
+                // 암기박스 퀴즈 중: 오늘 학습 단어 구간 진입 시 왕관 표시
+                if (this.quizMode === 'memorized' && this.memorizedTodayStartIndex >= 0 && this.quizIndex >= this.memorizedTodayStartIndex) {
+                    crown.style.display = 'inline';
+                }
+                // 암기박스 퀴즈가 아닐 때는 updateStatBar가 관리
+            }
+
+            escapeHtml(str) {
+                if (!str) return '';
+                return str.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+            }
+
+            // ===== Text/Image Display Methods =====
+
+            displayText(text, title) {
+                const area = document.getElementById('flashcardArea');
+
+                area.style.opacity = '0.7';
+
+                setTimeout(() => {
+                    area.innerHTML = '<div class="text-view-container"></div>';
+                    const container = area.querySelector('.text-view-container');
+                    container.textContent = text;
+
+                    this.highlights = [];
+                    this.highlightRanges = [];
+
+                    if (this.currentTextId) {
+                        setTimeout(() => {
+                            this.loadHighlights();
+                        }, 100);
+                    }
+
+                    area.style.opacity = '1';
+                }, 100);
+            }
+
+            displayImage(imageData, title) {
+                const area = document.getElementById('flashcardArea');
+
+                area.style.opacity = '0.7';
+
+                setTimeout(() => {
+                    area.innerHTML =
+                        '<div style="width:100%;height:100%;overflow-y:auto;overflow-x:hidden;-webkit-overflow-scrolling:touch;display:flex;flex-direction:column;align-items:center;padding:10px;">' +
+                            '<div class="image-container">' +
+                                '<img src="' + imageData + '" alt="' + this.escapeHtml(title) + '">' +
+                            '</div>' +
+                        '</div>';
+
+                    this.highlights = [];
+                    this.highlightRanges = [];
+
+                    if (this.currentTextId) {
+                        this.loadHighlights();
+                    }
+
+                    area.style.opacity = '1';
+                }, 100);
+            }
+
+            async loadHighlights() {
+                if (!this.db || !this.currentTextId) return;
+
+                try {
+                    const transaction = this.db.transaction(['highlights'], 'readonly');
+                    const store = transaction.objectStore('highlights');
+                    const index = store.index('content_id');
+
+                    const request = index.getAll(parseInt(this.currentTextId));
+
+                    request.onsuccess = () => {
+                        const highlights = request.result;
+
+                        const textHighlights = highlights.filter(h => h.highlight_type === 'text').sort((a, b) => a.start_offset - b.start_offset);
+                        const imageHighlights = highlights.filter(h => h.highlight_type === 'image');
+
+                        if (textHighlights.length > 0) {
+                            this.recreateAllTextHighlights(textHighlights);
+                        }
+
+                        imageHighlights.forEach(highlight => {
+                            this.recreateImageHighlight(highlight);
+                        });
+                    };
+                } catch (error) {
+                    console.error('하이라이트 로드 오류:', error);
+                }
+            }
+
+            recreateAllTextHighlights(highlights) {
+                try {
+                    const container = document.querySelector('.text-view-container');
+                    if (!container) return;
+                    let textContent = container.textContent;
+
+                    if (!textContent) {
+                        console.warn('텍스트 내용이 없습니다');
+                        return;
+                    }
+
+                    highlights.sort((a, b) => a.start_offset - b.start_offset);
+
+                    const fragment = document.createDocumentFragment();
+                    let currentPos = 0;
+
+                    highlights.forEach((highlightData) => {
+                        if (highlightData.start_offset >= textContent.length ||
+                            highlightData.end_offset > textContent.length ||
+                            highlightData.start_offset < 0 ||
+                            highlightData.end_offset <= highlightData.start_offset) {
+                            console.warn('유효하지 않은 하이라이트 오프셋:', highlightData);
+                            return;
+                        }
+
+                        if (currentPos < highlightData.start_offset) {
+                            const beforeText = textContent.substring(currentPos, highlightData.start_offset);
+                            if (beforeText) {
+                                fragment.appendChild(document.createTextNode(beforeText));
+                            }
+                        }
+
+                        const highlightText = textContent.substring(highlightData.start_offset, highlightData.end_offset);
+                        const highlightElement = document.createElement('span');
+                        highlightElement.className = 'highlight masked';
+
+                        if (highlightData.is_priority) {
+                            highlightElement.classList.add('priority');
+                        }
+
+                        highlightElement.textContent = highlightText;
+                        highlightElement.setAttribute('data-id', highlightData.id);
+                        highlightElement.setAttribute('data-timestamp', highlightData.timestamp || Date.now());
+
+                        this.setupHoldEvents(highlightElement);
+
+                        fragment.appendChild(highlightElement);
+
+                        const highlightObj = {
+                            type: 'text',
+                            text: highlightText,
+                            start: highlightData.start_offset,
+                            end: highlightData.end_offset,
+                            timestamp: highlightData.timestamp || Date.now(),
+                            element: highlightElement,
+                            isPriority: highlightData.is_priority || false,
+                            id: highlightData.id
+                        };
+
+                        this.highlights.push(highlightObj);
+
+                        this.highlightRanges.push({
+                            start: highlightData.start_offset,
+                            end: highlightData.end_offset,
+                            element: highlightElement
+                        });
+
+                        currentPos = highlightData.end_offset;
+                    });
+
+                    if (currentPos < textContent.length) {
+                        const afterText = textContent.substring(currentPos);
+                        if (afterText) {
+                            fragment.appendChild(document.createTextNode(afterText));
+                        }
+                    }
+
+                    container.innerHTML = '';
+                    container.appendChild(fragment);
+
+                    console.log('텍스트 하이라이트 재생성 완료:', highlights.length + '개');
+
+                } catch (error) {
+                    console.error('텍스트 하이라이트 재생성 오류:', error);
+                }
+            }
+
+            recreateImageHighlight(highlightData) {
+                try {
+                    const imageContainer = document.querySelector('.image-container');
+                    const img = imageContainer?.querySelector('img');
+                    if (!imageContainer || !img) return;
+
+                    let rect;
+
+                    if (highlightData.relative_data && highlightData.relative_data !== 'undefined') {
+                        try {
+                            const relativeRect = JSON.parse(highlightData.relative_data);
+
+                            const displayWidth = img.offsetWidth;
+                            const displayHeight = img.offsetHeight;
+
+                            rect = {
+                                left: relativeRect.left * displayWidth,
+                                top: relativeRect.top * displayHeight,
+                                width: relativeRect.width * displayWidth,
+                                height: relativeRect.height * displayHeight
+                            };
+                        } catch (parseError) {
+                            console.error('relative_data 파싱 오류:', parseError);
+                            rect = null;
+                        }
+                    }
+
+                    if (!rect && highlightData.rect_data && highlightData.rect_data !== 'undefined') {
+                        try {
+                            rect = JSON.parse(highlightData.rect_data);
+                        } catch (parseError) {
+                            console.error('rect_data 파싱 오류:', parseError);
+                            rect = null;
+                        }
+                    }
+
+                    if (!rect || typeof rect !== 'object') {
+                        console.warn('이미지 하이라이트에 유효한 위치 데이터가 없습니다');
+                        return;
+                    }
+
+                    rect.left = typeof rect.left === 'number' ? Math.max(0, rect.left) : 0;
+                    rect.top = typeof rect.top === 'number' ? Math.max(0, rect.top) : 0;
+                    rect.width = typeof rect.width === 'number' ? Math.max(10, rect.width) : 50;
+                    rect.height = typeof rect.height === 'number' ? Math.max(10, rect.height) : 30;
+
+                    const highlightElement = document.createElement('div');
+                    highlightElement.className = 'image-highlight masked';
+                    if (highlightData.is_priority) {
+                        highlightElement.classList.add('priority');
+                    }
+
+                    highlightElement.style.left = rect.left + 'px';
+                    highlightElement.style.top = rect.top + 'px';
+                    highlightElement.style.width = rect.width + 'px';
+                    highlightElement.style.height = rect.height + 'px';
+
+                    highlightElement.setAttribute('data-id', highlightData.id);
+                    highlightElement.setAttribute('data-timestamp', highlightData.timestamp || Date.now());
+
+                    imageContainer.appendChild(highlightElement);
+
+                    this.setupHoldEvents(highlightElement);
+
+                    const highlightObj = {
+                        type: 'image',
+                        rect: rect,
+                        timestamp: highlightData.timestamp || Date.now(),
+                        element: highlightElement,
+                        isPriority: highlightData.is_priority || false,
+                        id: highlightData.id
+                    };
+
+                    this.highlights.push(highlightObj);
+
+                } catch (error) {
+                    console.error('이미지 하이라이트 재생성 오류:', error);
+                }
+            }
+
+            setupHoldEvents(element) {
+                element.addEventListener('mousedown', (e) => {
+                    e.preventDefault();
+                    this.startHold(element);
+                });
+
+                element.addEventListener('mouseup', () => {
+                    setTimeout(() => {
+                        if (!element._isHolding) {
+                            this.endHoldForElement(element);
+                        }
+                    }, 100);
+                });
+
+                element.addEventListener('mouseleave', () => {
+                    this.endHoldForElement(element);
+                });
+
+                element.addEventListener('touchstart', (e) => {
+                    e.preventDefault();
+                    this.startHold(element);
+                });
+
+                element.addEventListener('touchend', () => {
+                    setTimeout(() => {
+                        if (!element._isHolding) {
+                            this.endHoldForElement(element);
+                        }
+                    }, 100);
+                });
+
+                element.addEventListener('touchcancel', () => {
+                    this.endHoldForElement(element);
+                });
+            }
+
+            startHold(element) {
+                if (element._holdTimer) {
+                    clearTimeout(element._holdTimer);
+                    element._holdTimer = null;
+                }
+
+                element._isHolding = false;
+
+                element._holdTimer = setTimeout(() => {
+                    element._isHolding = true;
+                    element.classList.remove('masked');
+                    element.classList.add('revealed');
+
+                    element._revealTimer = setTimeout(() => {
+                        if (element._isHolding) {
+                            element.classList.remove('revealed');
+                            element.classList.add('masked');
+                            element._isHolding = false;
+                        }
+                    }, 2000);
+                }, this.holdDuration);
+            }
+
+            endHoldForElement(element) {
+                if (element._holdTimer) {
+                    clearTimeout(element._holdTimer);
+                    element._holdTimer = null;
+                }
+
+                if (element._revealTimer) {
+                    clearTimeout(element._revealTimer);
+                    element._revealTimer = null;
+                }
+
+                if (element.classList.contains('revealed')) {
+                    element.classList.remove('revealed');
+                    element.classList.add('masked');
+                }
+
+                element._isHolding = false;
+            }
+
+            // ===== Extract Hint Character =====
+            getHintChar(meaning) {
+                if (!meaning) return '?';
+                let s = meaning.trim();
+                let prev;
+                do {
+                    prev = s;
+                    s = s.replace(/^[~～]\s*/, '');
+                    s = s.replace(/^(에게|에서|으로|에|의|을|를|와|과|로|이|가)\s+/, '');
+                    s = s.replace(/^\([^)]*\)\s*/, '');
+                } while (s !== prev);
+                return s.charAt(0) || meaning.trim().charAt(0) || '?';
+            }
+
+            // ===== Generate Choices =====
+            generateChoices(word) {
+                const correctChar = this.getHintChar(word.meaning);
+
+                // Get wrong answer from quiz set first, then fall back to all content words
+                const otherWords = this.quizWords.filter(w => w.word !== word.word && w.meaning);
+                let wrongChar = '';
+
+                if (otherWords.length > 0) {
+                    const shuffled = this.shuffleArray(otherWords);
+                    for (const other of shuffled) {
+                        const c = this.getHintChar(other.meaning);
+                        if (c !== correctChar) {
+                            wrongChar = c;
+                            break;
+                        }
+                    }
+                }
+
+                // Fallback: pick a random Korean syllable that differs from correctChar
+                if (!wrongChar) {
+                    const fallbacks = ['가','나','다','라','마','바','사','아','자','차','카','타','파','하','고','노','도','로','모','보','소','오','조','코','토','포'];
+                    const candidates = fallbacks.filter(c => c !== correctChar);
+                    wrongChar = candidates[Math.floor(Math.random() * candidates.length)];
+                }
+
+                // Random left/right placement
+                const correctIndex = Math.random() < 0.5 ? 0 : 1;
+                this.currentChoices = [
+                    { text: correctIndex === 0 ? correctChar : wrongChar, correct: correctIndex === 0 },
+                    { text: correctIndex === 1 ? correctChar : wrongChar, correct: correctIndex === 1 }
+                ];
+            }
+
+            // ===== Select Choice =====
+            async selectChoice(index) {
+                if (!this.isQuizActive || this.isProcessing) return;
+                this.isProcessing = true;
+                this.stopQuizTimer();
+
+                const word = this.quizWords[this.quizIndex];
+                const choice = this.currentChoices[index];
+                const isCorrect = choice.correct;
+
+                // Track result
+                this.quizSessionResults.push({ word: word.word, isCorrect });
+
+                // Update known status
+                await this.updateWordKnown(word, isCorrect);
+
+                // Flash effect on card
+                const card = document.getElementById('flashcardMain');
+                if (card) {
+                    card.classList.add(isCorrect ? 'flash-correct' : 'flash-wrong');
+                }
+
+                // Show meaning briefly if wrong
+                if (!isCorrect && card) {
+                    const meaningDiv = card.querySelector('.flashcard-meaning');
+                    if (!meaningDiv) {
+                        const md = document.createElement('div');
+                        md.className = 'flashcard-meaning';
+                        md.style.display = 'block';
+                        md.textContent = word.meaning;
+                        card.appendChild(md);
+                    }
+                }
+
+                // Determine target box for fly animation
+                const targetMode = isCorrect ?
+                    (this.quizMode === 'remaining' ? 'not-memorized' :
+                     this.quizMode === 'notMemorized' ? 'memorized' :
+                     'memorized') :
+                    'not-memorized';
+
+                // Fly animation after brief delay
+                setTimeout(() => {
+                    this.animateFlyToBox(targetMode);
+
+                    setTimeout(() => {
+                        this.quizIndex++;
+                        this.isProcessing = false;
+                        this.showNextCard();
+                    }, 500);
+                }, isCorrect ? 200 : 800);
+            }
+
+            // ===== Memorize Card Reveal =====
+            revealMemorizeCard() {
+                if (!this.isQuizActive) return;
+
+                if (!this.memorizeRevealed) {
+                    const card = document.getElementById('flashcardMain');
+                    if (card) {
+                        card.classList.add('revealed');
+                        this.memorizeRevealed = true;
+                    }
+                } else {
+                    // Second tap: next card (no known change)
+                    this.quizIndex++;
+                    this.memorizeRevealed = false;
+                    this.showNextCard();
+                }
+            }
+
+            // ===== Timer =====
+            startQuizTimer() {
+                this.stopQuizTimer();
+                this.quizTimerStart = performance.now();
+                const timerBar = document.getElementById('timerBar');
+                const limit = this.quizTimeLimit;
+
+                const tick = () => {
+                    const elapsed = performance.now() - this.quizTimerStart;
+                    const progress = Math.max(0, 1 - elapsed / limit);
+                    timerBar.style.setProperty('--timer-progress', progress);
+                    timerBar.style.width = (progress * 100) + '%';
+
+                    if (progress <= 0) {
+                        this.handleTimeout();
+                        return;
+                    }
+                    this.quizTimerId = requestAnimationFrame(tick);
+                };
+                this.quizTimerId = requestAnimationFrame(tick);
+            }
+
+            stopQuizTimer() {
+                if (this.quizTimerId) {
+                    cancelAnimationFrame(this.quizTimerId);
+                    this.quizTimerId = null;
+                }
+            }
+
+            async handleTimeout() {
+                if (!this.isQuizActive || this.isProcessing) return;
+                this.isProcessing = true;
+                this.stopQuizTimer();
+
+                const word = this.quizWords[this.quizIndex];
+
+                // Track result
+                this.quizSessionResults.push({ word: word.word, isCorrect: false });
+
+                // Show word + meaning for 1 second
+                const card = document.getElementById('flashcardMain');
+                if (card) {
+                    card.classList.add('flash-wrong');
+                    // Show meaning
+                    let meaningDiv = card.querySelector('.flashcard-meaning');
+                    if (!meaningDiv) {
+                        meaningDiv = document.createElement('div');
+                        meaningDiv.className = 'flashcard-meaning';
+                        card.appendChild(meaningDiv);
+                    }
+                    meaningDiv.style.display = 'block';
+                    meaningDiv.textContent = word.meaning;
+                }
+
+                // Treat as wrong
+                await this.updateWordKnown(word, false);
+
+                setTimeout(() => {
+                    this.animateFlyToBox('not-memorized');
+                    setTimeout(() => {
+                        this.quizIndex++;
+                        this.isProcessing = false;
+                        this.showNextCard();
+                    }, 500);
+                }, 1000);
+            }
+
+            // ===== Animations =====
+            animateCascadeDeck(fromMode) {
+                const boxMap = { remaining: 'statRemaining', notMemorized: 'statNotMemorized', memorized: 'statMemorized' };
+                const box = document.getElementById(boxMap[fromMode]);
+                if (!box) return;
+
+                const area = document.getElementById('flashcardArea');
+                const boxRect = box.getBoundingClientRect();
+                const areaRect = area.getBoundingClientRect();
+
+                const fromX = boxRect.left + boxRect.width / 2 - (areaRect.left + areaRect.width / 2);
+                const fromY = boxRect.bottom - areaRect.top - areaRect.height / 2;
+
+                // Also set legacy cascade-from-y for the cascade-in class on cards
+                document.documentElement.style.setProperty('--cascade-from-y', fromY + 'px');
+
+                const cardCount = Math.min(10, Math.max(8, this.quizWords.length));
+                for (let i = 0; i < cardCount; i++) {
+                    const card = document.createElement('div');
+                    card.className = 'cascade-mini-card';
+                    const rot = (Math.random() - 0.5) * 30;
+                    card.style.setProperty('--pour-from-x', fromX + 'px');
+                    card.style.setProperty('--pour-from-y', fromY + 'px');
+                    card.style.setProperty('--pour-rot', rot + 'deg');
+                    card.style.animationDelay = (i * 50) + 'ms';
+                    card.style.left = 'calc(50% - 30px + ' + ((Math.random() - 0.5) * 20) + 'px)';
+                    card.style.top = 'calc(50% - 20px + ' + ((Math.random() - 0.5) * 14) + 'px)';
+                    card.textContent = '📖';
+                    area.appendChild(card);
+
+                    // Remove after animation
+                    setTimeout(() => { if (card.parentNode) card.remove(); }, 500 + i * 50);
+                }
+            }
+
+            animateCardDistribution(results) {
+                const area = document.getElementById('flashcardArea');
+                const areaRect = area.getBoundingClientRect();
+
+                const memorizedBox = document.getElementById('statMemorized');
+                const notMemBox = document.getElementById('statNotMemorized');
+                const memRect = memorizedBox.getBoundingClientRect();
+                const notMemRect = notMemBox.getBoundingClientRect();
+
+                const centerX = areaRect.width / 2;
+                const centerY = areaRect.height / 2;
+
+                results.forEach((result, i) => {
+                    setTimeout(() => {
+                        const card = document.createElement('div');
+                        card.className = 'dist-flying-card ' + (result.isCorrect ? 'correct' : 'wrong');
+
+                        const targetBox = result.isCorrect ? memRect : notMemRect;
+                        const distX = targetBox.left + targetBox.width / 2 - (areaRect.left + centerX);
+                        const distY = targetBox.top + targetBox.height / 2 - (areaRect.top + centerY);
+
+                        card.style.setProperty('--dist-x', distX + 'px');
+                        card.style.setProperty('--dist-y', distY + 'px');
+                        card.style.left = (centerX - 28) + 'px';
+                        card.style.top = (centerY - 18) + 'px';
+                        card.textContent = result.word.length > 4 ? result.word.substring(0, 4) + '..' : result.word;
+
+                        area.appendChild(card);
+
+                        // Bump stat count when card arrives
+                        setTimeout(() => {
+                            this.bumpStatCount(result.isCorrect ? 'statMemorized' : 'statNotMemorized');
+                            if (card.parentNode) card.remove();
+                        }, 480);
+                    }, i * 120);
+                });
+
+                // After all cards distributed, update stat bar then show encouragement
+                const totalTime = results.length * 120 + 600;
+                setTimeout(() => {
+                    this.updateStatBar();
+
+                    // Replace score with encouragement message
+                    setTimeout(() => {
+                        const correct = results.filter(r => r.isCorrect).length;
+                        const pct = Math.round((correct / results.length) * 100);
+                        let icon, msg;
+                        if (pct === 100) {
+                            icon = '👑'; msg = '완벽 그 자체! 당신은 이미 천재입니다';
+                        } else if (pct >= 90) {
+                            icon = '🌟'; msg = '참 잘했어요! 거의 완벽에 가까워요';
+                        } else if (pct >= 70) {
+                            icon = '🧠'; msg = '영리한 반복은 당신을 천재로 만듭니다';
+                        } else if (pct >= 50) {
+                            icon = '🔥'; msg = '반드시 암기할 수 있어요!<br>노력하는 모습이 멋져요';
+                        } else {
+                            icon = '🌱'; msg = '씨앗은 심어졌어요!<br>반복할수록 꽃이 핍니다';
+                        }
+                        area.innerHTML =
+                            '<div class="quiz-complete">' +
+                                '<div class="quiz-complete-icon">' + icon + '</div>' +
+                                '<div class="quiz-complete-text">' + msg + '</div>' +
+                            '</div>';
+                    }, 500);
+                }, totalTime);
+            }
+
+            bumpStatCount(boxId) {
+                const box = document.getElementById(boxId);
+                if (!box) return;
+                box.classList.remove('stat-bump');
+                // Force reflow
+                void box.offsetWidth;
+                box.classList.add('stat-bump');
+                setTimeout(() => box.classList.remove('stat-bump'), 400);
+            }
+
+            animateFlyToBox(targetMode) {
+                const card = document.getElementById('flashcardMain');
+                if (!card) return;
+
+                const classMap = { 'remaining': 'statRemaining', 'not-memorized': 'statNotMemorized', 'memorized': 'statMemorized' };
+                const box = document.getElementById(classMap[targetMode]);
+                if (!box) return;
+
+                const cardRect = card.getBoundingClientRect();
+                const boxRect = box.getBoundingClientRect();
+
+                const flyX = boxRect.left + boxRect.width / 2 - (cardRect.left + cardRect.width / 2);
+                const flyY = boxRect.top + boxRect.height / 2 - (cardRect.top + cardRect.height / 2);
+
+                card.style.setProperty('--fly-x', flyX + 'px');
+                card.style.setProperty('--fly-y', flyY + 'px');
+                card.classList.add('flying-card');
+            }
+
+            // ===== Load Content =====
+            async loadContent(item) {
+                try {
+                    this.stopQuizTimer();
+                    this.isQuizActive = false;
+                    this.quizMode = null;
+                    this.isProcessing = false;
+
+                    this.currentTextId = item.id;
+                    this.currentTitle = item.title;
+                    this.currentContentType = item.content_type;
+                    this.currentText = item.content || '';
+                    this.currentMindmapData = null;
+                    this.currentImageData = null;
+
+                    if (item.content_type === 'mindmap') {
+                        this.currentMindmapData = item.mindmap_data ? JSON.parse(item.mindmap_data) : this.parseMindmapData(item.content);
+                        await this.initWordProgress(item.id);
+                    } else if (item.content_type === 'image') {
+                        this.currentImageData = item.image_data;
+                    }
+
+                    // Update top title
+                    document.getElementById('topTitle').textContent = item.title;
+
+                    // Show/hide stat bar based on content type
+                    const statBar = document.getElementById('statBar');
+                    if (item.content_type === 'mindmap') {
+                        statBar.style.display = '';
+                        await this.updateStatBar();
+                    } else {
+                        statBar.style.display = 'none';
+                    }
+
+                    // Reset stat box active states
+                    document.querySelectorAll('.stat-box').forEach(b => b.classList.remove('active'));
+
+                    // Show content based on type
+                    const area = document.getElementById('flashcardArea');
+                    if (item.content_type === 'mindmap') {
+                        area.innerHTML =
+                            '<div class="flashcard-idle" id="flashcardIdle">' +
+                                '<div class="flashcard-idle-icon">📚</div>' +
+                                '<div>위의 박스를 터치하여 학습을 시작하세요</div>' +
+                            '</div>';
+                    } else if (item.content_type === 'text') {
+                        this.displayText(item.content || '', item.title);
+                    } else if (item.content_type === 'image' && this.currentImageData) {
+                        this.displayImage(this.currentImageData, item.title);
+                    } else {
+                        area.innerHTML =
+                            '<div class="flashcard-idle">' +
+                                '<div class="flashcard-idle-icon">📄</div>' +
+                                '<div>이 콘텐츠를 지원하지 않습니다</div>' +
+                            '</div>';
+                    }
+                    document.getElementById('choiceArea').style.display = 'none';
+                    document.getElementById('timerBarContainer').style.display = 'none';
+
+                    // Update sidebar active state
+                    this.updateActiveState(item.id);
+
+                    // Save last viewed
+                    const transaction = this.db.transaction(['contents'], 'readwrite');
+                    const store = transaction.objectStore('contents');
+                    item.last_viewed = new Date();
+                    store.put(item);
+                    localStorage.setItem('lastViewedContentId', item.id.toString());
+
+                } catch (error) {
+                    console.error('콘텐츠 로드 오류:', error);
+                    this.showToast('콘텐츠 로드에 실패했습니다', 'error');
+                }
+            }
+
+            updateActiveState(activeId) {
+                const allItems = document.querySelectorAll('.sidebar-item');
+                allItems.forEach((item, index) => {
+                    item.classList.remove('active');
+                    if (this.savedTexts[index] && this.savedTexts[index].id === activeId) {
+                        item.classList.add('active');
+                    }
+                });
+            }
+
+            async loadLastViewedContent() {
+                const lastViewedId = localStorage.getItem('lastViewedContentId');
+                if (!lastViewedId || !this.db) return;
+
+                try {
+                    const transaction = this.db.transaction(['contents'], 'readonly');
+                    const store = transaction.objectStore('contents');
+                    const request = store.get(parseInt(lastViewedId));
+
+                    request.onsuccess = () => {
+                        const content = request.result;
+                        if (content && content.url_path === this.detectUrlPath()) {
+                            this.loadContent(content);
+                        }
+                    };
+                } catch (error) {
+                    console.error('마지막 콘텐츠 로드 오류:', error);
+                }
+            }
+
+            // ===== Sidebar =====
+            // ===== 하루 1회 업데이트 체크 =====
+            async checkForUpdates() {
+                try {
+                    const todayKST = this.getKSTDateString();
+                    const lastCheck = localStorage.getItem('lastUpdateCheck');
+                    if (lastCheck === todayKST) return;
+
+                    if (!this.pageCategory) return;
+
+                    let response;
+                    try {
+                        response = await fetch(this.proxyUrl, { cache: 'no-store' });
+                    } catch(e) { return; }
+                    if (!response.ok) return;
+
+                    const data = await response.json();
+                    if (!data.records || data.records.length === 0) return;
+
+                    const filtered = data.records.filter(record => {
+                        const f = record.fields;
+                        return (!this.pageCategory.category1 || (f.category1 || '') === this.pageCategory.category1)
+                            && (!this.pageCategory.category2 || (f.category2 || '') === this.pageCategory.category2)
+                            && (!this.pageCategory.category3 || (f.category3 || '') === this.pageCategory.category3);
+                    });
+
+                    if (filtered.length === 0) { localStorage.setItem('lastUpdateCheck', todayKST); return; }
+
+                    // 로컬 콘텐츠와 비교
+                    const allLocal = await new Promise((resolve, reject) => {
+                        const tx = this.db.transaction(['contents'], 'readonly');
+                        const st = tx.objectStore('contents');
+                        const req = st.getAll();
+                        req.onsuccess = () => resolve(req.result || []);
+                        req.onerror = () => reject(req.error);
+                    });
+
+                    const localVersionMap = new Map();
+                    allLocal.forEach(item => {
+                        const { baseName, version } = this.parseVersionedTitle(item.title);
+                        const existing = localVersionMap.get(baseName);
+                        if (!existing || version > existing.version) {
+                            localVersionMap.set(baseName, { version, title: item.title });
+                        }
+                    });
+                    const localTitles = new Set(allLocal.map(item => item.title));
+
+                    let newCount = 0;
+                    let updateCount = 0;
+
+                    filtered.forEach(record => {
+                        try {
+                            const jsonData = record.fields.json;
+                            if (!jsonData) return;
+                            let item;
+                            try { item = JSON.parse(jsonData); } catch(e) {
+                                const idx = jsonData.lastIndexOf('}');
+                                if (idx > 0) item = JSON.parse(jsonData.substring(0, idx + 1)); else return;
+                            }
+                            if (!item || !item.content) return;
+
+                            const title = item.content.title || '';
+                            if (localTitles.has(title)) return; // 중복 — 무시
+
+                            const { baseName, version } = this.parseVersionedTitle(title);
+                            const localEntry = localVersionMap.get(baseName);
+
+                            if (localEntry && version > localEntry.version) {
+                                updateCount++;
+                            } else if (!localEntry) {
+                                // 추가 체크: 로컬에 baseName으로 시작하는 항목이 있는지
+                                let found = false;
+                                for (const li of allLocal) {
+                                    if (li.title.startsWith(baseName)) { found = true; break; }
+                                }
+                                if (!found) newCount++;
+                            }
+                        } catch(e) {}
+                    });
+
+                    localStorage.setItem('lastUpdateCheck', todayKST);
+
+                    // 배지 표시
+                    const badge = document.getElementById('menuBadge');
+                    if (badge && (newCount > 0 || updateCount > 0)) {
+                        let text = '';
+                        if (newCount > 0 && updateCount > 0) text = 'N+U';
+                        else if (newCount > 0) text = 'NEW';
+                        else text = 'UP';
+                        badge.textContent = text;
+                        badge.style.display = 'block';
+                    }
+                } catch(e) {
+                    console.error('업데이트 체크 오류:', e);
+                }
+            }
+
+            toggleSidebar() {
+                const overlay = document.getElementById('sidebarOverlay');
+                overlay.classList.toggle('open');
+                // 사이드바 열면 배지 제거
+                if (overlay.classList.contains('open')) {
+                    const badge = document.getElementById('menuBadge');
+                    if (badge) badge.style.display = 'none';
+                }
+            }
+
+            // ===== Settings =====
+            openSettings() {
+                const existingModal = document.querySelector('.settings-modal');
+                if (existingModal) existingModal.remove();
+
+                const modal = document.createElement('div');
+                modal.className = 'settings-modal';
+
+                const currentWord = this.quizWords && this.quizWords[this.quizIndex] ? this.quizWords[this.quizIndex] : null;
+                const previewHtml = currentWord ?
+                    '<div class="settings-preview">' +
+                        '<div class="settings-preview-label">현재 단어 미리보기</div>' +
+                        '<div><strong>' + this.escapeHtml(currentWord.word) + '</strong></div>' +
+                        '<div style="color:#aaa">' + this.escapeHtml(currentWord.meaning) + '</div>' +
+                        (currentWord.association ? '<div style="color:#666;font-style:italic">' + this.escapeHtml(currentWord.association) + '</div>' : '') +
+                    '</div>' : '';
+
+                modal.innerHTML =
+                    '<div class="settings-dialog">' +
+                        '<div class="settings-title">설정</div>' +
+                        '<div class="settings-row">' +
+                            '<div class="settings-label">시간 제한</div>' +
+                            '<input type="range" class="settings-slider" id="timeLimitSlider" min="500" max="5000" step="100" value="' + this.quizTimeLimit + '">' +
+                            '<div class="settings-value" id="timeLimitValue">' + (this.quizTimeLimit / 1000).toFixed(1) + '초</div>' +
+                        '</div>' +
+                        '<div class="settings-row">' +
+                            '<div class="settings-label">남은개수 단어 수</div>' +
+                            '<input type="range" class="settings-slider" id="wordLimitRSlider" min="10" max="100" step="10" value="' + this.wordLimitRemaining + '">' +
+                            '<div class="settings-value" id="wordLimitRValue">' + this.wordLimitRemaining + '개</div>' +
+                        '</div>' +
+                        '<div class="settings-row">' +
+                            '<div class="settings-label">미암기 단어 수</div>' +
+                            '<input type="range" class="settings-slider" id="wordLimitNMSlider" min="10" max="100" step="10" value="' + this.wordLimitNotMemorized + '">' +
+                            '<div class="settings-value" id="wordLimitNMValue">' + this.wordLimitNotMemorized + '개</div>' +
+                        '</div>' +
+                        '<div class="settings-row">' +
+                            '<div class="settings-label">암기 단어 수</div>' +
+                            '<input type="range" class="settings-slider" id="wordLimitMSlider" min="10" max="100" step="10" value="' + this.wordLimitMemorized + '">' +
+                            '<div class="settings-value" id="wordLimitMValue">' + this.wordLimitMemorized + '개</div>' +
+                        '</div>' +
+                        previewHtml +
+                        '<button class="settings-close-btn" id="settingsCloseBtn">닫기</button>' +
+                    '</div>';
+
+                document.body.appendChild(modal);
+
+                const slider = modal.querySelector('#timeLimitSlider');
+                const valueDisplay = modal.querySelector('#timeLimitValue');
+                slider.addEventListener('input', () => {
+                    const val = parseInt(slider.value);
+                    this.quizTimeLimit = val;
+                    localStorage.setItem('quizTimeLimit', val.toString());
+                    valueDisplay.textContent = (val / 1000).toFixed(1) + '초';
+                });
+
+                const rSlider = modal.querySelector('#wordLimitRSlider');
+                const rValue = modal.querySelector('#wordLimitRValue');
+                rSlider.addEventListener('input', () => {
+                    const val = parseInt(rSlider.value);
+                    this.wordLimitRemaining = val;
+                    localStorage.setItem('wordLimitRemaining', val.toString());
+                    rValue.textContent = val + '개';
+                });
+
+                const nmSlider = modal.querySelector('#wordLimitNMSlider');
+                const nmValue = modal.querySelector('#wordLimitNMValue');
+                nmSlider.addEventListener('input', () => {
+                    const val = parseInt(nmSlider.value);
+                    this.wordLimitNotMemorized = val;
+                    localStorage.setItem('wordLimitNotMemorized', val.toString());
+                    nmValue.textContent = val + '개';
+                });
+
+                const mSlider = modal.querySelector('#wordLimitMSlider');
+                const mValue = modal.querySelector('#wordLimitMValue');
+                mSlider.addEventListener('input', () => {
+                    const val = parseInt(mSlider.value);
+                    this.wordLimitMemorized = val;
+                    localStorage.setItem('wordLimitMemorized', val.toString());
+                    mValue.textContent = val + '개';
+                });
+
+                modal.querySelector('#settingsCloseBtn').addEventListener('click', () => modal.remove());
+                modal.addEventListener('click', (e) => { if (e.target === modal) modal.remove(); });
+            }
+
+            // ===== Event Listeners =====
+            setupFlashcardEventListeners() {
+                // Keyboard shortcuts
+                document.addEventListener('keydown', (e) => {
+                    if (!this.isQuizActive || this.isProcessing) return;
+
+                    const isMemorize = (this.quizMode === 'notMemorized' && this.notMemorizedMode === 'memorize');
+
+                    if (isMemorize) {
+                        if (e.key === ' ' || e.key === 'Enter' || e.key === 'ArrowLeft' || e.key === 'ArrowRight') {
+                            e.preventDefault();
+                            this.revealMemorizeCard();
+                        }
+                    } else {
+                        if (e.key === 'ArrowLeft') {
+                            e.preventDefault();
+                            this.selectChoice(0);
+                        } else if (e.key === 'ArrowRight') {
+                            e.preventDefault();
+                            this.selectChoice(1);
+                        }
+                    }
+                });
+
+                // Click outside sidebar to close
+                document.getElementById('sidebarOverlay').addEventListener('click', (e) => {
+                    if (e.target.id === 'sidebarOverlay') {
+                        this.toggleSidebar();
+                    }
+                });
+
+                // Prevent sidebar panel clicks from closing
+                document.getElementById('sidebarPanel').addEventListener('click', (e) => {
+                    e.stopPropagation();
+                });
+            }
+
+            // ===== Data Loading =====
+            parseMindmapData(content) {
+                const lines = content.trim().split('\n').filter(line => line.trim());
+                const title = this.currentTitle || '마인드맵';
+
+                const mindmapData = {
+                    title: title,
+                    branches: []
+                };
+
+                lines.forEach(line => {
+                    const parts = line.split('@');
+                    const branch = {
+                        level1: parts[0] ? parts[0].trim() : '',
+                        level2: parts[1] ? parts[1].trim() : '',
+                        level3: parts.length > 2 ? parts.slice(2).map(p => p.trim()).filter(p => p).join('\n') : ''
+                    };
+
+                    if (branch.level1) {
+                        mindmapData.branches.push(branch);
+                    }
+                });
+
+                return mindmapData;
+            }
+
+            async loadData() {
+                if (!this.db) return;
+
+                try {
+                    await new Promise((resolve, reject) => {
+                        const transaction = this.db.transaction(['contents'], 'readonly');
+                        const store = transaction.objectStore('contents');
+                        const request = store.getAll();
+
+                        request.onsuccess = async () => {
+                            const currentPath = this.detectUrlPath();
+                            this.savedTexts = request.result
+                                .filter(item => item.url_path === currentPath)
+                                .sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
+                            await this.renderSavedTexts();
+                            resolve();
+                        };
+                        request.onerror = () => reject(request.error);
+                    });
+                } catch (error) {
+                    console.error('데이터 로드 오류:', error);
+                }
+            }
+
+            async renderSavedTexts() {
+                const container = document.getElementById('savedTextsList');
+                const countElement = document.getElementById('savedTexts');
+
+                countElement.textContent = this.savedTexts.length;
+
+                if (this.savedTexts.length === 0) {
+                    container.innerHTML = '<div class="flashcard-idle" style="padding:20px;font-size:13px;">저장된 콘텐츠가 없습니다</div>';
+                    return;
+                }
+
+                container.innerHTML = '';
+
+                for (let i = 0; i < this.savedTexts.length; i++) {
+                    const item = this.savedTexts[i];
+                    const listItem = document.createElement('div');
+                    listItem.className = 'sidebar-item';
+                    listItem.setAttribute('data-id', item.id);
+                    if (this.currentTextId === item.id) {
+                        listItem.classList.add('active');
+                    }
+
+                    const typeIcon = item.content_type === 'image' ? '🖼️' : (item.content_type === 'mindmap' ? '🧠' : '📝');
+
+                    // Get word progress counts for mindmap items
+                    let badgeHtml = '';
+                    if (item.content_type === 'mindmap') {
+                        try {
+                            const counts = await this.getWordCounts(item.id);
+                            const total = counts.remaining + counts.notMemorized + counts.memorized;
+                            if (total > 0) {
+                                badgeHtml = '<span class="sidebar-badge">' + total + '단어</span>';
+                            }
+                        } catch (e) {}
+                    }
+
+                    listItem.innerHTML =
+                        '<div class="sidebar-item-title">' + typeIcon + ' ' + item.title + '</div>' +
+                        '<div class="sidebar-item-actions">' +
+                            badgeHtml +
+                            '<button class="sidebar-delete-btn" onclick="event.stopPropagation(); window.app && window.app.deleteContent(' + item.id + ')" title="삭제">🗑️</button>' +
+                        '</div>';
+
+                    listItem.addEventListener('click', (e) => {
+                        if (e.target.closest('.sidebar-delete-btn')) return;
+                        this.loadContent(item);
+                        this.toggleSidebar();
+                    });
+
+                    container.appendChild(listItem);
+                }
+            }
+
+            async getHighlightStats(contentId) {
+                if (!this.db) return { total: 0, priority: 0, wordCount: 0 };
+
+                return new Promise((resolve) => {
+                    const transaction = this.db.transaction(['highlights', 'contents'], 'readonly');
+                    const highlightStore = transaction.objectStore('highlights');
+                    const highlightIndex = highlightStore.index('content_id');
+
+                    const contentStore = transaction.objectStore('contents');
+                    const contentRequest = contentStore.get(parseInt(contentId));
+
+                    let wordCount = 0;
+                    let highlightResult = null;
+                    let contentDone = false;
+                    let highlightDone = false;
+
+                    const tryResolve = () => {
+                        if (contentDone && highlightDone) {
+                            const total = highlightResult ? highlightResult.length : 0;
+                            const priority = highlightResult ? highlightResult.filter(h => h.is_priority).length : 0;
+                            resolve({ total, priority, wordCount });
+                        }
+                    };
+
+                    contentRequest.onsuccess = () => {
+                        const item = contentRequest.result;
+                        if (item && item.content_type === 'mindmap') {
+                            try {
+                                const mindmapData = item.mindmap_data ? JSON.parse(item.mindmap_data) : null;
+                                if (mindmapData && mindmapData.branches) {
+                                    wordCount = mindmapData.branches.filter(b => b.level1).length;
+                                }
+                            } catch (e) {}
+                        }
+                        contentDone = true;
+                        tryResolve();
+                    };
+
+                    const request = highlightIndex.getAll(contentId);
+                    request.onsuccess = () => {
+                        highlightResult = request.result;
+                        highlightDone = true;
+                        tryResolve();
+                    };
+                    request.onerror = () => {
+                        highlightResult = [];
+                        highlightDone = true;
+                        tryResolve();
+                    };
+                });
+            }
+
+            // ===== Delete Content =====
+            async deleteContent(contentId) {
+                const content = this.savedTexts.find(item => item.id === contentId);
+                if (!content) return;
+
+                const confirmed = await this.showConfirmDialog(
+                    '콘텐츠 삭제',
+                    '"' + content.title + '" 콘텐츠를 삭제하시겠습니까?'
+                );
+
+                if (!confirmed) return;
+
+                try {
+                    // 1단계: word_progress 삭제 (완료까지 대기)
+                    await new Promise((resolve, reject) => {
+                        const wpTx = this.db.transaction(['word_progress'], 'readwrite');
+                        const wpStore = wpTx.objectStore('word_progress');
+                        const wpIdx = wpStore.index('content_id');
+                        const wpReq = wpIdx.getAll(contentId);
+                        wpReq.onsuccess = () => {
+                            const records = wpReq.result;
+                            records.forEach(r => wpStore.delete(r.id));
+                        };
+                        wpTx.oncomplete = () => resolve();
+                        wpTx.onerror = () => reject(wpTx.error);
+                    });
+
+                    // 2단계: contents, highlights 삭제
+                    const transaction = this.db.transaction(['contents', 'highlights'], 'readwrite');
+                    const contentStore = transaction.objectStore('contents');
+                    const highlightStore = transaction.objectStore('highlights');
+                    const highlightIndex = highlightStore.index('content_id');
+
+                    const highlightRequest = highlightIndex.getAll(contentId);
+                    highlightRequest.onsuccess = () => {
+                        const highlights = highlightRequest.result;
+                        highlights.forEach(highlight => highlightStore.delete(highlight.id));
+                    };
+
+                    contentStore.delete(contentId);
+
+                    transaction.oncomplete = () => {
+                        if (this.currentTextId === contentId) {
+                            this.currentTextId = null;
+                            this.currentTitle = '';
+                            this.currentText = '';
+                            this.currentContentType = 'text';
+                            this.currentImageData = null;
+                            this.currentMindmapData = null;
+                            this.isQuizActive = false;
+                            this.stopQuizTimer();
+
+                            document.getElementById('topTitle').textContent = '콘텐츠를 선택하세요';
+                            document.getElementById('flashcardArea').innerHTML =
+                                '<div class="flashcard-idle" id="flashcardIdle">' +
+                                    '<div class="flashcard-idle-icon">📚</div>' +
+                                    '<div>위의 박스를 터치하여 학습을 시작하세요</div>' +
+                                '</div>';
+                            document.getElementById('choiceArea').style.display = 'none';
+                            document.getElementById('timerBarContainer').style.display = 'none';
+                            document.getElementById('statBar').style.display = '';
+                            this.updateStatBar();
+                            localStorage.removeItem('lastViewedContentId');
+                        }
+
+                        this.loadData();
+                        this.showToast('콘텐츠가 삭제되었습니다');
+                    };
+
+                } catch (error) {
+                    console.error('콘텐츠 삭제 오류:', error);
+                    this.showToast('콘텐츠 삭제에 실패했습니다', 'error');
+                }
+            }
+
+            // ===== URL / Category Detection =====
+            detectUrlPath() {
+                const params = new URLSearchParams(window.location.search);
+                const pageParam = params.get('page');
+                if (pageParam) return pageParam;
+
+                try {
+                    if (window.parent !== window) {
+                        const parentSegments = window.parent.location.pathname.split('/').filter(s => s.length > 0);
+                        if (parentSegments.length > 0) return parentSegments[parentSegments.length - 1];
+                    }
+                } catch (e) {}
+
+                const pathSegments = window.location.pathname.split('/').filter(s => s.length > 0);
+                if (pathSegments.length > 0) {
+                    const lastSegment = pathSegments[pathSegments.length - 1];
+                    if (!lastSegment.includes('.') || lastSegment.endsWith('.html') || lastSegment.endsWith('.htm')) {
+                        return lastSegment.replace(/\.(html|htm)$/, '');
+                    }
+                }
+
+                return window.location.hostname || 'default';
+            }
+
+            async loadPageCategory() {
+                try {
+                    const urlPath = this.detectUrlPath();
+                    if (!urlPath) {
+                        this.pageCategory = null;
+                        return;
+                    }
+
+                    const response = await fetch(this.proxyUrl + '/page_config', { cache: 'no-store' });
+
+                    if (!response.ok) {
+                        this.pageCategory = null;
+                        return;
+                    }
+
+                    const data = await response.json();
+                    const match = data.records.find(r => r.fields.url_path === urlPath);
+
+                    if (match) {
+                        this.pageCategory = {
+                            category1: match.fields.category1 || '',
+                            category2: match.fields.category2 || '',
+                            category3: match.fields.category3 || ''
+                        };
+                    } else {
+                        this.pageCategory = null;
+                    }
+                } catch (error) {
+                    console.error('페이지 카테고리 로딩 오류:', error);
+                    this.pageCategory = null;
+                }
+            }
+
+            // ===== Airtable Import =====
+            async importFromAirtable() {
+                try {
+                    this.showToast('자료에서 데이터를 가져오는 중...', 'info');
+
+                    let response;
+                    try {
+                        response = await fetch(this.proxyUrl, { cache: 'no-store' });
+                    } catch (fetchError) {
+                        this.showToast('자료 연결에 실패했습니다.', 'error');
+                        return;
+                    }
+
+                    if (!response.ok) {
+                        this.showToast('자료 접근 실패: ' + response.status, 'error');
+                        return;
+                    }
+
+                    const data = await response.json();
+
+                    if (!data.records || data.records.length === 0) {
+                        this.showToast('가져올 데이터가 없습니다', 'info');
+                        return;
+                    }
+
+                    if (this.pageCategory === null) {
+                        this.showToast('이 페이지에 설정된 콘텐츠가 없습니다', 'info');
+                        return;
+                    }
+
+                    const filtered = data.records.filter(record => {
+                        const f = record.fields;
+                        return (!this.pageCategory.category1 || (f.category1 || '') === this.pageCategory.category1)
+                            && (!this.pageCategory.category2 || (f.category2 || '') === this.pageCategory.category2)
+                            && (!this.pageCategory.category3 || (f.category3 || '') === this.pageCategory.category3);
+                    });
+
+                    if (filtered.length === 0) {
+                        this.showToast('해당 카테고리의 콘텐츠가 없습니다', 'info');
+                        return;
+                    }
+
+                    await this.showAirtableImportDialog(filtered);
+
+                } catch (error) {
+                    console.error('자료 불러오기 오류:', error);
+                    this.showToast('자료 불러오기 중 오류가 발생했습니다', 'error');
+                }
+            }
+
+            parseVersionedTitle(title) {
+                const match = title.match(/^(.+?)(\d+(?:\.\d+)?)$/);
+                if (match) {
+                    return { baseName: match[1].trimEnd(), version: parseFloat(match[2]) };
+                }
+                return { baseName: title.trimEnd(), version: 0 };
+            }
+
+            selectUpdateItems() {
+                if (!this.airtableImportItems) return;
+                this.airtableImportItems.forEach(item => {
+                    item.selected = !!item.isUpdate;
+                });
+                this.refreshAirtableList();
+                this.updateSelectedCount();
+            }
+
+            async showAirtableImportDialog(records) {
+                try {
+                    const allLocalContents = await new Promise((resolve, reject) => {
+                        const tx = this.db.transaction(['contents'], 'readonly');
+                        const st = tx.objectStore('contents');
+                        const req = st.getAll();
+                        req.onsuccess = () => resolve(req.result || []);
+                        req.onerror = () => reject(req.error);
+                    });
+
+                    const localVersionMap = new Map();
+                    allLocalContents.forEach(item => {
+                        const { baseName, version } = this.parseVersionedTitle(item.title);
+                        const existing = localVersionMap.get(baseName);
+                        if (!existing || version > existing.version) {
+                            localVersionMap.set(baseName, { version, contentId: item.id, title: item.title });
+                        }
+                    });
+
+                    const localTitles = new Set(allLocalContents.map(item => item.title));
+                    const airtableItems = [];
+
+                    records.forEach((record) => {
+                        try {
+                            const fields = record.fields;
+                            const jsonData = fields.json;
+                            if (!jsonData) return;
+
+                            let item;
+                            try {
+                                item = JSON.parse(jsonData);
+                            } catch (parseError) {
+                                const lastBraceIndex = jsonData.lastIndexOf('}');
+                                if (lastBraceIndex > 0) {
+                                    item = JSON.parse(jsonData.substring(0, lastBraceIndex + 1));
+                                } else {
+                                    return;
+                                }
+                            }
+
+                            if (!item || !item.content) return;
+
+                            const title = item.content.title || '제목 없음';
+                            const contentType = item.content.content_type || 'text';
+                            let wordCount = 0;
+                            if (contentType === 'mindmap') {
+                                try {
+                                    const md = item.content.mindmap_data ? JSON.parse(item.content.mindmap_data) : null;
+                                    if (md && md.branches) wordCount = md.branches.filter(b => b.level1).length;
+                                } catch (e) {}
+                            }
+
+                            const { baseName: airBase, version: airVer } = this.parseVersionedTitle(title);
+                            const localEntry = localVersionMap.get(airBase);
+                            let isDuplicate = false;
+                            let isUpdate = false;
+                            let updateTargetId = null;
+
+                            if (localTitles.has(title)) {
+                                isDuplicate = true;
+                            } else if (localEntry && airVer > localEntry.version) {
+                                isUpdate = true;
+                                updateTargetId = localEntry.contentId;
+                            }
+
+                            if (!isUpdate && !isDuplicate) {
+                                for (const localItem of allLocalContents) {
+                                    if (title === localItem.title) continue;
+                                    if (title.startsWith(localItem.title)) {
+                                        const suffix = title.substring(localItem.title.length).trim();
+                                        if (/^\d+(\.\d+)?$/.test(suffix)) {
+                                            isUpdate = true;
+                                            updateTargetId = localItem.id;
+                                            break;
+                                        }
+                                    }
+                                    if (localItem.title.startsWith(airBase)) {
+                                        const localSuffix = localItem.title.substring(airBase.length).trim();
+                                        if (localSuffix === '' || /^\d+(\.\d+)?$/.test(localSuffix)) {
+                                            const localVer = localSuffix === '' ? 0 : parseFloat(localSuffix);
+                                            if (airVer > localVer) {
+                                                isUpdate = true;
+                                                updateTargetId = localItem.id;
+                                                break;
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+
+                            airtableItems.push({
+                                record: record,
+                                item: item,
+                                title: title,
+                                contentType: contentType,
+                                wordCount: wordCount,
+                                isDuplicate: isDuplicate,
+                                isUpdate: isUpdate,
+                                updateTargetId: updateTargetId,
+                                selected: !isDuplicate || isUpdate
+                            });
+
+                        } catch (error) {
+                            console.error('레코드 파싱 오류:', error);
+                        }
+                    });
+
+                    if (airtableItems.length === 0) {
+                        this.showToast('가져올 수 있는 유효한 데이터가 없습니다', 'error');
+                        return;
+                    }
+
+                    const existingModal = document.querySelector('.airtable-import-modal');
+                    if (existingModal) existingModal.remove();
+
+                    const modal = document.createElement('div');
+                    modal.className = 'airtable-import-modal';
+
+                    const duplicateCount = airtableItems.filter(item => item.isDuplicate && !item.isUpdate).length;
+                    const updateCount = airtableItems.filter(item => item.isUpdate).length;
+                    const newCount = airtableItems.length - duplicateCount - updateCount;
+
+                    modal.innerHTML = `
+                        <div class="airtable-import-dialog">
+                            <div class="airtable-import-header">
+                                <div class="airtable-import-title">자료에서 불러오기</div>
+                                <div class="airtable-import-subtitle">
+                                    총 ${airtableItems.length}개 항목 (신규: ${newCount}개, 업데이트: ${updateCount}개, 중복: ${duplicateCount}개)
+                                </div>
+                            </div>
+                            <div class="airtable-import-controls">
+                                <button class="btn btn-secondary btn-small" id="selectAllBtn">전체 선택</button>
+                                <button class="btn btn-secondary btn-small" id="selectNoneBtn">전체 해제</button>
+                                <button class="btn btn-info btn-small" id="selectNewBtn">중복 제외 선택</button>
+                                <button class="btn btn-primary btn-small" id="selectDuplicateBtn">중복 항목만 선택</button>
+                                ${updateCount > 0 ? '<button class="btn btn-small" id="selectUpdateBtn" style="background:#4caf50;color:#fff;">업데이트 항목만 선택</button>' : ''}
+                            </div>
+                            <div class="airtable-import-list" id="airtableImportList">
+                                ${this.renderAirtableItems(airtableItems)}
+                            </div>
+                            <div class="airtable-import-actions">
+                                <div class="airtable-import-summary"><span id="selectedCount">0</span>개 항목 선택됨</div>
+                                <div class="airtable-import-buttons">
+                                    <button class="btn btn-secondary" id="cancelBtn">취소</button>
+                                    <button class="btn btn-primary" id="importBtn">선택한 항목 불러오기</button>
+                                </div>
+                            </div>
+                        </div>
+                    `;
+
+                    document.body.appendChild(modal);
+                    this.airtableImportItems = airtableItems;
+                    this.updateSelectedCount();
+
+                    modal.querySelector('#selectAllBtn').addEventListener('click', () => this.selectAllAirtableItems(true));
+                    modal.querySelector('#selectNoneBtn').addEventListener('click', () => this.selectAllAirtableItems(false));
+                    modal.querySelector('#selectNewBtn').addEventListener('click', () => this.selectNonDuplicateItems());
+                    modal.querySelector('#selectDuplicateBtn').addEventListener('click', () => this.selectDuplicateItems());
+                    const selectUpdateBtn = modal.querySelector('#selectUpdateBtn');
+                    if (selectUpdateBtn) selectUpdateBtn.addEventListener('click', () => this.selectUpdateItems());
+                    modal.querySelector('#cancelBtn').addEventListener('click', () => this.closeAirtableImportDialog());
+                    modal.querySelector('#importBtn').addEventListener('click', () => this.importSelectedItems());
+                    modal.addEventListener('click', (e) => { if (e.target === modal) this.closeAirtableImportDialog(); });
+
+                } catch (error) {
+                    console.error('다이얼로그 표시 오류:', error);
+                    this.showToast('다이얼로그 표시에 실패했습니다', 'error');
+                }
+            }
+
+            renderAirtableItems(items) {
+                return items.map((item, index) => {
+                    const typeIcon = item.contentType === 'image' ? '🖼️' : (item.contentType === 'mindmap' ? '🧠' : '📝');
+                    let statusClass = '';
+                    let statusTag = '';
+                    if (item.isUpdate) {
+                        statusClass = 'update';
+                        statusTag = '<span class="airtable-import-tag update-tag">업데이트</span>';
+                    } else if (item.isDuplicate) {
+                        statusClass = 'duplicate';
+                        statusTag = '<span class="airtable-import-tag">중복</span>';
+                    }
+
+                    return `
+                        <div class="airtable-import-item ${statusClass}">
+                            <input type="checkbox" class="airtable-import-checkbox"
+                                   ${item.selected ? 'checked' : ''}
+                                   onchange="window.app.toggleAirtableItem(${index}, this.checked)">
+                            <div class="airtable-import-info">
+                                <div class="airtable-import-item-title">${typeIcon} ${item.title}</div>
+                                <div class="airtable-import-item-details">
+                                    <span>${item.contentType === 'mindmap' ? '암기할 갯수: ' + item.wordCount + '개' : ''}</span>
+                                    <span>타입: ${item.contentType === 'mindmap' ? 'flashcard' : item.contentType}</span>
+                                    ${statusTag}
+                                </div>
+                            </div>
+                        </div>
+                    `;
+                }).join('');
+            }
+
+            selectAllAirtableItems(selected) {
+                if (!this.airtableImportItems) return;
+                this.airtableImportItems.forEach(item => { item.selected = selected; });
+                this.refreshAirtableList();
+                this.updateSelectedCount();
+            }
+
+            selectNonDuplicateItems() {
+                if (!this.airtableImportItems) return;
+                this.airtableImportItems.forEach(item => { item.selected = !item.isDuplicate; });
+                this.refreshAirtableList();
+                this.updateSelectedCount();
+            }
+
+            selectDuplicateItems() {
+                if (!this.airtableImportItems) return;
+                this.airtableImportItems.forEach(item => { item.selected = item.isDuplicate; });
+                this.refreshAirtableList();
+                this.updateSelectedCount();
+            }
+
+            toggleAirtableItem(index, selected) {
+                if (!this.airtableImportItems || !this.airtableImportItems[index]) return;
+                this.airtableImportItems[index].selected = selected;
+                this.updateSelectedCount();
+            }
+
+            refreshAirtableList() {
+                const listContainer = document.getElementById('airtableImportList');
+                if (listContainer && this.airtableImportItems) {
+                    listContainer.innerHTML = this.renderAirtableItems(this.airtableImportItems);
+                }
+            }
+
+            updateSelectedCount() {
+                const countElement = document.getElementById('selectedCount');
+                if (countElement && this.airtableImportItems) {
+                    countElement.textContent = this.airtableImportItems.filter(item => item.selected).length;
+                }
+            }
+
+            closeAirtableImportDialog() {
+                const modal = document.querySelector('.airtable-import-modal');
+                if (modal) modal.remove();
+                this.airtableImportItems = null;
+            }
+
+            async importSelectedItems() {
+                if (!this.airtableImportItems) return;
+
+                const selectedItems = this.airtableImportItems.filter(item => item.selected);
+                if (selectedItems.length === 0) {
+                    this.showToast('선택된 항목이 없습니다', 'error');
+                    return;
+                }
+
+                this.closeAirtableImportDialog();
+                this.showToast(`${selectedItems.length}개 항목 불러오기 시작...`, 'info');
+
+                try {
+                    const importData = { contents: [], highlights: [], updateMap: [] };
+
+                    selectedItems.forEach(airtableItem => {
+                        const item = airtableItem.item;
+                        const fields = airtableItem.record.fields;
+
+                        const imageFields = [];
+                        for (let i = 1; i <= 25; i++) {
+                            const imageField = fields[`image${i}`];
+                            imageFields.push(imageField && imageField.trim() ? imageField : '');
+                        }
+
+                        if (imageFields.some(field => field)) {
+                            const combinedImage = this.combineImageData(imageFields);
+                            if (combinedImage.trim()) {
+                                item.content.image_data = combinedImage;
+                            }
+                        }
+
+                        const contentFields = [];
+                        for (let i = 1; i <= 7; i++) {
+                            const cf = fields[`content${i}`];
+                            contentFields.push(cf && cf.trim() ? cf : '');
+                        }
+                        if (contentFields.some(f => f)) {
+                            item.content.content = contentFields.filter(f => f).join('');
+                        }
+
+                        if (item.content.content_type === 'mindmap' && item.content.content) {
+                            const lines = item.content.content.trim().split('\n').filter(l => l.trim());
+                            const branches = [];
+                            lines.forEach(line => {
+                                const parts = line.split('@');
+                                const branch = { level1: (parts[0]||'').trim(), level2: (parts[1]||'').trim(), level3: parts.length > 2 ? parts.slice(2).map(p => p.trim()).filter(p => p).join('\n') : '' };
+                                if (branch.level1) branches.push(branch);
+                            });
+                            item.content.mindmap_data = JSON.stringify({ title: item.content.title || '플래시카드', branches: branches });
+                        }
+                        importData.contents.push(item.content);
+                        importData.updateMap.push({
+                            isUpdate: !!airtableItem.isUpdate,
+                            updateTargetId: airtableItem.updateTargetId || null
+                        });
+                    });
+
+                    await this.importAllDataBatch(importData);
+
+                } catch (error) {
+                    console.error('선택 항목 불러오기 오류:', error);
+                    this.showToast('선택한 항목 불러오기에 실패했습니다', 'error');
+                }
+            }
+
+            async getUniqueTitle(baseTitle) {
+                const transaction = this.db.transaction(['contents'], 'readonly');
+                const store = transaction.objectStore('contents');
+                const index = store.index('title');
+
+                return new Promise((resolve) => {
+                    const request = index.getAll();
+                    request.onsuccess = () => {
+                        const existingTitles = request.result.map(item => item.title);
+                        let finalTitle = baseTitle;
+                        let counter = 1;
+                        while (existingTitles.includes(finalTitle)) {
+                            finalTitle = baseTitle + ' (' + counter + ')';
+                            counter++;
+                        }
+                        resolve(finalTitle);
+                    };
+                });
+            }
+
+            async importAllDataBatch(data) {
+                try {
+                    let importedCount = 0;
+                    let updatedCount = 0;
+                    const contentIdMap = new Map();
+                    const updateMap = data.updateMap || [];
+
+                    for (let i = 0; i < data.contents.length; i++) {
+                        const content = data.contents[i];
+                        const updateInfo = updateMap[i] || { isUpdate: false, updateTargetId: null };
+
+                        try {
+                            if (updateInfo.isUpdate && updateInfo.updateTargetId) {
+                                const targetId = updateInfo.updateTargetId;
+
+                                const existing = await new Promise((resolve, reject) => {
+                                    const tx = this.db.transaction(['contents'], 'readonly');
+                                    const st = tx.objectStore('contents');
+                                    const req = st.get(targetId);
+                                    req.onsuccess = () => resolve(req.result);
+                                    req.onerror = () => reject(req.error);
+                                });
+
+                                if (!existing) {
+                                    await this._addNewContent(content, contentIdMap);
+                                    importedCount++;
+                                    continue;
+                                }
+
+                                const updatedContent = {
+                                    ...existing,
+                                    title: content.title,
+                                    content: content.content,
+                                    content_type: content.content_type,
+                                    mindmap_data: content.mindmap_data || existing.mindmap_data,
+                                    image_data: content.image_data || existing.image_data,
+                                    category1: content.category1 || existing.category1,
+                                    category2: content.category2 || existing.category2,
+                                    category3: content.category3 || existing.category3,
+                                    updated_at: new Date()
+                                };
+                                updatedContent.id = existing.id;
+
+                                await new Promise((resolve, reject) => {
+                                    const tx = this.db.transaction(['contents'], 'readwrite');
+                                    const st = tx.objectStore('contents');
+                                    st.put(updatedContent);
+                                    tx.oncomplete = () => { updatedCount++; resolve(); };
+                                    tx.onerror = () => reject(tx.error);
+                                });
+
+                            } else {
+                                await this._addNewContent(content, contentIdMap);
+                                importedCount++;
+                            }
+                        } catch (error) {
+                            console.error('콘텐츠 저장 오류:', error);
+                        }
+                    }
+
+                    if (data.highlights && Array.isArray(data.highlights)) {
+                        const validHighlights = data.highlights.filter(highlight => contentIdMap.has(highlight.content_id));
+                        for (const highlight of validHighlights) {
+                            try {
+                                const newContentId = contentIdMap.get(highlight.content_id);
+                                delete highlight.id;
+                                highlight.content_id = newContentId;
+                                highlight.imported_at = new Date();
+                                highlight.is_priority = false;
+
+                                await new Promise((resolve, reject) => {
+                                    const tx = this.db.transaction(['highlights'], 'readwrite');
+                                    const store = tx.objectStore('highlights');
+                                    const request = store.add(highlight);
+                                    request.onsuccess = () => resolve();
+                                    request.onerror = () => reject(request.error);
+                                });
+                            } catch (error) {
+                                console.error('하이라이트 저장 오류:', error);
+                            }
+                        }
+                    }
+
+                    await this.loadData();
+
+                    if (updatedCount > 0 && this.currentTextId) {
+                        try {
+                            const tx = this.db.transaction(['contents'], 'readonly');
+                            const st = tx.objectStore('contents');
+                            const req = st.get(this.currentTextId);
+                            req.onsuccess = () => {
+                                const updatedItem = req.result;
+                                if (updatedItem) this.loadContent(updatedItem);
+                            };
+                        } catch (e) {}
+                    } else if (importedCount > 0 && this.savedTexts.length > 0 && !this.currentTextId) {
+                        this.loadContent(this.savedTexts[0]);
+                    }
+
+                    let msg = '';
+                    if (importedCount > 0 && updatedCount > 0) {
+                        msg = importedCount + '개 신규, ' + updatedCount + '개 업데이트 완료';
+                    } else if (updatedCount > 0) {
+                        msg = updatedCount + '개의 콘텐츠를 업데이트했습니다';
+                    } else {
+                        msg = importedCount + '개의 콘텐츠를 성공적으로 불러왔습니다';
+                    }
+                    this.showToast(msg);
+
+                } catch (error) {
+                    console.error('배치 데이터 불러오기 오류:', error);
+                    this.showToast('데이터 불러오기에 실패했습니다', 'error');
+                }
+            }
+
+            async _addNewContent(content, contentIdMap) {
+                const originalId = content.id;
+                delete content.id;
+
+                const uniqueTitle = await this.getUniqueTitle(content.title);
+                content.title = uniqueTitle;
+                content.imported_at = new Date();
+                content.url_path = this.detectUrlPath();
+
+                const transaction = this.db.transaction(['contents'], 'readwrite');
+                const store = transaction.objectStore('contents');
+
+                await new Promise((resolve, reject) => {
+                    const request = store.add(content);
+                    request.onsuccess = () => {
+                        contentIdMap.set(originalId, request.result);
+                    };
+                    request.onerror = () => reject(request.error);
+                    transaction.oncomplete = () => resolve();
+                    transaction.onerror = () => reject(transaction.error);
+                });
+            }
+
+            combineImageData(chunks) {
+                const validChunks = chunks.filter(chunk => chunk && typeof chunk === 'string' && chunk.trim());
+                return validChunks.join('');
+            }
+
+            // ===== Toast =====
+            showToast(message, type = 'info') {
+                const existingToast = document.querySelector('.toast');
+                if (existingToast) existingToast.remove();
+
+                const toast = document.createElement('div');
+                toast.className = 'toast';
+                toast.textContent = message;
+
+                if (type === 'error') toast.classList.add('error');
+                else if (type === 'info') toast.classList.add('info');
+
+                document.body.appendChild(toast);
+
+                setTimeout(() => { toast.classList.add('show'); }, 100);
+                setTimeout(() => {
+                    toast.classList.remove('show');
+                    setTimeout(() => { if (toast.parentNode) toast.remove(); }, 300);
+                }, 3000);
+            }
+
+            // ===== Confirm Dialog =====
+            showConfirmDialog(title, message) {
+                return new Promise((resolve) => {
+                    const modal = document.createElement('div');
+                    modal.className = 'confirm-modal';
+
+                    modal.innerHTML =
+                        '<div class="confirm-dialog">' +
+                            '<div class="confirm-title">' + title + '</div>' +
+                            '<div class="confirm-message">' + message + '</div>' +
+                            '<div class="confirm-buttons">' +
+                                '<button class="confirm-button cancel">취소</button>' +
+                                '<button class="confirm-button confirm">확인</button>' +
+                            '</div>' +
+                        '</div>';
+
+                    modal.querySelector('.cancel').addEventListener('click', () => { modal.remove(); resolve(false); });
+                    modal.querySelector('.confirm').addEventListener('click', () => { modal.remove(); resolve(true); });
+                    modal.addEventListener('click', (e) => { if (e.target === modal) { modal.remove(); resolve(false); } });
+
+                    document.body.appendChild(modal);
+                });
+            }
+        }
+
+        window.addEventListener('DOMContentLoaded', () => {
+            window.app = new WordMemorizationApp();
+        });
+    </script>
+</body>
+</html>
