@@ -1768,7 +1768,11 @@
                     this.highlightRanges = [];
 
                     const img = area.querySelector('img');
-                    const loadHL = () => {
+                    const fitImage = () => {
+                        const areaH = area.clientHeight - 20;
+                        if (areaH > 0) {
+                            img.style.maxHeight = areaH + 'px';
+                        }
                         if (this.currentTextId) {
                             this.loadHighlights();
                         }
@@ -1776,9 +1780,9 @@
 
                     if (img) {
                         if (img.complete && img.naturalWidth > 0) {
-                            loadHL();
+                            fitImage();
                         } else {
-                            img.onload = () => loadHL();
+                            img.onload = () => fitImage();
                         }
                     }
 
