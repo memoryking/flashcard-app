@@ -1749,8 +1749,19 @@
                     this.highlights = [];
                     this.highlightRanges = [];
 
-                    if (this.currentTextId) {
-                        this.loadHighlights();
+                    const img = area.querySelector('img');
+                    const loadHL = () => {
+                        if (this.currentTextId) {
+                            this.loadHighlights();
+                        }
+                    };
+
+                    if (img) {
+                        if (img.complete && img.naturalWidth > 0) {
+                            loadHL();
+                        } else {
+                            img.onload = () => loadHL();
+                        }
                     }
 
                     area.style.opacity = '1';
