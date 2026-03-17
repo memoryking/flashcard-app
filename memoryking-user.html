@@ -175,6 +175,24 @@
         }
         .sidebar-delete-btn:hover { background: rgba(233,69,96,0.15); }
 
+        /* ===== Sidebar Tree Group ===== */
+        .sidebar-group { margin-bottom: 4px; }
+        .sidebar-group-header {
+            display: flex; align-items: center;
+            padding: 8px 10px; cursor: pointer; border-radius: 8px;
+            font-size: 13px; font-weight: 600; color: #ccc;
+            transition: background 0.2s; user-select: none;
+        }
+        .sidebar-group-header:hover { background: rgba(83,52,131,0.2); }
+        .sidebar-group-header .group-arrow {
+            display: inline-block; margin-right: 6px; font-size: 10px;
+            transition: transform 0.2s;
+        }
+        .sidebar-group-header.collapsed .group-arrow { transform: rotate(-90deg); }
+        .sidebar-group-children { overflow: hidden; transition: max-height 0.3s; }
+        .sidebar-group-children.collapsed { max-height: 0 !important; }
+        .sidebar-group-count { margin-left: auto; font-size: 11px; color: #888; }
+
         /* ===== Top Bar ===== */
         .top-bar {
             display: flex;
@@ -685,6 +703,26 @@
             -moz-user-select: none;
         }
 
+        /* ===== Image Navigation Buttons ===== */
+        .image-nav-btn {
+            position: absolute; top: 50%; transform: translateY(-50%); z-index: 10;
+            width: 40px; height: 60px;
+            background: rgba(22,33,62,0.7); border: 1px solid rgba(83,52,131,0.5);
+            border-radius: 8px; color: #e0e0e0; font-size: 20px; cursor: pointer;
+            display: flex; align-items: center; justify-content: center;
+            transition: background 0.2s, opacity 0.2s; opacity: 0.6;
+        }
+        .image-nav-btn:hover { background: rgba(83,52,131,0.6); opacity: 1; }
+        .image-nav-btn:active { background: rgba(233,69,96,0.4); }
+        .image-nav-btn.nav-prev { left: 8px; }
+        .image-nav-btn.nav-next { right: 8px; }
+        .image-nav-btn:disabled { opacity: 0.2; cursor: default; pointer-events: none; }
+        .image-nav-indicator {
+            position: absolute; bottom: 8px; left: 50%; transform: translateX(-50%);
+            z-index: 10; font-size: 11px; color: #aaa;
+            background: rgba(22,33,62,0.8); padding: 2px 10px; border-radius: 10px;
+        }
+
         .highlight-text-display {
             position: absolute;
             bottom: 0;
@@ -1164,6 +1202,10 @@
                 this.currentText = '';
                 this.currentMindmapData = null;
                 this.currentImageData = null;
+
+                // Image navigation state
+                this.imageContentsList = [];
+                this.sidebarGroupState = JSON.parse(localStorage.getItem('sidebarGroupState') || '{}');
 
                 // Highlight state (for text/image view)
                 this.highlights = [];
@@ -1781,8 +1823,21 @@
                 area.style.opacity = '0.7';
 
                 setTimeout(() => {
+                    // Build nav buttons HTML
+                    let navHtml = '';
+                    const imgIdx = this.imageContentsList.findIndex(i => i.id === this.currentTextId);
+                    const totalImages = this.imageContentsList.length;
+
+                    if (totalImages > 1) {
+                        navHtml =
+                            '<button class="image-nav-btn nav-prev"' + (imgIdx <= 0 ? ' disabled' : '') + ' onclick="window.app.navigateImage(-1)">◀</button>' +
+                            '<button class="image-nav-btn nav-next"' + (imgIdx >= totalImages - 1 ? ' disabled' : '') + ' onclick="window.app.navigateImage(1)">▶</button>' +
+                            '<div class="image-nav-indicator">' + (imgIdx + 1) + ' / ' + totalImages + '</div>';
+                    }
+
                     area.innerHTML =
                         '<div class="image-wrapper">' +
+                            navHtml +
                             '<div class="image-container">' +
                                 '<img src="' + imageData + '" alt="' + this.escapeHtml(title) + '">' +
                             '</div>' +
@@ -1811,8 +1866,40 @@
                         }
                     }
 
+                    // Setup swipe for mobile
+                    const wrapper = area.querySelector('.image-wrapper');
+                    if (wrapper && totalImages > 1) {
+                        this.setupImageSwipe(wrapper);
+                    }
+
                     area.style.opacity = '1';
                 }, 100);
+            }
+
+            navigateImage(direction) {
+                const idx = this.imageContentsList.findIndex(i => i.id === this.currentTextId);
+                const newIdx = idx + direction;
+                if (newIdx < 0 || newIdx >= this.imageContentsList.length) return;
+                this.loadContent(this.imageContentsList[newIdx]);
+            }
+
+            setupImageSwipe(wrapper) {
+                let startX = 0, startY = 0, startTime = 0;
+                wrapper.addEventListener('touchstart', (e) => {
+                    if (e.target.closest('.image-nav-btn') || e.target.closest('.highlight') || e.target.closest('.image-highlight-box')) return;
+                    startX = e.touches[0].clientX;
+                    startY = e.touches[0].clientY;
+                    startTime = Date.now();
+                }, { passive: true });
+                wrapper.addEventListener('touchend', (e) => {
+                    if (!startTime) return;
+                    const dx = e.changedTouches[0].clientX - startX;
+                    const dy = e.changedTouches[0].clientY - startY;
+                    const elapsed = Date.now() - startTime;
+                    startTime = 0;
+                    if (elapsed > 500 || Math.abs(dx) < 60 || Math.abs(dx) < Math.abs(dy)) return;
+                    this.navigateImage(dx < 0 ? 1 : -1);
+                }, { passive: true });
             }
 
             async loadHighlights() {
@@ -2579,6 +2666,9 @@
                     item.last_viewed = new Date();
                     store.put(item);
                     localStorage.setItem('lastViewedContentId', item.id.toString());
+                    if (item.content_type === 'image') {
+                        localStorage.setItem('lastViewedImageContentId', item.id.toString());
+                    }
 
                 } catch (error) {
                     console.error('콘텐츠 로드 오류:', error);
@@ -2588,10 +2678,20 @@
 
             updateActiveState(activeId) {
                 const allItems = document.querySelectorAll('.sidebar-item');
-                allItems.forEach((item, index) => {
-                    item.classList.remove('active');
-                    if (this.savedTexts[index] && this.savedTexts[index].id === activeId) {
-                        item.classList.add('active');
+                allItems.forEach((el) => {
+                    el.classList.remove('active');
+                    if (parseInt(el.getAttribute('data-id')) === activeId) {
+                        el.classList.add('active');
+                        // Auto-expand parent group if collapsed
+                        const parentChildren = el.closest('.sidebar-group-children');
+                        if (parentChildren && parentChildren.classList.contains('collapsed')) {
+                            parentChildren.classList.remove('collapsed');
+                            const parentGroup = parentChildren.closest('.sidebar-group');
+                            if (parentGroup) {
+                                const header = parentGroup.querySelector('.sidebar-group-header');
+                                if (header) header.classList.remove('collapsed');
+                            }
+                        }
                     }
                 });
             }
@@ -2813,6 +2913,19 @@
             setupFlashcardEventListeners() {
                 // Keyboard shortcuts
                 document.addEventListener('keydown', (e) => {
+                    // Image navigation with arrow keys
+                    if (!this.isQuizActive && this.currentContentType === 'image' && this.imageContentsList.length > 1) {
+                        if (e.key === 'ArrowLeft') {
+                            e.preventDefault();
+                            this.navigateImage(-1);
+                            return;
+                        } else if (e.key === 'ArrowRight') {
+                            e.preventDefault();
+                            this.navigateImage(1);
+                            return;
+                        }
+                    }
+
                     if (!this.isQuizActive || this.isProcessing) return;
 
                     const isMemorize = (this.quizMode === 'notMemorized' && this.notMemorizedMode === 'memorize');
@@ -2904,48 +3017,90 @@
 
                 if (this.savedTexts.length === 0) {
                     container.innerHTML = '<div class="flashcard-idle" style="padding:20px;font-size:13px;">저장된 콘텐츠가 없습니다</div>';
+                    this.imageContentsList = [];
                     return;
                 }
 
                 container.innerHTML = '';
 
-                for (let i = 0; i < this.savedTexts.length; i++) {
-                    const item = this.savedTexts[i];
-                    const listItem = document.createElement('div');
-                    listItem.className = 'sidebar-item';
-                    listItem.setAttribute('data-id', item.id);
-                    if (this.currentTextId === item.id) {
-                        listItem.classList.add('active');
-                    }
+                // Group by content_type: mindmap → image → text
+                const groups = [
+                    { key: 'mindmap', icon: '🧠', label: '마인드맵', items: [] },
+                    { key: 'image', icon: '🖼️', label: '이미지 콘텐츠', items: [] },
+                    { key: 'text', icon: '📝', label: '텍스트', items: [] }
+                ];
+                const groupMap = {};
+                groups.forEach(g => { groupMap[g.key] = g; });
+                this.savedTexts.forEach(item => {
+                    const g = groupMap[item.content_type] || groupMap['text'];
+                    g.items.push(item);
+                });
 
-                    const typeIcon = item.content_type === 'image' ? '🖼️' : (item.content_type === 'mindmap' ? '🧠' : '📝');
+                // Build imageContentsList for navigation
+                this.imageContentsList = groups.find(g => g.key === 'image').items.slice();
 
-                    // Get word progress counts for mindmap items
-                    let badgeHtml = '';
-                    if (item.content_type === 'mindmap') {
-                        try {
-                            const counts = await this.getWordCounts(item.id);
-                            const total = counts.remaining + counts.notMemorized + counts.memorized;
-                            if (total > 0) {
-                                badgeHtml = '<span class="sidebar-badge">' + total + '단어</span>';
-                            }
-                        } catch (e) {}
-                    }
+                for (const group of groups) {
+                    if (group.items.length === 0) continue;
 
-                    listItem.innerHTML =
-                        '<div class="sidebar-item-title">' + typeIcon + ' ' + item.title + '</div>' +
-                        '<div class="sidebar-item-actions">' +
-                            badgeHtml +
-                            '<button class="sidebar-delete-btn" onclick="event.stopPropagation(); window.app && window.app.deleteContent(' + item.id + ')" title="삭제">🗑️</button>' +
-                        '</div>';
+                    const groupEl = document.createElement('div');
+                    groupEl.className = 'sidebar-group';
 
-                    listItem.addEventListener('click', (e) => {
-                        if (e.target.closest('.sidebar-delete-btn')) return;
-                        this.loadContent(item);
-                        this.toggleSidebar();
+                    const isCollapsed = this.sidebarGroupState[group.key] === true;
+                    const header = document.createElement('div');
+                    header.className = 'sidebar-group-header' + (isCollapsed ? ' collapsed' : '');
+                    header.innerHTML =
+                        '<span class="group-arrow">▼</span>' +
+                        group.icon + ' ' + group.label +
+                        '<span class="sidebar-group-count">' + group.items.length + '</span>';
+
+                    const childrenEl = document.createElement('div');
+                    childrenEl.className = 'sidebar-group-children' + (isCollapsed ? ' collapsed' : '');
+
+                    header.addEventListener('click', () => {
+                        const nowCollapsed = header.classList.toggle('collapsed');
+                        childrenEl.classList.toggle('collapsed', nowCollapsed);
+                        this.sidebarGroupState[group.key] = nowCollapsed;
+                        localStorage.setItem('sidebarGroupState', JSON.stringify(this.sidebarGroupState));
                     });
 
-                    container.appendChild(listItem);
+                    for (const item of group.items) {
+                        const listItem = document.createElement('div');
+                        listItem.className = 'sidebar-item';
+                        listItem.setAttribute('data-id', item.id);
+                        if (this.currentTextId === item.id) {
+                            listItem.classList.add('active');
+                        }
+
+                        let badgeHtml = '';
+                        if (item.content_type === 'mindmap') {
+                            try {
+                                const counts = await this.getWordCounts(item.id);
+                                const total = counts.remaining + counts.notMemorized + counts.memorized;
+                                if (total > 0) {
+                                    badgeHtml = '<span class="sidebar-badge">' + total + '단어</span>';
+                                }
+                            } catch (e) {}
+                        }
+
+                        listItem.innerHTML =
+                            '<div class="sidebar-item-title">' + group.icon + ' ' + item.title + '</div>' +
+                            '<div class="sidebar-item-actions">' +
+                                badgeHtml +
+                                '<button class="sidebar-delete-btn" onclick="event.stopPropagation(); window.app && window.app.deleteContent(' + item.id + ')" title="삭제">🗑️</button>' +
+                            '</div>';
+
+                        listItem.addEventListener('click', (e) => {
+                            if (e.target.closest('.sidebar-delete-btn')) return;
+                            this.loadContent(item);
+                            this.toggleSidebar();
+                        });
+
+                        childrenEl.appendChild(listItem);
+                    }
+
+                    groupEl.appendChild(header);
+                    groupEl.appendChild(childrenEl);
+                    container.appendChild(groupEl);
                 }
             }
 
@@ -3065,6 +3220,14 @@
                             document.getElementById('highlightStatBar').style.display = 'none';
                             this.updateStatBar();
                             localStorage.removeItem('lastViewedContentId');
+                        }
+
+                        // Clean up lastViewedImageContentId if the deleted content was the last viewed image
+                        if (content.content_type === 'image') {
+                            const lastImgId = localStorage.getItem('lastViewedImageContentId');
+                            if (lastImgId && parseInt(lastImgId) === contentId) {
+                                localStorage.removeItem('lastViewedImageContentId');
+                            }
                         }
 
                         this.loadData();
