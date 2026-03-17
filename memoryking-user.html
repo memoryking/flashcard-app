@@ -303,7 +303,7 @@
             justify-content: center;
             padding: 10px 20px;
             min-height: 0;
-            overflow: hidden;
+            overflow: auto;
             position: relative;
         }
 
@@ -660,22 +660,16 @@
         /* ===== Image Container ===== */
         .image-container {
             position: relative;
-            display: flex;
-            align-items: center;
-            justify-content: center;
+            display: inline-block;
             max-width: 100%;
-            max-height: 100%;
-            touch-action: none;
         }
         .image-container img {
             display: block;
             max-width: 100%;
-            max-height: 100%;
-            object-fit: contain;
+            height: auto;
             user-select: none;
             -webkit-user-select: none;
             -moz-user-select: none;
-            touch-action: none;
         }
 
         /* ===== Text View Container ===== */
@@ -1754,8 +1748,8 @@
 
                 setTimeout(() => {
                     area.innerHTML =
-                        '<div style="width:100%;height:100%;overflow:hidden;display:flex;align-items:center;justify-content:center;">' +
-                            '<div class="image-container" style="max-width:100%;max-height:100%;">' +
+                        '<div style="width:100%;height:100%;overflow-y:auto;overflow-x:hidden;-webkit-overflow-scrolling:touch;display:flex;flex-direction:column;align-items:center;padding:10px;">' +
+                            '<div class="image-container">' +
                                 '<img src="' + imageData + '" alt="' + this.escapeHtml(title) + '">' +
                             '</div>' +
                         '</div>';
@@ -2038,9 +2032,6 @@
                     }
                 });
 
-                element.addEventListener('touchstart', (e) => {
-                    e.preventDefault();
-                });
             }
 
             revealHighlight(element) {
@@ -3471,100 +3462,137 @@
                     let updatedCount = 0;
                     const contentIdMap = new Map();
                     const updateMap = data.updateMap || [];
+                    const urlPath = this.detectUrlPath();
 
-                    for (let i = 0; i < data.contents.length; i++) {
-                        const content = data.contents[i];
-                        const updateInfo = updateMap[i] || { isUpdate: false, updateTargetId: null };
+                    // 1) Pre-fetch all existing titles in one transaction
+                    const existingTitles = await new Promise((resolve) => {
+                        const tx = this.db.transaction(['contents'], 'readonly');
+                        const idx = tx.objectStore('contents').index('title');
+                        const req = idx.getAll();
+                        req.onsuccess = () => resolve(new Set((req.result || []).map(r => r.title)));
+                        req.onerror = () => resolve(new Set());
+                    });
 
-                        try {
-                            if (updateInfo.isUpdate && updateInfo.updateTargetId) {
-                                const targetId = updateInfo.updateTargetId;
-
-                                const existing = await new Promise((resolve, reject) => {
-                                    const tx = this.db.transaction(['contents'], 'readonly');
-                                    const st = tx.objectStore('contents');
-                                    const req = st.get(targetId);
-                                    req.onsuccess = () => resolve(req.result);
-                                    req.onerror = () => reject(req.error);
-                                });
-
-                                if (!existing) {
-                                    await this._addNewContent(content, contentIdMap);
-                                    importedCount++;
-                                    continue;
-                                }
-
-                                const updatedContent = {
-                                    ...existing,
-                                    title: content.title,
-                                    content: content.content,
-                                    content_type: content.content_type,
-                                    mindmap_data: content.mindmap_data || existing.mindmap_data,
-                                    image_data: content.image_data || existing.image_data,
-                                    category1: content.category1 || existing.category1,
-                                    category2: content.category2 || existing.category2,
-                                    category3: content.category3 || existing.category3,
-                                    updated_at: new Date()
-                                };
-                                updatedContent.id = existing.id;
-
-                                await new Promise((resolve, reject) => {
-                                    const tx = this.db.transaction(['contents'], 'readwrite');
-                                    const st = tx.objectStore('contents');
-                                    st.put(updatedContent);
-                                    tx.oncomplete = () => { updatedCount++; resolve(); };
-                                    tx.onerror = () => reject(tx.error);
-                                });
-
-                                // Map original ID so highlights can be re-imported
-                                const originalId = content.id;
-                                if (originalId != null) {
-                                    contentIdMap.set(originalId, existing.id);
-                                }
-
-                                // Delete existing highlights for this content before re-importing
-                                await new Promise((resolve) => {
-                                    const hlTx = this.db.transaction(['highlights'], 'readwrite');
-                                    const hlStore = hlTx.objectStore('highlights');
-                                    const hlIdx = hlStore.index('content_id');
-                                    const hlReq = hlIdx.getAll(existing.id);
-                                    hlReq.onsuccess = () => {
-                                        (hlReq.result || []).forEach(h => hlStore.delete(h.id));
-                                    };
-                                    hlTx.oncomplete = () => resolve();
-                                    hlTx.onerror = () => resolve();
-                                });
-
-                            } else {
-                                await this._addNewContent(content, contentIdMap);
-                                importedCount++;
-                            }
-                        } catch (error) {
-                            console.error('콘텐츠 저장 오류:', error);
-                        }
+                    // 2) Pre-fetch all update targets in one transaction
+                    const updateTargetIds = updateMap.filter(u => u.isUpdate && u.updateTargetId).map(u => u.updateTargetId);
+                    const existingMap = new Map();
+                    if (updateTargetIds.length > 0) {
+                        await new Promise((resolve) => {
+                            const tx = this.db.transaction(['contents'], 'readonly');
+                            const st = tx.objectStore('contents');
+                            let pending = updateTargetIds.length;
+                            updateTargetIds.forEach(id => {
+                                const req = st.get(id);
+                                req.onsuccess = () => { if (req.result) existingMap.set(id, req.result); if (--pending === 0) resolve(); };
+                                req.onerror = () => { if (--pending === 0) resolve(); };
+                            });
+                            if (pending === 0) resolve();
+                        });
                     }
 
-                    if (data.highlights && Array.isArray(data.highlights)) {
-                        const validHighlights = data.highlights.filter(highlight => contentIdMap.has(highlight.content_id));
-                        for (const highlight of validHighlights) {
-                            try {
-                                const newContentId = contentIdMap.get(highlight.content_id);
-                                delete highlight.id;
-                                highlight.content_id = newContentId;
-                                highlight.imported_at = new Date();
-                                highlight.is_priority = false;
+                    // Helper: generate unique title from pre-fetched set
+                    const getUniqueTitleFast = (baseTitle) => {
+                        let title = baseTitle;
+                        let counter = 1;
+                        while (existingTitles.has(title)) {
+                            title = baseTitle + ' (' + counter + ')';
+                            counter++;
+                        }
+                        existingTitles.add(title);
+                        return title;
+                    };
 
-                                await new Promise((resolve, reject) => {
-                                    const tx = this.db.transaction(['highlights'], 'readwrite');
-                                    const store = tx.objectStore('highlights');
-                                    const request = store.add(highlight);
-                                    request.onsuccess = () => resolve();
-                                    request.onerror = () => reject(request.error);
-                                });
-                            } catch (error) {
-                                console.error('하이라이트 저장 오류:', error);
+                    // 3) Save all contents in one transaction
+                    const highlightDeleteTargets = [];
+                    await new Promise((resolve, reject) => {
+                        const tx = this.db.transaction(['contents'], 'readwrite');
+                        const st = tx.objectStore('contents');
+
+                        for (let i = 0; i < data.contents.length; i++) {
+                            const content = data.contents[i];
+                            const info = updateMap[i] || { isUpdate: false, updateTargetId: null };
+
+                            if (info.isUpdate && info.updateTargetId) {
+                                const existing = existingMap.get(info.updateTargetId);
+                                if (!existing) {
+                                    const origId = content.id;
+                                    delete content.id;
+                                    content.title = getUniqueTitleFast(content.title);
+                                    content.imported_at = new Date();
+                                    content.url_path = urlPath;
+                                    const req = st.add(content);
+                                    req.onsuccess = () => { contentIdMap.set(origId, req.result); importedCount++; };
+                                } else {
+                                    const updated = {
+                                        ...existing,
+                                        title: content.title,
+                                        content: content.content,
+                                        content_type: content.content_type,
+                                        mindmap_data: content.mindmap_data || existing.mindmap_data,
+                                        image_data: content.image_data || existing.image_data,
+                                        category1: content.category1 || existing.category1,
+                                        category2: content.category2 || existing.category2,
+                                        category3: content.category3 || existing.category3,
+                                        updated_at: new Date()
+                                    };
+                                    updated.id = existing.id;
+                                    st.put(updated);
+                                    updatedCount++;
+                                    if (content.id != null) contentIdMap.set(content.id, existing.id);
+                                    highlightDeleteTargets.push(existing.id);
+                                }
+                            } else {
+                                const origId = content.id;
+                                delete content.id;
+                                content.title = getUniqueTitleFast(content.title);
+                                content.imported_at = new Date();
+                                content.url_path = urlPath;
+                                const req = st.add(content);
+                                req.onsuccess = () => { contentIdMap.set(origId, req.result); importedCount++; };
                             }
                         }
+
+                        tx.oncomplete = () => resolve();
+                        tx.onerror = () => reject(tx.error);
+                    });
+
+                    // 4) Delete old highlights + add new highlights in one transaction
+                    const newHighlights = (data.highlights && Array.isArray(data.highlights))
+                        ? data.highlights.filter(h => contentIdMap.has(h.content_id))
+                        : [];
+
+                    if (highlightDeleteTargets.length > 0 || newHighlights.length > 0) {
+                        await new Promise((resolve, reject) => {
+                            const tx = this.db.transaction(['highlights'], 'readwrite');
+                            const store = tx.objectStore('highlights');
+                            const idx = store.index('content_id');
+
+                            // Delete old highlights for updated contents
+                            let deletesPending = highlightDeleteTargets.length;
+                            if (deletesPending === 0) addNewHighlights();
+                            highlightDeleteTargets.forEach(cid => {
+                                const req = idx.getAll(cid);
+                                req.onsuccess = () => {
+                                    (req.result || []).forEach(h => store.delete(h.id));
+                                    if (--deletesPending === 0) addNewHighlights();
+                                };
+                                req.onerror = () => { if (--deletesPending === 0) addNewHighlights(); };
+                            });
+
+                            function addNewHighlights() {
+                                newHighlights.forEach(h => {
+                                    const newCid = contentIdMap.get(h.content_id);
+                                    delete h.id;
+                                    h.content_id = newCid;
+                                    h.imported_at = new Date();
+                                    h.is_priority = false;
+                                    store.add(h);
+                                });
+                            }
+
+                            tx.oncomplete = () => resolve();
+                            tx.onerror = () => reject(tx.error);
+                        });
                     }
 
                     await this.loadData();
