@@ -2204,16 +2204,21 @@
                 if (!confirmed) return;
 
                 try {
-                    // Delete word_progress records
-                    const wpTx = this.db.transaction(['word_progress'], 'readwrite');
-                    const wpStore = wpTx.objectStore('word_progress');
-                    const wpIdx = wpStore.index('content_id');
-                    const wpReq = wpIdx.getAll(contentId);
-                    wpReq.onsuccess = () => {
-                        const records = wpReq.result;
-                        records.forEach(r => wpStore.delete(r.id));
-                    };
+                    // 1단계: word_progress 삭제 (완료까지 대기)
+                    await new Promise((resolve, reject) => {
+                        const wpTx = this.db.transaction(['word_progress'], 'readwrite');
+                        const wpStore = wpTx.objectStore('word_progress');
+                        const wpIdx = wpStore.index('content_id');
+                        const wpReq = wpIdx.getAll(contentId);
+                        wpReq.onsuccess = () => {
+                            const records = wpReq.result;
+                            records.forEach(r => wpStore.delete(r.id));
+                        };
+                        wpTx.oncomplete = () => resolve();
+                        wpTx.onerror = () => reject(wpTx.error);
+                    });
 
+                    // 2단계: contents, highlights 삭제
                     const transaction = this.db.transaction(['contents', 'highlights'], 'readwrite');
                     const contentStore = transaction.objectStore('contents');
                     const highlightStore = transaction.objectStore('highlights');
