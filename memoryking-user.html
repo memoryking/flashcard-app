@@ -3434,6 +3434,9 @@
                             item.content.mindmap_data = JSON.stringify({ title: item.content.title || '플래시카드', branches: branches });
                         }
                         importData.contents.push(item.content);
+                        if (item.highlights && Array.isArray(item.highlights)) {
+                            item.highlights.forEach(h => importData.highlights.push(h));
+                        }
                         importData.updateMap.push({
                             isUpdate: !!airtableItem.isUpdate,
                             updateTargetId: airtableItem.updateTargetId || null
@@ -3517,6 +3520,25 @@
                                     st.put(updatedContent);
                                     tx.oncomplete = () => { updatedCount++; resolve(); };
                                     tx.onerror = () => reject(tx.error);
+                                });
+
+                                // Map original ID so highlights can be re-imported
+                                const originalId = content.id;
+                                if (originalId != null) {
+                                    contentIdMap.set(originalId, existing.id);
+                                }
+
+                                // Delete existing highlights for this content before re-importing
+                                await new Promise((resolve) => {
+                                    const hlTx = this.db.transaction(['highlights'], 'readwrite');
+                                    const hlStore = hlTx.objectStore('highlights');
+                                    const hlIdx = hlStore.index('content_id');
+                                    const hlReq = hlIdx.getAll(existing.id);
+                                    hlReq.onsuccess = () => {
+                                        (hlReq.result || []).forEach(h => hlStore.delete(h.id));
+                                    };
+                                    hlTx.oncomplete = () => resolve();
+                                    hlTx.onerror = () => resolve();
                                 });
 
                             } else {
