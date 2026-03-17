@@ -1740,9 +1740,9 @@
 
                 setTimeout(() => {
                     area.innerHTML =
-                        '<div style="width:100%;height:100%;overflow-y:auto;overflow-x:hidden;-webkit-overflow-scrolling:touch;display:flex;flex-direction:column;align-items:center;padding:10px;">' +
-                            '<div class="image-container">' +
-                                '<img src="' + imageData + '" alt="' + this.escapeHtml(title) + '">' +
+                        '<div style="width:100%;height:100%;overflow:hidden;display:flex;align-items:center;justify-content:center;padding:10px;">' +
+                            '<div class="image-container" style="max-height:100%;">' +
+                                '<img src="' + imageData + '" alt="' + this.escapeHtml(title) + '" style="max-height:calc(100vh - 200px);object-fit:contain;">' +
                             '</div>' +
                         '</div>';
 
