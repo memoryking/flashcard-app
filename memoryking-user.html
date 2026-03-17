@@ -624,8 +624,9 @@
         }
         .image-highlight.revealed {
             background: transparent;
-            border-color: transparent;
+            border: 1px solid rgba(255, 193, 7, 0.5);
             animation: reveal 0.3s ease;
+            backdrop-filter: none;
         }
         .image-highlight.priority {
             border-color: #f44336;
@@ -635,8 +636,9 @@
             background: rgba(244, 67, 54, 0.6);
         }
         .image-highlight.priority.revealed {
-            background: rgba(255, 205, 210, 0.3);
-            border-color: #ef9a9a;
+            background: transparent;
+            border: 1px solid rgba(244, 67, 54, 0.5);
+            backdrop-filter: none;
         }
 
         /* ===== Memorized Highlight Styles ===== */
@@ -2088,7 +2090,7 @@
                 const textEl = document.getElementById('highlightTextDisplay');
                 if (textEl && highlightObj && highlightObj.highlightText) {
                     textEl.textContent = highlightObj.highlightText;
-                    textEl.style.display = '';
+                    textEl.style.display = 'block';
                 }
             }
 
