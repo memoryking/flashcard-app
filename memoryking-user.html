@@ -638,6 +638,23 @@
             border-color: #ef9a9a;
         }
 
+        /* ===== Memorized Highlight Styles ===== */
+        .highlight.memorized {
+            background: linear-gradient(120deg, #a8e6cf 0%, #81c784 100%) !important;
+            border-color: #66bb6a !important;
+            box-shadow: 0 2px 4px rgba(76, 175, 80, 0.2) !important;
+            opacity: 0.6;
+            color: inherit !important;
+            text-shadow: none !important;
+        }
+        .image-highlight.memorized {
+            background: rgba(129, 199, 132, 0.3) !important;
+            border-color: #66bb6a !important;
+            box-shadow: 0 2px 4px rgba(76, 175, 80, 0.3) !important;
+            opacity: 0.6;
+            backdrop-filter: none !important;
+        }
+
         /* ===== Image Container ===== */
         .image-container {
             position: relative;
@@ -1036,6 +1053,18 @@
             <div class="stat-box memorized" id="statMemorized" onclick="window.app && window.app.startQuiz('memorized')" style="display:flex;flex-direction:column;align-items:center;justify-content:center;">
                 <div class="stat-box-count" id="countMemorized">0</div>
                 <div class="stat-box-label">암기 <span id="memorizedCrown" style="display:none;">👑</span></div>
+            </div>
+        </div>
+
+        <!-- Highlight Stat Bar (for text/image content) -->
+        <div class="flashcard-stat-bar" id="highlightStatBar" style="display:none;">
+            <div class="stat-box remaining" style="pointer-events:none;">
+                <div class="stat-box-count" id="countHighlights">0</div>
+                <div class="stat-box-label">하이라이트</div>
+            </div>
+            <div class="stat-box memorized" style="pointer-events:none;">
+                <div class="stat-box-count" id="countHighlightMemorized">0</div>
+                <div class="stat-box-label">암기</div>
             </div>
         </div>
 
@@ -1751,6 +1780,8 @@
                         imageHighlights.forEach(highlight => {
                             this.recreateImageHighlight(highlight);
                         });
+
+                        this.updateHighlightStats();
                     };
                 } catch (error) {
                     console.error('하이라이트 로드 오류:', error);
@@ -1796,6 +1827,10 @@
                         if (highlightData.is_priority) {
                             highlightElement.classList.add('priority');
                         }
+                        if (highlightData.is_memorized) {
+                            highlightElement.classList.remove('masked');
+                            highlightElement.classList.add('memorized');
+                        }
 
                         highlightElement.textContent = highlightText;
                         highlightElement.setAttribute('data-id', highlightData.id);
@@ -1813,6 +1848,7 @@
                             timestamp: highlightData.timestamp || Date.now(),
                             element: highlightElement,
                             isPriority: highlightData.is_priority || false,
+                            isMemorized: highlightData.is_memorized || false,
                             id: highlightData.id
                         };
 
@@ -1895,6 +1931,10 @@
                     if (highlightData.is_priority) {
                         highlightElement.classList.add('priority');
                     }
+                    if (highlightData.is_memorized) {
+                        highlightElement.classList.remove('masked');
+                        highlightElement.classList.add('memorized');
+                    }
 
                     highlightElement.style.left = rect.left + 'px';
                     highlightElement.style.top = rect.top + 'px';
@@ -1914,6 +1954,7 @@
                         timestamp: highlightData.timestamp || Date.now(),
                         element: highlightElement,
                         isPriority: highlightData.is_priority || false,
+                        isMemorized: highlightData.is_memorized || false,
                         id: highlightData.id
                     };
 
@@ -1958,6 +1999,27 @@
                 element.addEventListener('touchcancel', () => {
                     this.endHoldForElement(element);
                 });
+
+                // Double-click for memorize toggle (desktop)
+                element.addEventListener('dblclick', (e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    this.toggleHighlightMemorized(element);
+                });
+
+                // Double-tap for memorize toggle (mobile)
+                let lastTapTime = 0;
+                element.addEventListener('touchend', (e) => {
+                    const now = Date.now();
+                    if (now - lastTapTime < 350) {
+                        e.preventDefault();
+                        e.stopPropagation();
+                        this.toggleHighlightMemorized(element);
+                        lastTapTime = 0;
+                    } else {
+                        lastTapTime = now;
+                    }
+                });
             }
 
             startHold(element) {
@@ -2000,6 +2062,55 @@
                 }
 
                 element._isHolding = false;
+            }
+
+            // ===== Highlight Stats =====
+            updateHighlightStats() {
+                const total = this.highlights.length;
+                const memorized = this.highlights.filter(h => h.isMemorized).length;
+                const notMemorized = total - memorized;
+
+                const countEl = document.getElementById('countHighlights');
+                const memorizedEl = document.getElementById('countHighlightMemorized');
+                if (countEl) countEl.textContent = notMemorized;
+                if (memorizedEl) memorizedEl.textContent = memorized;
+            }
+
+            toggleHighlightMemorized(element) {
+                const highlightId = parseInt(element.getAttribute('data-id'));
+                const highlightObj = this.highlights.find(h => h.id === highlightId);
+                if (!highlightObj) return;
+
+                const newState = !highlightObj.isMemorized;
+                highlightObj.isMemorized = newState;
+
+                if (newState) {
+                    element.classList.remove('masked');
+                    element.classList.add('memorized');
+                } else {
+                    element.classList.remove('memorized');
+                    element.classList.add('masked');
+                }
+
+                this.updateHighlightStats();
+
+                // Persist to IndexedDB
+                if (this.db) {
+                    try {
+                        const tx = this.db.transaction(['highlights'], 'readwrite');
+                        const store = tx.objectStore('highlights');
+                        const getReq = store.get(highlightId);
+                        getReq.onsuccess = () => {
+                            const record = getReq.result;
+                            if (record) {
+                                record.is_memorized = newState;
+                                store.put(record);
+                            }
+                        };
+                    } catch (e) {
+                        console.error('하이라이트 암기 상태 저장 오류:', e);
+                    }
+                }
             }
 
             // ===== Extract Hint Character =====
@@ -2346,11 +2457,14 @@
 
                     // Show/hide stat bar based on content type
                     const statBar = document.getElementById('statBar');
+                    const highlightStatBar = document.getElementById('highlightStatBar');
                     if (item.content_type === 'mindmap') {
                         statBar.style.display = '';
+                        highlightStatBar.style.display = 'none';
                         await this.updateStatBar();
                     } else {
                         statBar.style.display = 'none';
+                        highlightStatBar.style.display = '';
                     }
 
                     // Reset stat box active states
@@ -2870,6 +2984,7 @@
                             document.getElementById('choiceArea').style.display = 'none';
                             document.getElementById('timerBarContainer').style.display = 'none';
                             document.getElementById('statBar').style.display = '';
+                            document.getElementById('highlightStatBar').style.display = 'none';
                             this.updateStatBar();
                             localStorage.removeItem('lastViewedContentId');
                         }
