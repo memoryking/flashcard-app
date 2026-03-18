@@ -686,14 +686,20 @@
             overflow: hidden;
             position: relative;
         }
-        .image-container {
-            position: relative;
+        .image-view-area {
             flex: 1;
             min-height: 0;
             display: flex;
             align-items: center;
             justify-content: center;
             overflow: hidden;
+            position: relative;
+        }
+        .image-container {
+            position: relative;
+            display: inline-block;
+            max-width: 100%;
+            max-height: 100%;
         }
         .image-container img {
             display: block;
@@ -1901,9 +1907,11 @@
 
                     area.innerHTML =
                         '<div class="image-wrapper">' +
-                            '<div class="image-container">' +
+                            '<div class="image-view-area">' +
                                 navHtml +
-                                '<img src="' + imageData + '" alt="' + this.escapeHtml(title) + '">' +
+                                '<div class="image-container">' +
+                                    '<img src="' + imageData + '" alt="' + this.escapeHtml(title) + '">' +
+                                '</div>' +
                             '</div>' +
                             '<div class="highlight-text-reserve">' +
                                 '<div class="highlight-text-display" id="highlightTextDisplay"></div>' +
