@@ -725,6 +725,11 @@
             background: rgba(22,33,62,0.8); padding: 2px 10px; border-radius: 10px;
         }
 
+        .highlight-text-reserve {
+            width: 100%;
+            flex-shrink: 0;
+            min-height: 48px;
+        }
         .highlight-text-display {
             width: 100%;
             text-align: center;
@@ -734,10 +739,12 @@
             font-size: 1.3em;
             font-weight: 600;
             border-top: 1px solid #2a2a4e;
-            display: none;
             z-index: 20;
             backdrop-filter: blur(6px);
-            flex-shrink: 0;
+            visibility: hidden;
+        }
+        .highlight-text-display.visible {
+            visibility: visible;
         }
 
         /* ===== Story Overlay ===== */
@@ -1898,7 +1905,9 @@
                                 navHtml +
                                 '<img src="' + imageData + '" alt="' + this.escapeHtml(title) + '">' +
                             '</div>' +
-                            '<div class="highlight-text-display" id="highlightTextDisplay"></div>' +
+                            '<div class="highlight-text-reserve">' +
+                                '<div class="highlight-text-display" id="highlightTextDisplay"></div>' +
+                            '</div>' +
                         '</div>';
 
                     this.highlights = [];
@@ -2230,7 +2239,7 @@
                 const textEl = document.getElementById('highlightTextDisplay');
                 if (textEl && highlightObj && highlightObj.highlightText) {
                     textEl.textContent = highlightObj.highlightText;
-                    textEl.style.display = 'block';
+                    textEl.classList.add('visible');
                 }
             }
 
@@ -2240,7 +2249,7 @@
                 const textEl = document.getElementById('highlightTextDisplay');
                 if (textEl) {
                     textEl.textContent = '';
-                    textEl.style.display = 'none';
+                    textEl.classList.remove('visible');
                 }
                 if (element.classList.contains('revealed')) {
                     element.classList.remove('revealed');
