@@ -1925,19 +1925,23 @@
                     const container = area.querySelector('.image-container');
                     const viewArea = area.querySelector('.image-view-area');
                     const fitImage = () => {
-                        // view-area 높이 기준으로 이미지 최대 높이 제한
+                        // view-area 크기 기준으로 이미지 제한
                         if (img && viewArea) {
+                            const maxW = viewArea.clientWidth;
                             const maxH = viewArea.clientHeight;
                             if (maxH > 0) img.style.maxHeight = maxH + 'px';
+                            if (maxW > 0) img.style.maxWidth = maxW + 'px';
                         }
-                        // container 크기를 렌더된 이미지에 정확히 맞춤 (하이라이트 좌표 정합)
-                        if (img && container) {
-                            container.style.width = img.offsetWidth + 'px';
-                            container.style.height = img.offsetHeight + 'px';
-                        }
-                        if (this.currentTextId) {
-                            this.loadHighlights();
-                        }
+                        // 리플로우 후 container를 이미지 렌더 크기에 맞춤
+                        requestAnimationFrame(() => {
+                            if (img && container) {
+                                container.style.width = img.offsetWidth + 'px';
+                                container.style.height = img.offsetHeight + 'px';
+                            }
+                            if (this.currentTextId) {
+                                this.loadHighlights();
+                            }
+                        });
                     };
 
                     if (img) {
