@@ -682,6 +682,7 @@
             width: 100%;
             height: 100%;
             display: flex;
+            flex-direction: column;
             align-items: center;
             justify-content: center;
             overflow: hidden;
@@ -691,7 +692,11 @@
             position: relative;
             display: inline-block;
             max-width: 100%;
-            max-height: 100%;
+            flex: 1;
+            min-height: 0;
+            display: flex;
+            align-items: center;
+            justify-content: center;
         }
         .image-container img {
             display: block;
@@ -724,10 +729,7 @@
         }
 
         .highlight-text-display {
-            position: absolute;
-            bottom: 0;
-            left: 0;
-            right: 0;
+            width: 100%;
             text-align: center;
             padding: 12px 16px;
             background: rgba(22, 33, 62, 0.92);
@@ -738,6 +740,51 @@
             display: none;
             z-index: 20;
             backdrop-filter: blur(6px);
+            flex-shrink: 0;
+        }
+
+        /* ===== Story Overlay ===== */
+        .story-overlay {
+            position: absolute;
+            top: 0; left: 0; right: 0; bottom: 0;
+            z-index: 30;
+            background: rgba(22, 33, 62, 0.95);
+            display: flex;
+            flex-direction: column;
+            animation: fadeIn 0.3s ease;
+        }
+        .story-overlay-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 12px 16px;
+            border-bottom: 1px solid #2a2a4e;
+            flex-shrink: 0;
+        }
+        .story-overlay-title {
+            font-size: 14px;
+            font-weight: 600;
+            color: #ffc107;
+        }
+        .story-overlay-close {
+            background: none;
+            border: none;
+            color: #aaa;
+            font-size: 22px;
+            cursor: pointer;
+            padding: 4px 8px;
+            border-radius: 6px;
+        }
+        .story-overlay-close:hover { color: #e94560; background: rgba(233,69,96,0.15); }
+        .story-overlay-body {
+            flex: 1;
+            overflow-y: auto;
+            padding: 16px;
+            font-size: 1.05em;
+            line-height: 1.8;
+            color: #e0e0e0;
+            white-space: pre-wrap;
+            word-break: break-word;
         }
 
         /* ===== Text View Container ===== */
@@ -1130,6 +1177,10 @@
                 <div class="stat-box-count" style="font-size:1.5em;">🖼️</div>
                 <div class="stat-box-label">원본보기</div>
             </div>
+            <div class="stat-box" id="statStory" onclick="window.app && window.app.showStoryOverlay()" style="display:none;">
+                <div class="stat-box-count" style="font-size:1.5em;">📖</div>
+                <div class="stat-box-label">스토리</div>
+            </div>
             <div class="stat-box remaining" style="pointer-events:none;">
                 <div class="stat-box-count" id="countHighlights">0</div>
                 <div class="stat-box-label">하이라이트</div>
@@ -1202,6 +1253,7 @@
                 this.currentText = '';
                 this.currentMindmapData = null;
                 this.currentImageData = null;
+                this.currentStoryText = '';
 
                 // Image navigation state
                 this.imageContentsList = [];
@@ -2229,6 +2281,33 @@
                 }, 3000);
             }
 
+            showStoryOverlay() {
+                if (!this.currentStoryText) return;
+                const area = document.getElementById('flashcardArea');
+                const wrapper = area.querySelector('.image-wrapper');
+                if (!wrapper) return;
+
+                // Remove existing overlay if any
+                const existing = wrapper.querySelector('.story-overlay');
+                if (existing) { existing.remove(); return; }
+
+                const overlay = document.createElement('div');
+                overlay.className = 'story-overlay';
+                overlay.innerHTML =
+                    '<div class="story-overlay-header">' +
+                        '<span class="story-overlay-title">📖 스토리</span>' +
+                        '<button class="story-overlay-close" onclick="window.app && window.app.closeStoryOverlay()">&times;</button>' +
+                    '</div>' +
+                    '<div class="story-overlay-body"></div>';
+                overlay.querySelector('.story-overlay-body').textContent = this.currentStoryText;
+                wrapper.appendChild(overlay);
+            }
+
+            closeStoryOverlay() {
+                const overlay = document.querySelector('.story-overlay');
+                if (overlay) overlay.remove();
+            }
+
             // ===== Highlight Stats =====
             updateHighlightStats() {
                 const total = this.highlights.length;
@@ -2609,12 +2688,14 @@
                     this.currentText = item.content || '';
                     this.currentMindmapData = null;
                     this.currentImageData = null;
+                    this.currentStoryText = '';
 
                     if (item.content_type === 'mindmap') {
                         this.currentMindmapData = item.mindmap_data ? JSON.parse(item.mindmap_data) : this.parseMindmapData(item.content);
                         await this.initWordProgress(item.id);
                     } else if (item.content_type === 'image') {
                         this.currentImageData = item.image_data;
+                        this.currentStoryText = item.story_text || '';
                     }
 
                     // Update top title
@@ -2630,6 +2711,12 @@
                     } else {
                         statBar.style.display = 'none';
                         highlightStatBar.style.display = '';
+                    }
+
+                    // Show/hide story button
+                    const storyBtn = document.getElementById('statStory');
+                    if (storyBtn) {
+                        storyBtn.style.display = (item.content_type === 'image' && this.currentStoryText) ? '' : 'none';
                     }
 
                     // Reset stat box active states
@@ -3205,6 +3292,7 @@
                             this.currentContentType = 'text';
                             this.currentImageData = null;
                             this.currentMindmapData = null;
+                            this.currentStoryText = '';
                             this.isQuizActive = false;
                             this.stopQuizTimer();
 
@@ -3775,6 +3863,7 @@
                                         content_type: content.content_type,
                                         mindmap_data: content.mindmap_data || existing.mindmap_data,
                                         image_data: content.image_data || existing.image_data,
+                                        story_text: content.story_text || existing.story_text || null,
                                         category1: content.category1 || existing.category1,
                                         category2: content.category2 || existing.category2,
                                         category3: content.category3 || existing.category3,
