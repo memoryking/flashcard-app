@@ -1180,6 +1180,10 @@
             <div class="stat-box remaining" id="statRemaining" onclick="window.app && window.app.startQuiz('remaining')">
                 <div class="stat-box-count" id="countRemaining">0</div>
                 <div class="stat-box-label">남은 개수</div>
+                <div id="todayStudySummary" style="margin-top:6px;font-size:11px;color:#aaa;line-height:1.3;text-align:center;">
+                    <span id="todayDateLabel" style="display:block;font-size:10px;color:#666;"></span>
+                    <span id="todayNewTotal" style="display:block;font-size:1.3em;font-weight:700;color:#4fc3f7;margin-top:1px;"></span>
+                </div>
                 <div class="stat-box-count" id="countStudiedToday" style="font-size:1.4em;color:#4fc3f7;margin-top:4px;">0</div>
                 <div class="stat-box-label" id="labelStudiedToday">오늘 학습</div>
             </div>
@@ -1528,7 +1532,10 @@
                 // 오늘 학습한 단어 수 (known 값이 변경된 모든 단어)
                 const studiedToday = all.filter(w => w.last_studied && w.last_studied.startsWith(todayKST)).length;
 
-                return { remaining, notMemorized, memorized, memorizedAllToday, studiedToday };
+                // 오늘 신규 학습 (처음 학습한 단어: study_count===1 && 오늘)
+                const newToday = all.filter(w => w.study_count === 1 && w.last_studied && w.last_studied.startsWith(todayKST)).length;
+
+                return { remaining, notMemorized, memorized, memorizedAllToday, studiedToday, newToday };
             }
 
             async queryWords(contentId, { known = undefined, limit = 50, excludeToday = false } = {}) {
@@ -1636,6 +1643,21 @@
                 });
             }
 
+            async getTodayTotalCounts() {
+                if (!this.db) return { newToday: 0, studiedToday: 0 };
+                const all = await new Promise((resolve, reject) => {
+                    const tx = this.db.transaction(['word_progress'], 'readonly');
+                    const store = tx.objectStore('word_progress');
+                    const req = store.getAll();
+                    req.onsuccess = () => resolve(req.result || []);
+                    req.onerror = () => reject(req.error);
+                });
+                const todayKST = this.getKSTDateString();
+                const studiedToday = all.filter(w => w.last_studied && w.last_studied.startsWith(todayKST)).length;
+                const newToday = all.filter(w => w.study_count === 1 && w.last_studied && w.last_studied.startsWith(todayKST)).length;
+                return { newToday, studiedToday };
+            }
+
             async getAllWordsForContent(contentId) {
                 if (!this.db) return [];
                 return new Promise((resolve, reject) => {
@@ -1651,11 +1673,18 @@
             // ===== Stat Bar =====
             async updateStatBar() {
                 const crown = document.getElementById('memorizedCrown');
+                const todayKST = this.getKSTDateString();
+                const [, m, d] = todayKST.split('-');
+                const dateLabel = parseInt(m) + '월' + parseInt(d) + '일';
+
                 if (!this.currentTextId) {
                     document.getElementById('countRemaining').textContent = '0';
                     document.getElementById('countNotMemorized').textContent = '0';
                     document.getElementById('countMemorized').textContent = '0';
                     document.getElementById('countStudiedToday').textContent = '0';
+                    document.getElementById('todayDateLabel').textContent = dateLabel;
+                    const totalCounts = await this.getTodayTotalCounts();
+                    document.getElementById('todayNewTotal').textContent = totalCounts.studiedToday > 0 ? totalCounts.newToday + ' / ' + totalCounts.studiedToday : '';
                     if (crown) crown.style.display = 'none';
                     return;
                 }
@@ -1666,10 +1695,13 @@
                 document.getElementById('countMemorized').textContent = counts.memorized;
                 document.getElementById('countStudiedToday').textContent = counts.studiedToday;
 
-                // 오늘 날짜를 M/D 형식으로 표시
-                const todayKST = this.getKSTDateString();
-                const [, m, d] = todayKST.split('-');
-                document.getElementById('labelStudiedToday').textContent = parseInt(m) + '/' + parseInt(d);
+                // 날짜 + 전체 콘텐츠 신규/총학습 표시
+                const totalCounts = await this.getTodayTotalCounts();
+                document.getElementById('todayDateLabel').textContent = dateLabel;
+                document.getElementById('todayNewTotal').textContent = totalCounts.newToday + ' / ' + totalCounts.studiedToday;
+
+                // 오늘 학습 라벨
+                document.getElementById('labelStudiedToday').textContent = '오늘 학습';
 
                 // 암기 단어가 모두 오늘 학습한 단어일 때 왕관 표시
                 if (crown) crown.style.display = counts.memorizedAllToday ? 'inline' : 'none';
