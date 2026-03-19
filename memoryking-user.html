@@ -1627,8 +1627,7 @@
                 const now = this.getKSTISOString();
                 const todayKST = this.getKSTDateString();
                 if (!wordProgress.first_studied) {
-                    wordProgress.first_studied = (wordProgress.study_count > 0 && wordProgress.last_studied)
-                        ? wordProgress.last_studied : now;
+                    wordProgress.first_studied = wordProgress.last_studied || now;
                 }
                 wordProgress.last_studied = now;
                 wordProgress.study_count = (wordProgress.study_count || 0) + 1;
@@ -2565,8 +2564,7 @@
                         const now = this.getKSTISOString();
                         const todayKST = this.getKSTDateString();
                         if (!word.first_studied) {
-                            word.first_studied = (word.study_count > 0 && word.last_studied)
-                                ? word.last_studied : now;
+                            word.first_studied = word.last_studied || now;
                         }
                         word.last_studied = now;
                         word.study_count = (word.study_count || 0) + 1;
