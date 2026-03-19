@@ -1626,7 +1626,9 @@
                 wordProgress.known = newKnown;
                 const now = this.getKSTISOString();
                 if (!wordProgress.first_studied) {
-                    wordProgress.first_studied = now;
+                    // 기존 학습 이력이 있으면 기존 날짜 사용, 없으면 오늘
+                    wordProgress.first_studied = (wordProgress.study_count > 0 && wordProgress.last_studied)
+                        ? wordProgress.last_studied : now;
                 }
                 wordProgress.last_studied = now;
                 wordProgress.study_count = (wordProgress.study_count || 0) + 1;
@@ -2534,12 +2536,16 @@
                     const word = this.quizWords[this.quizIndex];
                     if (word && this.db) {
                         const now = this.getKSTISOString();
-                        if (!word.first_studied) word.first_studied = now;
+                        if (!word.first_studied) {
+                            word.first_studied = (word.study_count > 0 && word.last_studied)
+                                ? word.last_studied : now;
+                        }
                         word.last_studied = now;
                         word.study_count = (word.study_count || 0) + 1;
                         const tx = this.db.transaction(['word_progress'], 'readwrite');
                         tx.objectStore('word_progress').put(word);
                     }
+                    this.quizSessionResults.push({ word: word.word, isCorrect: true });
                     this.quizIndex++;
                     this.memorizeRevealed = false;
                     this.showNextCard();
