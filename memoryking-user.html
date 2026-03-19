@@ -1525,8 +1525,8 @@
                 const hasP2 = memorizedWords.some(w => w.known === 2 && (w.last_studied ? w.last_studied.substring(0, 10) : '') <= cutoffStr);
                 const memorizedAllToday = memorized > 0 && !hasP1 && !hasP2;
 
-                // 오늘 학습한 단어 수 (known 값이 변경된 모든 단어)
-                const studiedToday = all.filter(w => w.last_studied && w.last_studied.startsWith(todayKST)).length;
+                // 오늘 학습한 총 횟수 (중복 포함)
+                const studiedToday = all.reduce((sum, w) => sum + (w.today_date === todayKST ? (w.today_count || 0) : 0), 0);
 
                 // 오늘 신규 학습 (최초 학습일이 오늘인 단어)
                 const newToday = all.filter(w => w.first_studied && w.first_studied.startsWith(todayKST)).length;
@@ -1625,13 +1625,19 @@
 
                 wordProgress.known = newKnown;
                 const now = this.getKSTISOString();
+                const todayKST = this.getKSTDateString();
                 if (!wordProgress.first_studied) {
-                    // 기존 학습 이력이 있으면 기존 날짜 사용, 없으면 오늘
                     wordProgress.first_studied = (wordProgress.study_count > 0 && wordProgress.last_studied)
                         ? wordProgress.last_studied : now;
                 }
                 wordProgress.last_studied = now;
                 wordProgress.study_count = (wordProgress.study_count || 0) + 1;
+                // 오늘 학습 횟수: 날짜 바뀌면 리셋
+                if (wordProgress.today_date !== todayKST) {
+                    wordProgress.today_date = todayKST;
+                    wordProgress.today_count = 0;
+                }
+                wordProgress.today_count = (wordProgress.today_count || 0) + 1;
                 if (isCorrect) {
                     wordProgress.correct_count = (wordProgress.correct_count || 0) + 1;
                 }
@@ -1655,7 +1661,7 @@
                     req.onerror = () => reject(req.error);
                 });
                 const todayKST = this.getKSTDateString();
-                const studiedToday = all.filter(w => w.last_studied && w.last_studied.startsWith(todayKST)).length;
+                const studiedToday = all.reduce((sum, w) => sum + (w.today_date === todayKST ? (w.today_count || 0) : 0), 0);
                 const newToday = all.filter(w => w.first_studied && w.first_studied.startsWith(todayKST)).length;
                 return { newToday, studiedToday };
             }
@@ -1786,8 +1792,21 @@
                 document.getElementById('choiceArea').style.display = 'none';
                 document.getElementById('timerBarContainer').style.display = 'none';
 
+                const isMemorizeMode = (this.quizMode === 'notMemorized' && this.notMemorizedMode === 'memorize');
                 const results = this.quizSessionResults;
                 const total = results.length;
+
+                // 암기학습 완료: 카드분배 없이 격려 메시지만
+                if (isMemorizeMode) {
+                    const wordCount = this.quizWords.length;
+                    area.innerHTML =
+                        '<div class="quiz-complete">' +
+                            '<div class="quiz-complete-icon">🧠</div>' +
+                            '<div class="quiz-complete-text">' + wordCount + '개 단어를 학습했어요!</div>' +
+                        '</div>';
+                    this.updateStatBar();
+                    return;
+                }
 
                 // No results (empty quiz) - show simple message
                 if (total === 0) {
@@ -2536,16 +2555,21 @@
                     const word = this.quizWords[this.quizIndex];
                     if (word && this.db) {
                         const now = this.getKSTISOString();
+                        const todayKST = this.getKSTDateString();
                         if (!word.first_studied) {
                             word.first_studied = (word.study_count > 0 && word.last_studied)
                                 ? word.last_studied : now;
                         }
                         word.last_studied = now;
                         word.study_count = (word.study_count || 0) + 1;
+                        if (word.today_date !== todayKST) {
+                            word.today_date = todayKST;
+                            word.today_count = 0;
+                        }
+                        word.today_count = (word.today_count || 0) + 1;
                         const tx = this.db.transaction(['word_progress'], 'readwrite');
                         tx.objectStore('word_progress').put(word);
                     }
-                    this.quizSessionResults.push({ word: word.word, isCorrect: true });
                     this.quizIndex++;
                     this.memorizeRevealed = false;
                     this.showNextCard();
