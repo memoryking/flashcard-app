@@ -1528,8 +1528,8 @@
                 // 오늘 학습한 단어 수 (known 값이 변경된 모든 단어)
                 const studiedToday = all.filter(w => w.last_studied && w.last_studied.startsWith(todayKST)).length;
 
-                // 오늘 신규 학습 (처음 학습한 단어: study_count===1 && 오늘)
-                const newToday = all.filter(w => w.study_count === 1 && w.last_studied && w.last_studied.startsWith(todayKST)).length;
+                // 오늘 신규 학습 (최초 학습일이 오늘인 단어)
+                const newToday = all.filter(w => w.first_studied && w.first_studied.startsWith(todayKST)).length;
 
                 return { remaining, notMemorized, memorized, memorizedAllToday, studiedToday, newToday };
             }
@@ -1624,7 +1624,11 @@
                 }
 
                 wordProgress.known = newKnown;
-                wordProgress.last_studied = this.getKSTISOString();
+                const now = this.getKSTISOString();
+                if (!wordProgress.first_studied) {
+                    wordProgress.first_studied = now;
+                }
+                wordProgress.last_studied = now;
                 wordProgress.study_count = (wordProgress.study_count || 0) + 1;
                 if (isCorrect) {
                     wordProgress.correct_count = (wordProgress.correct_count || 0) + 1;
@@ -1650,7 +1654,7 @@
                 });
                 const todayKST = this.getKSTDateString();
                 const studiedToday = all.filter(w => w.last_studied && w.last_studied.startsWith(todayKST)).length;
-                const newToday = all.filter(w => w.study_count === 1 && w.last_studied && w.last_studied.startsWith(todayKST)).length;
+                const newToday = all.filter(w => w.first_studied && w.first_studied.startsWith(todayKST)).length;
                 return { newToday, studiedToday };
             }
 
@@ -2526,7 +2530,16 @@
                         this.memorizeRevealed = true;
                     }
                 } else {
-                    // Second tap: next card (no known change)
+                    // Second tap: update last_studied and move to next card
+                    const word = this.quizWords[this.quizIndex];
+                    if (word && this.db) {
+                        const now = this.getKSTISOString();
+                        if (!word.first_studied) word.first_studied = now;
+                        word.last_studied = now;
+                        word.study_count = (word.study_count || 0) + 1;
+                        const tx = this.db.transaction(['word_progress'], 'readwrite');
+                        tx.objectStore('word_progress').put(word);
+                    }
                     this.quizIndex++;
                     this.memorizeRevealed = false;
                     this.showNextCard();
