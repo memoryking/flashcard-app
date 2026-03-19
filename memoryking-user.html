@@ -1796,13 +1796,21 @@
                 const results = this.quizSessionResults;
                 const total = results.length;
 
-                // 암기학습 완료: 카드분배 없이 격려 메시지만
+                // 암기학습 완료: 카드분배 없이 격려 메시지
                 if (isMemorizeMode) {
                     const wordCount = this.quizWords.length;
+                    const msgs = [
+                        ['🧠', wordCount + '개의 씨앗이 머릿속에 심어졌어요!'],
+                        ['✨', '기억의 조각들이 연결되고 있어요!'],
+                        ['🌱', wordCount + '개 단어, 반복할수록 단단해져요!'],
+                        ['🔮', '지금 본 것들이 곧 당신의 지식이 됩니다'],
+                        ['💡', '반복은 기억의 어머니, 당신은 점점 강해지고 있어요!']
+                    ];
+                    const pick = msgs[Math.floor(Math.random() * msgs.length)];
                     area.innerHTML =
                         '<div class="quiz-complete">' +
-                            '<div class="quiz-complete-icon">🧠</div>' +
-                            '<div class="quiz-complete-text">' + wordCount + '개 단어를 학습했어요!</div>' +
+                            '<div class="quiz-complete-icon">' + pick[0] + '</div>' +
+                            '<div class="quiz-complete-text">' + pick[1] + '</div>' +
                         '</div>';
                     this.updateStatBar();
                     return;
