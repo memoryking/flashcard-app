@@ -2516,16 +2516,17 @@
                     card.classList.add(isCorrect ? 'flash-correct' : 'flash-wrong');
                 }
 
-                // Show meaning briefly if wrong
-                if (!isCorrect && card) {
-                    const meaningDiv = card.querySelector('.flashcard-meaning');
+                // Show meaning with color
+                if (card) {
+                    let meaningDiv = card.querySelector('.flashcard-meaning');
                     if (!meaningDiv) {
-                        const md = document.createElement('div');
-                        md.className = 'flashcard-meaning';
-                        md.style.display = 'block';
-                        md.textContent = word.meaning;
-                        card.appendChild(md);
+                        meaningDiv = document.createElement('div');
+                        meaningDiv.className = 'flashcard-meaning';
+                        card.appendChild(meaningDiv);
                     }
+                    meaningDiv.style.display = 'block';
+                    meaningDiv.style.color = isCorrect ? '#4caf50' : '#e94560';
+                    meaningDiv.textContent = word.meaning;
                 }
 
                 // Determine target box for fly animation
