@@ -1785,9 +1785,8 @@
                 document.getElementById('countNotMemorized').textContent = counts.notMemorized;
                 document.getElementById('countMemorized').textContent = counts.memorized;
 
-                // 전체 콘텐츠 신규/총학습 + 날짜 표시
-                const totalCounts = await this.getTodayTotalCounts();
-                document.getElementById('todayNewTotal').textContent = totalCounts.newToday + ' / ' + totalCounts.studiedToday;
+                // 이 암기장의 오늘 신규/총학습 + 날짜 표시
+                document.getElementById('todayNewTotal').textContent = counts.studiedToday > 0 ? counts.newToday + ' / ' + counts.studiedToday : '';
                 document.getElementById('todayDateLabel').textContent = dateLabel;
 
                 // 암기 단어가 모두 오늘 학습한 단어일 때 왕관 표시
@@ -3290,13 +3289,13 @@
                 }
             }
 
-            showCommunityStats() {
+            async showCommunityStats() {
                 if (!this._communityStatsPromise) return;
-                this._communityStatsPromise.then(data => {
+                try {
+                    const data = await this._communityStatsPromise;
                     if (!data || !data.today) return;
                     const area = document.getElementById('flashcardArea');
                     if (!area) return;
-                    // 이미 삽입되었으면 스킵
                     if (area.querySelector('.community-stats')) return;
 
                     const t = data.today;
@@ -3305,7 +3304,13 @@
 
                     if (data.me) {
                         const m = data.me;
-                        html += '<div class="community-stats-my">오늘 나의 학습량: <span class="cs-words">' + (m.today_words || 0) + '단어</span>';
+                        // 로컬 학습량과 서버 학습량 중 큰 값 사용 (오프라인 학습 반영)
+                        let myWords = m.today_words || 0;
+                        try {
+                            const local = await this.getTodayTotalCounts();
+                            if (local.studiedToday > myWords) myWords = local.studiedToday;
+                        } catch(e) {}
+                        html += '<div class="community-stats-my">오늘 나의 학습량: <span class="cs-words">' + myWords + '단어</span>';
                         if (m.streak > 0) {
                             html += ' · 연속 <span class="cs-streak">' + m.streak + '일째!</span>';
                         }
@@ -3314,7 +3319,7 @@
 
                     html += '</div>';
                     area.insertAdjacentHTML('beforeend', html);
-                }).catch(() => {});
+                } catch(e) {}
             }
 
             openAuthModal() {
