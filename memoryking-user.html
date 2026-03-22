@@ -913,6 +913,53 @@
             cursor: pointer;
         }
 
+        /* ===== Auth Modal ===== */
+        .auth-modal {
+            position: fixed; top: 0; left: 0; right: 0; bottom: 0;
+            background: rgba(0,0,0,0.7); z-index: 10001;
+            display: flex; align-items: center; justify-content: center;
+            animation: fadeIn 0.2s ease;
+        }
+        .auth-dialog {
+            background: #16213e; border-radius: 16px; padding: 24px;
+            width: 90%; max-width: 360px; color: #e0e0e0;
+        }
+        .auth-tabs {
+            display: flex; gap: 0; margin-bottom: 16px; border-radius: 10px; overflow: hidden;
+            border: 1px solid #333;
+        }
+        .auth-tab {
+            flex: 1; padding: 10px; text-align: center; cursor: pointer;
+            background: #0f3460; color: #aaa; border: none; font-size: 14px; transition: all 0.2s;
+        }
+        .auth-tab.active { background: #e94560; color: white; }
+        .auth-input {
+            width: 100%; padding: 10px 12px; margin-bottom: 10px;
+            background: #0f3460; border: 1px solid #333; border-radius: 8px;
+            color: #e0e0e0; font-size: 14px; outline: none;
+        }
+        .auth-input:focus { border-color: #e94560; }
+        .auth-submit {
+            width: 100%; padding: 11px; margin-top: 6px;
+            background: #e94560; color: white; border: none; border-radius: 10px;
+            font-size: 15px; cursor: pointer;
+        }
+        .auth-submit:disabled { opacity: 0.5; cursor: not-allowed; }
+        .auth-error {
+            color: #ff6b6b; font-size: 13px; margin-top: 8px; min-height: 18px;
+        }
+        .settings-login-row {
+            display: flex; align-items: center; justify-content: space-between;
+            padding: 10px 0; margin-top: 12px; border-top: 1px solid #333;
+        }
+        .settings-login-row .nickname { color: #4ecca3; font-weight: 600; font-size: 14px; }
+        .settings-login-btn {
+            padding: 6px 14px; border-radius: 8px; border: none;
+            font-size: 13px; cursor: pointer;
+        }
+        .settings-login-btn.login { background: #e94560; color: white; }
+        .settings-login-btn.logout { background: #333; color: #aaa; }
+
         /* ===== Button CSS (kept) ===== */
         .btn {
             padding: 12px 24px;
@@ -1306,6 +1353,13 @@
                 this.wordLimitNotMemorized = parseInt(localStorage.getItem('wordLimitNotMemorized')) || 10;
                 this.wordLimitMemorized = parseInt(localStorage.getItem('wordLimitMemorized')) || 10;
 
+                // Stats / Auth
+                this.statsApiUrl = 'https://stats-api.memoryking.workers.dev';
+                this.authToken = localStorage.getItem('mk_auth_token') || null;
+                this.userNickname = localStorage.getItem('mk_user_nickname') || null;
+                this.userId = localStorage.getItem('mk_user_id') || null;
+                this.deviceId = localStorage.getItem('mk_device_id') || this.generateDeviceId();
+
                 this.init();
             }
 
@@ -1332,6 +1386,9 @@
 
                     // 하루 1회 업데이트 체크 (앱 로드 2초 후)
                     setTimeout(() => this.checkForUpdates(), 2000);
+
+                    // 비차단 인증 검증
+                    this.verifyAuth();
 
                     console.log('앱 초기화 완료');
                 } catch (error) {
@@ -1787,6 +1844,7 @@
             }
 
             showQuizComplete() {
+                this.sendStudyLog();
                 const area = document.getElementById('flashcardArea');
                 document.getElementById('choiceArea').style.display = 'none';
                 document.getElementById('timerBarContainer').style.display = 'none';
@@ -3059,10 +3117,23 @@
                             '<div class="settings-value" id="wordLimitMValue">' + this.wordLimitMemorized + '개</div>' +
                         '</div>' +
                         previewHtml +
+                        '<div class="settings-login-row">' +
+                            (this.authToken && this.userNickname
+                                ? '<span class="nickname">' + this.escapeHtml(this.userNickname) + '</span>' +
+                                  '<button class="settings-login-btn logout" id="settingsLogoutBtn">로그아웃</button>'
+                                : '<span style="color:#aaa;font-size:13px">학습 기록을 저장하려면 로그인하세요</span>' +
+                                  '<button class="settings-login-btn login" id="settingsLoginBtn">로그인</button>') +
+                        '</div>' +
                         '<button class="settings-close-btn" id="settingsCloseBtn">닫기</button>' +
                     '</div>';
 
                 document.body.appendChild(modal);
+
+                // 로그인/로그아웃 버튼 이벤트
+                const loginBtn = modal.querySelector('#settingsLoginBtn');
+                if (loginBtn) loginBtn.addEventListener('click', () => { modal.remove(); this.openAuthModal(); });
+                const logoutBtn = modal.querySelector('#settingsLogoutBtn');
+                if (logoutBtn) logoutBtn.addEventListener('click', () => { this.logout(); modal.remove(); this.openSettings(); });
 
                 const slider = modal.querySelector('#timeLimitSlider');
                 const valueDisplay = modal.querySelector('#timeLimitValue');
@@ -3102,6 +3173,184 @@
 
                 modal.querySelector('#settingsCloseBtn').addEventListener('click', () => modal.remove());
                 modal.addEventListener('click', (e) => { if (e.target === modal) modal.remove(); });
+            }
+
+            // ===== Auth & Stats Methods =====
+            generateDeviceId() {
+                const id = 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, c => {
+                    const r = Math.random() * 16 | 0;
+                    return (c === 'x' ? r : (r & 0x3 | 0x8)).toString(16);
+                });
+                localStorage.setItem('mk_device_id', id);
+                return id;
+            }
+
+            async verifyAuth() {
+                if (!this.authToken) return;
+                try {
+                    const res = await fetch(this.statsApiUrl + '/auth/verify', {
+                        headers: { 'Authorization': 'Bearer ' + this.authToken }
+                    });
+                    const data = await res.json();
+                    if (!data.valid) {
+                        this.logout(true);
+                    }
+                } catch (e) {
+                    // 네트워크 오류 시 기존 토큰 유지
+                }
+            }
+
+            sendStudyLog() {
+                try {
+                    const isMemorizeMode = (this.quizMode === 'notMemorized' && this.notMemorizedMode === 'memorize');
+                    const results = this.quizSessionResults || [];
+                    const correct = results.filter(r => r.correct).length;
+                    const wrong = results.filter(r => !r.correct).length;
+
+                    const kst = new Date(Date.now() + 9 * 3600000);
+                    const studyDate = kst.toISOString().slice(0, 10);
+
+                    const log = {
+                        device_id: this.deviceId,
+                        content_name: this.currentTitle || '',
+                        quiz_mode: this.quizMode || '',
+                        words_studied: isMemorizeMode ? (this.quizWords ? this.quizWords.length : 0) : results.length,
+                        words_correct: isMemorizeMode ? 0 : correct,
+                        words_wrong: isMemorizeMode ? 0 : wrong,
+                        study_date: studyDate,
+                    };
+
+                    const headers = { 'Content-Type': 'application/json' };
+                    if (this.authToken) headers['Authorization'] = 'Bearer ' + this.authToken;
+
+                    fetch(this.statsApiUrl + '/study-log', {
+                        method: 'POST', headers, body: JSON.stringify(log)
+                    }).catch(() => {});
+                } catch (e) {
+                    // 학습 흐름 방해 금지
+                }
+            }
+
+            openAuthModal() {
+                const existing = document.querySelector('.auth-modal');
+                if (existing) existing.remove();
+
+                const modal = document.createElement('div');
+                modal.className = 'auth-modal';
+                modal.innerHTML =
+                    '<div class="auth-dialog">' +
+                        '<div class="auth-tabs">' +
+                            '<button class="auth-tab active" data-tab="login">로그인</button>' +
+                            '<button class="auth-tab" data-tab="signup">회원가입</button>' +
+                        '</div>' +
+                        '<div id="authLoginPane">' +
+                            '<input class="auth-input" id="authLoginEmail" type="email" placeholder="이메일" autocomplete="email">' +
+                            '<input class="auth-input" id="authLoginPw" type="password" placeholder="비밀번호" autocomplete="current-password">' +
+                            '<button class="auth-submit" id="authLoginBtn">로그인</button>' +
+                        '</div>' +
+                        '<div id="authSignupPane" style="display:none">' +
+                            '<input class="auth-input" id="authSignupEmail" type="email" placeholder="이메일" autocomplete="email">' +
+                            '<input class="auth-input" id="authSignupNick" type="text" placeholder="닉네임" autocomplete="nickname">' +
+                            '<input class="auth-input" id="authSignupPw" type="password" placeholder="비밀번호 (6자 이상)" autocomplete="new-password">' +
+                            '<button class="auth-submit" id="authSignupBtn">회원가입</button>' +
+                        '</div>' +
+                        '<div class="auth-error" id="authError"></div>' +
+                    '</div>';
+
+                document.body.appendChild(modal);
+
+                // 탭 전환
+                modal.querySelectorAll('.auth-tab').forEach(tab => {
+                    tab.addEventListener('click', () => {
+                        modal.querySelectorAll('.auth-tab').forEach(t => t.classList.remove('active'));
+                        tab.classList.add('active');
+                        const isLogin = tab.dataset.tab === 'login';
+                        modal.querySelector('#authLoginPane').style.display = isLogin ? '' : 'none';
+                        modal.querySelector('#authSignupPane').style.display = isLogin ? 'none' : '';
+                        modal.querySelector('#authError').textContent = '';
+                    });
+                });
+
+                // 로그인
+                modal.querySelector('#authLoginBtn').addEventListener('click', async () => {
+                    const email = modal.querySelector('#authLoginEmail').value.trim();
+                    const pw = modal.querySelector('#authLoginPw').value;
+                    const errEl = modal.querySelector('#authError');
+                    const btn = modal.querySelector('#authLoginBtn');
+                    if (!email || !pw) { errEl.textContent = '이메일과 비밀번호를 입력해주세요.'; return; }
+                    btn.disabled = true; btn.textContent = '로그인 중...';
+                    try {
+                        await this.handleLogin(email, pw);
+                        modal.remove();
+                        this.showToast(this.userNickname + '님 환영합니다!');
+                    } catch (e) {
+                        errEl.textContent = e.message;
+                    } finally { btn.disabled = false; btn.textContent = '로그인'; }
+                });
+
+                // 회원가입
+                modal.querySelector('#authSignupBtn').addEventListener('click', async () => {
+                    const email = modal.querySelector('#authSignupEmail').value.trim();
+                    const nick = modal.querySelector('#authSignupNick').value.trim();
+                    const pw = modal.querySelector('#authSignupPw').value;
+                    const errEl = modal.querySelector('#authError');
+                    const btn = modal.querySelector('#authSignupBtn');
+                    if (!email || !nick || !pw) { errEl.textContent = '모든 항목을 입력해주세요.'; return; }
+                    if (pw.length < 6) { errEl.textContent = '비밀번호는 6자 이상이어야 합니다.'; return; }
+                    btn.disabled = true; btn.textContent = '가입 중...';
+                    try {
+                        await this.handleSignup(email, pw, nick);
+                        modal.remove();
+                        this.showToast(this.userNickname + '님 가입 완료!');
+                    } catch (e) {
+                        errEl.textContent = e.message;
+                    } finally { btn.disabled = false; btn.textContent = '회원가입'; }
+                });
+
+                // 배경 클릭으로 닫기
+                modal.addEventListener('click', (e) => { if (e.target === modal) modal.remove(); });
+            }
+
+            async handleLogin(email, password) {
+                const res = await fetch(this.statsApiUrl + '/auth/login', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ email, password }),
+                });
+                const data = await res.json();
+                if (!res.ok) throw new Error(data.error || '로그인에 실패했습니다.');
+                this.authToken = data.token;
+                this.userNickname = data.user.nickname;
+                this.userId = data.user.id;
+                localStorage.setItem('mk_auth_token', data.token);
+                localStorage.setItem('mk_user_nickname', data.user.nickname);
+                localStorage.setItem('mk_user_id', data.user.id);
+            }
+
+            async handleSignup(email, password, nickname) {
+                const res = await fetch(this.statsApiUrl + '/auth/signup', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ email, password, nickname }),
+                });
+                const data = await res.json();
+                if (!res.ok) throw new Error(data.error || '회원가입에 실패했습니다.');
+                this.authToken = data.token;
+                this.userNickname = data.user.nickname;
+                this.userId = data.user.id;
+                localStorage.setItem('mk_auth_token', data.token);
+                localStorage.setItem('mk_user_nickname', data.user.nickname);
+                localStorage.setItem('mk_user_id', data.user.id);
+            }
+
+            logout(silent) {
+                this.authToken = null;
+                this.userNickname = null;
+                this.userId = null;
+                localStorage.removeItem('mk_auth_token');
+                localStorage.removeItem('mk_user_nickname');
+                localStorage.removeItem('mk_user_id');
+                if (!silent) this.showToast('로그아웃되었습니다.');
             }
 
             // ===== Event Listeners =====
