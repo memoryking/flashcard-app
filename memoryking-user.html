@@ -873,6 +873,21 @@
         }
         .community-stats-my .cs-words { color: #81c784; font-weight: 700; }
         .community-stats-my .cs-streak { color: #ffb74d; font-weight: 700; }
+        .community-stats-motivation {
+            font-size: 13px;
+            color: #bbb;
+            line-height: 1.5;
+            margin-top: 8px;
+            padding-top: 8px;
+            border-top: 1px solid rgba(255,255,255,0.08);
+        }
+        .community-stats-milestone {
+            font-size: 14px;
+            color: #ffd54f;
+            font-weight: 700;
+            margin-top: 6px;
+            line-height: 1.5;
+        }
 
         /* ===== Settings Modal ===== */
         .settings-modal {
@@ -3308,6 +3323,49 @@
                             html += ' · 연속 <span class="cs-streak">' + m.streak + '일째!</span>';
                         }
                         html += '</div>';
+
+                        // 어제 비교 칭찬
+                        const todayW = m.today_words || 0;
+                        const yesterdayW = m.yesterday_words;
+                        if (typeof yesterdayW === 'number' && todayW > 0) {
+                            let motiv = '';
+                            if (yesterdayW === 0) {
+                                motiv = '\uD83D\uDC4F 오늘도 열심히!';
+                            } else if (todayW > yesterdayW) {
+                                motiv = '\uD83D\uDD25 어제보다 ' + (todayW - yesterdayW) + '단어 더 많이 학습했어요!';
+                            } else if (todayW === yesterdayW) {
+                                motiv = '\uD83D\uDCAA 어제와 같은 페이스예요! 꾸준함이 실력!';
+                            }
+                            if (motiv) {
+                                html += '<div class="community-stats-motivation">' + motiv + '</div>';
+                            }
+                        }
+
+                        // 마일스톤 축하
+                        const totalW = m.total_words || 0;
+                        const streak = m.streak || 0;
+                        let milestone = '';
+                        const wordMilestones = [10000, 5000, 2000, 1000, 500, 100];
+                        const streakMilestones = [100, 60, 30, 14, 7, 3];
+
+                        if (streak >= 7) {
+                            for (let i = 0; i < streakMilestones.length; i++) {
+                                if (streak >= streakMilestones[i]) {
+                                    milestone = '\uD83C\uDFC6 연속 ' + streakMilestones[i] + '일 학습 달성!';
+                                    break;
+                                }
+                            }
+                        } else {
+                            for (let i = 0; i < wordMilestones.length; i++) {
+                                if (totalW >= wordMilestones[i]) {
+                                    milestone = '\uD83C\uDFC6 총 ' + wordMilestones[i].toLocaleString() + '단어 달성!';
+                                    break;
+                                }
+                            }
+                        }
+                        if (milestone) {
+                            html += '<div class="community-stats-milestone">' + milestone + '</div>';
+                        }
                     }
 
                     html += '</div>';
