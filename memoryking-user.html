@@ -846,6 +846,34 @@
             color: #aaa;
         }
 
+        /* ===== Community Stats Card ===== */
+        .community-stats {
+            background: rgba(255,255,255,0.06);
+            border-radius: 12px;
+            padding: 14px 18px;
+            margin: 16px auto 0;
+            max-width: 340px;
+            text-align: center;
+            animation: fadeIn 0.6s ease;
+        }
+        .community-stats-line {
+            font-size: 13px;
+            color: #999;
+            margin-bottom: 6px;
+            line-height: 1.5;
+        }
+        .community-stats-line b {
+            color: #4fc3f7;
+            font-weight: 700;
+        }
+        .community-stats-my {
+            font-size: 13px;
+            color: #bbb;
+            line-height: 1.5;
+        }
+        .community-stats-my .cs-words { color: #81c784; font-weight: 700; }
+        .community-stats-my .cs-streak { color: #ffb74d; font-weight: 700; }
+
         /* ===== Settings Modal ===== */
         .settings-modal {
             position: fixed;
@@ -1845,6 +1873,7 @@
 
             showQuizComplete() {
                 this.sendStudyLog();
+                this.fetchCommunityStats();
                 const area = document.getElementById('flashcardArea');
                 document.getElementById('choiceArea').style.display = 'none';
                 document.getElementById('timerBarContainer').style.display = 'none';
@@ -1870,6 +1899,7 @@
                             '<div class="quiz-complete-text">' + pick[1] + '</div>' +
                         '</div>';
                     this.updateStatBar();
+                    this.showCommunityStats();
                     return;
                 }
 
@@ -1881,6 +1911,7 @@
                             '<div class="quiz-complete-text">더 이상 학습할 단어가 없습니다</div>' +
                         '</div>';
                     this.updateStatBar();
+                    this.showCommunityStats();
                     return;
                 }
 
@@ -2807,6 +2838,7 @@
                                 '<div class="quiz-complete-icon">' + icon + '</div>' +
                                 '<div class="quiz-complete-text">' + msg + '</div>' +
                             '</div>';
+                        this.showCommunityStats();
                     }, 500);
                 }, totalTime);
             }
@@ -3229,6 +3261,57 @@
                 } catch (e) {
                     // 학습 흐름 방해 금지
                 }
+            }
+
+            fetchCommunityStats() {
+                try {
+                    const ctrl = new AbortController();
+                    setTimeout(() => ctrl.abort(), 3000);
+
+                    const fetches = [
+                        fetch(this.statsApiUrl + '/stats/today', { signal: ctrl.signal }).then(r => r.json())
+                    ];
+
+                    if (this.authToken) {
+                        fetches.push(
+                            fetch(this.statsApiUrl + '/stats/me', {
+                                headers: { 'Authorization': 'Bearer ' + this.authToken },
+                                signal: ctrl.signal
+                            }).then(r => r.ok ? r.json() : null)
+                        );
+                    }
+
+                    this._communityStatsPromise = Promise.all(fetches).then(([today, me]) => ({ today, me: me || null }));
+                } catch (e) {
+                    this._communityStatsPromise = Promise.resolve(null);
+                }
+            }
+
+            showCommunityStats() {
+                if (!this._communityStatsPromise) return;
+                this._communityStatsPromise.then(data => {
+                    if (!data || !data.today) return;
+                    const area = document.getElementById('flashcardArea');
+                    if (!area) return;
+                    // 이미 삽입되었으면 스킵
+                    if (area.querySelector('.community-stats')) return;
+
+                    const t = data.today;
+                    let html = '<div class="community-stats">';
+                    html += '<div class="community-stats-line">오늘 <b>' + (t.active_users || 0) + '명</b>이 함께 공부 중 · 총 <b>' + (t.total_words_studied || 0) + '단어</b></div>';
+
+                    if (data.me) {
+                        const m = data.me;
+                        html += '<div class="community-stats-my">나의 오늘: <span class="cs-words">' + (m.today_words || 0) + '단어</span>';
+                        if (m.streak > 0) {
+                            html += ' · 연속 <span class="cs-streak">' + m.streak + '일째!</span>';
+                        }
+                        html += '</div>';
+                    }
+
+                    html += '</div>';
+                    area.insertAdjacentHTML('beforeend', html);
+                }).catch(() => {});
             }
 
             openAuthModal() {
