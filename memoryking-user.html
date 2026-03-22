@@ -3289,10 +3289,9 @@
                 }
             }
 
-            async showCommunityStats() {
+            showCommunityStats() {
                 if (!this._communityStatsPromise) return;
-                try {
-                    const data = await this._communityStatsPromise;
+                this._communityStatsPromise.then(data => {
                     if (!data || !data.today) return;
                     const area = document.getElementById('flashcardArea');
                     if (!area) return;
@@ -3300,17 +3299,11 @@
 
                     const t = data.today;
                     let html = '<div class="community-stats">';
-                    html += '<div class="community-stats-line">오늘 <b>' + (t.active_users || 0) + '명</b>이 함께 공부 중!' + (t.max_words ? ' · 최다 <b>' + t.max_words + '단어</b> 학습' : '') + '</div>';
+                    html += '<div class="community-stats-line">오늘 <b>' + (t.active_users || 0) + '명</b>이 함께 공부했어요!' + (t.max_words ? ' · 최다 <b>' + t.max_words + '단어</b> 학습' : '') + '</div>';
 
                     if (data.me) {
                         const m = data.me;
-                        // 로컬 학습량과 서버 학습량 중 큰 값 사용 (오프라인 학습 반영)
-                        let myWords = m.today_words || 0;
-                        try {
-                            const local = await this.getTodayTotalCounts();
-                            if (local.studiedToday > myWords) myWords = local.studiedToday;
-                        } catch(e) {}
-                        html += '<div class="community-stats-my">오늘 나의 학습량: <span class="cs-words">' + myWords + '단어</span>';
+                        html += '<div class="community-stats-my">오늘 나의 학습량: <span class="cs-words">' + (m.today_words || 0) + '단어</span>';
                         if (m.streak > 0) {
                             html += ' · 연속 <span class="cs-streak">' + m.streak + '일째!</span>';
                         }
@@ -3319,7 +3312,7 @@
 
                     html += '</div>';
                     area.insertAdjacentHTML('beforeend', html);
-                } catch(e) {}
+                }).catch(() => {});
             }
 
             openAuthModal() {
@@ -4486,6 +4479,11 @@
         window.addEventListener('DOMContentLoaded', () => {
             window.app = new WordMemorizationApp();
         });
+    </script>
+    <script>
+        if ('serviceWorker' in navigator) {
+            navigator.serviceWorker.register('./sw.js');
+        }
     </script>
 </body>
 </html>
