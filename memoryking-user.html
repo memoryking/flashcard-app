@@ -3255,7 +3255,7 @@
                     const headers = { 'Content-Type': 'application/json' };
                     if (this.authToken) headers['Authorization'] = 'Bearer ' + this.authToken;
 
-                    fetch(this.statsApiUrl + '/study-log', {
+                    this._studyLogPromise = fetch(this.statsApiUrl + '/study-log', {
                         method: 'POST', headers, body: JSON.stringify(log)
                     }).catch(() => {});
                 } catch (e) {
@@ -3265,23 +3265,26 @@
 
             fetchCommunityStats() {
                 try {
-                    const ctrl = new AbortController();
-                    setTimeout(() => ctrl.abort(), 3000);
+                    const logDone = this._studyLogPromise || Promise.resolve();
+                    this._communityStatsPromise = logDone.then(() => {
+                        const ctrl = new AbortController();
+                        setTimeout(() => ctrl.abort(), 3000);
 
-                    const fetches = [
-                        fetch(this.statsApiUrl + '/stats/today', { signal: ctrl.signal }).then(r => r.json())
-                    ];
+                        const fetches = [
+                            fetch(this.statsApiUrl + '/stats/today', { signal: ctrl.signal }).then(r => r.json())
+                        ];
 
-                    if (this.authToken) {
-                        fetches.push(
-                            fetch(this.statsApiUrl + '/stats/me', {
-                                headers: { 'Authorization': 'Bearer ' + this.authToken },
-                                signal: ctrl.signal
-                            }).then(r => r.ok ? r.json() : null)
-                        );
-                    }
+                        if (this.authToken) {
+                            fetches.push(
+                                fetch(this.statsApiUrl + '/stats/me', {
+                                    headers: { 'Authorization': 'Bearer ' + this.authToken },
+                                    signal: ctrl.signal
+                                }).then(r => r.ok ? r.json() : null)
+                            );
+                        }
 
-                    this._communityStatsPromise = Promise.all(fetches).then(([today, me]) => ({ today, me: me || null }));
+                        return Promise.all(fetches).then(([today, me]) => ({ today, me: me || null }));
+                    });
                 } catch (e) {
                     this._communityStatsPromise = Promise.resolve(null);
                 }
@@ -3298,7 +3301,7 @@
 
                     const t = data.today;
                     let html = '<div class="community-stats">';
-                    html += '<div class="community-stats-line">오늘 <b>' + (t.active_users || 0) + '명</b>이 함께 공부 중 · 총 <b>' + (t.total_words_studied || 0) + '단어</b></div>';
+                    html += '<div class="community-stats-line">오늘 <b>' + (t.active_users || 0) + '명</b>이 함께 공부 중!' + (t.max_words ? ' · 최다 <b>' + t.max_words + '단어</b> 학습' : '') + '</div>';
 
                     if (data.me) {
                         const m = data.me;
