@@ -3303,7 +3303,8 @@
                     if (!data || !data.today) return;
                     const area = document.getElementById('flashcardArea');
                     if (!area) return;
-                    if (area.querySelector('.community-stats')) return;
+                    const existing = area.querySelector('.community-stats');
+                    if (existing) existing.remove();
 
                     const t = data.today;
                     let html = '<div class="community-stats">';
