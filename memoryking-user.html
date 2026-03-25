@@ -3414,29 +3414,35 @@
             async checkEventConditions(statsMe) {
                 if (!this.db) return;
                 try {
-                    const tx = this.db.transaction(['contents'], 'readwrite');
+                    const tx = this.db.transaction(['contents'], 'readonly');
                     const store = tx.objectStore('contents');
                     const allReq = store.getAll();
-                    allReq.onsuccess = () => {
+                    allReq.onsuccess = async () => {
                         const locked = allReq.result.filter(c => c.event_locked === true);
                         if (locked.length === 0) return;
-                        const streak = statsMe.streak || 0;
-                        const totalWords = statsMe.total_words || 0;
+                        const streak = Number(statsMe.streak) || 0;
+                        const streakWords = Number(statsMe.streak_words) || 0;
                         const unlocked = [];
-                        locked.forEach(c => {
+                        for (const c of locked) {
                             const cond = c.event_conditions;
-                            if (!cond) return;
-                            if (streak >= cond.streak_days && totalWords >= cond.total_words) {
-                                c.event_locked = false;
-                                const tx2 = this.db.transaction(['contents'], 'readwrite');
-                                tx2.objectStore('contents').put(c);
+                            if (!cond || !cond.streak_days || !cond.total_words) continue;
+                            const needStreak = Number(cond.streak_days);
+                            const needWords = Number(cond.total_words);
+                            if (streak >= needStreak && streakWords >= needWords) {
                                 unlocked.push(c);
                             }
-                        });
-                        if (unlocked.length > 0) {
-                            this.showEventCelebration(unlocked);
-                            this.loadData();
                         }
+                        if (unlocked.length === 0) return;
+                        // 조건 충족된 항목만 잠금 해제 후 DB 저장 완료 대기
+                        const tx2 = this.db.transaction(['contents'], 'readwrite');
+                        const store2 = tx2.objectStore('contents');
+                        for (const c of unlocked) {
+                            c.event_locked = false;
+                            store2.put(c);
+                        }
+                        await new Promise(r => { tx2.oncomplete = r; });
+                        await this.loadData();
+                        this.showEventCelebration(unlocked);
                     };
                 } catch (e) {
                     console.error('이벤트 조건 확인 오류:', e);
@@ -4402,19 +4408,8 @@
                         }
 
                         if (item.content.content_type === 'mindmap' && item.content.content) {
-                            const lines = item.content.content.trim().split('\n').filter(l => l.trim());
-                            const branches = [];
-                            lines.forEach(line => {
-                                if (line.includes('@')) {
-                                    const parts = line.split('@');
-                                    const branch = { level1: (parts[0]||'').trim(), level2: (parts[1]||'').trim(), level3: parts.length > 2 ? parts.slice(2).map(p => p.trim()).filter(p => p).join('\n') : '' };
-                                    if (branch.level1) branches.push(branch);
-                                } else if (branches.length > 0) {
-                                    const last = branches[branches.length - 1];
-                                    last.level3 = last.level3 ? last.level3 + '\n' + line.trim() : line.trim();
-                                }
-                            });
-                            item.content.mindmap_data = JSON.stringify({ title: item.content.title || '플래시카드', branches: branches });
+                            const parsed = this.parseMindmapData(item.content.content);
+                            item.content.mindmap_data = JSON.stringify({ title: item.content.title || '플래시카드', branches: parsed.branches });
                         }
                         if (airtableItem.isEvent) {
                             item.content.event_locked = true;
