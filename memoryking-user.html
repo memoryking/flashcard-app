@@ -1134,6 +1134,62 @@
         .confirm-button.cancel { background: #6c757d; color: white; }
         .confirm-button.cancel:hover { background: #5a6268; }
 
+        /* 이벤트 잠금 스타일 */
+        .airtable-import-item.event-locked {
+            border-left: 4px solid #ffc107;
+            background: linear-gradient(135deg, #fffde7, #fff9c4);
+        }
+        .event-lock-icon { font-size: 18px; margin-right: 6px; }
+        .event-condition-text { font-size: 11px; color: #f57f17; font-weight: 600; }
+        .sidebar-item.event-locked {
+            opacity: 0.6; position: relative;
+        }
+        .sidebar-item.event-locked::after {
+            content: '🔒'; position: absolute; top: 8px; right: 8px; font-size: 14px;
+        }
+        .event-import-tag {
+            background: #fff3cd; color: #856404;
+            padding: 1px 6px; border-radius: 8px; font-size: 10px; font-weight: 600;
+        }
+
+        /* 축하 오버레이 */
+        .event-celebration-overlay {
+            position: fixed; top: 0; left: 0; right: 0; bottom: 0;
+            background: rgba(0,0,0,0.8); z-index: 2000;
+            display: flex; align-items: center; justify-content: center;
+            animation: fadeIn 0.3s ease;
+        }
+        .celebration-box {
+            background: white; border-radius: 20px; padding: 40px; text-align: center;
+            max-width: 400px; width: 90%; box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+        }
+        .celebration-icon { font-size: 64px; animation: celebrationBounce 0.6s ease infinite alternate; }
+        .celebration-title { font-size: 24px; font-weight: 700; color: #333; margin: 15px 0 10px; }
+        .celebration-content-name { font-size: 16px; color: #666; margin-bottom: 20px; }
+        .celebration-unlock-btn {
+            padding: 12px 30px; border: none; border-radius: 25px; font-size: 16px; font-weight: 600;
+            background: linear-gradient(45deg, #667eea, #764ba2); color: white; cursor: pointer;
+            transition: transform 0.2s;
+        }
+        .celebration-unlock-btn:hover { transform: scale(1.05); }
+        .celebration-close-btn {
+            display: block; margin-top: 12px; background: none; border: none;
+            color: #999; cursor: pointer; font-size: 14px;
+        }
+        .confetti-particle {
+            position: fixed; width: 10px; height: 10px; border-radius: 2px;
+            z-index: 2001; pointer-events: none;
+            animation: confettiFall 3s ease-out forwards;
+        }
+        @keyframes confettiFall {
+            0% { transform: translateY(0) rotate(0deg); opacity: 1; }
+            100% { transform: translateY(100vh) rotate(720deg); opacity: 0; }
+        }
+        @keyframes celebrationBounce {
+            from { transform: scale(1) rotate(-5deg); }
+            to { transform: scale(1.15) rotate(5deg); }
+        }
+
         @keyframes fadeIn {
             from { opacity: 0; }
             to { opacity: 1; }
@@ -2881,6 +2937,10 @@
 
             // ===== Load Content =====
             async loadContent(item) {
+                if (item.event_locked) {
+                    this.showToast('🔒 이벤트 콘텐츠입니다. 조건: ' + (item.event_label || '조건 미달'), 'info');
+                    return;
+                }
                 try {
                     this.stopQuizTimer();
                     this.isQuizActive = false;
@@ -2896,7 +2956,13 @@
                     this.currentStoryText = '';
 
                     if (item.content_type === 'mindmap') {
-                        this.currentMindmapData = item.mindmap_data ? JSON.parse(item.mindmap_data) : this.parseMindmapData(item.content);
+                        const reparsed = this.parseMindmapData(item.content);
+                        if (reparsed.branches.length > 0) {
+                            this.currentMindmapData = reparsed;
+                            item.mindmap_data = JSON.stringify(reparsed);
+                        } else {
+                            this.currentMindmapData = item.mindmap_data ? JSON.parse(item.mindmap_data) : reparsed;
+                        }
                         await this.initWordProgress(item.id);
                     } else if (item.content_type === 'image') {
                         this.currentImageData = item.image_data;
@@ -3311,6 +3377,7 @@
                     html += '<div class="community-stats-line">오늘 <b>' + (t.active_users || 0) + '명</b>이 함께 공부했어요!' + (t.max_words ? ' · 최다 <b>' + t.max_words + '단어</b> 학습' : '') + '</div>';
 
                     if (data.me) {
+                        this.checkEventConditions(data.me);
                         const m = data.me;
                         html += '<div class="community-stats-my">오늘 나의 학습량: <span class="cs-words">' + (m.today_words || 0) + '단어</span>';
                         if (m.streak > 0) {
@@ -3341,6 +3408,92 @@
                     area.insertAdjacentHTML('beforeend', html);
                 }).catch(() => {});
             }
+
+            // ── 이벤트 조건 확인 + 축하 ──
+
+            async checkEventConditions(statsMe) {
+                if (!this.db) return;
+                try {
+                    const tx = this.db.transaction(['contents'], 'readwrite');
+                    const store = tx.objectStore('contents');
+                    const allReq = store.getAll();
+                    allReq.onsuccess = () => {
+                        const locked = allReq.result.filter(c => c.event_locked === true);
+                        if (locked.length === 0) return;
+                        const streak = statsMe.streak || 0;
+                        const totalWords = statsMe.total_words || 0;
+                        const unlocked = [];
+                        locked.forEach(c => {
+                            const cond = c.event_conditions;
+                            if (!cond) return;
+                            if (streak >= cond.streak_days && totalWords >= cond.total_words) {
+                                c.event_locked = false;
+                                const tx2 = this.db.transaction(['contents'], 'readwrite');
+                                tx2.objectStore('contents').put(c);
+                                unlocked.push(c);
+                            }
+                        });
+                        if (unlocked.length > 0) {
+                            this.showEventCelebration(unlocked);
+                            this.loadData();
+                        }
+                    };
+                } catch (e) {
+                    console.error('이벤트 조건 확인 오류:', e);
+                }
+            }
+
+            showEventCelebration(unlockedItems) {
+                this.launchConfetti();
+                const names = unlockedItems.map(i => i.title).join(', ');
+                const overlay = document.createElement('div');
+                overlay.className = 'event-celebration-overlay';
+                overlay.innerHTML =
+                    '<div class="celebration-box">' +
+                        '<div class="celebration-icon">🎉</div>' +
+                        '<div class="celebration-title">축하합니다!</div>' +
+                        '<div class="celebration-content-name">🔓 ' + names + '</div>' +
+                        '<button class="celebration-unlock-btn" id="celebUnlockBtn">🔓 콘텐츠 확인하기</button>' +
+                        '<button class="celebration-close-btn" id="celebCloseBtn">닫기</button>' +
+                    '</div>';
+                document.body.appendChild(overlay);
+
+                overlay.querySelector('#celebUnlockBtn').addEventListener('click', () => {
+                    overlay.remove();
+                    this.removeConfetti();
+                    if (unlockedItems.length > 0) this.loadContent(unlockedItems[0]);
+                });
+                overlay.querySelector('#celebCloseBtn').addEventListener('click', () => {
+                    overlay.remove();
+                    this.removeConfetti();
+                });
+                overlay.addEventListener('click', (e) => {
+                    if (e.target === overlay) { overlay.remove(); this.removeConfetti(); }
+                });
+            }
+
+            launchConfetti() {
+                const colors = ['#667eea','#764ba2','#f44336','#ff9800','#4caf50','#2196f3','#e91e63','#ffc107'];
+                for (let i = 0; i < 60; i++) {
+                    const p = document.createElement('div');
+                    p.className = 'confetti-particle';
+                    p.style.left = Math.random() * 100 + 'vw';
+                    p.style.top = '-10px';
+                    p.style.background = colors[Math.floor(Math.random() * colors.length)];
+                    p.style.width = (6 + Math.random() * 8) + 'px';
+                    p.style.height = (6 + Math.random() * 8) + 'px';
+                    p.style.animationDuration = (2 + Math.random() * 2) + 's';
+                    p.style.animationDelay = (Math.random() * 1) + 's';
+                    document.body.appendChild(p);
+                }
+                setTimeout(() => this.removeConfetti(), 5000);
+            }
+
+            removeConfetti() {
+                document.querySelectorAll('.confetti-particle').forEach(p => p.remove());
+            }
+
+            // ── 이벤트 메서드 끝 ──
 
             openAuthModal() {
                 const existing = document.querySelector('.auth-modal');
@@ -3516,8 +3669,34 @@
 
             // ===== Data Loading =====
             parseMindmapData(content) {
-                const lines = content.trim().split('\n').filter(line => line.trim());
+                const rawLines = content.trim().split('\n');
                 const title = this.currentTitle || '마인드맵';
+
+                // 엑셀 복사 시 줄바꿈 있는 셀은 "..."로 감싸짐 → 합치기
+                const lines = [];
+                let buf = null;
+                for (const raw of rawLines) {
+                    const t = raw.trim();
+                    if (!t) continue;
+                    if (buf !== null) {
+                        buf += '\n' + raw;
+                        if (t.endsWith('"')) {
+                            const j = buf.trim();
+                            lines.push(j.startsWith('"') ? j.slice(1, -1) : j);
+                            buf = null;
+                        }
+                    } else if (t.startsWith('"') && !t.endsWith('"')) {
+                        buf = raw;
+                    } else if (t.startsWith('"') && t.endsWith('"') && t.length > 1) {
+                        lines.push(t.slice(1, -1));
+                    } else {
+                        lines.push(t);
+                    }
+                }
+                if (buf !== null) {
+                    const j = buf.trim();
+                    lines.push(j.startsWith('"') ? j.slice(1) : j);
+                }
 
                 const mindmapData = {
                     title: title,
@@ -3531,7 +3710,6 @@
                         level2: parts[1] ? parts[1].trim() : '',
                         level3: parts.length > 2 ? parts.slice(2).map(p => p.trim()).filter(p => p).join('\n') : ''
                     };
-
                     if (branch.level1) {
                         mindmapData.branches.push(branch);
                     }
@@ -3621,6 +3799,7 @@
                     for (const item of group.items) {
                         const listItem = document.createElement('div');
                         listItem.className = 'sidebar-item';
+                        if (item.event_locked) listItem.classList.add('event-locked');
                         listItem.setAttribute('data-id', item.id);
                         if (this.currentTextId === item.id) {
                             listItem.classList.add('active');
@@ -4010,6 +4189,10 @@
                                 }
                             }
 
+                            const isEvent = !!(item.event && item.event.is_event);
+                            const eventConditions = isEvent ? item.event.conditions : null;
+                            const eventLabel = isEvent ? item.event.label : '';
+
                             airtableItems.push({
                                 record: record,
                                 item: item,
@@ -4019,6 +4202,9 @@
                                 isDuplicate: isDuplicate,
                                 isUpdate: isUpdate,
                                 updateTargetId: updateTargetId,
+                                isEvent: isEvent,
+                                eventConditions: eventConditions,
+                                eventLabel: eventLabel,
                                 selected: !isDuplicate || isUpdate
                             });
 
@@ -4103,17 +4289,23 @@
                         statusTag = '<span class="airtable-import-tag">중복</span>';
                     }
 
+                    const eventTag = item.isEvent ? '<span class="event-import-tag">🎁 이벤트</span>' : '';
+                    const eventCondText = item.isEvent ? '<div class="event-condition-text">🔒 조건: ' + item.eventLabel + '</div>' : '';
+                    const lockPrefix = item.isEvent ? '🔒 ' : '';
+
                     return `
-                        <div class="airtable-import-item ${statusClass}">
+                        <div class="airtable-import-item ${statusClass} ${item.isEvent ? 'event-locked' : ''}">
                             <input type="checkbox" class="airtable-import-checkbox"
                                    ${item.selected ? 'checked' : ''}
                                    onchange="window.app.toggleAirtableItem(${index}, this.checked)">
                             <div class="airtable-import-info">
-                                <div class="airtable-import-item-title">${typeIcon} ${item.title}</div>
+                                <div class="airtable-import-item-title">${lockPrefix}${typeIcon} ${item.title}</div>
+                                ${eventCondText}
                                 <div class="airtable-import-item-details">
                                     <span>${item.contentType === 'mindmap' ? '암기할 갯수: ' + item.wordCount + '개' : ''}</span>
                                     <span>타입: ${item.contentType === 'mindmap' ? 'flashcard' : item.contentType}</span>
                                     ${statusTag}
+                                    ${eventTag}
                                 </div>
                             </div>
                         </div>
@@ -4213,11 +4405,21 @@
                             const lines = item.content.content.trim().split('\n').filter(l => l.trim());
                             const branches = [];
                             lines.forEach(line => {
-                                const parts = line.split('@');
-                                const branch = { level1: (parts[0]||'').trim(), level2: (parts[1]||'').trim(), level3: parts.length > 2 ? parts.slice(2).map(p => p.trim()).filter(p => p).join('\n') : '' };
-                                if (branch.level1) branches.push(branch);
+                                if (line.includes('@')) {
+                                    const parts = line.split('@');
+                                    const branch = { level1: (parts[0]||'').trim(), level2: (parts[1]||'').trim(), level3: parts.length > 2 ? parts.slice(2).map(p => p.trim()).filter(p => p).join('\n') : '' };
+                                    if (branch.level1) branches.push(branch);
+                                } else if (branches.length > 0) {
+                                    const last = branches[branches.length - 1];
+                                    last.level3 = last.level3 ? last.level3 + '\n' + line.trim() : line.trim();
+                                }
                             });
                             item.content.mindmap_data = JSON.stringify({ title: item.content.title || '플래시카드', branches: branches });
+                        }
+                        if (airtableItem.isEvent) {
+                            item.content.event_locked = true;
+                            item.content.event_conditions = airtableItem.eventConditions;
+                            item.content.event_label = airtableItem.eventLabel;
                         }
                         importData.contents.push(item.content);
                         if (item.highlights && Array.isArray(item.highlights)) {
