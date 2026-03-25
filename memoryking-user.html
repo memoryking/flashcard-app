@@ -4428,6 +4428,20 @@
 
                     await this.importAllDataBatch(importData);
 
+                    // 이벤트 콘텐츠가 포함된 경우, 현재 stats로 즉시 조건 확인
+                    const hasEvent = selectedItems.some(i => i.isEvent);
+                    if (hasEvent && this.authToken) {
+                        try {
+                            const res = await fetch(this.statsApiUrl + '/stats/me', {
+                                headers: { 'Authorization': 'Bearer ' + this.authToken }
+                            });
+                            if (res.ok) {
+                                const me = await res.json();
+                                if (me) await this.checkEventConditions(me);
+                            }
+                        } catch (e) { /* 무시 — 다음 퀴즈 완료 시 재확인 */ }
+                    }
+
                 } catch (error) {
                     console.error('선택 항목 불러오기 오류:', error);
                     this.showToast('선택한 항목 불러오기에 실패했습니다', 'error');
