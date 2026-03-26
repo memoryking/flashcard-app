@@ -3704,16 +3704,10 @@
                         '<div class="celebration-icon">🎉</div>' +
                         '<div class="celebration-title">축하합니다!</div>' +
                         '<div class="celebration-content-name">🔓 ' + names + '</div>' +
-                        '<button class="celebration-unlock-btn" id="celebUnlockBtn">🔓 콘텐츠 확인하기</button>' +
-                        '<button class="celebration-close-btn" id="celebCloseBtn">닫기</button>' +
+                        '<button class="celebration-unlock-btn" id="celebCloseBtn">확인</button>' +
                     '</div>';
                 document.body.appendChild(overlay);
 
-                overlay.querySelector('#celebUnlockBtn').addEventListener('click', () => {
-                    overlay.remove();
-                    this.removeConfetti();
-                    if (unlockedItems.length > 0) this.loadContent(unlockedItems[0]);
-                });
                 overlay.querySelector('#celebCloseBtn').addEventListener('click', () => {
                     overlay.remove();
                     this.removeConfetti();
