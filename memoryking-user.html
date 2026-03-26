@@ -3668,6 +3668,7 @@
                             '<input class="auth-input" id="authSignupEmail" type="email" placeholder="이메일" autocomplete="email">' +
                             '<input class="auth-input" id="authSignupNick" type="text" placeholder="닉네임" autocomplete="nickname">' +
                             '<input class="auth-input" id="authSignupPw" type="password" placeholder="비밀번호 (6자 이상)" autocomplete="new-password">' +
+                            '<input class="auth-input" id="authSignupPw2" type="password" placeholder="비밀번호 확인" autocomplete="new-password">' +
                             '<input class="auth-input" id="authSignupRef" type="text" placeholder="추천 코드 (선택사항)" style="border-color:#4fc3f7;">' +
                             '<div id="authRefInfo" style="font-size:12px;color:#4fc3f7;margin:-4px 0 8px;display:none"></div>' +
                             '<button class="auth-submit" id="authSignupBtn">회원가입</button>' +
@@ -3728,9 +3729,11 @@
                     const email = modal.querySelector('#authSignupEmail').value.trim();
                     const nick = modal.querySelector('#authSignupNick').value.trim();
                     const pw = modal.querySelector('#authSignupPw').value;
+                    const pw2 = modal.querySelector('#authSignupPw2').value;
                     const errEl = modal.querySelector('#authError');
                     const btn = modal.querySelector('#authSignupBtn');
                     if (!email || !nick || !pw) { errEl.textContent = '모든 항목을 입력해주세요.'; return; }
+                    if (pw !== pw2) { errEl.textContent = '비밀번호가 일치하지 않습니다.'; return; }
                     if (pw.length < 6) { errEl.textContent = '비밀번호는 6자 이상이어야 합니다.'; return; }
                     btn.disabled = true; btn.textContent = '가입 중...';
                     try {
