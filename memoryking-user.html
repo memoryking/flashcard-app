@@ -338,6 +338,8 @@
             aspect-ratio: 3/2;
             max-height: 45vh;
         }
+        .flashcard-stack.card-type-hanja .flashcard-word { font-size: 4em; }
+        .flashcard-stack.card-type-general { max-width: 470px; max-height: 58vh; }
 
         .flashcard-shadow {
             position: absolute;
@@ -1211,6 +1213,8 @@
             .flashcard-stack {
                 max-width: 320px;
             }
+            .flashcard-stack.card-type-hanja .flashcard-word { font-size: 3.2em; }
+            .flashcard-stack.card-type-general { max-width: 416px; }
             .flashcard-word {
                 font-size: 1.6em;
             }
@@ -2066,6 +2070,7 @@
                 const timerContainer = document.getElementById('timerBarContainer');
 
                 const isMemorizeMode = (this.quizMode === 'notMemorized' && this.notMemorizedMode === 'memorize');
+                const cardTypeClass = this.currentCardType ? ' card-type-' + this.currentCardType : '';
 
                 if (isMemorizeMode) {
                     // Memorize mode: show word, tap to reveal
@@ -2075,7 +2080,7 @@
 
                     area.innerHTML =
                         '<div class="flashcard-counter">' + (this.quizIndex + 1) + ' / ' + this.quizWords.length + '</div>' +
-                        '<div class="flashcard-stack">' +
+                        '<div class="flashcard-stack' + cardTypeClass + '">' +
                             (this.quizIndex + 2 < this.quizWords.length ? '<div class="flashcard-shadow flashcard-shadow-3"></div>' : '') +
                             (this.quizIndex + 1 < this.quizWords.length ? '<div class="flashcard-shadow flashcard-shadow-2"></div>' : '') +
                             '<div class="flashcard-main cascade-in" id="flashcardMain" onclick="window.app && window.app.revealMemorizeCard()">' +
@@ -2092,7 +2097,7 @@
 
                     area.innerHTML =
                         '<div class="flashcard-counter">' + (this.quizIndex + 1) + ' / ' + this.quizWords.length + '</div>' +
-                        '<div class="flashcard-stack">' +
+                        '<div class="flashcard-stack' + cardTypeClass + '">' +
                             (this.quizIndex + 2 < this.quizWords.length ? '<div class="flashcard-shadow flashcard-shadow-3"></div>' : '') +
                             (this.quizIndex + 1 < this.quizWords.length ? '<div class="flashcard-shadow flashcard-shadow-2"></div>' : '') +
                             '<div class="flashcard-main cascade-in" id="flashcardMain">' +
@@ -3004,6 +3009,7 @@
                     this.currentTextId = item.id;
                     this.currentTitle = item.title;
                     this.currentContentType = item.content_type;
+                    this.currentCardType = item.card_type || 'english';
                     this.currentText = item.content || '';
                     this.currentMindmapData = null;
                     this.currentImageData = null;
