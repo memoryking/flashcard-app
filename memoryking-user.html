@@ -1439,6 +1439,10 @@
             }
         })();
 
+        function toReferralCode(userId) {
+            return (Number(userId) * 7919 + 100000).toString(36).toUpperCase();
+        }
+
         class WordMemorizationApp {
             constructor() {
                 this.db = null;
@@ -3287,9 +3291,8 @@
                         '<div id="settingsBuddyList"></div>' +
                         '<div class="settings-section-title">내 추천 코드</div>' +
                         '<div class="settings-points-row"><span>추천한 친구 수</span><span class="pts-value" id="settingsRefCount">-</span></div>' +
-                        '<div style="display:flex;align-items:center;gap:8px;margin:4px 0 8px;">' +
-                            '<span style="color:#4fc3f7;font-size:14px;font-weight:600;">' + this.escapeHtml(this.userId || '') + '</span>' +
-                            '<button id="copyReferralBtn" style="background:#4fc3f7;color:#1a1a2e;border:none;border-radius:8px;padding:6px 14px;font-size:12px;font-weight:600;cursor:pointer;">링크 복사</button>' +
+                        '<div class="settings-points-row"><span>내 코드: <strong style="color:#4fc3f7;">' + this.escapeHtml(this.userId ? toReferralCode(this.userId) : '?') + '</strong></span>' +
+                            '<button id="copyReferralBtn" style="display:inline-block;background:#4fc3f7;color:#1a1a2e;border:none;border-radius:8px;padding:5px 12px;font-size:12px;font-weight:600;cursor:pointer;">링크 복사</button>' +
                         '</div>'
                         ) : '') +
                         '<button class="settings-close-btn" id="settingsCloseBtn">닫기</button>' +
@@ -3307,7 +3310,7 @@
                 const copyRefBtn = modal.querySelector('#copyReferralBtn');
                 if (copyRefBtn) {
                     copyRefBtn.addEventListener('click', () => {
-                        const link = 'https://vipup.site/memoryking-landingpage?ref=' + encodeURIComponent(this.userId);
+                        const link = 'https://vipup.site/memoryking-landingpage?ref=' + encodeURIComponent(toReferralCode(this.userId));
                         try {
                             const ta = document.createElement('textarea');
                             ta.value = link;
