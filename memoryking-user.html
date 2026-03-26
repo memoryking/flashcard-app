@@ -1263,6 +1263,102 @@
             .top-btn { min-width: 44px; min-height: 44px; }
             .choice-btn { min-height: 60px; }
         }
+
+        /* ── 포인트 & 공부친구 섹션 (설정 모달) ── */
+        .settings-section-title {
+            color: #e53935;
+            font-weight: 700;
+            font-size: 13px;
+            margin: 16px 0 8px;
+            padding-bottom: 4px;
+            border-bottom: 1px solid rgba(229,57,53,0.2);
+        }
+        .settings-points-row {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 6px 0;
+            font-size: 14px;
+            color: #333;
+        }
+        .settings-points-row .pts-value {
+            font-weight: 700;
+            color: #e53935;
+        }
+        .buddy-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 8px 0;
+            border-bottom: 1px solid #f0f0f0;
+            font-size: 14px;
+        }
+        .buddy-remove-btn {
+            background: none;
+            border: none;
+            color: #999;
+            font-size: 18px;
+            cursor: pointer;
+            padding: 0 4px;
+        }
+        .buddy-remove-btn:active { color: #e53935; }
+        .buddy-search-btn {
+            width: 100%;
+            padding: 10px;
+            margin-top: 8px;
+            background: #f5f5f5;
+            border: 1px dashed #ccc;
+            border-radius: 8px;
+            color: #666;
+            font-size: 14px;
+            cursor: pointer;
+        }
+        .buddy-search-btn:active { background: #eee; }
+        .buddy-search-modal {
+            position: fixed;
+            top: 0; left: 0; right: 0; bottom: 0;
+            background: rgba(0,0,0,0.5);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 100001;
+        }
+        .buddy-search-dialog {
+            background: #fff;
+            border-radius: 16px;
+            padding: 20px;
+            width: 90%;
+            max-width: 360px;
+            max-height: 70vh;
+            overflow-y: auto;
+        }
+        .buddy-search-input {
+            width: 100%;
+            padding: 10px 12px;
+            border: 1px solid #ddd;
+            border-radius: 8px;
+            font-size: 14px;
+            margin-bottom: 12px;
+            box-sizing: border-box;
+        }
+        .buddy-search-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 10px 0;
+            border-bottom: 1px solid #f0f0f0;
+            font-size: 14px;
+        }
+        .buddy-add-btn {
+            background: #e53935;
+            color: #fff;
+            border: none;
+            border-radius: 6px;
+            padding: 5px 12px;
+            font-size: 13px;
+            cursor: pointer;
+        }
+        .buddy-add-btn:active { background: #c62828; }
     </style>
     <script>
     (function() {
@@ -3229,6 +3325,14 @@
                                 : '<span style="color:#aaa;font-size:13px">학습 기록을 저장하려면 로그인하세요</span>' +
                                   '<button class="settings-login-btn login" id="settingsLoginBtn">로그인</button>') +
                         '</div>' +
+                        (this.authToken ? (
+                        '<div class="settings-section-title">포인트</div>' +
+                        '<div class="settings-points-row"><span>내 포인트</span><span class="pts-value" id="settingsMyPoint">-</span></div>' +
+                        '<div class="settings-points-row"><span>공부친구 포인트</span><span class="pts-value" id="settingsCmPoint">-</span></div>' +
+                        '<div class="settings-section-title">공부친구 (<span id="settingsBuddyCount">0</span>/3)</div>' +
+                        '<div id="settingsBuddyList"></div>' +
+                        '<button class="buddy-search-btn" id="buddySearchBtn">+ 공부친구 찾기</button>'
+                        ) : '') +
                         '<button class="settings-close-btn" id="settingsCloseBtn">닫기</button>' +
                     '</div>';
 
@@ -3278,6 +3382,138 @@
 
                 modal.querySelector('#settingsCloseBtn').addEventListener('click', () => modal.remove());
                 modal.addEventListener('click', (e) => { if (e.target === modal) modal.remove(); });
+
+                // 포인트 & 친구 로드
+                const buddySearchBtn = modal.querySelector('#buddySearchBtn');
+                if (buddySearchBtn) buddySearchBtn.addEventListener('click', () => this.openBuddySearch());
+                if (this.authToken) this.loadBuddyData();
+            }
+
+            // ===== 공부친구 & 포인트 Methods =====
+            async loadBuddyData() {
+                try {
+                    const res = await fetch(this.statsApiUrl + '/buddies/list', {
+                        headers: { 'Authorization': 'Bearer ' + this.authToken }
+                    });
+                    const data = await res.json();
+                    if (!res.ok) return;
+
+                    const ptEl = document.getElementById('settingsMyPoint');
+                    const cmEl = document.getElementById('settingsCmPoint');
+                    const countEl = document.getElementById('settingsBuddyCount');
+                    const listEl = document.getElementById('settingsBuddyList');
+
+                    if (ptEl) ptEl.textContent = (data.point || 0).toLocaleString();
+                    if (cmEl) cmEl.textContent = (data.cm_point || 0).toLocaleString();
+
+                    const buddies = data.buddies || [];
+                    if (countEl) countEl.textContent = buddies.length;
+                    if (listEl) {
+                        listEl.innerHTML = buddies.map(b =>
+                            '<div class="buddy-item">' +
+                                '<span>\uD83E\uDDD1 ' + this.escapeHtml(b.nickname) + '</span>' +
+                                '<button class="buddy-remove-btn" data-bid="' + b.id + '">\u2715</button>' +
+                            '</div>'
+                        ).join('');
+                        listEl.querySelectorAll('.buddy-remove-btn').forEach(btn => {
+                            btn.addEventListener('click', () => this.removeBuddy(btn.dataset.bid));
+                        });
+                    }
+                } catch (e) {
+                    console.error('친구 데이터 로드 오류:', e);
+                }
+            }
+
+            openBuddySearch() {
+                const existing = document.querySelector('.buddy-search-modal');
+                if (existing) existing.remove();
+
+                const modal = document.createElement('div');
+                modal.className = 'buddy-search-modal';
+                modal.innerHTML =
+                    '<div class="buddy-search-dialog">' +
+                        '<div style="font-weight:700;font-size:16px;margin-bottom:12px">공부친구 찾기</div>' +
+                        '<input class="buddy-search-input" id="buddySearchInput" placeholder="닉네임 입력" autocomplete="off">' +
+                        '<div id="buddySearchResults" style="min-height:40px"></div>' +
+                        '<button style="width:100%;padding:10px;margin-top:12px;border:none;border-radius:8px;background:#f5f5f5;font-size:14px;cursor:pointer" id="buddySearchClose">닫기</button>' +
+                    '</div>';
+                document.body.appendChild(modal);
+
+                let debounceTimer = null;
+                const input = modal.querySelector('#buddySearchInput');
+                input.addEventListener('input', () => {
+                    clearTimeout(debounceTimer);
+                    debounceTimer = setTimeout(() => this.performBuddySearch(input.value.trim()), 400);
+                });
+                modal.querySelector('#buddySearchClose').addEventListener('click', () => modal.remove());
+                modal.addEventListener('click', (e) => { if (e.target === modal) modal.remove(); });
+                input.focus();
+            }
+
+            async performBuddySearch(nickname) {
+                const resultsEl = document.getElementById('buddySearchResults');
+                if (!resultsEl) return;
+                if (!nickname) { resultsEl.innerHTML = '<div style="color:#aaa;text-align:center;padding:12px">닉네임을 입력하세요</div>'; return; }
+
+                resultsEl.innerHTML = '<div style="color:#aaa;text-align:center;padding:12px">검색 중...</div>';
+                try {
+                    const res = await fetch(this.statsApiUrl + '/buddies/search', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + this.authToken },
+                        body: JSON.stringify({ nickname })
+                    });
+                    const data = await res.json();
+                    const users = data.data || [];
+                    if (users.length === 0) {
+                        resultsEl.innerHTML = '<div style="color:#aaa;text-align:center;padding:12px">검색 결과가 없습니다</div>';
+                        return;
+                    }
+                    resultsEl.innerHTML = users.map(u =>
+                        '<div class="buddy-search-item">' +
+                            '<span>' + this.escapeHtml(u.nickname) + '</span>' +
+                            '<button class="buddy-add-btn" data-bid="' + u.id + '">추가</button>' +
+                        '</div>'
+                    ).join('');
+                    resultsEl.querySelectorAll('.buddy-add-btn').forEach(btn => {
+                        btn.addEventListener('click', () => this.addBuddy(btn.dataset.bid));
+                    });
+                } catch (e) {
+                    resultsEl.innerHTML = '<div style="color:#e53935;text-align:center;padding:12px">검색 오류</div>';
+                }
+            }
+
+            async addBuddy(buddyId) {
+                try {
+                    const res = await fetch(this.statsApiUrl + '/buddies/update', {
+                        method: 'PUT',
+                        headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + this.authToken },
+                        body: JSON.stringify({ action: 'add', buddy_id: Number(buddyId) })
+                    });
+                    const data = await res.json();
+                    if (!res.ok) { this.showToast(data.error || '추가 실패', 'error'); return; }
+                    this.showToast('공부친구를 추가했습니다!');
+                    const searchModal = document.querySelector('.buddy-search-modal');
+                    if (searchModal) searchModal.remove();
+                    this.loadBuddyData();
+                } catch (e) {
+                    this.showToast('추가 중 오류 발생', 'error');
+                }
+            }
+
+            async removeBuddy(buddyId) {
+                try {
+                    const res = await fetch(this.statsApiUrl + '/buddies/update', {
+                        method: 'PUT',
+                        headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + this.authToken },
+                        body: JSON.stringify({ action: 'remove', buddy_id: Number(buddyId) })
+                    });
+                    const data = await res.json();
+                    if (!res.ok) { this.showToast(data.error || '삭제 실패', 'error'); return; }
+                    this.showToast('공부친구를 삭제했습니다.');
+                    this.loadBuddyData();
+                } catch (e) {
+                    this.showToast('삭제 중 오류 발생', 'error');
+                }
             }
 
             // ===== Auth & Stats Methods =====
@@ -3422,15 +3658,24 @@
                         if (locked.length === 0) return;
                         const streak = Number(statsMe.streak) || 0;
                         const streakWords = Number(statsMe.streak_words) || 0;
+                        const cmPoint = Number(statsMe.cm_point) || 0;
                         const unlocked = [];
                         for (const c of locked) {
                             const cond = c.event_conditions;
-                            if (!cond || !cond.streak_days || !cond.total_words) continue;
-                            const needStreak = Number(cond.streak_days);
-                            const needWords = Number(cond.total_words);
-                            if (streak >= needStreak && streakWords >= needWords) {
-                                unlocked.push(c);
+                            if (!cond) continue;
+                            const hasStreakCond = cond.streak_days && cond.total_words;
+                            const hasCmCond = cond.cm_point && Number(cond.cm_point) > 0;
+                            if (!hasStreakCond && !hasCmCond) continue;
+                            let met = true;
+                            if (hasStreakCond) {
+                                const needStreak = Number(cond.streak_days);
+                                const needWords = Number(cond.total_words);
+                                if (streak < needStreak || streakWords < needWords) met = false;
                             }
+                            if (hasCmCond) {
+                                if (cmPoint < Number(cond.cm_point)) met = false;
+                            }
+                            if (met) unlocked.push(c);
                         }
                         if (unlocked.length === 0) return;
                         // 조건 충족된 항목만 잠금 해제 후 DB 저장 완료 대기
