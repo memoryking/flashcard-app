@@ -3308,11 +3308,18 @@
                 if (copyRefBtn) {
                     copyRefBtn.addEventListener('click', () => {
                         const link = 'https://vipup.site/memoryking-landingpage?ref=' + encodeURIComponent(this.userId);
-                        navigator.clipboard.writeText(link).then(() => {
+                        try {
+                            const ta = document.createElement('textarea');
+                            ta.value = link;
+                            ta.style.cssText = 'position:fixed;left:-9999px;top:-9999px';
+                            document.body.appendChild(ta);
+                            ta.select();
+                            document.execCommand('copy');
+                            document.body.removeChild(ta);
                             this.showToast('추천 링크가 복사되었습니다!');
-                        }).catch(() => {
+                        } catch {
                             this.showToast('복사에 실패했습니다. 직접 복사해주세요.');
-                        });
+                        }
                     });
                 }
 
