@@ -1192,6 +1192,69 @@
             to { transform: scale(1.15) rotate(5deg); }
         }
 
+        /* 봉인 안내 모달 */
+        .event-lock-overlay {
+            position: fixed; top: 0; left: 0; right: 0; bottom: 0;
+            background: rgba(0,0,0,0.7); z-index: 2000;
+            display: flex; align-items: center; justify-content: center;
+            animation: fadeIn 0.3s ease;
+        }
+        .event-lock-box {
+            background: #fff; border-radius: 16px; padding: 28px 24px;
+            max-width: 380px; width: 90%; box-shadow: 0 16px 48px rgba(0,0,0,0.3);
+        }
+        .event-lock-header {
+            text-align: center; font-size: 18px; font-weight: 700; color: #333;
+            margin-bottom: 16px;
+        }
+        .event-lock-title {
+            text-align: center; font-size: 14px; color: #888; margin-bottom: 18px;
+            word-break: keep-all;
+        }
+        .event-lock-section {
+            border: 1px solid #eee; border-radius: 12px; overflow: hidden;
+            margin-bottom: 10px;
+        }
+        .event-lock-section-header {
+            display: flex; align-items: center; justify-content: space-between;
+            padding: 12px 16px; cursor: pointer; font-size: 14px; font-weight: 600;
+            color: #333; background: #f8f9fb; transition: background 0.2s;
+        }
+        .event-lock-section-header:hover { background: #f0f0f5; }
+        .event-lock-section-header .arrow {
+            font-size: 12px; color: #999; transition: transform 0.3s;
+        }
+        .event-lock-section-header.open .arrow { transform: rotate(180deg); }
+        .event-lock-section-body {
+            display: none; padding: 14px 16px; font-size: 13px; color: #555;
+            line-height: 1.7; border-top: 1px solid #eee; background: #fafbfc;
+        }
+        .event-lock-section-body.open { display: block; }
+        .event-lock-section-body .lock-step {
+            display: flex; align-items: flex-start; gap: 8px; margin-bottom: 8px;
+        }
+        .event-lock-section-body .lock-step-num {
+            display: flex; align-items: center; justify-content: center;
+            min-width: 22px; height: 22px; border-radius: 50%;
+            background: #667eea; color: #fff; font-size: 11px; font-weight: 700;
+        }
+        .event-lock-section-body .lock-step-text { flex: 1; }
+        .event-lock-link-btn {
+            display: inline-flex; align-items: center; gap: 6px;
+            margin-top: 8px; padding: 8px 14px;
+            background: linear-gradient(135deg, #4fc3f7, #29b6f6); color: #fff;
+            border: none; border-radius: 8px; font-size: 12px; font-weight: 600;
+            cursor: pointer; transition: transform 0.2s;
+        }
+        .event-lock-link-btn:hover { transform: scale(1.03); }
+        .event-lock-close-btn {
+            display: block; width: 100%; padding: 12px; margin-top: 14px;
+            border: none; border-radius: 10px; background: #f0f0f5; color: #666;
+            font-size: 14px; font-weight: 600; cursor: pointer;
+            transition: background 0.2s;
+        }
+        .event-lock-close-btn:hover { background: #e8e8ee; }
+
         @keyframes fadeIn {
             from { opacity: 0; }
             to { opacity: 1; }
@@ -2995,9 +3058,99 @@
             }
 
             // ===== Load Content =====
+            showEventLockInfo(item) {
+                const existing = document.querySelector('.event-lock-overlay');
+                if (existing) existing.remove();
+
+                const cond = item.event_conditions || {};
+                const hasStreak = cond.streak_days && cond.total_words;
+                const hasCm = cond.cm_point && Number(cond.cm_point) > 0;
+
+                let sections = '';
+
+                if (hasStreak) {
+                    const days = Number(cond.streak_days);
+                    const words = Number(cond.total_words);
+                    sections +=
+                        '<div class="event-lock-section">' +
+                            '<div class="event-lock-section-header" onclick="this.classList.toggle(\'open\');this.nextElementSibling.classList.toggle(\'open\')">' +
+                                '<span>🔥 연속 학습 이벤트</span><span class="arrow">▼</span>' +
+                            '</div>' +
+                            '<div class="event-lock-section-body">' +
+                                '<div class="lock-step"><span class="lock-step-num">1</span><span class="lock-step-text">매일 꾸준히 학습을 시작하세요</span></div>' +
+                                '<div class="lock-step"><span class="lock-step-num">2</span><span class="lock-step-text"><strong>' + days + '일 연속</strong> 학습하세요</span></div>' +
+                                '<div class="lock-step"><span class="lock-step-num">3</span><span class="lock-step-text">' + days + '일 동안 총 <strong>' + words.toLocaleString() + '단어 이상</strong> 학습하면 봉인이 해제됩니다</span></div>' +
+                            '</div>' +
+                        '</div>';
+                }
+
+                if (hasCm) {
+                    const pts = Number(cond.cm_point);
+                    const refLink = this.userId
+                        ? 'https://vipup.site/memoryking-landingpage?ref=' + encodeURIComponent(toReferralCode(this.userId))
+                        : '';
+                    const linkBtnHtml = refLink
+                        ? '<button class="event-lock-link-btn" id="eventLockCopyLink">📋 내 추천 링크 복사</button>'
+                        : '<div style="margin-top:6px;font-size:12px;color:#e94560;">※ 로그인 후 추천 링크를 확인할 수 있습니다</div>';
+
+                    sections +=
+                        '<div class="event-lock-section">' +
+                            '<div class="event-lock-section-header" onclick="this.classList.toggle(\'open\');this.nextElementSibling.classList.toggle(\'open\')">' +
+                                '<span>👥 공부친구 포인트</span><span class="arrow">▼</span>' +
+                            '</div>' +
+                            '<div class="event-lock-section-body">' +
+                                '<div class="lock-step"><span class="lock-step-num">1</span><span class="lock-step-text">아래 추천 링크를 복사해서 친구에게 보내세요</span></div>' +
+                                '<div class="lock-step"><span class="lock-step-num">2</span><span class="lock-step-text">친구가 링크로 회원가입하면 <strong>공부친구 포인트 100</strong>이 적립됩니다</span></div>' +
+                                '<div class="lock-step"><span class="lock-step-num">3</span><span class="lock-step-text">공부친구 포인트가 <strong>' + pts.toLocaleString() + ' 이상</strong> 모이면 봉인이 해제됩니다</span></div>' +
+                                linkBtnHtml +
+                            '</div>' +
+                        '</div>';
+                }
+
+                if (!hasStreak && !hasCm) {
+                    sections = '<div style="text-align:center;padding:16px;color:#888;font-size:14px;">조건 정보가 없습니다</div>';
+                }
+
+                const overlay = document.createElement('div');
+                overlay.className = 'event-lock-overlay';
+                overlay.innerHTML =
+                    '<div class="event-lock-box">' +
+                        '<div class="event-lock-header">🔒 봉인된 콘텐츠</div>' +
+                        '<div class="event-lock-title">' + this.escapeHtml(item.title) + '</div>' +
+                        sections +
+                        '<button class="event-lock-close-btn" id="eventLockCloseBtn">닫기</button>' +
+                    '</div>';
+
+                document.body.appendChild(overlay);
+
+                // 닫기
+                overlay.querySelector('#eventLockCloseBtn').addEventListener('click', () => overlay.remove());
+                overlay.addEventListener('click', (e) => { if (e.target === overlay) overlay.remove(); });
+
+                // 링크 복사
+                const copyBtn = overlay.querySelector('#eventLockCopyLink');
+                if (copyBtn && this.userId) {
+                    copyBtn.addEventListener('click', () => {
+                        const link = 'https://vipup.site/memoryking-landingpage?ref=' + encodeURIComponent(toReferralCode(this.userId));
+                        try {
+                            const ta = document.createElement('textarea');
+                            ta.value = link;
+                            ta.style.cssText = 'position:fixed;left:-9999px;top:-9999px';
+                            document.body.appendChild(ta);
+                            ta.select();
+                            document.execCommand('copy');
+                            document.body.removeChild(ta);
+                            this.showToast('추천 링크가 복사되었습니다!');
+                        } catch (e) {
+                            this.showToast('복사에 실패했습니다');
+                        }
+                    });
+                }
+            }
+
             async loadContent(item) {
                 if (item.event_locked) {
-                    this.showToast('🔒 이벤트 콘텐츠입니다. 조건: ' + (item.event_label || '조건 미달'), 'info');
+                    this.showEventLockInfo(item);
                     return;
                 }
                 try {
@@ -3609,14 +3762,14 @@
 
             showEventCelebration(unlockedItems) {
                 this.launchConfetti();
-                const names = unlockedItems.map(i => i.title).join(', ');
+                const names = unlockedItems.map(i => '🔓 ' + i.title).join('<br>');
                 const overlay = document.createElement('div');
                 overlay.className = 'event-celebration-overlay';
                 overlay.innerHTML =
                     '<div class="celebration-box">' +
                         '<div class="celebration-icon">🎉</div>' +
                         '<div class="celebration-title">축하합니다!</div>' +
-                        '<div class="celebration-content-name">🔓 ' + names + '</div>' +
+                        '<div class="celebration-content-name">' + names + '</div>' +
                         '<button class="celebration-unlock-btn" id="celebCloseBtn">확인</button>' +
                     '</div>';
                 document.body.appendChild(overlay);
