@@ -4168,11 +4168,23 @@
                         if (item.content_type === 'mindmap') {
                             try {
                                 const counts = await this.getWordCounts(item.id);
-                                const total = counts.remaining + counts.notMemorized + counts.memorized;
+                                let total = counts.remaining + counts.notMemorized + counts.memorized;
+                                // word_progress에 아직 데이터가 없으면 content에서 줄 수로 계산
+                                if (total === 0 && item.content) {
+                                    total = item.content.split('\n').filter(l => l.trim()).length;
+                                }
                                 if (total > 0) {
                                     badgeHtml = '<span class="sidebar-badge">' + total + '단어</span>';
                                 }
-                            } catch (e) {}
+                            } catch (e) {
+                                // getWordCounts 에러 시에도 content에서 계산
+                                if (item.content) {
+                                    const fallback = item.content.split('\n').filter(l => l.trim()).length;
+                                    if (fallback > 0) {
+                                        badgeHtml = '<span class="sidebar-badge">' + fallback + '단어</span>';
+                                    }
+                                }
+                            }
                         }
 
                         listItem.innerHTML =
