@@ -3099,10 +3099,10 @@
                     const words = Number(cond.total_words);
                     sections +=
                         '<div class="event-lock-section">' +
-                            '<div class="event-lock-section-header" onclick="this.classList.toggle(\'open\');this.nextElementSibling.classList.toggle(\'open\')">' +
+                            '<div class="event-lock-section-header open" onclick="this.classList.toggle(\'open\');this.nextElementSibling.classList.toggle(\'open\')">' +
                                 '<span>🔥 연속 학습 이벤트</span><span class="arrow">▼</span>' +
                             '</div>' +
-                            '<div class="event-lock-section-body">' +
+                            '<div class="event-lock-section-body open">' +
                                 '<div class="lock-step"><span class="lock-step-num">1</span><span class="lock-step-text">매일 꾸준히 학습을 시작하세요</span></div>' +
                                 '<div class="lock-step"><span class="lock-step-num">2</span><span class="lock-step-text"><strong>' + days + '일 연속</strong> 학습하세요</span></div>' +
                                 '<div class="lock-step"><span class="lock-step-num">3</span><span class="lock-step-text">' + days + '일 동안 총 <strong>' + words.toLocaleString() + '단어 이상</strong> 학습하면 봉인이 해제됩니다</span></div>' +
@@ -3121,10 +3121,10 @@
 
                     sections +=
                         '<div class="event-lock-section">' +
-                            '<div class="event-lock-section-header" onclick="this.classList.toggle(\'open\');this.nextElementSibling.classList.toggle(\'open\')">' +
+                            '<div class="event-lock-section-header open" onclick="this.classList.toggle(\'open\');this.nextElementSibling.classList.toggle(\'open\')">' +
                                 '<span>👥 공부친구 포인트</span><span class="arrow">▼</span>' +
                             '</div>' +
-                            '<div class="event-lock-section-body">' +
+                            '<div class="event-lock-section-body open">' +
                                 '<div class="lock-step"><span class="lock-step-num">1</span><span class="lock-step-text">아래 추천 링크를 복사해서 친구에게 보내세요</span></div>' +
                                 '<div class="lock-step"><span class="lock-step-num">2</span><span class="lock-step-text">친구가 링크로 회원가입하면 <strong>공부친구 포인트 100</strong>이 적립됩니다</span></div>' +
                                 '<div class="lock-step"><span class="lock-step-num">3</span><span class="lock-step-text">공부친구 포인트가 <strong>' + pts.toLocaleString() + ' 이상</strong> 모이면 봉인이 해제됩니다</span></div>' +
