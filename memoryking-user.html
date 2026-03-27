@@ -3480,7 +3480,6 @@
                         '<div class="settings-section-title">공부친구 (<span id="settingsBuddyCount">0</span>)</div>' +
                         '<div class="settings-buddy-scroll"><div id="settingsBuddyList"></div></div>' +
                         '<div class="settings-section-title">내 추천 코드</div>' +
-                        '<div class="settings-points-row"><span>내가 추천한 친구 수</span><span class="pts-value" id="settingsRefCount">-</span></div>' +
                         '<div class="settings-points-row"><span>내 코드: <strong style="color:#4fc3f7;">' + this.escapeHtml(this.userId ? toReferralCode(this.userId) : '?') + '</strong></span>' +
                             '<button id="copyReferralBtn" style="display:inline-block;background:#4fc3f7;color:#1a1a2e;border:none;border-radius:8px;padding:5px 12px;font-size:12px;font-weight:600;cursor:pointer;">링크 복사</button>' +
                         '</div>'
@@ -3580,9 +3579,6 @@
                     if (ptEl) ptEl.textContent = (data.point || 0).toLocaleString();
                     if (cmEl) cmEl.textContent = (data.cm_point || 0).toLocaleString();
 
-                    const refCountEl = document.getElementById('settingsRefCount');
-                    if (refCountEl) refCountEl.textContent = (data.referral_count || 0) + '명';
-
                     const buddies = data.buddies || [];
                     if (countEl) countEl.textContent = buddies.length;
                     if (listEl) {
@@ -3602,6 +3598,7 @@
             }
 
             async removeBuddy(buddyId) {
+                if (!confirm('이 공부친구를 정말 삭제하시겠습니까?')) return;
                 try {
                     const res = await fetch(this.statsApiUrl + '/buddies/update', {
                         method: 'PUT',
