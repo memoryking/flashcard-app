@@ -2757,7 +2757,12 @@
                     s = s.replace(/^(에게|에서|으로|에|의|을|를|와|과|로|이|가)\s+/, '');
                     s = s.replace(/^\([^)]*\)\s*/, '');
                 } while (s !== prev);
-                return s.charAt(0) || meaning.trim().charAt(0) || '?';
+                if (s.charAt(0) && s.charAt(0) !== '~' && s.charAt(0) !== '～') return s.charAt(0);
+                for (let i = 0; i < meaning.length; i++) {
+                    var c = meaning[i];
+                    if (c !== '~' && c !== '～' && c !== ' ' && c !== '\t') return c;
+                }
+                return '?';
             }
 
             // ===== Generate Choices =====
