@@ -339,7 +339,7 @@
             max-height: 45vh;
         }
         .flashcard-stack.card-type-hanja .flashcard-word { font-size: 4em; }
-        .flashcard-stack.card-type-general { max-width: 470px; max-height: 58vh; }
+        .flashcard-stack.card-type-general { width: 96%; max-width: 500px; aspect-ratio: 4/3; max-height: 60vh; }
 
         .flashcard-shadow {
             position: absolute;
@@ -1299,7 +1299,7 @@
                 max-width: 320px;
             }
             .flashcard-stack.card-type-hanja .flashcard-word { font-size: 3.2em; }
-            .flashcard-stack.card-type-general { max-width: 416px; }
+            .flashcard-stack.card-type-general { width: 96%; max-width: none; aspect-ratio: 4/3; }
             .flashcard-word {
                 font-size: 1.6em;
             }
@@ -4936,6 +4936,7 @@
                                         title: content.title,
                                         content: content.content,
                                         content_type: content.content_type,
+                                        card_type: content.card_type || existing.card_type,
                                         mindmap_data: content.mindmap_data || existing.mindmap_data,
                                         image_data: content.image_data || existing.image_data,
                                         story_text: content.story_text || existing.story_text || null,
