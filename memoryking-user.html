@@ -3603,7 +3603,8 @@
             }
 
             async removeBuddy(buddyId) {
-                if (!confirm('이 공부친구를 정말 삭제하시겠습니까?')) return;
+                const confirmed = await this.showConfirmDialog('공부친구 삭제', '이 공부친구를 정말 삭제하시겠습니까?');
+                if (!confirmed) return;
                 try {
                     const res = await fetch(this.statsApiUrl + '/buddies/update', {
                         method: 'PUT',
