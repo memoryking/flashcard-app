@@ -2160,6 +2160,7 @@
 
                 const isMemorizeMode = (this.quizMode === 'notMemorized' && this.notMemorizedMode === 'memorize');
                 const cardTypeClass = this.currentCardType ? ' card-type-' + this.currentCardType : '';
+                const memorizeCardClass = isMemorizeMode ? cardTypeClass : cardTypeClass.replace(' card-type-general', '');
 
                 if (isMemorizeMode) {
                     // Memorize mode: show word, tap to reveal
@@ -2186,7 +2187,7 @@
 
                     area.innerHTML =
                         '<div class="flashcard-counter">' + (this.quizIndex + 1) + ' / ' + this.quizWords.length + '</div>' +
-                        '<div class="flashcard-stack' + cardTypeClass + '">' +
+                        '<div class="flashcard-stack' + memorizeCardClass + '">' +
                             (this.quizIndex + 2 < this.quizWords.length ? '<div class="flashcard-shadow flashcard-shadow-3"></div>' : '') +
                             (this.quizIndex + 1 < this.quizWords.length ? '<div class="flashcard-shadow flashcard-shadow-2"></div>' : '') +
                             '<div class="flashcard-main cascade-in" id="flashcardMain">' +
