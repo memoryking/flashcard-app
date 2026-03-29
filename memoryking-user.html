@@ -1434,7 +1434,7 @@
         <div class="top-bar">
             <button class="top-btn top-btn-menu" id="menuBtn" onclick="window.app && window.app.toggleSidebar()" title="메뉴">☰<span class="menu-badge" id="menuBadge" style="display:none;"></span></button>
             <div class="top-title" id="topTitle">콘텐츠를 선택하세요</div>
-            <a class="top-btn" href="https://vipup.site/memoryking-app" target="_top" title="홈" style="text-decoration:none;">🏠</a>
+            <a class="top-btn" href="#" onclick="(function(){var t='';try{t=localStorage.getItem('mk_auth_token')||'';}catch(e){}window.top.location.href='https://vipup.site/memoryking-app'+(t?'#mk_token='+encodeURIComponent(t):'');})();return false;" title="홈" style="text-decoration:none;">🏠</a>
             <button class="top-btn" onclick="window.app && window.app.openSettings()" title="설정">⚙</button>
         </div>
 
