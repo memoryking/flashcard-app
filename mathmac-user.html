@@ -175,6 +175,24 @@
         }
         .sidebar-delete-btn:hover { background: rgba(233,69,96,0.15); }
 
+        /* ===== Sidebar Chapter Group ===== */
+        .sidebar-group { margin-bottom: 4px; }
+        .sidebar-group-header {
+            display: flex; align-items: center;
+            padding: 8px 10px; cursor: pointer; border-radius: 8px;
+            font-size: 13px; font-weight: 600; color: #ccc;
+            transition: background 0.2s; user-select: none;
+        }
+        .sidebar-group-header:hover { background: rgba(83,52,131,0.2); }
+        .sidebar-group-header .group-arrow {
+            display: inline-block; margin-right: 6px; font-size: 10px;
+            transition: transform 0.2s;
+        }
+        .sidebar-group-header.collapsed .group-arrow { transform: rotate(-90deg); }
+        .sidebar-group-children { overflow: hidden; transition: max-height 0.3s; }
+        .sidebar-group-children.collapsed { max-height: 0 !important; }
+        .sidebar-group-count { margin-left: auto; font-size: 11px; color: #888; }
+
         /* ===== Top Bar ===== */
         .top-bar {
             display: flex;
@@ -795,6 +813,7 @@
 
                 // Image navigation state
                 this.imageContentsList = [];
+                this.sidebarGroupState = JSON.parse(localStorage.getItem('mathmac_sidebarGroupState') || '{}');
 
                 // Highlight state
                 this.highlights = [];
@@ -1513,16 +1532,27 @@
                 // Build imageContentsList for navigation (image type only)
                 this.imageContentsList = this.savedTexts.filter(i => i.content_type === 'image');
 
+                // Group by chapter
+                const chapterMap = new Map();
+                const noChapterItems = [];
                 for (const item of this.savedTexts) {
+                    const ch = item.chapter || '';
+                    if (ch) {
+                        if (!chapterMap.has(ch)) chapterMap.set(ch, []);
+                        chapterMap.get(ch).push(item);
+                    } else {
+                        noChapterItems.push(item);
+                    }
+                }
+
+                // Render chapter groups
+                const renderItem = (item) => {
                     const listItem = document.createElement('div');
                     listItem.className = 'sidebar-item';
                     listItem.setAttribute('data-id', item.id);
-                    if (this.currentTextId === item.id) {
-                        listItem.classList.add('active');
-                    }
+                    if (this.currentTextId === item.id) listItem.classList.add('active');
 
                     const typeIcon = item.content_type === 'image' ? '🖼️' : '📝';
-
                     listItem.innerHTML =
                         '<div class="sidebar-item-title">' + typeIcon + ' ' + item.title + '</div>' +
                         '<div class="sidebar-item-actions">' +
@@ -1534,8 +1564,47 @@
                         this.loadContent(item);
                         this.toggleSidebar();
                     });
+                    return listItem;
+                };
 
-                    container.appendChild(listItem);
+                if (!this.sidebarGroupState) {
+                    this.sidebarGroupState = JSON.parse(localStorage.getItem('mathmac_sidebarGroupState') || '{}');
+                }
+
+                for (const [chapterName, items] of chapterMap) {
+                    const groupEl = document.createElement('div');
+                    groupEl.className = 'sidebar-group';
+
+                    const isCollapsed = this.sidebarGroupState[chapterName] === true;
+                    const header = document.createElement('div');
+                    header.className = 'sidebar-group-header' + (isCollapsed ? ' collapsed' : '');
+                    header.innerHTML =
+                        '<span class="group-arrow">▼</span>' +
+                        '📁 ' + chapterName +
+                        '<span class="sidebar-group-count">' + items.length + '</span>';
+
+                    const childrenEl = document.createElement('div');
+                    childrenEl.className = 'sidebar-group-children' + (isCollapsed ? ' collapsed' : '');
+
+                    header.addEventListener('click', () => {
+                        const nowCollapsed = header.classList.toggle('collapsed');
+                        childrenEl.classList.toggle('collapsed', nowCollapsed);
+                        this.sidebarGroupState[chapterName] = nowCollapsed;
+                        localStorage.setItem('mathmac_sidebarGroupState', JSON.stringify(this.sidebarGroupState));
+                    });
+
+                    for (const item of items) {
+                        childrenEl.appendChild(renderItem(item));
+                    }
+
+                    groupEl.appendChild(header);
+                    groupEl.appendChild(childrenEl);
+                    container.appendChild(groupEl);
+                }
+
+                // Items without chapter
+                for (const item of noChapterItems) {
+                    container.appendChild(renderItem(item));
                 }
             }
 
