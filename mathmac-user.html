@@ -1,0 +1,2260 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>매쓰맥 - 수학 이미지 학습</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        html, body {
+            margin: 0;
+            padding: 0;
+            width: 100%;
+            height: 100%;
+            overflow: hidden;
+            scroll-behavior: auto !important;
+            overscroll-behavior: none;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: #1a1a2e;
+            height: 100vh;
+            padding: 0;
+            margin: 0;
+            width: 100vw;
+            overflow: hidden;
+            -webkit-touch-callout: none;
+            -webkit-user-select: none;
+            -khtml-user-select: none;
+            -moz-user-select: none;
+            -ms-user-select: none;
+            user-select: none;
+            touch-action: manipulation;
+            color: #e0e0e0;
+        }
+
+        .container {
+            margin: 0;
+            background: #1a1a2e;
+            padding: 0;
+            width: 100%;
+            max-width: none;
+            height: 100vh;
+            height: var(--app-height, 100vh);
+            overflow: hidden;
+            display: flex;
+            flex-direction: column;
+        }
+
+        /* ===== Sidebar Overlay ===== */
+        .sidebar-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(0,0,0,0.6);
+            z-index: 1000;
+            display: none;
+            animation: fadeIn 0.2s ease;
+        }
+        .sidebar-overlay.open { display: block; }
+
+        .sidebar-panel {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 300px;
+            max-width: 85vw;
+            height: 100%;
+            background: #16213e;
+            z-index: 1001;
+            transform: translateX(-100%);
+            transition: transform 0.3s ease;
+            display: flex;
+            flex-direction: column;
+            padding: 20px;
+            overflow-y: auto;
+        }
+        .sidebar-overlay.open .sidebar-panel { transform: translateX(0); }
+
+        .sidebar-title {
+            font-size: 1.1em;
+            font-weight: 600;
+            color: #e0e0e0;
+            margin-bottom: 12px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+
+        .sidebar-close {
+            background: none;
+            border: none;
+            color: #aaa;
+            font-size: 24px;
+            cursor: pointer;
+            padding: 4px 8px;
+        }
+
+        .sidebar-import-btn {
+            width: 100%;
+            padding: 10px;
+            margin-bottom: 12px;
+            background: #0f3460;
+            color: #e0e0e0;
+            border: 1px solid #1a4a7a;
+            border-radius: 10px;
+            font-size: 14px;
+            cursor: pointer;
+            transition: background 0.2s;
+        }
+        .sidebar-import-btn:hover { background: #1a4a7a; }
+
+        .sidebar-count {
+            font-size: 12px;
+            color: #888;
+            margin-bottom: 8px;
+        }
+
+        .sidebar-list {
+            flex: 1;
+            overflow-y: auto;
+        }
+
+        .sidebar-item {
+            background: #1a1a2e;
+            border: 1px solid #2a2a4e;
+            border-radius: 8px;
+            padding: 10px;
+            margin-bottom: 8px;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+        .sidebar-item:hover { border-color: #533483; }
+        .sidebar-item.active { border-color: #e94560; background: #1e1e3a; }
+
+        .sidebar-item-title {
+            font-size: 13px;
+            font-weight: 600;
+            color: #ddd;
+            margin-bottom: 4px;
+        }
+
+        .sidebar-item-actions {
+            display: flex;
+            gap: 6px;
+            align-items: center;
+            flex-wrap: wrap;
+        }
+
+        .sidebar-badge {
+            background: #533483;
+            color: #e0e0e0;
+            padding: 2px 8px;
+            border-radius: 10px;
+            font-size: 10px;
+            font-weight: 600;
+        }
+
+        .sidebar-delete-btn {
+            background: none;
+            border: none;
+            color: #e94560;
+            font-size: 14px;
+            cursor: pointer;
+            padding: 2px 6px;
+            border-radius: 4px;
+            margin-left: auto;
+        }
+        .sidebar-delete-btn:hover { background: rgba(233,69,96,0.15); }
+
+        /* ===== Top Bar ===== */
+        .top-bar {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 8px 12px;
+            flex-shrink: 0;
+        }
+
+        .top-btn {
+            background: none;
+            border: none;
+            color: #aaa;
+            font-size: 22px;
+            cursor: pointer;
+            padding: 6px;
+            border-radius: 8px;
+            min-width: 40px;
+            min-height: 40px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        .top-btn:hover { background: rgba(255,255,255,0.1); }
+        .top-btn-menu { position: relative; }
+        .menu-badge {
+            position: absolute;
+            top: 2px;
+            right: 2px;
+            background: #e94560;
+            color: #fff;
+            font-size: 9px;
+            font-weight: 700;
+            padding: 1px 5px;
+            border-radius: 8px;
+            line-height: 1.3;
+            pointer-events: none;
+            animation: badgePulse 2s ease-in-out infinite;
+        }
+        @keyframes badgePulse {
+            0%, 100% { transform: scale(1); }
+            50% { transform: scale(1.15); }
+        }
+
+        .top-title {
+            font-size: 14px;
+            color: #aaa;
+            text-align: center;
+            flex: 1;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            padding: 0 8px;
+        }
+
+        /* ===== Stat Bar ===== */
+        .flashcard-stat-bar {
+            display: flex;
+            gap: 6px;
+            padding: 6px 12px;
+            flex-shrink: 0;
+        }
+
+        .stat-box {
+            flex: 1;
+            background: #16213e;
+            border: 1px solid #2a2a4e;
+            border-radius: 12px;
+            padding: 8px 4px;
+            text-align: center;
+            cursor: pointer;
+            transition: all 0.2s;
+            position: relative;
+        }
+        .stat-box:hover { border-color: #533483; }
+
+        .stat-box-count {
+            font-size: 2em;
+            font-weight: 700;
+            line-height: 1;
+        }
+        .stat-box-label {
+            font-size: 13px;
+            color: #888;
+            margin-top: 3px;
+        }
+
+        .stat-box.not-memorized .stat-box-count { color: #ff9800; }
+        .stat-box.remaining .stat-box-count { color: #e94560; }
+        .stat-box.memorized .stat-box-count { color: #4caf50; }
+
+        /* ===== Flashcard Area ===== */
+        .flashcard-area {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            padding: 10px 20px;
+            min-height: 0;
+            overflow: hidden;
+            position: relative;
+        }
+
+        /* ===== Image Wrapper & View ===== */
+        .image-wrapper {
+            width: 100%;
+            height: 100%;
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+            position: relative;
+        }
+        .image-view-area {
+            flex: 1;
+            min-height: 0;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            overflow: hidden;
+            position: relative;
+        }
+        .image-container {
+            position: relative;
+            display: inline-block;
+            max-width: 100%;
+            max-height: 100%;
+        }
+        .image-container img {
+            display: block;
+            max-width: 100%;
+            max-height: 100%;
+            object-fit: contain;
+            user-select: none;
+            -webkit-user-select: none;
+            -moz-user-select: none;
+        }
+
+        /* ===== Image Navigation Buttons ===== */
+        .image-nav-btn {
+            position: absolute; top: 50%; transform: translateY(-50%); z-index: 10;
+            width: 40px; height: 60px;
+            background: rgba(22,33,62,0.7); border: 1px solid rgba(83,52,131,0.5);
+            border-radius: 8px; color: #e0e0e0; font-size: 20px; cursor: pointer;
+            display: flex; align-items: center; justify-content: center;
+            transition: background 0.2s, opacity 0.2s; opacity: 0.6;
+        }
+        .image-nav-btn:hover { background: rgba(83,52,131,0.6); opacity: 1; }
+        .image-nav-btn:active { background: rgba(233,69,96,0.4); }
+        .image-nav-btn.nav-prev { left: 8px; }
+        .image-nav-btn.nav-next { right: 8px; }
+        .image-nav-btn:disabled { opacity: 0.2; cursor: default; pointer-events: none; }
+        .image-nav-indicator {
+            position: absolute; bottom: 8px; left: 50%; transform: translateX(-50%);
+            z-index: 10; font-size: 11px; color: #aaa;
+            background: rgba(22,33,62,0.8); padding: 2px 10px; border-radius: 10px;
+        }
+
+        .highlight-text-reserve {
+            width: 100%;
+            flex-shrink: 0;
+            min-height: 48px;
+        }
+        .highlight-text-display {
+            width: 100%;
+            text-align: center;
+            padding: 12px 16px;
+            background: rgba(22, 33, 62, 0.92);
+            color: #ffc107;
+            font-size: 1.3em;
+            font-weight: 600;
+            border-top: 1px solid #2a2a4e;
+            z-index: 20;
+            backdrop-filter: blur(6px);
+            visibility: hidden;
+        }
+        .highlight-text-display.visible {
+            visibility: visible;
+        }
+
+        /* ===== Image Highlight Styles ===== */
+        .image-highlight {
+            position: absolute;
+            border: 3px solid #ffc107;
+            background: rgba(255, 193, 7, 0.2);
+            cursor: pointer;
+            transition: all 0.3s ease;
+            border-radius: 4px;
+            pointer-events: all;
+            min-width: 20px;
+            min-height: 20px;
+        }
+        .image-highlight:hover {
+            transform: scale(1.02);
+            box-shadow: 0 4px 8px rgba(255, 193, 7, 0.4);
+        }
+        .image-highlight.masked {
+            background: rgba(255, 193, 7, 0.6);
+            backdrop-filter: blur(8px);
+        }
+        .image-highlight.revealed {
+            background: transparent;
+            border: 1px solid rgba(255, 193, 7, 0.5);
+            animation: reveal 0.3s ease;
+            backdrop-filter: none;
+        }
+        .image-highlight.priority {
+            border-color: #f44336;
+            background: rgba(244, 67, 54, 0.2);
+        }
+        .image-highlight.priority.masked {
+            background: rgba(244, 67, 54, 0.6);
+        }
+        .image-highlight.priority.revealed {
+            background: transparent;
+            border: 1px solid rgba(244, 67, 54, 0.5);
+            backdrop-filter: none;
+        }
+
+        /* ===== Memorized Highlight Styles ===== */
+        .image-highlight.memorized {
+            background: rgba(76, 175, 80, 0.95) !important;
+            border-color: #43a047 !important;
+            border-width: 3px !important;
+            box-shadow: 0 2px 6px rgba(76, 175, 80, 0.4) !important;
+            opacity: 1;
+            backdrop-filter: blur(8px) !important;
+        }
+
+        @keyframes reveal {
+            from { color: transparent; transform: scale(0.98); }
+            to { color: inherit; transform: scale(1); }
+        }
+
+        /* ===== Story Overlay ===== */
+        .story-overlay {
+            position: absolute;
+            top: 0; left: 0; right: 0;
+            max-height: 60%;
+            z-index: 30;
+            background: rgba(22, 33, 62, 0.92);
+            border-bottom: 2px solid rgba(83,52,131,0.6);
+            border-radius: 0 0 16px 16px;
+            display: flex;
+            flex-direction: column;
+            animation: storySlideDown 0.3s ease;
+            backdrop-filter: blur(8px);
+        }
+        @keyframes storySlideDown {
+            from { transform: translateY(-20px); opacity: 0; }
+            to { transform: translateY(0); opacity: 1; }
+        }
+        .story-overlay-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 10px 16px;
+            border-bottom: 1px solid #2a2a4e;
+            flex-shrink: 0;
+        }
+        .story-overlay-title {
+            font-size: 14px;
+            font-weight: 600;
+            color: #ffc107;
+        }
+        .story-overlay-close {
+            background: none;
+            border: none;
+            color: #aaa;
+            font-size: 22px;
+            cursor: pointer;
+            padding: 4px 8px;
+            border-radius: 6px;
+        }
+        .story-overlay-close:hover { color: #e94560; background: rgba(233,69,96,0.15); }
+        .story-overlay-body {
+            flex: 1;
+            overflow-y: auto;
+            padding: 14px 16px;
+            font-size: 1em;
+            line-height: 1.8;
+            color: #e0e0e0;
+            white-space: pre-wrap;
+            word-break: break-word;
+        }
+
+        /* ===== Empty / Idle State ===== */
+        .flashcard-idle {
+            text-align: center;
+            color: #666;
+            font-size: 14px;
+            padding: 40px 20px;
+        }
+        .flashcard-idle-icon {
+            font-size: 3em;
+            margin-bottom: 12px;
+        }
+
+        /* ===== Text View Container ===== */
+        .text-view-container {
+            width: 100%;
+            height: 100%;
+            overflow-y: auto;
+            overflow-x: hidden;
+            -webkit-overflow-scrolling: touch;
+            padding: 16px;
+            font-size: 1.05em;
+            line-height: 1.8;
+            color: #e0e0e0;
+            white-space: pre-wrap;
+            word-break: break-word;
+        }
+
+        /* ===== Text Highlight Styles ===== */
+        .highlight {
+            background: linear-gradient(120deg, #fff3cd 0%, #ffeaa7 100%);
+            padding: 4px 6px;
+            border-radius: 6px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            position: relative;
+            box-shadow: 0 2px 4px rgba(255, 193, 7, 0.2);
+            border: 2px solid #ffc107;
+            min-height: 32px;
+            display: inline-flex;
+            align-items: center;
+            margin: 2px;
+        }
+        .highlight:hover {
+            transform: scale(1.02);
+            box-shadow: 0 4px 8px rgba(255, 193, 7, 0.3);
+        }
+        .highlight.masked {
+            color: transparent;
+            background: linear-gradient(120deg, #ffeaa7 0%, #fdcb6e 100%);
+            text-shadow: 0 0 8px rgba(0, 0, 0, 0.3);
+        }
+        .highlight.revealed {
+            color: inherit;
+            background: linear-gradient(120deg, #a8e6cf 0%, #81c784 100%);
+            animation: reveal 0.3s ease;
+        }
+        .highlight.priority {
+            background: linear-gradient(120deg, #ff6b6b 0%, #ff5252 100%);
+            border-color: #f44336;
+            box-shadow: 0 2px 4px rgba(244, 67, 54, 0.3);
+        }
+        .highlight.priority.masked {
+            color: transparent;
+            background: linear-gradient(120deg, #ff5252 0%, #e53935 100%);
+            text-shadow: 0 0 8px rgba(0, 0, 0, 0.4);
+        }
+        .highlight.priority.revealed {
+            color: inherit;
+            background: linear-gradient(120deg, #ffcdd2 0%, #ef9a9a 100%);
+        }
+        .highlight.memorized {
+            background: linear-gradient(120deg, #a8e6cf 0%, #81c784 100%) !important;
+            border-color: #66bb6a !important;
+            box-shadow: 0 2px 4px rgba(76, 175, 80, 0.2) !important;
+            opacity: 0.6;
+            color: inherit !important;
+            text-shadow: none !important;
+        }
+
+        /* ===== Button CSS ===== */
+        .btn {
+            padding: 12px 24px;
+            border: none;
+            border-radius: 25px;
+            font-size: 16px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            position: relative;
+            overflow: hidden;
+            min-height: 44px;
+        }
+        .btn-secondary { background: #6c757d; color: white; }
+        .btn-secondary:hover { background: #5a6268; }
+        .btn-small { padding: 6px 12px; font-size: 12px; border-radius: 15px; }
+        .btn-primary { background: #667eea; color: white; }
+        .btn-primary:hover { background: #5a6fd6; }
+        .btn-info { background: #17a2b8; color: white; }
+
+        /* ===== Toast ===== */
+        .toast {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            background: #333;
+            color: white;
+            padding: 15px 20px;
+            border-radius: 10px;
+            box-shadow: 0 5px 15px rgba(0,0,0,0.3);
+            transform: translateX(100%);
+            transition: transform 0.3s ease;
+            z-index: 9999;
+            max-width: 300px;
+            pointer-events: none;
+        }
+        .toast.show { transform: translateX(0); }
+        .toast.error { background: #dc3545; }
+        .toast.info { background: #17a2b8; }
+
+        /* ===== Confirm Modal ===== */
+        .confirm-modal {
+            position: fixed; top: 0; left: 0; right: 0; bottom: 0;
+            background: rgba(0,0,0,0.7); z-index: 10001;
+            display: flex; align-items: center; justify-content: center;
+            animation: fadeIn 0.2s ease;
+        }
+        .confirm-dialog {
+            background: #16213e; border-radius: 16px; padding: 24px;
+            width: 90%; max-width: 360px; color: #e0e0e0; text-align: center;
+        }
+        .confirm-title { font-size: 1.1em; font-weight: 700; margin-bottom: 12px; }
+        .confirm-message { font-size: 14px; color: #aaa; margin-bottom: 20px; }
+        .confirm-buttons { display: flex; gap: 10px; justify-content: center; }
+        .confirm-button {
+            padding: 10px 24px; border: none; border-radius: 10px;
+            font-size: 14px; cursor: pointer; font-weight: 600;
+        }
+        .confirm-button.cancel { background: #333; color: #aaa; }
+        .confirm-button.confirm { background: #e94560; color: white; }
+
+        /* ===== Airtable Import Modal ===== */
+        .airtable-import-modal {
+            position: fixed;
+            top: 0; left: 0; right: 0; bottom: 0;
+            background: rgba(0,0,0,0.7);
+            z-index: 10000;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            animation: fadeIn 0.2s ease;
+        }
+        .airtable-import-dialog {
+            background: #16213e;
+            border-radius: 16px;
+            padding: 24px;
+            max-width: 500px;
+            width: 95%;
+            max-height: 90vh;
+            display: flex;
+            flex-direction: column;
+            color: #e0e0e0;
+            border: 1px solid #2a2a4e;
+        }
+        .airtable-import-header { text-align: center; margin-bottom: 14px; border-bottom: 1px solid #2a2a4e; padding-bottom: 12px; }
+        .airtable-import-title { font-size: 1.2em; font-weight: 700; color: #e0e0e0; margin-bottom: 6px; }
+        .airtable-import-subtitle { color: #888; font-size: 0.8em; }
+        .airtable-import-controls { display: flex; gap: 6px; margin-bottom: 12px; flex-wrap: wrap; }
+        .airtable-import-controls .btn { padding: 6px 10px; font-size: 12px; border-radius: 8px; border: 1px solid #2a2a4e; background: #16213e; color: #aaa; cursor: pointer; }
+        .airtable-import-controls .btn-primary { background: #e94560; color: #fff; border-color: #e94560; }
+        .airtable-import-controls .btn-info { background: #1976d2; color: #fff; border-color: #1976d2; }
+        .airtable-import-list { flex: 1; overflow-y: auto; border: 1px solid #2a2a4e; border-radius: 10px; max-height: 50vh; margin-bottom: 12px; background: #16213e; }
+        .airtable-import-item { display: flex; align-items: center; padding: 12px; border-bottom: 1px solid #2a2a4e; transition: background 0.2s; }
+        .airtable-import-item:last-child { border-bottom: none; }
+        .airtable-import-item:hover { background: rgba(255,255,255,0.03); }
+        .airtable-import-item.duplicate { background: rgba(244,67,54,0.1); border-left: 3px solid #f44336; }
+        .airtable-import-item.duplicate:hover { background: rgba(244,67,54,0.15); }
+        .airtable-import-item.update { background: rgba(76,175,80,0.1); border-left: 3px solid #4caf50; }
+        .airtable-import-checkbox { margin-right: 12px; transform: scale(1.3); accent-color: #e94560; }
+        .airtable-import-info { flex: 1; min-width: 0; }
+        .airtable-import-item-title { font-weight: 600; color: #e0e0e0; margin-bottom: 4px; font-size: 14px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+        .airtable-import-item.duplicate .airtable-import-item-title { color: #ef9a9a; }
+        .airtable-import-item-details { font-size: 11px; color: #888; display: flex; gap: 8px; flex-wrap: wrap; }
+        .airtable-import-tag { background: rgba(244,67,54,0.2); color: #ef9a9a; padding: 1px 6px; border-radius: 8px; font-size: 10px; }
+        .airtable-import-tag.update-tag { background: rgba(76,175,80,0.2); color: #81c784; }
+        .airtable-import-actions { display: flex; align-items: center; justify-content: space-between; border-top: 1px solid #2a2a4e; padding-top: 12px; }
+        .airtable-import-summary { font-size: 13px; color: #aaa; }
+        .airtable-import-buttons { display: flex; gap: 8px; }
+
+        @keyframes fadeIn {
+            from { opacity: 0; }
+            to { opacity: 1; }
+        }
+
+        /* ===== Mobile Responsive ===== */
+        @media (max-width: 768px) {
+            html {
+                height: var(--app-height, 100vh);
+                overflow: hidden;
+            }
+            body {
+                height: var(--app-height, 100vh);
+                overflow: hidden;
+            }
+            .container {
+                height: var(--app-height, 100vh);
+            }
+            .stat-box-count {
+                font-size: 1.6em;
+            }
+            .stat-box-label {
+                font-size: 12px;
+            }
+            .airtable-import-dialog {
+                width: 100%;
+                max-height: 100vh;
+                border-radius: 0;
+                padding: 16px;
+                border: none;
+            }
+            .airtable-import-modal {
+                align-items: stretch;
+            }
+            .airtable-import-controls {
+                gap: 4px;
+            }
+            .airtable-import-controls .btn {
+                flex: 1;
+                min-width: 0;
+                padding: 8px 4px;
+                font-size: 11px;
+                text-align: center;
+            }
+            .airtable-import-list {
+                max-height: calc(100vh - 240px);
+            }
+            .airtable-import-actions {
+                flex-direction: column;
+                gap: 8px;
+            }
+            .airtable-import-buttons {
+                width: 100%;
+            }
+            .airtable-import-buttons .btn {
+                flex: 1;
+            }
+        }
+
+        @media (hover: none) and (pointer: coarse) {
+            .top-btn { min-width: 44px; min-height: 44px; }
+        }
+    </style>
+    <script>
+    (function() {
+        function setAppHeight() {
+            var h = window.visualViewport ? window.visualViewport.height : window.innerHeight;
+            document.documentElement.style.setProperty('--app-height', h + 'px');
+        }
+        setAppHeight();
+        window.addEventListener('resize', setAppHeight);
+        window.addEventListener('orientationchange', function() { setTimeout(setAppHeight, 100); });
+        if (window.visualViewport) {
+            window.visualViewport.addEventListener('resize', setAppHeight);
+        }
+    })();
+    </script>
+</head>
+<body>
+    <div class="container">
+        <!-- Sidebar Overlay -->
+        <div class="sidebar-overlay" id="sidebarOverlay">
+            <div class="sidebar-panel" id="sidebarPanel">
+                <div class="sidebar-title">
+                    <span>저장된 콘텐츠</span>
+                    <button class="sidebar-close" onclick="window.app && window.app.toggleSidebar()">&times;</button>
+                </div>
+                <button class="sidebar-import-btn" onclick="window.app && window.app.importFromAirtable()">
+                    ☁️ 자료 불러오기
+                </button>
+                <div class="sidebar-count"><span id="savedTexts">0</span>개 콘텐츠</div>
+                <div class="sidebar-list" id="savedTextsList">
+                    <div class="flashcard-idle" style="padding:20px;font-size:13px;">저장된 콘텐츠가 없습니다</div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Top Bar -->
+        <div class="top-bar">
+            <button class="top-btn top-btn-menu" id="menuBtn" onclick="window.app && window.app.toggleSidebar()" title="메뉴">☰<span class="menu-badge" id="menuBadge" style="display:none;"></span></button>
+            <div class="top-title" id="topTitle">콘텐츠를 선택하세요</div>
+            <button class="top-btn" onclick="window.app && window.app.toggleSidebar()" title="목록">📋</button>
+        </div>
+
+        <!-- Highlight Stat Bar -->
+        <div class="flashcard-stat-bar" id="highlightStatBar">
+            <div class="stat-box not-memorized" id="statHighlightPreview" onclick="window.app && window.app.showFullImage()">
+                <div class="stat-box-count" style="font-size:1.5em;">🖼️</div>
+                <div class="stat-box-label">원본보기</div>
+            </div>
+            <div class="stat-box" id="statStory" onclick="window.app && window.app.showStoryOverlay()" style="display:none;">
+                <div class="stat-box-count" style="font-size:1.5em;">📖</div>
+                <div class="stat-box-label">스토리</div>
+            </div>
+            <div class="stat-box remaining" style="pointer-events:none;">
+                <div class="stat-box-count" id="countHighlights">0</div>
+                <div class="stat-box-label">하이라이트</div>
+            </div>
+            <div class="stat-box memorized" style="pointer-events:none;">
+                <div class="stat-box-count" id="countHighlightMemorized">0</div>
+                <div class="stat-box-label">암기</div>
+            </div>
+        </div>
+
+        <!-- Content Area -->
+        <div class="flashcard-area" id="flashcardArea">
+            <div class="flashcard-idle" id="flashcardIdle">
+                <div class="flashcard-idle-icon">📐</div>
+                <div>메뉴에서 콘텐츠를 선택하세요</div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        class MathMacApp {
+            constructor() {
+                this.db = null;
+                this.savedTexts = [];
+                this.currentTextId = null;
+                this.currentTitle = '';
+                this.currentContentType = 'image';
+                this.currentImageData = null;
+                this.currentStoryText = '';
+
+                // Image navigation state
+                this.imageContentsList = [];
+
+                // Highlight state
+                this.highlights = [];
+                this.highlightRanges = [];
+                this._revealedElement = null;
+
+                this.isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
+
+                this.proxyUrl = 'https://airtable-proxy.memoryking.workers.dev';
+                this.pageCategory = null;
+
+                this.init();
+            }
+
+            async init() {
+                try {
+                    await this.loadPageCategory();
+                    await this.initDB();
+                    this.setupEventListeners();
+                    await this.loadData();
+
+                    // Click elsewhere to un-reveal highlights
+                    document.getElementById('flashcardArea').addEventListener('click', (e) => {
+                        if (!e.target.closest('.highlight, .image-highlight')) {
+                            this.unrevealHighlight(this._revealedElement);
+                        }
+                    });
+
+                    setTimeout(async () => {
+                        await this.loadLastViewedContent();
+                    }, 500);
+
+                    // 하루 1회 업데이트 체크
+                    setTimeout(() => this.checkForUpdates(), 2000);
+
+                    console.log('매쓰맥 앱 초기화 완료');
+                } catch (error) {
+                    console.error('앱 초기화 오류:', error);
+                    this.showToast('앱 초기화에 실패했습니다.', 'error');
+                }
+            }
+
+            // ===== IndexedDB =====
+            async initDB() {
+                return new Promise((resolve, reject) => {
+                    const request = indexedDB.open('MathMacDB_User', 1);
+
+                    request.onerror = () => reject(request.error);
+                    request.onsuccess = () => {
+                        this.db = request.result;
+                        console.log('DB 초기화 완료');
+                        resolve();
+                    };
+
+                    request.onupgradeneeded = (event) => {
+                        const db = event.target.result;
+
+                        if (!db.objectStoreNames.contains('contents')) {
+                            const contentStore = db.createObjectStore('contents', { keyPath: 'id', autoIncrement: true });
+                            contentStore.createIndex('created_at', 'created_at');
+                            contentStore.createIndex('title', 'title');
+                            contentStore.createIndex('content_type', 'content_type');
+                        }
+
+                        if (!db.objectStoreNames.contains('highlights')) {
+                            const highlightStore = db.createObjectStore('highlights', { keyPath: 'id', autoIncrement: true });
+                            highlightStore.createIndex('content_id', 'content_id');
+                            highlightStore.createIndex('created_at', 'created_at');
+                        }
+                    };
+                });
+            }
+
+            // ===== Utility =====
+            getKSTDateString() {
+                const now = new Date();
+                const kst = new Date(now.getTime() + 9 * 60 * 60 * 1000);
+                return kst.toISOString().split('T')[0];
+            }
+
+            escapeHtml(str) {
+                if (!str) return '';
+                return str.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+            }
+
+            // ===== Image Display =====
+            displayImage(imageData, title) {
+                const area = document.getElementById('flashcardArea');
+
+                area.style.opacity = '0.7';
+
+                setTimeout(() => {
+                    // Build nav buttons HTML
+                    let navHtml = '';
+                    const imgIdx = this.imageContentsList.findIndex(i => i.id === this.currentTextId);
+                    const totalImages = this.imageContentsList.length;
+
+                    if (totalImages > 1) {
+                        navHtml =
+                            '<button class="image-nav-btn nav-prev"' + (imgIdx <= 0 ? ' disabled' : '') + ' onclick="window.app.navigateImage(-1)">◀</button>' +
+                            '<button class="image-nav-btn nav-next"' + (imgIdx >= totalImages - 1 ? ' disabled' : '') + ' onclick="window.app.navigateImage(1)">▶</button>' +
+                            '<div class="image-nav-indicator">' + (imgIdx + 1) + ' / ' + totalImages + '</div>';
+                    }
+
+                    area.innerHTML =
+                        '<div class="image-wrapper">' +
+                            '<div class="image-view-area">' +
+                                navHtml +
+                                '<div class="image-container">' +
+                                    '<img src="' + imageData + '" alt="' + this.escapeHtml(title) + '">' +
+                                '</div>' +
+                            '</div>' +
+                            '<div class="highlight-text-reserve">' +
+                                '<div class="highlight-text-display" id="highlightTextDisplay"></div>' +
+                            '</div>' +
+                        '</div>';
+
+                    this.highlights = [];
+                    this.highlightRanges = [];
+
+                    const img = area.querySelector('img');
+                    const container = area.querySelector('.image-container');
+                    const viewArea = area.querySelector('.image-view-area');
+                    const fitImage = () => {
+                        if (img && viewArea) {
+                            const maxW = viewArea.clientWidth;
+                            const maxH = viewArea.clientHeight;
+                            if (maxH > 0) img.style.maxHeight = maxH + 'px';
+                            if (maxW > 0) img.style.maxWidth = maxW + 'px';
+                        }
+                        requestAnimationFrame(() => {
+                            if (img && container) {
+                                container.style.width = img.offsetWidth + 'px';
+                                container.style.height = img.offsetHeight + 'px';
+                            }
+                            if (this.currentTextId) {
+                                this.loadHighlights();
+                            }
+                        });
+                    };
+
+                    if (img) {
+                        if (img.complete && img.naturalWidth > 0) {
+                            fitImage();
+                        } else {
+                            img.onload = () => fitImage();
+                        }
+                    }
+
+                    // Setup swipe for mobile
+                    const wrapper = area.querySelector('.image-wrapper');
+                    if (wrapper && totalImages > 1) {
+                        this.setupImageSwipe(wrapper);
+                    }
+
+                    area.style.opacity = '1';
+                }, 100);
+            }
+
+            displayText(text, title) {
+                const area = document.getElementById('flashcardArea');
+                area.style.opacity = '0.7';
+                setTimeout(() => {
+                    area.innerHTML = '<div class="text-view-container"></div>';
+                    const container = area.querySelector('.text-view-container');
+                    container.textContent = text;
+                    this.highlights = [];
+                    this.highlightRanges = [];
+                    if (this.currentTextId) {
+                        setTimeout(() => { this.loadHighlights(); }, 100);
+                    }
+                    area.style.opacity = '1';
+                }, 100);
+            }
+
+            navigateImage(direction) {
+                const idx = this.imageContentsList.findIndex(i => i.id === this.currentTextId);
+                const newIdx = idx + direction;
+                if (newIdx < 0 || newIdx >= this.imageContentsList.length) return;
+                this.loadContent(this.imageContentsList[newIdx]);
+            }
+
+            setupImageSwipe(wrapper) {
+                let startX = 0, startY = 0, startTime = 0;
+                wrapper.addEventListener('touchstart', (e) => {
+                    if (e.target.closest('.image-nav-btn') || e.target.closest('.highlight') || e.target.closest('.image-highlight')) return;
+                    startX = e.touches[0].clientX;
+                    startY = e.touches[0].clientY;
+                    startTime = Date.now();
+                }, { passive: true });
+                wrapper.addEventListener('touchend', (e) => {
+                    if (!startTime) return;
+                    const dx = e.changedTouches[0].clientX - startX;
+                    const dy = e.changedTouches[0].clientY - startY;
+                    const elapsed = Date.now() - startTime;
+                    startTime = 0;
+                    if (elapsed > 500 || Math.abs(dx) < 60 || Math.abs(dx) < Math.abs(dy)) return;
+                    this.navigateImage(dx < 0 ? 1 : -1);
+                }, { passive: true });
+            }
+
+            // ===== Highlight Loading =====
+            async loadHighlights() {
+                if (!this.db || !this.currentTextId) return;
+
+                try {
+                    const transaction = this.db.transaction(['highlights'], 'readonly');
+                    const store = transaction.objectStore('highlights');
+                    const index = store.index('content_id');
+
+                    const request = index.getAll(parseInt(this.currentTextId));
+
+                    request.onsuccess = () => {
+                        const highlights = request.result;
+
+                        const textHighlights = highlights.filter(h => h.highlight_type === 'text').sort((a, b) => a.start_offset - b.start_offset);
+                        const imageHighlights = highlights.filter(h => h.highlight_type === 'image');
+
+                        if (textHighlights.length > 0) {
+                            this.recreateAllTextHighlights(textHighlights);
+                        }
+
+                        imageHighlights.forEach(highlight => {
+                            this.recreateImageHighlight(highlight);
+                        });
+
+                        this.updateHighlightStats();
+                    };
+                } catch (error) {
+                    console.error('하이라이트 로드 오류:', error);
+                }
+            }
+
+            recreateAllTextHighlights(highlights) {
+                try {
+                    const container = document.querySelector('.text-view-container');
+                    if (!container) return;
+                    let textContent = container.textContent;
+                    if (!textContent) return;
+
+                    highlights.sort((a, b) => a.start_offset - b.start_offset);
+
+                    const fragment = document.createDocumentFragment();
+                    let currentPos = 0;
+
+                    highlights.forEach((highlightData) => {
+                        if (highlightData.start_offset >= textContent.length ||
+                            highlightData.end_offset > textContent.length ||
+                            highlightData.start_offset < 0 ||
+                            highlightData.end_offset <= highlightData.start_offset) {
+                            return;
+                        }
+
+                        if (currentPos < highlightData.start_offset) {
+                            const beforeText = textContent.substring(currentPos, highlightData.start_offset);
+                            if (beforeText) fragment.appendChild(document.createTextNode(beforeText));
+                        }
+
+                        const highlightText = textContent.substring(highlightData.start_offset, highlightData.end_offset);
+                        const highlightElement = document.createElement('span');
+                        highlightElement.className = 'highlight masked';
+
+                        if (highlightData.is_priority) highlightElement.classList.add('priority');
+                        if (highlightData.is_memorized) {
+                            highlightElement.classList.remove('masked');
+                            highlightElement.classList.add('memorized');
+                        }
+
+                        highlightElement.textContent = highlightText;
+                        highlightElement.setAttribute('data-id', highlightData.id);
+                        highlightElement.setAttribute('data-timestamp', highlightData.timestamp || Date.now());
+
+                        this.setupHoldEvents(highlightElement);
+                        fragment.appendChild(highlightElement);
+
+                        this.highlights.push({
+                            type: 'text',
+                            text: highlightText,
+                            start: highlightData.start_offset,
+                            end: highlightData.end_offset,
+                            timestamp: highlightData.timestamp || Date.now(),
+                            element: highlightElement,
+                            isPriority: highlightData.is_priority || false,
+                            isMemorized: highlightData.is_memorized || false,
+                            id: highlightData.id
+                        });
+
+                        this.highlightRanges.push({
+                            start: highlightData.start_offset,
+                            end: highlightData.end_offset,
+                            element: highlightElement
+                        });
+
+                        currentPos = highlightData.end_offset;
+                    });
+
+                    if (currentPos < textContent.length) {
+                        const afterText = textContent.substring(currentPos);
+                        if (afterText) fragment.appendChild(document.createTextNode(afterText));
+                    }
+
+                    container.innerHTML = '';
+                    container.appendChild(fragment);
+                } catch (error) {
+                    console.error('텍스트 하이라이트 재생성 오류:', error);
+                }
+            }
+
+            recreateImageHighlight(highlightData) {
+                try {
+                    const imageContainer = document.querySelector('.image-container');
+                    const img = imageContainer?.querySelector('img');
+                    if (!imageContainer || !img) return;
+
+                    let rect;
+
+                    if (highlightData.relative_data && highlightData.relative_data !== 'undefined') {
+                        try {
+                            const relativeRect = JSON.parse(highlightData.relative_data);
+                            const displayWidth = img.offsetWidth;
+                            const displayHeight = img.offsetHeight;
+                            rect = {
+                                left: relativeRect.left * displayWidth,
+                                top: relativeRect.top * displayHeight,
+                                width: relativeRect.width * displayWidth,
+                                height: relativeRect.height * displayHeight
+                            };
+                        } catch (parseError) {
+                            rect = null;
+                        }
+                    }
+
+                    if (!rect && highlightData.rect_data && highlightData.rect_data !== 'undefined') {
+                        try {
+                            rect = JSON.parse(highlightData.rect_data);
+                        } catch (parseError) {
+                            rect = null;
+                        }
+                    }
+
+                    if (!rect || typeof rect !== 'object') return;
+
+                    rect.left = typeof rect.left === 'number' ? Math.max(0, rect.left) : 0;
+                    rect.top = typeof rect.top === 'number' ? Math.max(0, rect.top) : 0;
+                    rect.width = typeof rect.width === 'number' ? Math.max(10, rect.width) : 50;
+                    rect.height = typeof rect.height === 'number' ? Math.max(10, rect.height) : 30;
+
+                    const highlightElement = document.createElement('div');
+                    highlightElement.className = 'image-highlight masked';
+                    if (highlightData.is_priority) highlightElement.classList.add('priority');
+                    if (highlightData.is_memorized) {
+                        highlightElement.classList.remove('masked');
+                        highlightElement.classList.add('memorized');
+                    }
+
+                    highlightElement.style.left = rect.left + 'px';
+                    highlightElement.style.top = rect.top + 'px';
+                    highlightElement.style.width = rect.width + 'px';
+                    highlightElement.style.height = rect.height + 'px';
+
+                    highlightElement.setAttribute('data-id', highlightData.id);
+                    highlightElement.setAttribute('data-timestamp', highlightData.timestamp || Date.now());
+
+                    imageContainer.appendChild(highlightElement);
+                    this.setupHoldEvents(highlightElement);
+
+                    this.highlights.push({
+                        type: 'image',
+                        rect: rect,
+                        timestamp: highlightData.timestamp || Date.now(),
+                        element: highlightElement,
+                        isPriority: highlightData.is_priority || false,
+                        isMemorized: highlightData.is_memorized || false,
+                        id: highlightData.id,
+                        highlightText: highlightData.highlight_text || ''
+                    });
+                } catch (error) {
+                    console.error('이미지 하이라이트 재생성 오류:', error);
+                }
+            }
+
+            // ===== Highlight Interaction =====
+            setupHoldEvents(element) {
+                let clickTimer = null;
+
+                // Desktop: click to reveal, dblclick to memorize
+                element.addEventListener('click', (e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    if (clickTimer) { clearTimeout(clickTimer); clickTimer = null; return; }
+                    clickTimer = setTimeout(() => {
+                        clickTimer = null;
+                        this.revealHighlight(element);
+                    }, 250);
+                });
+
+                element.addEventListener('dblclick', (e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    if (clickTimer) { clearTimeout(clickTimer); clickTimer = null; }
+                    this.toggleHighlightMemorized(element);
+                });
+
+                // Mobile: tap to reveal, double-tap to memorize
+                let lastTapTime = 0;
+                element.addEventListener('touchend', (e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    const now = Date.now();
+                    if (now - lastTapTime < 350) {
+                        lastTapTime = 0;
+                        if (clickTimer) { clearTimeout(clickTimer); clickTimer = null; }
+                        this.toggleHighlightMemorized(element);
+                    } else {
+                        lastTapTime = now;
+                        if (clickTimer) { clearTimeout(clickTimer); clickTimer = null; }
+                        clickTimer = setTimeout(() => {
+                            clickTimer = null;
+                            this.revealHighlight(element);
+                        }, 350);
+                    }
+                });
+            }
+
+            revealHighlight(element) {
+                if (this._revealedElement && this._revealedElement !== element) {
+                    this.unrevealHighlight(this._revealedElement);
+                }
+
+                element.classList.remove('masked', 'memorized');
+                element.classList.add('revealed');
+                this._revealedElement = element;
+
+                // Show highlight text label if available
+                const highlightId = parseInt(element.getAttribute('data-id'));
+                const highlightObj = this.highlights.find(h => h.id === highlightId);
+                const textEl = document.getElementById('highlightTextDisplay');
+                if (textEl && highlightObj && highlightObj.highlightText) {
+                    textEl.textContent = highlightObj.highlightText;
+                    textEl.classList.add('visible');
+                }
+            }
+
+            unrevealHighlight(element) {
+                if (!element) return;
+                const textEl = document.getElementById('highlightTextDisplay');
+                if (textEl) {
+                    textEl.textContent = '';
+                    textEl.classList.remove('visible');
+                }
+                if (element.classList.contains('revealed')) {
+                    element.classList.remove('revealed');
+
+                    const highlightId = parseInt(element.getAttribute('data-id'));
+                    const highlightObj = this.highlights.find(h => h.id === highlightId);
+                    if (highlightObj && highlightObj.isMemorized) {
+                        highlightObj.isMemorized = false;
+                        if (this.db) {
+                            try {
+                                const tx = this.db.transaction(['highlights'], 'readwrite');
+                                const store = tx.objectStore('highlights');
+                                const req = store.get(highlightId);
+                                req.onsuccess = () => {
+                                    const record = req.result;
+                                    if (record) { record.is_memorized = false; store.put(record); }
+                                };
+                            } catch (e) {}
+                        }
+                        this.updateHighlightStats();
+                    }
+
+                    element.classList.add('masked');
+                }
+                if (this._revealedElement === element) {
+                    this._revealedElement = null;
+                }
+            }
+
+            showFullImage() {
+                const highlights = document.querySelectorAll('.image-highlight, .highlight');
+                if (highlights.length === 0) return;
+                highlights.forEach(el => { el.style.display = 'none'; });
+                setTimeout(() => {
+                    highlights.forEach(el => { el.style.display = ''; });
+                }, 3000);
+            }
+
+            showStoryOverlay() {
+                if (!this.currentStoryText) return;
+                const area = document.getElementById('flashcardArea');
+                const wrapper = area.querySelector('.image-wrapper');
+                if (!wrapper) return;
+
+                const existing = wrapper.querySelector('.story-overlay');
+                if (existing) { existing.remove(); return; }
+
+                const overlay = document.createElement('div');
+                overlay.className = 'story-overlay';
+                overlay.innerHTML =
+                    '<div class="story-overlay-header">' +
+                        '<span class="story-overlay-title">📖 풀이/설명</span>' +
+                        '<button class="story-overlay-close" onclick="window.app && window.app.closeStoryOverlay()">&times;</button>' +
+                    '</div>' +
+                    '<div class="story-overlay-body"></div>';
+                overlay.querySelector('.story-overlay-body').textContent = this.currentStoryText;
+                wrapper.appendChild(overlay);
+            }
+
+            closeStoryOverlay() {
+                const overlay = document.querySelector('.story-overlay');
+                if (overlay) overlay.remove();
+            }
+
+            // ===== Highlight Stats =====
+            updateHighlightStats() {
+                const total = this.highlights.length;
+                const memorized = this.highlights.filter(h => h.isMemorized).length;
+                const notMemorized = total - memorized;
+
+                const countEl = document.getElementById('countHighlights');
+                const memorizedEl = document.getElementById('countHighlightMemorized');
+                if (countEl) countEl.textContent = notMemorized;
+                if (memorizedEl) memorizedEl.textContent = memorized;
+            }
+
+            toggleHighlightMemorized(element) {
+                const highlightId = parseInt(element.getAttribute('data-id'));
+                const highlightObj = this.highlights.find(h => h.id === highlightId);
+                if (!highlightObj) return;
+
+                const newState = !highlightObj.isMemorized;
+                highlightObj.isMemorized = newState;
+
+                if (newState) {
+                    element.classList.remove('masked');
+                    element.classList.add('memorized');
+                } else {
+                    element.classList.remove('memorized');
+                    element.classList.add('masked');
+                }
+
+                this.updateHighlightStats();
+
+                if (this.db) {
+                    try {
+                        const tx = this.db.transaction(['highlights'], 'readwrite');
+                        const store = tx.objectStore('highlights');
+                        const getReq = store.get(highlightId);
+                        getReq.onsuccess = () => {
+                            const record = getReq.result;
+                            if (record) {
+                                record.is_memorized = newState;
+                                store.put(record);
+                            }
+                        };
+                    } catch (e) {
+                        console.error('하이라이트 암기 상태 저장 오류:', e);
+                    }
+                }
+            }
+
+            // ===== Content Loading =====
+            async loadContent(item) {
+                if (!item) return;
+                try {
+                    this.currentTextId = item.id;
+                    this.currentTitle = item.title;
+                    this.currentContentType = item.content_type || 'image';
+                    this.currentImageData = item.image_data;
+                    this.currentStoryText = item.story_text || '';
+
+                    document.getElementById('topTitle').textContent = item.title;
+
+                    // Show/hide story button
+                    const storyBtn = document.getElementById('statStory');
+                    if (storyBtn) {
+                        storyBtn.style.display = this.currentStoryText ? '' : 'none';
+                    }
+
+                    // Show content based on type
+                    if (item.content_type === 'image' && this.currentImageData) {
+                        this.displayImage(this.currentImageData, item.title);
+                    } else if (item.content_type === 'text' && item.content) {
+                        this.displayText(item.content, item.title);
+                    } else {
+                        const area = document.getElementById('flashcardArea');
+                        area.innerHTML =
+                            '<div class="flashcard-idle">' +
+                                '<div class="flashcard-idle-icon">📄</div>' +
+                                '<div>이 콘텐츠를 지원하지 않습니다</div>' +
+                            '</div>';
+                    }
+
+                    // Update sidebar active state
+                    this.updateActiveState(item.id);
+
+                    // Save last viewed
+                    const transaction = this.db.transaction(['contents'], 'readwrite');
+                    const store = transaction.objectStore('contents');
+                    item.last_viewed = new Date();
+                    store.put(item);
+                    localStorage.setItem('mathmac_lastViewedContentId', item.id.toString());
+
+                } catch (error) {
+                    console.error('콘텐츠 로드 오류:', error);
+                    this.showToast('콘텐츠 로드에 실패했습니다', 'error');
+                }
+            }
+
+            updateActiveState(activeId) {
+                const allItems = document.querySelectorAll('.sidebar-item');
+                allItems.forEach((el) => {
+                    el.classList.remove('active');
+                    if (parseInt(el.getAttribute('data-id')) === activeId) {
+                        el.classList.add('active');
+                    }
+                });
+            }
+
+            async loadLastViewedContent() {
+                const lastViewedId = localStorage.getItem('mathmac_lastViewedContentId');
+                if (!lastViewedId || !this.db) return;
+
+                try {
+                    const transaction = this.db.transaction(['contents'], 'readonly');
+                    const store = transaction.objectStore('contents');
+                    const request = store.get(parseInt(lastViewedId));
+
+                    request.onsuccess = () => {
+                        const content = request.result;
+                        if (content && content.url_path === this.detectUrlPath()) {
+                            this.loadContent(content);
+                        }
+                    };
+                } catch (error) {
+                    console.error('마지막 콘텐츠 로드 오류:', error);
+                }
+            }
+
+            // ===== Sidebar =====
+            toggleSidebar() {
+                const overlay = document.getElementById('sidebarOverlay');
+                overlay.classList.toggle('open');
+                if (overlay.classList.contains('open')) {
+                    const badge = document.getElementById('menuBadge');
+                    if (badge) badge.style.display = 'none';
+                }
+            }
+
+            // ===== Event Listeners =====
+            setupEventListeners() {
+                // Keyboard: arrow keys for image navigation
+                document.addEventListener('keydown', (e) => {
+                    if (this.currentContentType === 'image' && this.imageContentsList.length > 1) {
+                        if (e.key === 'ArrowLeft') {
+                            e.preventDefault();
+                            this.navigateImage(-1);
+                        } else if (e.key === 'ArrowRight') {
+                            e.preventDefault();
+                            this.navigateImage(1);
+                        }
+                    }
+                });
+
+                // Click outside sidebar to close
+                document.getElementById('sidebarOverlay').addEventListener('click', (e) => {
+                    if (e.target.id === 'sidebarOverlay') {
+                        this.toggleSidebar();
+                    }
+                });
+
+                document.getElementById('sidebarPanel').addEventListener('click', (e) => {
+                    e.stopPropagation();
+                });
+            }
+
+            // ===== Data Loading =====
+            async loadData() {
+                if (!this.db) return;
+
+                try {
+                    await new Promise((resolve, reject) => {
+                        const transaction = this.db.transaction(['contents'], 'readonly');
+                        const store = transaction.objectStore('contents');
+                        const request = store.getAll();
+
+                        request.onsuccess = async () => {
+                            const currentPath = this.detectUrlPath();
+                            this.savedTexts = request.result
+                                .filter(item => item.url_path === currentPath)
+                                .sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
+                            await this.renderSavedTexts();
+                            resolve();
+                        };
+                        request.onerror = () => reject(request.error);
+                    });
+                } catch (error) {
+                    console.error('데이터 로드 오류:', error);
+                }
+            }
+
+            async renderSavedTexts() {
+                const container = document.getElementById('savedTextsList');
+                const countElement = document.getElementById('savedTexts');
+
+                countElement.textContent = this.savedTexts.length;
+
+                if (this.savedTexts.length === 0) {
+                    container.innerHTML = '<div class="flashcard-idle" style="padding:20px;font-size:13px;">저장된 콘텐츠가 없습니다</div>';
+                    this.imageContentsList = [];
+                    return;
+                }
+
+                container.innerHTML = '';
+
+                // Build imageContentsList for navigation (image type only)
+                this.imageContentsList = this.savedTexts.filter(i => i.content_type === 'image');
+
+                for (const item of this.savedTexts) {
+                    const listItem = document.createElement('div');
+                    listItem.className = 'sidebar-item';
+                    listItem.setAttribute('data-id', item.id);
+                    if (this.currentTextId === item.id) {
+                        listItem.classList.add('active');
+                    }
+
+                    const typeIcon = item.content_type === 'image' ? '🖼️' : '📝';
+
+                    listItem.innerHTML =
+                        '<div class="sidebar-item-title">' + typeIcon + ' ' + item.title + '</div>' +
+                        '<div class="sidebar-item-actions">' +
+                            '<button class="sidebar-delete-btn" onclick="event.stopPropagation(); window.app && window.app.deleteContent(' + item.id + ')" title="삭제">🗑️</button>' +
+                        '</div>';
+
+                    listItem.addEventListener('click', (e) => {
+                        if (e.target.closest('.sidebar-delete-btn')) return;
+                        this.loadContent(item);
+                        this.toggleSidebar();
+                    });
+
+                    container.appendChild(listItem);
+                }
+            }
+
+            // ===== Delete Content =====
+            async deleteContent(contentId) {
+                const content = this.savedTexts.find(item => item.id === contentId);
+                if (!content) return;
+
+                const confirmed = await this.showConfirmDialog(
+                    '콘텐츠 삭제',
+                    '"' + content.title + '" 콘텐츠를 삭제하시겠습니까?'
+                );
+
+                if (!confirmed) return;
+
+                try {
+                    const transaction = this.db.transaction(['contents', 'highlights'], 'readwrite');
+                    const contentStore = transaction.objectStore('contents');
+                    const highlightStore = transaction.objectStore('highlights');
+                    const highlightIndex = highlightStore.index('content_id');
+
+                    const highlightRequest = highlightIndex.getAll(contentId);
+                    highlightRequest.onsuccess = () => {
+                        const highlights = highlightRequest.result;
+                        highlights.forEach(highlight => highlightStore.delete(highlight.id));
+                    };
+
+                    contentStore.delete(contentId);
+
+                    transaction.oncomplete = () => {
+                        if (this.currentTextId === contentId) {
+                            this.currentTextId = null;
+                            this.currentTitle = '';
+                            this.currentImageData = null;
+                            this.currentStoryText = '';
+
+                            document.getElementById('topTitle').textContent = '콘텐츠를 선택하세요';
+                            document.getElementById('flashcardArea').innerHTML =
+                                '<div class="flashcard-idle" id="flashcardIdle">' +
+                                    '<div class="flashcard-idle-icon">📐</div>' +
+                                    '<div>메뉴에서 콘텐츠를 선택하세요</div>' +
+                                '</div>';
+                            localStorage.removeItem('mathmac_lastViewedContentId');
+                        }
+
+                        this.loadData();
+                        this.showToast('콘텐츠가 삭제되었습니다');
+                    };
+
+                } catch (error) {
+                    console.error('콘텐츠 삭제 오류:', error);
+                    this.showToast('콘텐츠 삭제에 실패했습니다', 'error');
+                }
+            }
+
+            // ===== URL / Category Detection =====
+            detectUrlPath() {
+                const params = new URLSearchParams(window.location.search);
+                const pageParam = params.get('page');
+                if (pageParam) return pageParam;
+
+                try {
+                    if (window.parent !== window) {
+                        const parentSegments = window.parent.location.pathname.split('/').filter(s => s.length > 0);
+                        if (parentSegments.length > 0) return parentSegments[parentSegments.length - 1];
+                    }
+                } catch (e) {}
+
+                const pathSegments = window.location.pathname.split('/').filter(s => s.length > 0);
+                if (pathSegments.length > 0) {
+                    const lastSegment = pathSegments[pathSegments.length - 1];
+                    if (!lastSegment.includes('.') || lastSegment.endsWith('.html') || lastSegment.endsWith('.htm')) {
+                        return lastSegment.replace(/\.(html|htm)$/, '');
+                    }
+                }
+
+                return window.location.hostname || 'default';
+            }
+
+            async loadPageCategory() {
+                try {
+                    const urlPath = this.detectUrlPath();
+                    if (!urlPath) { this.pageCategory = null; return; }
+
+                    const response = await fetch(this.proxyUrl + '/page_config', { cache: 'no-store' });
+                    if (!response.ok) { this.pageCategory = null; return; }
+
+                    const data = await response.json();
+                    const match = data.records.find(r => r.fields.url_path === urlPath);
+
+                    if (match) {
+                        this.pageCategory = {
+                            category1: match.fields.category1 || '',
+                            category2: match.fields.category2 || '',
+                            category3: match.fields.category3 || ''
+                        };
+                    } else {
+                        this.pageCategory = null;
+                    }
+                } catch (error) {
+                    console.error('페이지 카테고리 로딩 오류:', error);
+                    this.pageCategory = null;
+                }
+            }
+
+            // ===== Update Check =====
+            async checkForUpdates() {
+                try {
+                    const todayKST = this.getKSTDateString();
+                    const lastCheck = localStorage.getItem('mathmac_lastUpdateCheck');
+                    if (lastCheck === todayKST) return;
+
+                    if (!this.pageCategory) return;
+
+                    let response;
+                    try { response = await fetch(this.proxyUrl, { cache: 'no-store' }); } catch(e) { return; }
+                    if (!response.ok) return;
+
+                    const data = await response.json();
+                    if (!data.records || data.records.length === 0) return;
+
+                    const filtered = data.records.filter(record => {
+                        const f = record.fields;
+                        return (!this.pageCategory.category1 || (f.category1 || '') === this.pageCategory.category1)
+                            && (!this.pageCategory.category2 || (f.category2 || '') === this.pageCategory.category2)
+                            && (!this.pageCategory.category3 || (f.category3 || '') === this.pageCategory.category3);
+                    });
+
+                    if (filtered.length === 0) { localStorage.setItem('mathmac_lastUpdateCheck', todayKST); return; }
+
+                    const allLocal = await new Promise((resolve, reject) => {
+                        const tx = this.db.transaction(['contents'], 'readonly');
+                        const st = tx.objectStore('contents');
+                        const req = st.getAll();
+                        req.onsuccess = () => resolve(req.result || []);
+                        req.onerror = () => reject(req.error);
+                    });
+
+                    const localVersionMap = new Map();
+                    allLocal.forEach(item => {
+                        const { baseName, version } = this.parseVersionedTitle(item.title);
+                        const existing = localVersionMap.get(baseName);
+                        if (!existing || version > existing.version) {
+                            localVersionMap.set(baseName, { version, title: item.title });
+                        }
+                    });
+                    const localTitles = new Set(allLocal.map(item => item.title));
+
+                    let newCount = 0;
+                    let updateCount = 0;
+
+                    filtered.forEach(record => {
+                        try {
+                            const jsonData = record.fields.json;
+                            if (!jsonData) return;
+                            let item;
+                            try { item = JSON.parse(jsonData); } catch(e) {
+                                const idx = jsonData.lastIndexOf('}');
+                                if (idx > 0) item = JSON.parse(jsonData.substring(0, idx + 1)); else return;
+                            }
+                            if (!item || !item.content) return;
+
+                            const title = item.content.title || '';
+                            if (localTitles.has(title)) return;
+
+                            const { baseName, version } = this.parseVersionedTitle(title);
+                            const localEntry = localVersionMap.get(baseName);
+
+                            if (localEntry && version > localEntry.version) {
+                                updateCount++;
+                            } else if (!localEntry) {
+                                let found = false;
+                                for (const li of allLocal) {
+                                    if (li.title.startsWith(baseName)) { found = true; break; }
+                                }
+                                if (!found) newCount++;
+                            }
+                        } catch(e) {}
+                    });
+
+                    localStorage.setItem('mathmac_lastUpdateCheck', todayKST);
+
+                    const badge = document.getElementById('menuBadge');
+                    if (badge && (newCount > 0 || updateCount > 0)) {
+                        let text = '';
+                        if (newCount > 0 && updateCount > 0) text = 'N+U';
+                        else if (newCount > 0) text = 'NEW';
+                        else text = 'UP';
+                        badge.textContent = text;
+                        badge.style.display = 'block';
+                    }
+                } catch(e) {
+                    console.error('업데이트 체크 오류:', e);
+                }
+            }
+
+            // ===== Airtable Import =====
+            async importFromAirtable() {
+                try {
+                    this.showToast('자료에서 데이터를 가져오는 중...', 'info');
+
+                    let response;
+                    try { response = await fetch(this.proxyUrl, { cache: 'no-store' }); } catch (fetchError) {
+                        this.showToast('자료 연결에 실패했습니다.', 'error');
+                        return;
+                    }
+                    if (!response.ok) { this.showToast('자료 접근 실패: ' + response.status, 'error'); return; }
+
+                    const data = await response.json();
+                    if (!data.records || data.records.length === 0) { this.showToast('가져올 데이터가 없습니다', 'info'); return; }
+
+                    if (this.pageCategory === null) { this.showToast('이 페이지에 설정된 콘텐츠가 없습니다', 'info'); return; }
+
+                    const filtered = data.records.filter(record => {
+                        const f = record.fields;
+                        return (!this.pageCategory.category1 || (f.category1 || '') === this.pageCategory.category1)
+                            && (!this.pageCategory.category2 || (f.category2 || '') === this.pageCategory.category2)
+                            && (!this.pageCategory.category3 || (f.category3 || '') === this.pageCategory.category3);
+                    });
+
+                    if (filtered.length === 0) { this.showToast('해당 카테고리의 콘텐츠가 없습니다', 'info'); return; }
+
+                    await this.showAirtableImportDialog(filtered);
+
+                } catch (error) {
+                    console.error('자료 불러오기 오류:', error);
+                    this.showToast('자료 불러오기 중 오류가 발생했습니다', 'error');
+                }
+            }
+
+            parseVersionedTitle(title) {
+                const match = title.match(/^(.+?)(\d+(?:\.\d+)?)$/);
+                if (match) return { baseName: match[1].trimEnd(), version: parseFloat(match[2]) };
+                return { baseName: title.trimEnd(), version: 0 };
+            }
+
+            async showAirtableImportDialog(records) {
+                try {
+                    const allLocalContents = await new Promise((resolve, reject) => {
+                        const tx = this.db.transaction(['contents'], 'readonly');
+                        const st = tx.objectStore('contents');
+                        const req = st.getAll();
+                        req.onsuccess = () => resolve(req.result || []);
+                        req.onerror = () => reject(req.error);
+                    });
+
+                    const localVersionMap = new Map();
+                    allLocalContents.forEach(item => {
+                        const { baseName, version } = this.parseVersionedTitle(item.title);
+                        const existing = localVersionMap.get(baseName);
+                        if (!existing || version > existing.version) {
+                            localVersionMap.set(baseName, { version, contentId: item.id, title: item.title });
+                        }
+                    });
+
+                    const localTitles = new Set(allLocalContents.map(item => item.title));
+                    const airtableItems = [];
+
+                    records.forEach((record) => {
+                        try {
+                            const fields = record.fields;
+                            const jsonData = fields.json;
+                            if (!jsonData) return;
+
+                            let item;
+                            try { item = JSON.parse(jsonData); } catch (parseError) {
+                                const lastBraceIndex = jsonData.lastIndexOf('}');
+                                if (lastBraceIndex > 0) item = JSON.parse(jsonData.substring(0, lastBraceIndex + 1));
+                                else return;
+                            }
+
+                            if (!item || !item.content) return;
+
+                            const title = item.content.title || '제목 없음';
+                            const contentType = item.content.content_type || 'text';
+
+                            const { baseName: airBase, version: airVer } = this.parseVersionedTitle(title);
+                            const localEntry = localVersionMap.get(airBase);
+                            let isDuplicate = false;
+                            let isUpdate = false;
+                            let updateTargetId = null;
+
+                            if (localTitles.has(title)) {
+                                isDuplicate = true;
+                            } else if (localEntry && airVer > localEntry.version) {
+                                isUpdate = true;
+                                updateTargetId = localEntry.contentId;
+                            }
+
+                            if (!isUpdate && !isDuplicate) {
+                                for (const localItem of allLocalContents) {
+                                    if (title === localItem.title) continue;
+                                    if (title.startsWith(localItem.title)) {
+                                        const suffix = title.substring(localItem.title.length).trim();
+                                        if (/^\d+(\.\d+)?$/.test(suffix)) {
+                                            isUpdate = true;
+                                            updateTargetId = localItem.id;
+                                            break;
+                                        }
+                                    }
+                                    if (localItem.title.startsWith(airBase)) {
+                                        const localSuffix = localItem.title.substring(airBase.length).trim();
+                                        if (localSuffix === '' || /^\d+(\.\d+)?$/.test(localSuffix)) {
+                                            const localVer = localSuffix === '' ? 0 : parseFloat(localSuffix);
+                                            if (airVer > localVer) {
+                                                isUpdate = true;
+                                                updateTargetId = localItem.id;
+                                                break;
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+
+                            airtableItems.push({
+                                record: record,
+                                item: item,
+                                title: title,
+                                contentType: contentType,
+                                isDuplicate: isDuplicate,
+                                isUpdate: isUpdate,
+                                updateTargetId: updateTargetId,
+                                selected: !isDuplicate || isUpdate
+                            });
+                        } catch (error) {
+                            console.error('레코드 파싱 오류:', error);
+                        }
+                    });
+
+                    if (airtableItems.length === 0) { this.showToast('가져올 수 있는 유효한 데이터가 없습니다', 'error'); return; }
+
+                    const existingModal = document.querySelector('.airtable-import-modal');
+                    if (existingModal) existingModal.remove();
+
+                    const modal = document.createElement('div');
+                    modal.className = 'airtable-import-modal';
+
+                    const duplicateCount = airtableItems.filter(item => item.isDuplicate && !item.isUpdate).length;
+                    const updateCount = airtableItems.filter(item => item.isUpdate).length;
+                    const newCount = airtableItems.length - duplicateCount - updateCount;
+
+                    modal.innerHTML =
+                        '<div class="airtable-import-dialog">' +
+                            '<div class="airtable-import-header">' +
+                                '<div class="airtable-import-title">자료에서 불러오기</div>' +
+                                '<div class="airtable-import-subtitle">총 ' + airtableItems.length + '개 항목 (신규: ' + newCount + '개, 업데이트: ' + updateCount + '개, 중복: ' + duplicateCount + '개)</div>' +
+                            '</div>' +
+                            '<div class="airtable-import-controls">' +
+                                '<button class="btn btn-secondary btn-small" id="selectAllBtn">전체 선택</button>' +
+                                '<button class="btn btn-secondary btn-small" id="selectNoneBtn">전체 해제</button>' +
+                                '<button class="btn btn-info btn-small" id="selectNewBtn">중복 제외 선택</button>' +
+                            '</div>' +
+                            '<div class="airtable-import-list" id="airtableImportList">' +
+                                this.renderAirtableItems(airtableItems) +
+                            '</div>' +
+                            '<div class="airtable-import-actions">' +
+                                '<div class="airtable-import-summary"><span id="selectedCount">0</span>개 항목 선택됨</div>' +
+                                '<div class="airtable-import-buttons">' +
+                                    '<button class="btn btn-secondary" id="cancelBtn">취소</button>' +
+                                    '<button class="btn btn-primary" id="importBtn">선택한 항목 불러오기</button>' +
+                                '</div>' +
+                            '</div>' +
+                        '</div>';
+
+                    document.body.appendChild(modal);
+                    this.airtableImportItems = airtableItems;
+                    this.updateSelectedCount();
+
+                    modal.querySelector('#selectAllBtn').addEventListener('click', () => this.selectAllAirtableItems(true));
+                    modal.querySelector('#selectNoneBtn').addEventListener('click', () => this.selectAllAirtableItems(false));
+                    modal.querySelector('#selectNewBtn').addEventListener('click', () => this.selectNonDuplicateItems());
+                    modal.querySelector('#cancelBtn').addEventListener('click', () => this.closeAirtableImportDialog());
+                    modal.querySelector('#importBtn').addEventListener('click', () => this.importSelectedItems());
+                    modal.addEventListener('click', (e) => { if (e.target === modal) this.closeAirtableImportDialog(); });
+
+                } catch (error) {
+                    console.error('다이얼로그 표시 오류:', error);
+                    this.showToast('다이얼로그 표시에 실패했습니다', 'error');
+                }
+            }
+
+            renderAirtableItems(items) {
+                return items.map((item, index) => {
+                    const typeIcon = item.contentType === 'image' ? '🖼️' : '📝';
+                    let statusClass = '';
+                    let statusTag = '';
+                    if (item.isUpdate) {
+                        statusClass = 'update';
+                        statusTag = '<span class="airtable-import-tag update-tag">업데이트</span>';
+                    } else if (item.isDuplicate) {
+                        statusClass = 'duplicate';
+                        statusTag = '<span class="airtable-import-tag">중복</span>';
+                    }
+
+                    return '<div class="airtable-import-item ' + statusClass + '">' +
+                        '<input type="checkbox" class="airtable-import-checkbox" ' +
+                            (item.selected ? 'checked' : '') +
+                            ' onchange="window.app.toggleAirtableItem(' + index + ', this.checked)">' +
+                        '<div class="airtable-import-info">' +
+                            '<div class="airtable-import-item-title">' + typeIcon + ' ' + item.title + '</div>' +
+                            '<div class="airtable-import-item-details">' +
+                                '<span>타입: ' + item.contentType + '</span>' +
+                                statusTag +
+                            '</div>' +
+                        '</div>' +
+                    '</div>';
+                }).join('');
+            }
+
+            selectAllAirtableItems(selected) {
+                if (!this.airtableImportItems) return;
+                this.airtableImportItems.forEach(item => { item.selected = selected; });
+                this.refreshAirtableList();
+                this.updateSelectedCount();
+            }
+
+            selectNonDuplicateItems() {
+                if (!this.airtableImportItems) return;
+                this.airtableImportItems.forEach(item => { item.selected = !item.isDuplicate; });
+                this.refreshAirtableList();
+                this.updateSelectedCount();
+            }
+
+            toggleAirtableItem(index, selected) {
+                if (!this.airtableImportItems || !this.airtableImportItems[index]) return;
+                this.airtableImportItems[index].selected = selected;
+                this.updateSelectedCount();
+            }
+
+            refreshAirtableList() {
+                const listContainer = document.getElementById('airtableImportList');
+                if (listContainer && this.airtableImportItems) {
+                    listContainer.innerHTML = this.renderAirtableItems(this.airtableImportItems);
+                }
+            }
+
+            updateSelectedCount() {
+                const countElement = document.getElementById('selectedCount');
+                if (countElement && this.airtableImportItems) {
+                    countElement.textContent = this.airtableImportItems.filter(item => item.selected).length;
+                }
+            }
+
+            closeAirtableImportDialog() {
+                const modal = document.querySelector('.airtable-import-modal');
+                if (modal) modal.remove();
+                this.airtableImportItems = null;
+            }
+
+            async importSelectedItems() {
+                if (!this.airtableImportItems) return;
+
+                const selectedItems = this.airtableImportItems.filter(item => item.selected);
+                if (selectedItems.length === 0) { this.showToast('선택된 항목이 없습니다', 'error'); return; }
+
+                this.closeAirtableImportDialog();
+                this.showToast(selectedItems.length + '개 항목 불러오기 시작...', 'info');
+
+                try {
+                    const importData = { contents: [], highlights: [], updateMap: [] };
+
+                    selectedItems.forEach(airtableItem => {
+                        const item = airtableItem.item;
+                        const fields = airtableItem.record.fields;
+
+                        const imageFields = [];
+                        for (let i = 1; i <= 25; i++) {
+                            const imageField = fields['image' + i];
+                            imageFields.push(imageField && imageField.trim() ? imageField : '');
+                        }
+
+                        if (imageFields.some(field => field)) {
+                            const combinedImage = imageFields.filter(chunk => chunk && typeof chunk === 'string' && chunk.trim()).join('');
+                            if (combinedImage.trim()) {
+                                item.content.image_data = combinedImage;
+                            }
+                        }
+
+                        const contentFields = [];
+                        for (let i = 1; i <= 7; i++) {
+                            const cf = fields['content' + i];
+                            contentFields.push(cf && cf.trim() ? cf : '');
+                        }
+                        if (contentFields.some(f => f)) {
+                            item.content.content = contentFields.filter(f => f).join('');
+                        }
+
+                        importData.contents.push(item.content);
+                        if (item.highlights && Array.isArray(item.highlights)) {
+                            item.highlights.forEach(h => importData.highlights.push(h));
+                        }
+                        importData.updateMap.push({
+                            isUpdate: !!airtableItem.isUpdate,
+                            updateTargetId: airtableItem.updateTargetId || null
+                        });
+                    });
+
+                    await this.importAllDataBatch(importData);
+
+                } catch (error) {
+                    console.error('선택 항목 불러오기 오류:', error);
+                    this.showToast('선택한 항목 불러오기에 실패했습니다', 'error');
+                }
+            }
+
+            async importAllDataBatch(data) {
+                try {
+                    let importedCount = 0;
+                    let updatedCount = 0;
+                    const contentIdMap = new Map();
+                    const updateMap = data.updateMap || [];
+                    const urlPath = this.detectUrlPath();
+
+                    const existingTitles = await new Promise((resolve) => {
+                        const tx = this.db.transaction(['contents'], 'readonly');
+                        const idx = tx.objectStore('contents').index('title');
+                        const req = idx.getAll();
+                        req.onsuccess = () => resolve(new Set((req.result || []).map(r => r.title)));
+                        req.onerror = () => resolve(new Set());
+                    });
+
+                    const updateTargetIds = updateMap.filter(u => u.isUpdate && u.updateTargetId).map(u => u.updateTargetId);
+                    const existingMap = new Map();
+                    if (updateTargetIds.length > 0) {
+                        await new Promise((resolve) => {
+                            const tx = this.db.transaction(['contents'], 'readonly');
+                            const st = tx.objectStore('contents');
+                            let pending = updateTargetIds.length;
+                            updateTargetIds.forEach(id => {
+                                const req = st.get(id);
+                                req.onsuccess = () => { if (req.result) existingMap.set(id, req.result); if (--pending === 0) resolve(); };
+                                req.onerror = () => { if (--pending === 0) resolve(); };
+                            });
+                            if (pending === 0) resolve();
+                        });
+                    }
+
+                    const getUniqueTitleFast = (baseTitle) => {
+                        let title = baseTitle;
+                        let counter = 1;
+                        while (existingTitles.has(title)) {
+                            title = baseTitle + ' (' + counter + ')';
+                            counter++;
+                        }
+                        existingTitles.add(title);
+                        return title;
+                    };
+
+                    const highlightDeleteTargets = [];
+                    await new Promise((resolve, reject) => {
+                        const tx = this.db.transaction(['contents'], 'readwrite');
+                        const st = tx.objectStore('contents');
+
+                        for (let i = 0; i < data.contents.length; i++) {
+                            const content = data.contents[i];
+                            const info = updateMap[i] || { isUpdate: false, updateTargetId: null };
+
+                            if (info.isUpdate && info.updateTargetId) {
+                                const existing = existingMap.get(info.updateTargetId);
+                                if (!existing) {
+                                    const origId = content.id;
+                                    delete content.id;
+                                    content.title = getUniqueTitleFast(content.title);
+                                    content.imported_at = new Date();
+                                    content.url_path = urlPath;
+                                    const req = st.add(content);
+                                    req.onsuccess = () => { contentIdMap.set(origId, req.result); importedCount++; };
+                                } else {
+                                    const updated = {
+                                        ...existing,
+                                        title: content.title,
+                                        content: content.content,
+                                        content_type: content.content_type,
+                                        image_data: content.image_data || existing.image_data,
+                                        story_text: content.story_text || existing.story_text || null,
+                                        category1: content.category1 || existing.category1,
+                                        category2: content.category2 || existing.category2,
+                                        category3: content.category3 || existing.category3,
+                                        updated_at: new Date()
+                                    };
+                                    updated.id = existing.id;
+                                    st.put(updated);
+                                    updatedCount++;
+                                    if (content.id != null) contentIdMap.set(content.id, existing.id);
+                                    highlightDeleteTargets.push(existing.id);
+                                }
+                            } else {
+                                const origId = content.id;
+                                delete content.id;
+                                content.title = getUniqueTitleFast(content.title);
+                                content.imported_at = new Date();
+                                content.url_path = urlPath;
+                                const req = st.add(content);
+                                req.onsuccess = () => { contentIdMap.set(origId, req.result); importedCount++; };
+                            }
+                        }
+
+                        tx.oncomplete = () => resolve();
+                        tx.onerror = () => reject(tx.error);
+                    });
+
+                    const newHighlights = (data.highlights && Array.isArray(data.highlights))
+                        ? data.highlights.filter(h => contentIdMap.has(h.content_id))
+                        : [];
+
+                    if (highlightDeleteTargets.length > 0 || newHighlights.length > 0) {
+                        await new Promise((resolve, reject) => {
+                            const tx = this.db.transaction(['highlights'], 'readwrite');
+                            const store = tx.objectStore('highlights');
+                            const idx = store.index('content_id');
+
+                            let deletesPending = highlightDeleteTargets.length;
+                            if (deletesPending === 0) addNewHighlights();
+                            highlightDeleteTargets.forEach(cid => {
+                                const req = idx.getAll(cid);
+                                req.onsuccess = () => {
+                                    (req.result || []).forEach(h => store.delete(h.id));
+                                    if (--deletesPending === 0) addNewHighlights();
+                                };
+                                req.onerror = () => { if (--deletesPending === 0) addNewHighlights(); };
+                            });
+
+                            function addNewHighlights() {
+                                newHighlights.forEach(h => {
+                                    const newCid = contentIdMap.get(h.content_id);
+                                    delete h.id;
+                                    h.content_id = newCid;
+                                    h.imported_at = new Date();
+                                    h.is_priority = false;
+                                    store.add(h);
+                                });
+                            }
+
+                            tx.oncomplete = () => resolve();
+                            tx.onerror = () => reject(tx.error);
+                        });
+                    }
+
+                    await this.loadData();
+
+                    if (updatedCount > 0 && this.currentTextId) {
+                        try {
+                            const tx = this.db.transaction(['contents'], 'readonly');
+                            const st = tx.objectStore('contents');
+                            const req = st.get(this.currentTextId);
+                            req.onsuccess = () => {
+                                const updatedItem = req.result;
+                                if (updatedItem) this.loadContent(updatedItem);
+                            };
+                        } catch (e) {}
+                    } else if (importedCount > 0 && this.savedTexts.length > 0 && !this.currentTextId) {
+                        this.loadContent(this.savedTexts[0]);
+                    }
+
+                    let msg = '';
+                    if (importedCount > 0 && updatedCount > 0) {
+                        msg = importedCount + '개 신규, ' + updatedCount + '개 업데이트 완료';
+                    } else if (updatedCount > 0) {
+                        msg = updatedCount + '개의 콘텐츠를 업데이트했습니다';
+                    } else {
+                        msg = importedCount + '개의 콘텐츠를 성공적으로 불러왔습니다';
+                    }
+                    this.showToast(msg);
+
+                } catch (error) {
+                    console.error('배치 데이터 불러오기 오류:', error);
+                    this.showToast('데이터 불러오기에 실패했습니다', 'error');
+                }
+            }
+
+            // ===== Toast =====
+            showToast(message, type = 'info') {
+                const existingToast = document.querySelector('.toast');
+                if (existingToast) existingToast.remove();
+
+                const toast = document.createElement('div');
+                toast.className = 'toast';
+                toast.textContent = message;
+
+                if (type === 'error') toast.classList.add('error');
+                else if (type === 'info') toast.classList.add('info');
+
+                document.body.appendChild(toast);
+
+                setTimeout(() => { toast.classList.add('show'); }, 100);
+                setTimeout(() => {
+                    toast.classList.remove('show');
+                    setTimeout(() => { if (toast.parentNode) toast.remove(); }, 300);
+                }, 3000);
+            }
+
+            // ===== Confirm Dialog =====
+            showConfirmDialog(title, message) {
+                return new Promise((resolve) => {
+                    const modal = document.createElement('div');
+                    modal.className = 'confirm-modal';
+
+                    modal.innerHTML =
+                        '<div class="confirm-dialog">' +
+                            '<div class="confirm-title">' + title + '</div>' +
+                            '<div class="confirm-message">' + message + '</div>' +
+                            '<div class="confirm-buttons">' +
+                                '<button class="confirm-button cancel">취소</button>' +
+                                '<button class="confirm-button confirm">확인</button>' +
+                            '</div>' +
+                        '</div>';
+
+                    modal.querySelector('.cancel').addEventListener('click', () => { modal.remove(); resolve(false); });
+                    modal.querySelector('.confirm').addEventListener('click', () => { modal.remove(); resolve(true); });
+                    modal.addEventListener('click', (e) => { if (e.target === modal) { modal.remove(); resolve(false); } });
+
+                    document.body.appendChild(modal);
+                });
+            }
+        }
+
+        window.addEventListener('DOMContentLoaded', () => {
+            window.app = new MathMacApp();
+        });
+    </script>
+</body>
+</html>
