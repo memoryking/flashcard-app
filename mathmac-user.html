@@ -1819,6 +1819,13 @@
 
                             const title = item.content.title || '제목 없음';
                             const contentType = item.content.content_type || 'text';
+                            let wordCount = 0;
+                            if (contentType === 'mindmap') {
+                                try {
+                                    const md = item.content.mindmap_data ? JSON.parse(item.content.mindmap_data) : null;
+                                    if (md && md.branches) wordCount = md.branches.filter(b => b.level1).length;
+                                } catch (e) {}
+                            }
 
                             const { baseName: airBase, version: airVer } = this.parseVersionedTitle(title);
                             const localEntry = localVersionMap.get(airBase);
@@ -1858,14 +1865,22 @@
                                 }
                             }
 
+                            const isEvent = !!(item.event && item.event.is_event);
+                            const eventConditions = isEvent ? item.event.conditions : null;
+                            const eventLabel = isEvent ? item.event.label : '';
+
                             airtableItems.push({
                                 record: record,
                                 item: item,
                                 title: title,
                                 contentType: contentType,
+                                wordCount: wordCount,
                                 isDuplicate: isDuplicate,
                                 isUpdate: isUpdate,
                                 updateTargetId: updateTargetId,
+                                isEvent: isEvent,
+                                eventConditions: eventConditions,
+                                eventLabel: eventLabel,
                                 selected: !isDuplicate || isUpdate
                             });
                         } catch (error) {
@@ -1885,28 +1900,33 @@
                     const updateCount = airtableItems.filter(item => item.isUpdate).length;
                     const newCount = airtableItems.length - duplicateCount - updateCount;
 
-                    modal.innerHTML =
-                        '<div class="airtable-import-dialog">' +
-                            '<div class="airtable-import-header">' +
-                                '<div class="airtable-import-title">자료에서 불러오기</div>' +
-                                '<div class="airtable-import-subtitle">총 ' + airtableItems.length + '개 항목 (신규: ' + newCount + '개, 업데이트: ' + updateCount + '개, 중복: ' + duplicateCount + '개)</div>' +
-                            '</div>' +
-                            '<div class="airtable-import-controls">' +
-                                '<button class="btn btn-secondary btn-small" id="selectAllBtn">전체 선택</button>' +
-                                '<button class="btn btn-secondary btn-small" id="selectNoneBtn">전체 해제</button>' +
-                                '<button class="btn btn-info btn-small" id="selectNewBtn">중복 제외 선택</button>' +
-                            '</div>' +
-                            '<div class="airtable-import-list" id="airtableImportList">' +
-                                this.renderAirtableItems(airtableItems) +
-                            '</div>' +
-                            '<div class="airtable-import-actions">' +
-                                '<div class="airtable-import-summary"><span id="selectedCount">0</span>개 항목 선택됨</div>' +
-                                '<div class="airtable-import-buttons">' +
-                                    '<button class="btn btn-secondary" id="cancelBtn">취소</button>' +
-                                    '<button class="btn btn-primary" id="importBtn">선택한 항목 불러오기</button>' +
-                                '</div>' +
-                            '</div>' +
-                        '</div>';
+                    modal.innerHTML = `
+                        <div class="airtable-import-dialog">
+                            <div class="airtable-import-header">
+                                <div class="airtable-import-title">자료에서 불러오기</div>
+                                <div class="airtable-import-subtitle">
+                                    총 ${airtableItems.length}개 항목 (신규: ${newCount}개, 업데이트: ${updateCount}개, 중복: ${duplicateCount}개)
+                                </div>
+                            </div>
+                            <div class="airtable-import-controls">
+                                <button class="btn btn-secondary btn-small" id="selectAllBtn">전체 선택</button>
+                                <button class="btn btn-secondary btn-small" id="selectNoneBtn">전체 해제</button>
+                                <button class="btn btn-info btn-small" id="selectNewBtn">중복 제외 선택</button>
+                                <button class="btn btn-primary btn-small" id="selectDuplicateBtn">중복 항목만 선택</button>
+                                ${updateCount > 0 ? '<button class="btn btn-small" id="selectUpdateBtn" style="background:#4caf50;color:#fff;">업데이트 항목만 선택</button>' : ''}
+                            </div>
+                            <div class="airtable-import-list" id="airtableImportList">
+                                ${this.renderAirtableItems(airtableItems)}
+                            </div>
+                            <div class="airtable-import-actions">
+                                <div class="airtable-import-summary"><span id="selectedCount">0</span>개 항목 선택됨</div>
+                                <div class="airtable-import-buttons">
+                                    <button class="btn btn-secondary" id="cancelBtn">취소</button>
+                                    <button class="btn btn-primary" id="importBtn">선택한 항목 불러오기</button>
+                                </div>
+                            </div>
+                        </div>
+                    `;
 
                     document.body.appendChild(modal);
                     this.airtableImportItems = airtableItems;
@@ -1915,6 +1935,9 @@
                     modal.querySelector('#selectAllBtn').addEventListener('click', () => this.selectAllAirtableItems(true));
                     modal.querySelector('#selectNoneBtn').addEventListener('click', () => this.selectAllAirtableItems(false));
                     modal.querySelector('#selectNewBtn').addEventListener('click', () => this.selectNonDuplicateItems());
+                    modal.querySelector('#selectDuplicateBtn').addEventListener('click', () => this.selectDuplicateItems());
+                    const selectUpdateBtn = modal.querySelector('#selectUpdateBtn');
+                    if (selectUpdateBtn) selectUpdateBtn.addEventListener('click', () => this.selectUpdateItems());
                     modal.querySelector('#cancelBtn').addEventListener('click', () => this.closeAirtableImportDialog());
                     modal.querySelector('#importBtn').addEventListener('click', () => this.importSelectedItems());
                     modal.addEventListener('click', (e) => { if (e.target === modal) this.closeAirtableImportDialog(); });
@@ -1925,9 +1948,23 @@
                 }
             }
 
+            selectDuplicateItems() {
+                if (!this.airtableImportItems) return;
+                this.airtableImportItems.forEach(item => { item.selected = item.isDuplicate; });
+                this.refreshAirtableList();
+                this.updateSelectedCount();
+            }
+
+            selectUpdateItems() {
+                if (!this.airtableImportItems) return;
+                this.airtableImportItems.forEach(item => { item.selected = !!item.isUpdate; });
+                this.refreshAirtableList();
+                this.updateSelectedCount();
+            }
+
             renderAirtableItems(items) {
                 return items.map((item, index) => {
-                    const typeIcon = item.contentType === 'image' ? '🖼️' : '📝';
+                    const typeIcon = item.contentType === 'image' ? '🖼️' : (item.contentType === 'mindmap' ? '🧠' : '📝');
                     let statusClass = '';
                     let statusTag = '';
                     if (item.isUpdate) {
@@ -1938,18 +1975,27 @@
                         statusTag = '<span class="airtable-import-tag">중복</span>';
                     }
 
-                    return '<div class="airtable-import-item ' + statusClass + '">' +
-                        '<input type="checkbox" class="airtable-import-checkbox" ' +
-                            (item.selected ? 'checked' : '') +
-                            ' onchange="window.app.toggleAirtableItem(' + index + ', this.checked)">' +
-                        '<div class="airtable-import-info">' +
-                            '<div class="airtable-import-item-title">' + typeIcon + ' ' + item.title + '</div>' +
-                            '<div class="airtable-import-item-details">' +
-                                '<span>타입: ' + item.contentType + '</span>' +
-                                statusTag +
-                            '</div>' +
-                        '</div>' +
-                    '</div>';
+                    const eventTag = item.isEvent ? '<span class="event-import-tag">🎁 이벤트</span>' : '';
+                    const eventCondText = item.isEvent ? '<div class="event-condition-text">🔒 조건: ' + item.eventLabel + '</div>' : '';
+                    const lockPrefix = item.isEvent ? '🔒 ' : '';
+
+                    return `
+                        <div class="airtable-import-item ${statusClass} ${item.isEvent ? 'event-locked' : ''}">
+                            <input type="checkbox" class="airtable-import-checkbox"
+                                   ${item.selected ? 'checked' : ''}
+                                   onchange="window.app.toggleAirtableItem(${index}, this.checked)">
+                            <div class="airtable-import-info">
+                                <div class="airtable-import-item-title">${lockPrefix}${typeIcon} ${item.title}</div>
+                                ${eventCondText}
+                                <div class="airtable-import-item-details">
+                                    <span>${item.contentType === 'mindmap' ? '암기할 갯수: ' + item.wordCount + '개' : ''}</span>
+                                    <span>타입: ${item.contentType === 'mindmap' ? 'flashcard' : item.contentType}</span>
+                                    ${statusTag}
+                                    ${eventTag}
+                                </div>
+                            </div>
+                        </div>
+                    `;
                 }).join('');
             }
 
