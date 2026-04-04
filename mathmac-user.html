@@ -773,21 +773,23 @@
 
         <!-- Highlight Stat Bar -->
         <div class="flashcard-stat-bar" id="highlightStatBar">
+            <!-- 원본보기: 나중에 사용 대비 숨김 처리
             <div class="stat-box not-memorized" id="statHighlightPreview" onclick="window.app && window.app.showFullImage()">
                 <div class="stat-box-count" style="font-size:1.5em;">🖼️</div>
                 <div class="stat-box-label">원본보기</div>
             </div>
+            -->
             <div class="stat-box" id="statStory" onclick="window.app && window.app.showStoryOverlay()" style="display:none;">
                 <div class="stat-box-count" style="font-size:1.5em;">📖</div>
-                <div class="stat-box-label">스토리</div>
+                <div class="stat-box-label">풀이</div>
             </div>
             <div class="stat-box remaining" style="pointer-events:none;">
                 <div class="stat-box-count" id="countHighlights">0</div>
-                <div class="stat-box-label">하이라이트</div>
+                <div class="stat-box-label">미학습</div>
             </div>
             <div class="stat-box memorized" style="pointer-events:none;">
                 <div class="stat-box-count" id="countHighlightMemorized">0</div>
-                <div class="stat-box-label">암기</div>
+                <div class="stat-box-label">학습</div>
             </div>
         </div>
 
