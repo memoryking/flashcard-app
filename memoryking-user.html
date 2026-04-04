@@ -3354,8 +3354,8 @@
                     const filtered = data.records.filter(record => {
                         const f = record.fields;
                         let cat1 = f.category1, cat2 = f.category2, cat3 = f.category3;
-                        if (!cat1 && !cat2 && !cat3 && f.json) {
-                            try { const j = JSON.parse(f.json); if (j && j.content) { cat1 = j.content.category1; cat2 = j.content.category2; cat3 = j.content.category3; } } catch(e) {}
+                        if ((!cat1 || !cat2 || !cat3) && f.json) {
+                            try { const j = JSON.parse(f.json); if (j && j.content) { cat1 = cat1 || j.content.category1; cat2 = cat2 || j.content.category2; cat3 = cat3 || j.content.category3; } } catch(e) {}
                         }
                         return (!this.pageCategory.category1 || (cat1 || '') === this.pageCategory.category1)
                             && (!this.pageCategory.category2 || (cat2 || '') === this.pageCategory.category2)
@@ -4507,8 +4507,8 @@
                     const filtered = data.records.filter(record => {
                         const f = record.fields;
                         let cat1 = f.category1, cat2 = f.category2, cat3 = f.category3;
-                        if (!cat1 && !cat2 && !cat3 && f.json) {
-                            try { const j = JSON.parse(f.json); if (j && j.content) { cat1 = j.content.category1; cat2 = j.content.category2; cat3 = j.content.category3; } } catch(e) {}
+                        if ((!cat1 || !cat2 || !cat3) && f.json) {
+                            try { const j = JSON.parse(f.json); if (j && j.content) { cat1 = cat1 || j.content.category1; cat2 = cat2 || j.content.category2; cat3 = cat3 || j.content.category3; } } catch(e) {}
                         }
                         return (!this.pageCategory.category1 || (cat1 || '') === this.pageCategory.category1)
                             && (!this.pageCategory.category2 || (cat2 || '') === this.pageCategory.category2)
