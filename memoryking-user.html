@@ -3596,7 +3596,8 @@
 
                     request.onsuccess = () => {
                         const content = request.result;
-                        if (content && content.url_path === this.detectUrlPath()) {
+                        // 페이지(url_path)와 무관하게 마지막으로 본 콘텐츠를 자동 로드
+                        if (content) {
                             this.loadContent(content);
                         }
                     };
