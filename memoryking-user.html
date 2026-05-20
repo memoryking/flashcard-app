@@ -3915,7 +3915,10 @@
 
                     const t = data.today;
                     let html = '<div class="community-stats">';
-                    html += '<div class="community-stats-line">오늘 <b>' + (t.active_users || 0) + '명</b>이 함께 공부했어요!' + (t.max_words ? ' · 최다 <b>' + t.max_words + '암기카드</b> 학습' : '') + '</div>';
+                    html += '<div class="community-stats-line">오늘 <b>' + (t.active_users || 0) + '명</b>이 함께 공부했어요!</div>';
+                    if (t.max_words) {
+                        html += '<div class="community-stats-line">오늘 학습자 중 최다 암기카드 수 : <b>' + t.max_words + '</b></div>';
+                    }
 
                     if (data.me) {
                         this.checkEventConditions(data.me);
@@ -3923,7 +3926,7 @@
                         if (m.week_daily && m.week_daily.length) {
                             const days = ['일','월','화','수','목','금','토'];
                             const maxW = Math.max(...m.week_daily.map(d => d.words), 1);
-                            html += '<div class="cs-chart">';
+                            html += '<div class="cs-chart" style="display:none">';
                             m.week_daily.forEach((d, i) => {
                                 const isToday = (i === m.week_daily.length - 1);
                                 const h = d.words > 0 ? Math.max(4, Math.round((d.words / maxW) * 44)) : 2;
@@ -3936,11 +3939,7 @@
                             });
                             html += '</div>';
                         }
-                        html += '<div class="community-stats-my">오늘 나의 학습량: <span class="cs-words">' + (m.today_words || 0) + '암기카드</span>';
-                        if (m.streak > 0) {
-                            html += ' · 연속 <span class="cs-streak">' + m.streak + '일째!</span>';
-                        }
-                        html += '</div>';
+                        html += '<div class="community-stats-my">오늘 나의 암기카드 수 : <span class="cs-words">' + (m.today_words || 0) + '</span></div>';
 
                         // 어제 비교 칭찬
                         const todayW = m.today_words || 0;
