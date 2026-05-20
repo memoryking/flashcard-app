@@ -1658,10 +1658,10 @@
                 }
             }
 
-            // ===== IndexedDB v7 =====
+            // ===== IndexedDB v8 =====
             async initDB() {
                 return new Promise((resolve, reject) => {
-                    const request = indexedDB.open('MemorykingDB_User', 7);
+                    const request = indexedDB.open('MemorykingDB_User', 8);
 
                     request.onerror = () => {
                         console.error('DB 열기 실패:', request.error);
@@ -1685,7 +1685,7 @@
                     request.onupgradeneeded = (event) => {
                         const db = event.target.result;
                         const oldVersion = event.oldVersion;
-                        console.log('DB 업그레이드 중... 이전 버전:', oldVersion, '-> 새 버전: 7');
+                        console.log('DB 업그레이드 중... 이전 버전:', oldVersion, '-> 새 버전: 8');
 
                         if (!db.objectStoreNames.contains('contents')) {
                             const contentStore = db.createObjectStore('contents', { keyPath: 'id', autoIncrement: true });
@@ -1713,6 +1713,12 @@
                         if (!db.objectStoreNames.contains('vocab_state')) {
                             db.createObjectStore('vocab_state', { keyPath: 'word' });
                             console.log('vocab_state 스토어 생성됨');
+                        }
+
+                        // v8: 콘텐츠별 일일 학습 통계 (id = 날짜|콘텐츠 제목)
+                        if (!db.objectStoreNames.contains('daily_content')) {
+                            db.createObjectStore('daily_content', { keyPath: 'id' });
+                            console.log('daily_content 스토어 생성됨');
                         }
                     };
                 });
@@ -1961,11 +1967,11 @@
                 const hasP2 = memorizedWords.some(w => w.known === 2 && (w.last_studied ? w.last_studied.substring(0, 10) : '') <= cutoffStr);
                 const memorizedAllToday = memorized > 0 && !hasP1 && !hasP2;
 
-                // 오늘 학습한 총 횟수 (중복 포함)
-                const studiedToday = all.reduce((sum, w) => sum + (w.today_date === todayKST ? (w.today_count || 0) : 0), 0);
-
-                // 오늘 신규 학습 (최초 학습일이 오늘인 단어)
-                const newToday = all.filter(w => w.first_studied && w.first_studied.startsWith(todayKST)).length;
+                // 오늘 학습/신규 — 콘텐츠별 daily_content에서 (단어 공유 부풀림 없음)
+                const content = await this.getContent(contentId);
+                const dc = await this.getDailyContent(todayKST, content && content.title);
+                const studiedToday = dc.count;
+                const newToday = dc.new_count;
 
                 return { remaining, notMemorized, memorized, memorizedAllToday, studiedToday, newToday };
             }
@@ -2027,6 +2033,7 @@
 
             async updateWordKnown(wordProgress, isCorrect) {
                 if (!this.db) return;
+                const isNewWord = !wordProgress.first_studied;
 
                 const source = this.quizMode;
                 let newKnown;
@@ -2064,20 +2071,25 @@
                 }
 
                 await this.saveVocabState(wordProgress);
+                await this.recordContentStudy(isNewWord);
             }
 
             async getTodayTotalCounts() {
                 if (!this.db) return { newToday: 0, studiedToday: 0 };
+                const todayKST = this.getKSTDateString();
                 const all = await new Promise((resolve, reject) => {
-                    const tx = this.db.transaction(['vocab_state'], 'readonly');
-                    const store = tx.objectStore('vocab_state');
-                    const req = store.getAll();
+                    const tx = this.db.transaction(['daily_content'], 'readonly');
+                    const req = tx.objectStore('daily_content').getAll();
                     req.onsuccess = () => resolve(req.result || []);
                     req.onerror = () => reject(req.error);
                 });
-                const todayKST = this.getKSTDateString();
-                const studiedToday = all.reduce((sum, w) => sum + (w.today_date === todayKST ? (w.today_count || 0) : 0), 0);
-                const newToday = all.filter(w => w.first_studied && w.first_studied.startsWith(todayKST)).length;
+                let studiedToday = 0, newToday = 0;
+                for (const r of all) {
+                    if (r.study_date === todayKST) {
+                        studiedToday += r.count || 0;
+                        newToday += r.new_count || 0;
+                    }
+                }
                 return { newToday, studiedToday };
             }
 
@@ -2143,15 +2155,17 @@
                 this._vocabSyncing = true;
                 try {
                     const words = await this.serializeVocab();
+                    const daily = await this.getTodayDailyRows();
                     const res = await fetch(this.statsApiUrl + '/word-progress/sync', {
                         method: 'POST',
                         headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + this.authToken },
-                        body: JSON.stringify({ words })
+                        body: JSON.stringify({ words, daily })
                     });
                     if (!res.ok) return;              // 401 등 → 다음 동기화 때 재시도
                     const data = await res.json();
                     if (data && data.words) {
                         await this.applyMergedVocab(data.words);
+                        if (data.daily) await this.applyMergedDaily(data.daily);
                         await this.updateStatBar();   // 끌어온 진도 화면 반영
                     }
                 } catch (e) {
@@ -2159,6 +2173,83 @@
                 } finally {
                     this._vocabSyncing = false;
                 }
+            }
+
+            // ===== 콘텐츠별 일일 학습 통계 (daily_content) =====
+            getContent(contentId) {
+                return new Promise((resolve, reject) => {
+                    const tx = this.db.transaction(['contents'], 'readonly');
+                    const req = tx.objectStore('contents').get(parseInt(contentId));
+                    req.onsuccess = () => resolve(req.result || null);
+                    req.onerror = () => reject(req.error);
+                });
+            }
+
+            // 학습 1건 기록 — 현재 콘텐츠의 오늘 카운트 +1 (isNew면 신규 카운트도 +1)
+            recordContentStudy(isNew) {
+                if (!this.db || !this.currentTitle) return Promise.resolve();
+                const today = this.getKSTDateString();
+                const title = this.currentTitle;
+                return new Promise((resolve) => {
+                    const tx = this.db.transaction(['daily_content'], 'readwrite');
+                    const store = tx.objectStore('daily_content');
+                    const id = today + '|' + title;
+                    const getReq = store.get(id);
+                    getReq.onsuccess = () => {
+                        const row = getReq.result || { id: id, study_date: today, content: title, count: 0, new_count: 0 };
+                        row.count = (row.count || 0) + 1;
+                        if (isNew) row.new_count = (row.new_count || 0) + 1;
+                        store.put(row);
+                    };
+                    tx.oncomplete = () => resolve();
+                    tx.onerror = () => resolve();
+                });
+            }
+
+            // 특정 날짜·콘텐츠의 일일 통계 조회
+            getDailyContent(date, title) {
+                return new Promise((resolve) => {
+                    if (!title) { resolve({ count: 0, new_count: 0 }); return; }
+                    const tx = this.db.transaction(['daily_content'], 'readonly');
+                    const req = tx.objectStore('daily_content').get(date + '|' + title);
+                    req.onsuccess = () => {
+                        const r = req.result;
+                        resolve({ count: r ? (r.count || 0) : 0, new_count: r ? (r.new_count || 0) : 0 });
+                    };
+                    req.onerror = () => resolve({ count: 0, new_count: 0 });
+                });
+            }
+
+            // 오늘 daily_content 행 전체 (동기화 전송용)
+            getTodayDailyRows() {
+                return new Promise((resolve) => {
+                    const today = this.getKSTDateString();
+                    const tx = this.db.transaction(['daily_content'], 'readonly');
+                    const req = tx.objectStore('daily_content').getAll();
+                    req.onsuccess = () => resolve((req.result || []).filter(r => r.study_date === today));
+                    req.onerror = () => resolve([]);
+                });
+            }
+
+            // 서버에서 받은 daily_content 병합 결과를 로컬에 반영
+            applyMergedDaily(rows) {
+                if (!rows || !rows.length) return Promise.resolve();
+                return new Promise((resolve) => {
+                    const tx = this.db.transaction(['daily_content'], 'readwrite');
+                    const store = tx.objectStore('daily_content');
+                    for (const r of rows) {
+                        if (!r.study_date || !r.content) continue;
+                        store.put({
+                            id: r.study_date + '|' + r.content,
+                            study_date: r.study_date,
+                            content: r.content,
+                            count: r.count || 0,
+                            new_count: r.new_count || 0
+                        });
+                    }
+                    tx.oncomplete = () => resolve();
+                    tx.onerror = () => resolve();
+                });
             }
 
             // ===== Stat Bar =====
@@ -3062,6 +3153,7 @@
                     // Second tap: update last_studied and move to next card
                     const word = this.quizWords[this.quizIndex];
                     if (word && this.db) {
+                        const isNewWord = !word.first_studied;
                         const now = this.getKSTISOString();
                         const todayKST = this.getKSTDateString();
                         if (!word.first_studied) {
@@ -3075,6 +3167,7 @@
                         }
                         word.today_count = (word.today_count || 0) + 1;
                         this.saveVocabState(word);
+                        this.recordContentStudy(isNewWord);
                     }
                     this.quizIndex++;
                     this.memorizeRevealed = false;
