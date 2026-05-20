@@ -1623,6 +1623,12 @@
                     await this.migrateVocabState();
                     await this.loadPageCategory();
                     this.setupFlashcardEventListeners();
+
+                    // 앱이 백그라운드로 전환될 때(전화 수신·앱 전환·닫기) 진도 동기화
+                    document.addEventListener('visibilitychange', () => {
+                        if (document.visibilityState === 'hidden') this.syncVocabProgress();
+                    });
+
                     await this.loadData();
 
                     // Click elsewhere to un-reveal highlights

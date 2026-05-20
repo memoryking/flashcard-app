@@ -202,6 +202,16 @@ function mergeVocab(a, b) {
   return out;
 }
 
+// 오늘 학습한 카드 총 횟수 = today_date(인덱스 5)가 오늘인 단어의 today_count(인덱스 6) 합
+function computeTodayWords(words, today) {
+  let n = 0;
+  for (const k in words) {
+    const a = words[k];
+    if (Array.isArray(a) && a[5] === today) n += Number(a[6]) || 0;
+  }
+  return n;
+}
+
 // ── Airtable 회원 미러 ──────────────────────────────────────
 const AT_BASE_URL = 'https://api.airtable.com/v0';
 const AT_TABLE = 'Users';
@@ -592,6 +602,15 @@ export default {
           todayCorrect += Number(log.words_correct) || 0;
         }
 
+        // 오늘 학습 단어 수는 daily_study(동기화 기반 — 미완료 세션 포함)를 우선 사용
+        try {
+          const ds = await ncbSearch(env, 'daily_study', { user_id: String(userId) });
+          const dsRow = (ds?.data || []).find(r => r.study_date === today);
+          if (dsRow) todayWords = Number(dsRow.words) || 0;
+        } catch (e) {
+          console.error('daily_study 조회 오류:', e);
+        }
+
         // 전체 학습 단어 & streak 계산
         const allLogs = await ncbRead(env, 'study_logs', `user_id=${userId}&limit=10000`);
         const allList = allLogs?.data || [];
@@ -696,15 +715,15 @@ export default {
         const kst = new Date(Date.now() + 9 * 3600000);
         const today = kst.toISOString().slice(0, 10);
 
-        const logs = await ncbRead(env, 'study_logs', `study_date=${today}&limit=1000`);
+        // daily_study(동기화 기반 — 미완료 세션 포함)에서 오늘 학습량 집계
+        const logs = await ncbRead(env, 'daily_study', `study_date=${today}&limit=1000`);
         const list = logs?.data || [];
 
-        // user_id별 단어수 집계
         const userMap = new Map();
-        for (const log of list) {
-          if (!log.user_id) continue;
-          const uid = log.user_id;
-          userMap.set(uid, (userMap.get(uid) || 0) + (Number(log.words_studied) || 0));
+        for (const r of list) {
+          if (!r.user_id) continue;
+          const uid = String(r.user_id);
+          userMap.set(uid, (userMap.get(uid) || 0) + (Number(r.words) || 0));
         }
 
         // 전체 정렬 (내 순위 찾기용)
@@ -909,6 +928,21 @@ export default {
           await ncbUpdate(env, 'user_vocab', row.id, { data: dataStr, updated_at: now });
         } else {
           await ncbCreate(env, 'user_vocab', { user_id: userId, data: dataStr, updated_at: now });
+        }
+
+        // 오늘 학습량을 daily_study에 반영 (통계·랭킹용 — 동기화 기반이라 미완료 세션도 포함)
+        try {
+          const today = new Date(Date.now() + 9 * 3600000).toISOString().slice(0, 10);
+          const todayWords = computeTodayWords(merged, today);
+          const found = await ncbSearch(env, 'daily_study', { user_id: userId });
+          const dsRow = (found?.data || []).find(r => r.study_date === today);
+          if (dsRow) {
+            await ncbUpdate(env, 'daily_study', dsRow.id, { words: todayWords });
+          } else {
+            await ncbCreate(env, 'daily_study', { user_id: userId, study_date: today, words: todayWords });
+          }
+        } catch (e) {
+          console.error('daily_study 갱신 오류:', e);
         }
 
         return json({ words: merged }, 200, request);
