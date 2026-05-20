@@ -1619,6 +1619,7 @@
                 try {
                     await this.loadPageCategory();
                     await this.initDB();
+                    await this.migrateVocabState();
                     this.setupFlashcardEventListeners();
                     await this.loadData();
 
@@ -1652,7 +1653,7 @@
             // ===== IndexedDB v6 =====
             async initDB() {
                 return new Promise((resolve, reject) => {
-                    const request = indexedDB.open('MemorykingDB_User', 6);
+                    const request = indexedDB.open('MemorykingDB_User', 7);
 
                     request.onerror = () => reject(request.error);
                     request.onsuccess = () => {
@@ -1664,7 +1665,7 @@
                     request.onupgradeneeded = (event) => {
                         const db = event.target.result;
                         const oldVersion = event.oldVersion;
-                        console.log('DB 업그레이드 중... 이전 버전:', oldVersion, '-> 새 버전: 6');
+                        console.log('DB 업그레이드 중... 이전 버전:', oldVersion, '-> 새 버전: 7');
 
                         if (!db.objectStoreNames.contains('contents')) {
                             const contentStore = db.createObjectStore('contents', { keyPath: 'id', autoIncrement: true });
@@ -1686,6 +1687,12 @@
                             wpStore.createIndex('known', 'known');
                             wpStore.createIndex('last_studied', 'last_studied');
                             console.log('word_progress 스토어 생성됨');
+                        }
+
+                        // v7: 단어 키 전역 진도 스토어 (콘텐츠와 무관하게 단어 1개당 레코드 1개)
+                        if (!db.objectStoreNames.contains('vocab_state')) {
+                            db.createObjectStore('vocab_state', { keyPath: 'word' });
+                            console.log('vocab_state 스토어 생성됨');
                         }
                     };
                 });
@@ -1722,27 +1729,157 @@
                 return result;
             }
 
-            // ===== Word Progress Data Methods =====
+            // ===== Word Progress Data Methods (단어 키 전역 진도) =====
+            // 진도는 콘텐츠가 아니라 "단어"에 귀속된다. vocab_state 스토어가 단일 진실원본.
+            wordKey(w) {
+                return (w || '').trim().toLowerCase();
+            }
+
+            // vocab_state 전체를 { 단어키 -> 레코드 } Map으로
+            getVocabMap() {
+                return new Promise((resolve, reject) => {
+                    const tx = this.db.transaction(['vocab_state'], 'readonly');
+                    const req = tx.objectStore('vocab_state').getAll();
+                    req.onsuccess = () => {
+                        const m = new Map();
+                        (req.result || []).forEach(r => m.set(r.word, r));
+                        resolve(m);
+                    };
+                    req.onerror = () => reject(req.error);
+                });
+            }
+
+            // 콘텐츠의 단어 목록(단어/뜻/연상법)을 mindmap_data에서 추출
+            async getContentBranches(contentId) {
+                const content = await new Promise((resolve, reject) => {
+                    const tx = this.db.transaction(['contents'], 'readonly');
+                    const req = tx.objectStore('contents').get(parseInt(contentId));
+                    req.onsuccess = () => resolve(req.result || null);
+                    req.onerror = () => reject(req.error);
+                });
+                if (!content) return [];
+                let md = null;
+                if (content.mindmap_data) {
+                    try { md = JSON.parse(content.mindmap_data); } catch (e) {}
+                }
+                if (!md || !md.branches) {
+                    try { md = this.parseMindmapData(content.content || ''); } catch (e) {}
+                }
+                const branches = (md && md.branches) || [];
+                return branches.filter(b => b.level1).map(b => ({
+                    word: b.level1,
+                    meaning: b.level2 || '',
+                    association: b.level3 || ''
+                }));
+            }
+
+            // 콘텐츠의 단어 목록 + 전역 진도를 합쳐 학습용 단어 객체 배열로
+            async loadContentWords(contentId) {
+                const branches = await this.getContentBranches(contentId);
+                if (branches.length === 0) return [];
+                const vmap = await this.getVocabMap();
+                return branches.map(b => {
+                    const vs = vmap.get(this.wordKey(b.word));
+                    return {
+                        content_id: contentId,
+                        word: b.word,
+                        meaning: b.meaning,
+                        association: b.association,
+                        known: vs ? (vs.known ?? null) : null,
+                        last_studied: vs ? (vs.last_studied || null) : null,
+                        study_count: vs ? (vs.study_count || 0) : 0,
+                        correct_count: vs ? (vs.correct_count || 0) : 0,
+                        first_studied: vs ? (vs.first_studied || null) : null,
+                        today_date: vs ? (vs.today_date || null) : null,
+                        today_count: vs ? (vs.today_count || 0) : 0
+                    };
+                });
+            }
+
+            // 단어 객체의 진도 상태를 vocab_state에 저장 (단어 키 기준)
+            saveVocabState(w) {
+                return new Promise((resolve, reject) => {
+                    const key = this.wordKey(w.word);
+                    if (!key) { resolve(); return; }
+                    const tx = this.db.transaction(['vocab_state'], 'readwrite');
+                    tx.objectStore('vocab_state').put({
+                        word: key,
+                        known: w.known ?? null,
+                        last_studied: w.last_studied || null,
+                        study_count: w.study_count || 0,
+                        correct_count: w.correct_count || 0,
+                        first_studied: w.first_studied || null,
+                        today_date: w.today_date || null,
+                        today_count: w.today_count || 0
+                    });
+                    tx.oncomplete = () => resolve();
+                    tx.onerror = () => reject(tx.error);
+                });
+            }
+
+            // v6 -> v7 1회 마이그레이션: 기존 word_progress(콘텐츠별)를 단어 키로 병합
+            async migrateVocabState() {
+                if (!this.db || !this.db.objectStoreNames.contains('vocab_state')) return;
+                if (!this.db.objectStoreNames.contains('word_progress')) return;
+                try {
+                    const vsCount = await new Promise((resolve, reject) => {
+                        const tx = this.db.transaction(['vocab_state'], 'readonly');
+                        const req = tx.objectStore('vocab_state').count();
+                        req.onsuccess = () => resolve(req.result || 0);
+                        req.onerror = () => reject(req.error);
+                    });
+                    if (vsCount > 0) return; // 이미 마이그레이션 완료
+
+                    const allWp = await new Promise((resolve, reject) => {
+                        const tx = this.db.transaction(['word_progress'], 'readonly');
+                        const req = tx.objectStore('word_progress').getAll();
+                        req.onsuccess = () => resolve(req.result || []);
+                        req.onerror = () => reject(req.error);
+                    });
+                    if (allWp.length === 0) return;
+
+                    // 같은 단어가 여러 콘텐츠에 있으면 last_studied가 가장 최근인 것을 채택
+                    const merged = new Map();
+                    for (const wp of allWp) {
+                        const key = this.wordKey(wp.word);
+                        if (!key) continue;
+                        const ex = merged.get(key);
+                        if (!ex || (wp.last_studied || '') > (ex.last_studied || '')) {
+                            merged.set(key, {
+                                word: key,
+                                known: wp.known ?? null,
+                                last_studied: wp.last_studied || null,
+                                study_count: wp.study_count || 0,
+                                correct_count: wp.correct_count || 0,
+                                first_studied: wp.first_studied || null,
+                                today_date: wp.today_date || null,
+                                today_count: wp.today_count || 0
+                            });
+                        }
+                    }
+                    await new Promise((resolve, reject) => {
+                        const tx = this.db.transaction(['vocab_state'], 'readwrite');
+                        const store = tx.objectStore('vocab_state');
+                        merged.forEach(rec => store.put(rec));
+                        tx.oncomplete = () => resolve();
+                        tx.onerror = () => reject(tx.error);
+                    });
+                    console.log('vocab_state 마이그레이션 완료:', merged.size, '단어');
+                } catch (e) {
+                    console.error('vocab_state 마이그레이션 오류:', e);
+                }
+            }
+
+            // 콘텐츠 로드 시 호출: 콘텐츠의 단어를 vocab_state에 없으면 신규(미학습)로 등록
             async initWordProgress(contentId) {
                 if (!this.db || !this.currentMindmapData) return;
 
                 const branches = this.currentMindmapData.branches || [];
                 if (branches.length === 0) return;
 
-                // Get existing word_progress for this content
-                const existing = await new Promise((resolve, reject) => {
-                    const tx = this.db.transaction(['word_progress'], 'readonly');
-                    const store = tx.objectStore('word_progress');
-                    const idx = store.index('content_id');
-                    const req = idx.getAll(contentId);
-                    req.onsuccess = () => resolve(req.result || []);
-                    req.onerror = () => reject(req.error);
-                });
+                const vmap = await this.getVocabMap();
 
-                const existingMap = new Map();
-                existing.forEach(wp => existingMap.set(wp.word, wp));
-
-                // Get existing highlights for migration
+                // 하이라이트 1순위 -> known=1 마이그레이션 (구버전 데이터 호환)
                 const highlights = await new Promise((resolve, reject) => {
                     const tx = this.db.transaction(['highlights'], 'readonly');
                     const store = tx.objectStore('highlights');
@@ -1751,75 +1888,45 @@
                     req.onsuccess = () => resolve(req.result || []);
                     req.onerror = () => reject(req.error);
                 });
-
                 const priorityTexts = new Set(highlights.filter(h => h.is_priority).map(h => h.text));
 
                 const now = this.getKSTISOString();
+                const toAdd = [];
 
-                for (const branch of branches) {
-                    const word = branch.level1;
-                    if (!word || existingMap.has(word)) continue;
-
-                    const meaning = branch.level2 || '';
-                    const association = branch.level3 || '';
-
-                    // Migrate: if this word had is_priority=true in highlights, set known=1
-                    const knownValue = priorityTexts.has(word) ? 1 : null;
-
-                    const record = {
-                        content_id: contentId,
-                        word: word,
-                        meaning: meaning,
-                        association: association,
-                        known: knownValue,
-                        last_studied: knownValue !== null ? now : null,
-                        study_count: 0,
-                        correct_count: 0,
-                        created_at: now
-                    };
-
-                    await new Promise((resolve, reject) => {
-                        const tx = this.db.transaction(['word_progress'], 'readwrite');
-                        const store = tx.objectStore('word_progress');
-                        const req = store.add(record);
-                        req.onsuccess = () => resolve();
-                        req.onerror = () => {
-                            // Duplicate - ignore
-                            resolve();
-                        };
-                    });
-                }
-
-                // Sync: update meaning/association if content changed
                 for (const branch of branches) {
                     const word = branch.level1;
                     if (!word) continue;
-                    const ex = existingMap.get(word);
-                    if (ex && (ex.meaning !== (branch.level2 || '') || ex.association !== (branch.level3 || ''))) {
-                        ex.meaning = branch.level2 || '';
-                        ex.association = branch.level3 || '';
-                        await new Promise((resolve, reject) => {
-                            const tx = this.db.transaction(['word_progress'], 'readwrite');
-                            const store = tx.objectStore('word_progress');
-                            store.put(ex);
-                            tx.oncomplete = () => resolve();
-                            tx.onerror = () => reject(tx.error);
-                        });
-                    }
+                    const key = this.wordKey(word);
+                    if (!key || vmap.has(key)) continue;
+                    vmap.set(key, true); // 동일 콘텐츠 내 중복 방지
+
+                    const isPriority = priorityTexts.has(word);
+                    toAdd.push({
+                        word: key,
+                        known: isPriority ? 1 : null,
+                        last_studied: isPriority ? now : null,
+                        study_count: 0,
+                        correct_count: 0,
+                        first_studied: null,
+                        today_date: null,
+                        today_count: 0
+                    });
                 }
+
+                if (toAdd.length === 0) return;
+                await new Promise((resolve, reject) => {
+                    const tx = this.db.transaction(['vocab_state'], 'readwrite');
+                    const store = tx.objectStore('vocab_state');
+                    toAdd.forEach(rec => store.put(rec));
+                    tx.oncomplete = () => resolve();
+                    tx.onerror = () => reject(tx.error);
+                });
             }
 
             async getWordCounts(contentId) {
                 if (!this.db) return { remaining: 0, notMemorized: 0, memorized: 0, memorizedAllToday: false };
 
-                const all = await new Promise((resolve, reject) => {
-                    const tx = this.db.transaction(['word_progress'], 'readonly');
-                    const store = tx.objectStore('word_progress');
-                    const idx = store.index('content_id');
-                    const req = idx.getAll(contentId);
-                    req.onsuccess = () => resolve(req.result || []);
-                    req.onerror = () => reject(req.error);
-                });
+                const all = await this.loadContentWords(contentId);
 
                 const remaining = all.filter(w => w.known === null).length;
                 const notMemorized = all.filter(w => w.known === 0).length;
@@ -1846,14 +1953,7 @@
             async queryWords(contentId, { known = undefined, limit = 50, excludeToday = false } = {}) {
                 if (!this.db) return [];
 
-                const all = await new Promise((resolve, reject) => {
-                    const tx = this.db.transaction(['word_progress'], 'readonly');
-                    const store = tx.objectStore('word_progress');
-                    const idx = store.index('content_id');
-                    const req = idx.getAll(contentId);
-                    req.onsuccess = () => resolve(req.result || []);
-                    req.onerror = () => reject(req.error);
-                });
+                const all = await this.loadContentWords(contentId);
 
                 let filtered = all;
                 if (known !== undefined) {
@@ -1878,14 +1978,7 @@
             async queryMemorizedWords(contentId, todayKST, limit) {
                 if (!this.db) return [];
 
-                const all = await new Promise((resolve, reject) => {
-                    const tx = this.db.transaction(['word_progress'], 'readonly');
-                    const store = tx.objectStore('word_progress');
-                    const idx = store.index('content_id');
-                    const req = idx.getAll(contentId);
-                    req.onsuccess = () => resolve(req.result || []);
-                    req.onerror = () => reject(req.error);
-                });
+                const all = await this.loadContentWords(contentId);
 
                 const byOldest = (a, b) => (a.last_studied || '').localeCompare(b.last_studied || '');
                 const isToday = w => w.last_studied && w.last_studied.startsWith(todayKST);
@@ -1950,20 +2043,14 @@
                     wordProgress.correct_count = (wordProgress.correct_count || 0) + 1;
                 }
 
-                await new Promise((resolve, reject) => {
-                    const tx = this.db.transaction(['word_progress'], 'readwrite');
-                    const store = tx.objectStore('word_progress');
-                    store.put(wordProgress);
-                    tx.oncomplete = () => resolve();
-                    tx.onerror = () => reject(tx.error);
-                });
+                await this.saveVocabState(wordProgress);
             }
 
             async getTodayTotalCounts() {
                 if (!this.db) return { newToday: 0, studiedToday: 0 };
                 const all = await new Promise((resolve, reject) => {
-                    const tx = this.db.transaction(['word_progress'], 'readonly');
-                    const store = tx.objectStore('word_progress');
+                    const tx = this.db.transaction(['vocab_state'], 'readonly');
+                    const store = tx.objectStore('vocab_state');
                     const req = store.getAll();
                     req.onsuccess = () => resolve(req.result || []);
                     req.onerror = () => reject(req.error);
@@ -1976,14 +2063,7 @@
 
             async getAllWordsForContent(contentId) {
                 if (!this.db) return [];
-                return new Promise((resolve, reject) => {
-                    const tx = this.db.transaction(['word_progress'], 'readonly');
-                    const store = tx.objectStore('word_progress');
-                    const idx = store.index('content_id');
-                    const req = idx.getAll(contentId);
-                    req.onsuccess = () => resolve(req.result || []);
-                    req.onerror = () => reject(req.error);
-                });
+                return this.loadContentWords(contentId);
             }
 
             // ===== Stat Bar =====
@@ -2893,8 +2973,7 @@
                             word.today_count = 0;
                         }
                         word.today_count = (word.today_count || 0) + 1;
-                        const tx = this.db.transaction(['word_progress'], 'readwrite');
-                        tx.objectStore('word_progress').put(word);
+                        this.saveVocabState(word);
                     }
                     this.quizIndex++;
                     this.memorizeRevealed = false;
