@@ -3915,7 +3915,7 @@
 
                     const t = data.today;
                     let html = '<div class="community-stats">';
-                    html += '<div class="community-stats-line">오늘 <b>' + (t.active_users || 0) + '명</b>이 함께 공부했어요!' + (t.max_words ? ' · 최다 <b>' + t.max_words + '단어</b> 학습' : '') + '</div>';
+                    html += '<div class="community-stats-line">오늘 <b>' + (t.active_users || 0) + '명</b>이 함께 공부했어요!' + (t.max_words ? ' · 최다 <b>' + t.max_words + '암기카드</b> 학습' : '') + '</div>';
 
                     if (data.me) {
                         this.checkEventConditions(data.me);
@@ -3936,7 +3936,7 @@
                             });
                             html += '</div>';
                         }
-                        html += '<div class="community-stats-my">오늘 나의 학습량: <span class="cs-words">' + (m.today_words || 0) + '단어</span>';
+                        html += '<div class="community-stats-my">오늘 나의 학습량: <span class="cs-words">' + (m.today_words || 0) + '암기카드</span>';
                         if (m.streak > 0) {
                             html += ' · 연속 <span class="cs-streak">' + m.streak + '일째!</span>';
                         }
@@ -3950,7 +3950,7 @@
                             if (yesterdayW === 0) {
                                 motiv = '\uD83D\uDC4F 오늘도 열심히!';
                             } else if (todayW > yesterdayW) {
-                                motiv = '\uD83D\uDD25 어제보다 ' + (todayW - yesterdayW) + '단어 더 많이 학습했어요!';
+                                motiv = '\uD83D\uDD25 어제보다 ' + (todayW - yesterdayW) + '암기카드 더 많이 학습했어요!';
                             } else if (todayW === yesterdayW) {
                                 motiv = '\uD83D\uDCAA 어제와 같은 페이스예요! 꾸준함이 실력!';
                             }
