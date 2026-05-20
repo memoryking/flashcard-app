@@ -546,35 +546,29 @@ export default {
         const kst = new Date(Date.now() + 9 * 3600000);
         const today = kst.toISOString().slice(0, 10);
 
-        const logs = await ncbRead(env, 'study_logs', `study_date=${today}&limit=1000`);
-        const list = logs?.data || [];
+        // daily_study(동기화 기반)에서 오늘 학습 현황 집계
+        const rows = await ncbRead(env, 'daily_study', `study_date=${today}&limit=1000`);
+        const list = rows?.data || [];
 
-        const uniqueUsers = new Set();
-        const userWords = new Map();
         let totalStudied = 0;
-        let totalCorrect = 0;
-        let totalSessions = list.length;
-
-        for (const log of list) {
-          const uid = log.user_id || log.device_id || 'anon';
-          uniqueUsers.add(uid);
-          const w = Number(log.words_studied) || 0;
-          totalStudied += w;
-          totalCorrect += Number(log.words_correct) || 0;
-          userWords.set(uid, (userWords.get(uid) || 0) + w);
-        }
-
         let maxWords = 0;
-        for (const w of userWords.values()) {
+        let activeUsers = 0;
+
+        for (const r of list) {
+          if (!r.user_id) continue;
+          const w = Number(r.words) || 0;
+          if (w <= 0) continue;            // 실제로 학습한 사용자만 집계
+          activeUsers++;
+          totalStudied += w;
           if (w > maxWords) maxWords = w;
         }
 
         return json({
           date: today,
-          active_users: uniqueUsers.size,
-          total_sessions: totalSessions,
+          active_users: activeUsers,
+          total_sessions: activeUsers,
           total_words_studied: totalStudied,
-          total_words_correct: totalCorrect,
+          total_words_correct: 0,
           max_words: maxWords,
         }, 200, request);
       }
