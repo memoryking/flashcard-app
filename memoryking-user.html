@@ -2080,6 +2080,81 @@
                 return this.loadContentWords(contentId);
             }
 
+            // ===== 단어 진도 서버 동기화 (계정 단위, 기기 간 연속) =====
+            // 값 배열: [known, last_studied, first_studied, study_count, correct_count, today_date, today_count]
+
+            // 학습 이력이 있는 단어(last_studied 존재)만 직렬화
+            async serializeVocab() {
+                const all = await new Promise((resolve, reject) => {
+                    const tx = this.db.transaction(['vocab_state'], 'readonly');
+                    const req = tx.objectStore('vocab_state').getAll();
+                    req.onsuccess = () => resolve(req.result || []);
+                    req.onerror = () => reject(req.error);
+                });
+                const words = {};
+                for (const w of all) {
+                    if (!w.last_studied) continue;
+                    words[w.word] = [
+                        w.known ?? null, w.last_studied || null, w.first_studied || null,
+                        w.study_count || 0, w.correct_count || 0, w.today_date || null, w.today_count || 0
+                    ];
+                }
+                return words;
+            }
+
+            // 서버에서 받은 병합 결과를 로컬 vocab_state에 반영
+            async applyMergedVocab(words) {
+                if (!words) return 0;
+                const keys = Object.keys(words);
+                if (keys.length === 0) return 0;
+                await new Promise((resolve, reject) => {
+                    const tx = this.db.transaction(['vocab_state'], 'readwrite');
+                    const store = tx.objectStore('vocab_state');
+                    for (const k of keys) {
+                        const a = words[k];
+                        if (!Array.isArray(a)) continue;
+                        store.put({
+                            word: k,
+                            known: a[0] ?? null,
+                            last_studied: a[1] || null,
+                            first_studied: a[2] || null,
+                            study_count: a[3] || 0,
+                            correct_count: a[4] || 0,
+                            today_date: a[5] || null,
+                            today_count: a[6] || 0
+                        });
+                    }
+                    tx.oncomplete = () => resolve();
+                    tx.onerror = () => reject(tx.error);
+                });
+                return keys.length;
+            }
+
+            // 전체 진도를 서버로 보내고(push) 병합 결과를 받아 로컬에 반영(pull) — 한 번에 처리
+            async syncVocabProgress() {
+                if (!this.db || !this.authToken) return;
+                if (this._vocabSyncing) return;       // 중복 실행 방지
+                this._vocabSyncing = true;
+                try {
+                    const words = await this.serializeVocab();
+                    const res = await fetch(this.statsApiUrl + '/word-progress/sync', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + this.authToken },
+                        body: JSON.stringify({ words })
+                    });
+                    if (!res.ok) return;              // 401 등 → 다음 동기화 때 재시도
+                    const data = await res.json();
+                    if (data && data.words) {
+                        await this.applyMergedVocab(data.words);
+                        await this.updateStatBar();   // 끌어온 진도 화면 반영
+                    }
+                } catch (e) {
+                    // 오프라인 등 — 전체 스냅샷 방식이라 다음 동기화 때 자동 복구
+                } finally {
+                    this._vocabSyncing = false;
+                }
+            }
+
             // ===== Stat Bar =====
             async updateStatBar() {
                 const crown = document.getElementById('memorizedCrown');
@@ -2195,6 +2270,7 @@
 
             showQuizComplete() {
                 this.sendStudyLog();
+                this.syncVocabProgress();
                 this.fetchCommunityStats();
                 const area = document.getElementById('flashcardArea');
                 document.getElementById('choiceArea').style.display = 'none';
@@ -3755,6 +3831,9 @@
                     const data = await res.json();
                     if (!data.valid) {
                         this.logout(true);
+                    } else {
+                        // 인증 유효 → 단어 진도 동기화 (다른 기기 진도 끌어오기)
+                        this.syncVocabProgress();
                     }
                 } catch (e) {
                     // 네트워크 오류 시 기존 토큰 유지
@@ -4048,6 +4127,7 @@
                         await this.handleLogin(email, pw);
                         modal.remove();
                         this.showToast(this.userNickname + '님 환영합니다!');
+                        this.syncVocabProgress();
                     } catch (e) {
                         errEl.textContent = e.message;
                     } finally { btn.disabled = false; btn.textContent = '로그인'; }
@@ -4070,6 +4150,7 @@
                         await this.handleSignup(email, pw, nick, refCode);
                         modal.remove();
                         this.showToast(this.userNickname + '님 가입 완료!');
+                        this.syncVocabProgress();
                     } catch (e) {
                         errEl.textContent = e.message;
                     } finally { btn.disabled = false; btn.textContent = '회원가입'; }

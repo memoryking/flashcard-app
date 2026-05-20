@@ -187,6 +187,21 @@ async function ncbReadById(env, table, id) {
   return { data: Array.isArray(res?.data) ? res.data[0] : null };
 }
 
+// ── 단어 진도 병합 ────────────────────────────────────────────
+// 값 배열: [known, last_studied, first_studied, study_count, correct_count, today_date, today_count]
+// 같은 단어는 last_studied(인덱스 1)가 더 최근인 쪽을 채택
+function mergeVocab(a, b) {
+  const out = {};
+  const keys = new Set([...Object.keys(a || {}), ...Object.keys(b || {})]);
+  for (const k of keys) {
+    const va = a && a[k], vb = b && b[k];
+    if (!Array.isArray(va)) { out[k] = vb; continue; }
+    if (!Array.isArray(vb)) { out[k] = va; continue; }
+    out[k] = ((vb[1] || '') >= (va[1] || '')) ? vb : va;
+  }
+  return out;
+}
+
 // ── Airtable 회원 미러 ──────────────────────────────────────
 const AT_BASE_URL = 'https://api.airtable.com/v0';
 const AT_TABLE = 'Users';
@@ -855,6 +870,39 @@ export default {
           }
         } catch {}
         return json({ valid: false }, 200, request);
+      }
+
+      // ── POST /word-progress/sync (JWT 필수) ──────────────────
+      // 클라이언트의 전체 단어 진도를 받아 서버 데이터와 병합 후, 병합 결과를 반환.
+      // 전체 스냅샷 방식이라 한 번 실패해도 다음 호출이 자동 복구한다.
+      if (path === '/word-progress/sync' && request.method === 'POST') {
+        const auth = request.headers.get('Authorization');
+        if (!auth || !auth.startsWith('Bearer ')) return json({ error: '로그인이 필요합니다.' }, 401, request);
+        const payload = await verifyJwt(auth.slice(7), env.JWT_SECRET);
+        if (!payload) return json({ error: '인증이 만료되었습니다.' }, 401, request);
+        const userId = String(payload.sub);
+
+        const body = await request.json();
+        const incoming = (body && body.words && typeof body.words === 'object') ? body.words : {};
+
+        // 기존 서버 데이터 조회
+        const existing = await ncbSearch(env, 'user_vocab', { user_id: userId });
+        const row = (existing?.data || [])[0];
+        let serverWords = {};
+        if (row && row.data) { try { serverWords = JSON.parse(row.data); } catch {} }
+
+        // 단어별 병합 (last_studied 최신값 우선)
+        const merged = mergeVocab(serverWords, incoming);
+        const dataStr = JSON.stringify(merged);
+        const now = new Date(Date.now() + 9 * 3600000).toISOString().replace('Z', '+09:00');
+
+        if (row) {
+          await ncbUpdate(env, 'user_vocab', row.id, { data: dataStr, updated_at: now });
+        } else {
+          await ncbCreate(env, 'user_vocab', { user_id: userId, data: dataStr, updated_at: now });
+        }
+
+        return json({ words: merged }, 200, request);
       }
 
       return json({ error: 'Not found' }, 404, request);
