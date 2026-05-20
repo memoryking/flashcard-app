@@ -3414,12 +3414,12 @@
                     sections +=
                         '<div class="event-lock-section">' +
                             '<div class="event-lock-section-header open" onclick="this.classList.toggle(\'open\');this.nextElementSibling.classList.toggle(\'open\')">' +
-                                '<span>👥 공부친구 포인트</span><span class="arrow">▼</span>' +
+                                '<span>👥 포인트로 봉인 해제</span><span class="arrow">▼</span>' +
                             '</div>' +
                             '<div class="event-lock-section-body open">' +
                                 '<div class="lock-step"><span class="lock-step-num">1</span><span class="lock-step-text">아래 추천 링크를 복사해서 친구에게 보내세요</span></div>' +
                                 '<div class="lock-step"><span class="lock-step-num">2</span><span class="lock-step-text">친구가 링크로 회원가입하면 <strong>공부친구 포인트 100</strong>이 적립됩니다</span></div>' +
-                                '<div class="lock-step"><span class="lock-step-num">3</span><span class="lock-step-text">공부친구 포인트가 <strong>' + pts.toLocaleString() + ' 이상</strong> 모이면 봉인이 해제됩니다</span></div>' +
+                                '<div class="lock-step"><span class="lock-step-num">3</span><span class="lock-step-text">총 포인트(학습+공부친구)가 <strong>' + pts.toLocaleString() + ' 이상</strong>이면 봉인이 해제됩니다</span></div>' +
                                 linkBtnHtml +
                             '</div>' +
                         '</div>';
@@ -3771,8 +3771,9 @@
                         '</div>' +
                         (this.authToken ? (
                         '<div class="settings-section-title">포인트</div>' +
-                        '<div class="settings-points-row"><span>내 포인트</span><span class="pts-value" id="settingsMyPoint">-</span></div>' +
+                        '<div class="settings-points-row"><span>학습 포인트</span><span class="pts-value" id="settingsMyPoint">-</span></div>' +
                         '<div class="settings-points-row"><span>공부친구 포인트</span><span class="pts-value" id="settingsCmPoint">-</span></div>' +
+                        '<div class="settings-points-row"><span><strong>총 포인트</strong></span><span class="pts-value" id="settingsTotalPoint" style="color:#e94560;">-</span></div>' +
                         '<div class="settings-section-title">공부친구 (<span id="settingsBuddyCount">0</span>)</div>' +
                         '<div class="settings-buddy-scroll"><div id="settingsBuddyList"></div></div>' +
                         '<div class="settings-section-title">내 추천 코드</div>' +
@@ -3874,6 +3875,8 @@
 
                     if (ptEl) ptEl.textContent = (data.point || 0).toLocaleString();
                     if (cmEl) cmEl.textContent = (data.cm_point || 0).toLocaleString();
+                    const totalEl = document.getElementById('settingsTotalPoint');
+                    if (totalEl) totalEl.textContent = ((data.point || 0) + (data.cm_point || 0)).toLocaleString();
 
                     const buddies = data.buddies || [];
                     if (countEl) countEl.textContent = buddies.length;
@@ -4071,7 +4074,7 @@
                         if (locked.length === 0) return;
                         const streak = Number(statsMe.streak) || 0;
                         const streakWords = Number(statsMe.streak_words) || 0;
-                        const cmPoint = Number(statsMe.cm_point) || 0;
+                        const totalPoint = (Number(statsMe.point) || 0) + (Number(statsMe.cm_point) || 0);
                         const unlocked = [];
                         for (const c of locked) {
                             const cond = c.event_conditions;
@@ -4086,7 +4089,7 @@
                                 if (streak < needStreak || streakWords < needWords) met = false;
                             }
                             if (hasCmCond) {
-                                if (cmPoint < Number(cond.cm_point)) met = false;
+                                if (totalPoint < Number(cond.cm_point)) met = false;
                             }
                             if (met) unlocked.push(c);
                         }

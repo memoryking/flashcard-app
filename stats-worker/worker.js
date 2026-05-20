@@ -848,14 +848,14 @@ export default {
         else if (rand < 0.85) prize = 20;
         else if (rand < 0.95) prize = 50;
 
-        const oldPoint = Number(userRes.data.cm_point) || 0;
+        const oldPoint = Number(userRes.data.point) || 0;
         const newPoint = oldPoint + prize;
-        await ncbUpdate(env, 'users', payload.sub, { cm_point: newPoint, last_roulette: today });
+        await ncbUpdate(env, 'users', payload.sub, { point: newPoint, last_roulette: today });
 
-        // ── AT sync: 룰렛 결과 ──
-        syncToAirtable(ctx, env, payload.sub, { cm_point: newPoint, last_roulette: today });
+        // ── AT sync: 룰렛 결과 (학습 포인트에 적립) ──
+        syncToAirtable(ctx, env, payload.sub, { point: newPoint, last_roulette: today });
 
-        return json({ ok: true, prize, cm_point: newPoint }, 200, request);
+        return json({ ok: true, prize, point: newPoint }, 200, request);
       }
 
       // ── GET /referral/info?code=ID ─────────────────────────

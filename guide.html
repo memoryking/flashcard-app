@@ -1,6 +1,6 @@
 <script>
 /* ── 가이드 설정 (업데이트 시 이 숫자만 올리세요) ── */
-var MK_GUIDE_VERSION = '4';
+var MK_GUIDE_VERSION = '5';
 /* ── 홈 버튼에서 전달된 토큰을 localStorage에 저장 ── */
 (function(){
     var h = location.hash;
@@ -1848,7 +1848,7 @@ var MK_GUIDE_VERSION = '4';
     <table>
     <thead><tr><th>포인트</th><th>쉽게 말하면</th><th>어떻게 쌓이나요?</th></tr></thead>
     <tbody>
-    <tr><td><strong>내 포인트</strong></td><td>나의 학습량</td><td>퀴즈에서 10암기카드 학습 → 내 포인트 +10</td></tr>
+    <tr><td><strong>학습 포인트</strong></td><td>나의 학습량</td><td>퀴즈에서 10암기카드 학습 → 학습 포인트 +10 (일일 룰렛 당첨도 학습 포인트)</td></tr>
     <tr><td><strong>연속 보너스</strong></td><td>매일 빠짐없이 학습한 보상</td><td>연속 학습 시 매일 (연속일수 × 10) 포인트 추가 적립 (3일째 30P, 7일째 70P …)</td></tr>
     <tr><td><strong>공부친구 포인트</strong></td><td>친구 덕분에 받는 보상</td><td>① 추천으로 친구 가입 시 +100<br>② 공부친구가 열심히 학습할 때 추가 적립</td></tr>
     </tbody>
@@ -1931,8 +1931,8 @@ var MK_GUIDE_VERSION = '4';
         공부친구가 3명이면, 3명 각각이 100 단위를 넘을 때마다 나에게 포인트가 적립됩니다. 친구를 많이 추천할수록 포인트가 빠르게 쌓여요!
     </div>
 
-    <h3>🎁 공부친구 포인트로 뭘 할 수 있나요?</h3>
-    <p>선생님이 설정한 <strong>이벤트 콘텐츠의 봉인을 해제</strong>할 수 있습니다. 예를 들어 "공부친구 포인트 200" 조건이 걸린 콘텐츠는, 내 공부친구 포인트가 200 이상이 되면 자동으로 열립니다!</p>
+    <h3>🎁 포인트로 뭘 할 수 있나요?</h3>
+    <p>선생님이 설정한 <strong>이벤트 콘텐츠의 봉인을 해제</strong>할 수 있습니다. 봉인 해제에는 <strong>총 포인트(학습 포인트 + 공부친구 포인트)</strong>가 쓰입니다. 예를 들어 "200 포인트" 조건이 걸린 콘텐츠는, 내 총 포인트가 200 이상이 되면 자동으로 열립니다!</p>
 
     <h3>❓ 자주 묻는 질문</h3>
     <table>
@@ -1940,14 +1940,14 @@ var MK_GUIDE_VERSION = '4';
     <tbody>
     <tr><td>추천 링크 없이도 공부친구가 될 수 있나요?</td><td>아니요. 반드시 추천 링크 또는 추천 코드를 통해 가입해야 서로 공부친구가 됩니다.</td></tr>
     <tr><td>공부친구를 삭제할 수 있나요?</td><td>네. 설정(⚙) → 공부친구 목록에서 ✕ 버튼을 누르면 삭제할 수 있습니다.</td></tr>
-    <tr><td>내 포인트와 공부친구 포인트는 다른 건가요?</td><td>네! 내 포인트는 내가 공부한 양이고, 공부친구 포인트는 친구 추천 + 친구의 학습으로 받는 보상입니다.</td></tr>
+    <tr><td>학습 포인트와 공부친구 포인트는 다른 건가요?</td><td>네! 학습 포인트는 내가 공부해서 쌓는 것(+일일 룰렛), 공부친구 포인트는 친구 추천·친구의 학습으로 받는 보상입니다. 둘을 더한 것이 <strong>총 포인트</strong>이고, 총 포인트로 봉인을 해제합니다.</td></tr>
     <tr><td>공부친구 목록은 어디서 보나요?</td><td>설정(⚙) 화면 → "공부친구" 섹션에서 친구 닉네임과 수를 확인할 수 있습니다.</td></tr>
     </tbody>
     </table>
 
     <div class="g-info warn">
         <strong>설정(⚙)에서 한눈에 확인!</strong><br>
-        내 포인트, 공부친구 포인트, 공부친구 목록, 내가 추천한 친구 수, 내 추천 코드를 모두 설정 화면에서 확인할 수 있습니다.
+        학습 포인트, 공부친구 포인트, 총 포인트, 공부친구 목록, 내 추천 코드를 모두 설정 화면에서 확인할 수 있습니다.
     </div>
     <div class="g-acc-close" onclick="var d=this.closest('details');d.removeAttribute('open');d.scrollIntoView({behavior:'smooth',block:'center'})">▲ 닫기</div>
 </div>
@@ -1988,7 +1988,7 @@ var MK_GUIDE_VERSION = '4';
     <tbody>
     <tr><td><strong>연속 학습일</strong></td><td>매일 학습을 이어온 연속 일수</td><td>3일 연속</td></tr>
     <tr><td><strong>학습 단어수</strong></td><td>연속 학습 기간 동안 학습한 단어 수</td><td>200단어</td></tr>
-    <tr><td><strong>공부친구 포인트</strong></td><td>추천 보너스 + 공부친구들이 학습해서 적립된 포인트</td><td>200 포인트</td></tr>
+    <tr><td><strong>총 포인트</strong></td><td>학습 포인트 + 공부친구 포인트의 합</td><td>200 포인트</td></tr>
     </tbody>
     </table>
 
@@ -1999,8 +1999,8 @@ var MK_GUIDE_VERSION = '4';
     </div>
 
     <div class="g-info tip">
-        <strong>공부친구 포인트 조건</strong><br>
-        "공부친구 포인트 200" 조건이면, 나의 공부친구 포인트가 200 이상이어야 합니다. 공부친구 포인트는 추천 가입 보너스(건당 100)와 공부친구들이 열심히 학습할 때 자동으로 적립됩니다. 조건에 따라 연속 학습과 공부친구 포인트를 동시에 만족해야 할 수도 있고, 공부친구 포인트만으로도 해제될 수 있습니다.
+        <strong>총 포인트 조건</strong><br>
+        "200 포인트" 조건이면, 나의 총 포인트(학습 포인트 + 공부친구 포인트)가 200 이상이어야 합니다. 학습 포인트는 직접 공부해서, 공부친구 포인트는 추천·친구의 학습으로 쌓입니다. 조건에 따라 연속 학습과 포인트를 동시에 만족해야 할 수도 있고, 포인트만으로도 해제될 수 있습니다.
     </div>
 
     <h3>🎉 잠금 해제 순간</h3>
@@ -2293,7 +2293,7 @@ var MK_GUIDE_VERSION = '4';
 
             var handler = function(){
                 wheel.removeEventListener('transitionend', handler);
-                result.innerHTML = '\uD83C\uDF89 <b>' + prize + ' \uD3EC\uC778\uD2B8</b> \uB2F9\uCCA8! (\uB0B4 \uD3EC\uC778\uD2B8: ' + d.cm_point + 'pt)';
+                result.innerHTML = '\uD83C\uDF89 <b>' + prize + ' \uD3EC\uC778\uD2B8</b> \uB2F9\uCCA8! (\uD559\uC2B5 \uD3EC\uC778\uD2B8: ' + d.point + 'pt)';
                 spinning = false;
             };
             wheel.addEventListener('transitionend', handler);
