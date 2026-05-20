@@ -2171,8 +2171,8 @@ var MK_GUIDE_VERSION = '3';
                 html += '</div>';
             }
 
-            // 2x2 숫자 카드
-            html += '<div class="wr-grid">';
+            // 2x2 숫자 카드 (현재 숨김 — 나중에 display:none 제거하면 다시 표시)
+            html += '<div class="wr-grid" style="display:none">';
             html += '<div class="wr-card"><span class="wr-val">' + (d.week_words || 0) + '</span><span class="wr-label">\uC774\uBC88 \uC8FC \uD559\uC2B5 \uB2E8\uC5B4</span></div>';
             html += '<div class="wr-card"><span class="wr-val">' + (d.week_days || 0) + ' / 7</span><span class="wr-label">\uC774\uBC88 \uC8FC \uD559\uC2B5 \uC77C\uC218</span></div>';
             html += '<div class="wr-card"><span class="wr-val">' + (d.streak || 0) + '\uC77C</span><span class="wr-label">\uC5F0\uC18D \uD559\uC2B5</span></div>';
@@ -2194,6 +2194,9 @@ var MK_GUIDE_VERSION = '3';
                 }
                 html += '</div>';
             }
+
+            // 연속 학습 보너스 안내 (항상 표시)
+            html += '<div class="wr-avg">🔥 빠짐없이 <b class="avg-up">연속 학습</b>하면 매일 보너스 포인트! (연속일수 × 10P — 3일째 30P, 7일째 70P …)</div>';
 
             report.innerHTML = html;
             report.style.display = 'block';

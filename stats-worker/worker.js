@@ -912,19 +912,53 @@ export default {
           await ncbCreate(env, 'user_vocab', { user_id: userId, data: dataStr, updated_at: now });
         }
 
-        // 오늘 학습량을 daily_study에 반영 (통계·랭킹용 — 동기화 기반이라 미완료 세션도 포함)
+        // 오늘 학습량을 daily_study에 반영 + 연속 학습 보너스 포인트
         try {
           const today = new Date(Date.now() + 9 * 3600000).toISOString().slice(0, 10);
           const todayWords = computeTodayWords(merged, today);
           const found = await ncbSearch(env, 'daily_study', { user_id: userId });
-          const dsRow = (found?.data || []).find(r => r.study_date === today);
+          const myRows = found?.data || [];
+          const dsRow = myRows.find(r => r.study_date === today);
+
+          // 오늘 행 저장/갱신
+          let rowId;
           if (dsRow) {
-            await ncbUpdate(env, 'daily_study', dsRow.id, { words: todayWords });
+            rowId = dsRow.id;
+            await ncbUpdate(env, 'daily_study', rowId, { words: todayWords });
           } else {
-            await ncbCreate(env, 'daily_study', { user_id: userId, study_date: today, words: todayWords });
+            const created = await ncbCreate(env, 'daily_study', { user_id: userId, study_date: today, words: todayWords });
+            rowId = created?.id || created?.data?.id;
+          }
+
+          // 연속 학습 보너스 — 오늘 학습했고(todayWords>0) 오늘 보너스를 아직 안 줬으면 1회 지급
+          const alreadyAwarded = dsRow && Number(dsRow.bonus) > 0;
+          if (todayWords > 0 && !alreadyAwarded && rowId) {
+            // 날짜별 학습량 맵 (오늘 값은 방금 계산한 todayWords 사용)
+            const dateWords = {};
+            for (const r of myRows) {
+              if (r.study_date) dateWords[r.study_date] = Number(r.words) || 0;
+            }
+            dateWords[today] = todayWords;
+            // 오늘부터 역순으로 연속일 계산
+            let streak = 0;
+            const sd = new Date(Date.now() + 9 * 3600000);
+            while ((dateWords[sd.toISOString().slice(0, 10)] || 0) > 0) {
+              streak++;
+              sd.setDate(sd.getDate() - 1);
+            }
+            const bonus = streak * 10;   // 연속일수 × 10P
+            if (bonus > 0) {
+              await ncbUpdate(env, 'daily_study', rowId, { bonus });
+              const userRes = await ncbReadById(env, 'users', userId);
+              if (userRes.data) {
+                const newPoint = (Number(userRes.data.point) || 0) + bonus;
+                await ncbUpdate(env, 'users', userId, { point: newPoint });
+                syncToAirtable(ctx, env, userId, { point: newPoint });
+              }
+            }
           }
         } catch (e) {
-          console.error('daily_study 갱신 오류:', e);
+          console.error('daily_study/연속보너스 오류:', e);
         }
 
         return json({ words: merged }, 200, request);
