@@ -2132,6 +2132,11 @@
 
             // ===== Quiz Start =====
             async startQuiz(mode) {
+                if (!this.authToken) {
+                    this.showToast('학습하려면 로그인이 필요합니다.', 'info');
+                    this.openAuthModal();
+                    return;
+                }
                 if (!this.currentTextId) {
                     this.showToast('먼저 콘텐츠를 선택하세요', 'error');
                     return;
