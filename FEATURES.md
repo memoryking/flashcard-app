@@ -849,12 +849,29 @@ nocodebackend `daily_study` 테이블에 **사용자·날짜당 1행**으로 그
 |------|------|
 | `user_id` | 사용자 ID |
 | `study_date` | KST 날짜 (YYYY-MM-DD) |
-| `words` | 그날 학습한 카드 수 (`today_count` 합) |
+| `words` | 그날 학습한 카드 총합 (콘텐츠별 `daily_content` 합계) |
 | `bonus` | 그날 지급된 연속 학습 보너스 포인트 (지급 여부 추적용) |
 
+### daily_content 테이블 (콘텐츠별)
+통계바의 "오늘 신규 / 오늘 학습"(예: 12/28)은 콘텐츠별로 정확해야 하므로,
+별도 `daily_content` 테이블에 **사용자·날짜·콘텐츠당 1행**으로 기록한다.
+
+| 컬럼 | 설명 |
+|------|------|
+| `user_id` | 사용자 ID |
+| `study_date` | KST 날짜 |
+| `content` | 콘텐츠 제목 (기기 무관 식별자) |
+| `count` | 그날 그 콘텐츠에서 학습한 카드 수 |
+| `new_count` | 그날 그 콘텐츠에서 처음 학습 시작한 단어 수 |
+
+- 로컬은 IndexedDB v8 `daily_content` 스토어(키 = `날짜|콘텐츠제목`)에 같은 구조로 저장
+- 학습 1건마다 **현재 콘텐츠에만** +1 → 단어가 여러 콘텐츠에 겹쳐도 부풀림 없음
+- 동기화 시 오늘치 행을 주고받으며 (날짜,콘텐츠)별 **max**로 병합
+- 한 기기씩 쓰면 정확, 같은 날 두 기기 동시 학습은 큰 값 채택
+
 ### 갱신 시점
-`POST /word-progress/sync` 호출 때마다, 서버가 병합된 진도에서 오늘(`today_date`)인
-단어들의 `today_count`를 합산해 그날 행의 `words`를 갱신한다.
+`POST /word-progress/sync` 호출 때마다, 서버가 그날 `daily_content` 카운트를
+모두 합산해 `daily_study.words`를 갱신한다.
 → 동기화 기반이라 **미완료 세션도 포함**된다.
 
 ### 통계 엔드포인트는 모두 daily_study 기준
