@@ -1,0 +1,929 @@
+{
+  "openapi": "3.0.0",
+  "info": {
+    "title": "API documentation for 55910_flashcard_app",
+    "version": "1.0.0",
+    "description": "API documentation for 55910_flashcard_app"
+  },
+  "servers": [
+    {
+      "url": "https://openapi.nocodebackend.com"
+    }
+  ],
+  "paths": {
+    "/create/study_logs?Instance=55910_flashcard_app": {
+      "post": {
+        "tags": [
+          "Endpoints"
+        ],
+        "summary": "Create a new record in study_logs",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/Instance"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "user_id": {
+                    "type": "string"
+                  },
+                  "device_id": {
+                    "type": "string"
+                  },
+                  "content_name": {
+                    "type": "string"
+                  },
+                  "quiz_mode": {
+                    "type": "string"
+                  },
+                  "words_studied": {
+                    "type": "integer"
+                  },
+                  "words_correct": {
+                    "type": "integer"
+                  },
+                  "words_wrong": {
+                    "type": "integer"
+                  },
+                  "study_date": {
+                    "type": "string"
+                  },
+                  "created_at": {
+                    "type": "string"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "responses": {
+          "201": {
+            "description": "Successfully created the record",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "status": {
+                      "type": "string",
+                      "example": "success"
+                    },
+                    "message": {
+                      "type": "string",
+                      "example": "Record created successfully"
+                    },
+                    "id": {
+                      "type": "integer",
+                      "description": "ID of the newly created record"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request"
+          },
+          "500": {
+            "description": "Server error"
+          }
+        }
+      }
+    },
+    "/read/study_logs?Instance=55910_flashcard_app": {
+      "get": {
+        "tags": [
+          "Endpoints"
+        ],
+        "summary": "Retrieve all records from study_logs",
+        "description": "### Filtering and query options\n\nUse query parameters to filter results. Operators use bracket notation:\n\n| Operator | Example | Meaning |\n|---|---|---|\n| `field` | `?status=active` | Equal (default) |\n| `field[ne]` | `?status[ne]=inactive` | Not equal |\n| `field[gt]` | `?price[gt]=100` | Greater than |\n| `field[gte]` | `?date[gte]=2024-05-01` | Greater than or equal |\n| `field[lt]` | `?score[lt]=500` | Less than |\n| `field[lte]` | `?score[lte]=800` | Less than or equal |\n| `field[in]` | `?type[in]=a,b,c` | In list (comma-separated) |\n| `field[like]` | `?name[like]=john` | Partial match |\n\n**Examples**\n- `?price[gte]=100&price[lte]=200`\n- `?name[like]=john`\n- `?status=active`\n\n**Additional helpers**\n- **Pagination**: `page`, `limit` (defaults 1, 10)\n- **Totals**: `includeTotal=true` adds `total` and `totalPages`\n- **Sorting**: `sort=colA,colB`, `order=asc,desc`\n- **Single record**: `only=latest` or `only=oldest` (optional `by=column`, defaults `id`)",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/Instance"
+          }
+        ],
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successfully retrieved records",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "status": {
+                      "type": "string"
+                    },
+                    "data": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "user_id": {
+                            "type": "string"
+                          },
+                          "device_id": {
+                            "type": "string"
+                          },
+                          "content_name": {
+                            "type": "string"
+                          },
+                          "quiz_mode": {
+                            "type": "string"
+                          },
+                          "words_studied": {
+                            "type": "integer"
+                          },
+                          "words_correct": {
+                            "type": "integer"
+                          },
+                          "words_wrong": {
+                            "type": "integer"
+                          },
+                          "study_date": {
+                            "type": "string"
+                          },
+                          "created_at": {
+                            "type": "string"
+                          }
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request"
+          },
+          "500": {
+            "description": "Server error"
+          }
+        }
+      }
+    },
+    "/read/study_logs/{id}?Instance=55910_flashcard_app": {
+      "get": {
+        "tags": [
+          "Endpoints"
+        ],
+        "summary": "Retrieve a record by ID from study_logs",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/Instance"
+          },
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "type": "integer"
+            },
+            "description": "The ID of the record to retrieve"
+          }
+        ],
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successfully retrieved the record",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "status": {
+                      "type": "string"
+                    },
+                    "data": {
+                      "type": "object",
+                      "properties": {
+                        "user_id": {
+                          "type": "string"
+                        },
+                        "device_id": {
+                          "type": "string"
+                        },
+                        "content_name": {
+                          "type": "string"
+                        },
+                        "quiz_mode": {
+                          "type": "string"
+                        },
+                        "words_studied": {
+                          "type": "integer"
+                        },
+                        "words_correct": {
+                          "type": "integer"
+                        },
+                        "words_wrong": {
+                          "type": "integer"
+                        },
+                        "study_date": {
+                          "type": "string"
+                        },
+                        "created_at": {
+                          "type": "string"
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request"
+          },
+          "404": {
+            "description": "Record Not Found"
+          },
+          "500": {
+            "description": "Server error"
+          }
+        }
+      }
+    },
+    "/search/study_logs?Instance=55910_flashcard_app": {
+      "post": {
+        "tags": [
+          "Endpoints"
+        ],
+        "summary": "Search for records in study_logs",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/Instance"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "user_id": {
+                    "type": "string"
+                  },
+                  "device_id": {
+                    "type": "string"
+                  },
+                  "content_name": {
+                    "type": "string"
+                  },
+                  "quiz_mode": {
+                    "type": "string"
+                  },
+                  "words_studied": {
+                    "type": "integer"
+                  },
+                  "words_correct": {
+                    "type": "integer"
+                  },
+                  "words_wrong": {
+                    "type": "integer"
+                  },
+                  "study_date": {
+                    "type": "string"
+                  },
+                  "created_at": {
+                    "type": "string"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successfully retrieved matching records",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "status": {
+                      "type": "string"
+                    },
+                    "data": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "user_id": {
+                            "type": "string"
+                          },
+                          "device_id": {
+                            "type": "string"
+                          },
+                          "content_name": {
+                            "type": "string"
+                          },
+                          "quiz_mode": {
+                            "type": "string"
+                          },
+                          "words_studied": {
+                            "type": "integer"
+                          },
+                          "words_correct": {
+                            "type": "integer"
+                          },
+                          "words_wrong": {
+                            "type": "integer"
+                          },
+                          "study_date": {
+                            "type": "string"
+                          },
+                          "created_at": {
+                            "type": "string"
+                          }
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request"
+          },
+          "500": {
+            "description": "Server error"
+          }
+        }
+      }
+    },
+    "/update/study_logs/{id}?Instance=55910_flashcard_app": {
+      "put": {
+        "tags": [
+          "Endpoints"
+        ],
+        "summary": "Update a record in study_logs",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/Instance"
+          },
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "type": "integer"
+            },
+            "description": "The ID of the record to update"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "user_id": {
+                    "type": "string"
+                  },
+                  "device_id": {
+                    "type": "string"
+                  },
+                  "content_name": {
+                    "type": "string"
+                  },
+                  "quiz_mode": {
+                    "type": "string"
+                  },
+                  "words_studied": {
+                    "type": "integer"
+                  },
+                  "words_correct": {
+                    "type": "integer"
+                  },
+                  "words_wrong": {
+                    "type": "integer"
+                  },
+                  "study_date": {
+                    "type": "string"
+                  },
+                  "created_at": {
+                    "type": "string"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successfully updated the record"
+          },
+          "400": {
+            "description": "Bad Request"
+          },
+          "500": {
+            "description": "Server error"
+          }
+        }
+      }
+    },
+    "/delete/study_logs/{id}?Instance=55910_flashcard_app": {
+      "delete": {
+        "tags": [
+          "Endpoints"
+        ],
+        "summary": "Delete a record from study_logs",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/Instance"
+          },
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "type": "integer"
+            },
+            "description": "The ID of the record to delete"
+          }
+        ],
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successfully deleted the record"
+          },
+          "400": {
+            "description": "Bad Request"
+          },
+          "404": {
+            "description": "Record Not Found"
+          },
+          "500": {
+            "description": "Server error"
+          }
+        }
+      }
+    },
+    "/create/users?Instance=55910_flashcard_app": {
+      "post": {
+        "tags": [
+          "Endpoints"
+        ],
+        "summary": "Create a new record in users",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/Instance"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "email": {
+                    "type": "string"
+                  },
+                  "password_hash": {
+                    "type": "string"
+                  },
+                  "nickname": {
+                    "type": "string"
+                  },
+                  "created_at": {
+                    "type": "string"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "responses": {
+          "201": {
+            "description": "Successfully created the record",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "status": {
+                      "type": "string",
+                      "example": "success"
+                    },
+                    "message": {
+                      "type": "string",
+                      "example": "Record created successfully"
+                    },
+                    "id": {
+                      "type": "integer",
+                      "description": "ID of the newly created record"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request"
+          },
+          "500": {
+            "description": "Server error"
+          }
+        }
+      }
+    },
+    "/read/users?Instance=55910_flashcard_app": {
+      "get": {
+        "tags": [
+          "Endpoints"
+        ],
+        "summary": "Retrieve all records from users",
+        "description": "### Filtering and query options\n\nUse query parameters to filter results. Operators use bracket notation:\n\n| Operator | Example | Meaning |\n|---|---|---|\n| `field` | `?status=active` | Equal (default) |\n| `field[ne]` | `?status[ne]=inactive` | Not equal |\n| `field[gt]` | `?price[gt]=100` | Greater than |\n| `field[gte]` | `?date[gte]=2024-05-01` | Greater than or equal |\n| `field[lt]` | `?score[lt]=500` | Less than |\n| `field[lte]` | `?score[lte]=800` | Less than or equal |\n| `field[in]` | `?type[in]=a,b,c` | In list (comma-separated) |\n| `field[like]` | `?name[like]=john` | Partial match |\n\n**Examples**\n- `?price[gte]=100&price[lte]=200`\n- `?name[like]=john`\n- `?status=active`\n\n**Additional helpers**\n- **Pagination**: `page`, `limit` (defaults 1, 10)\n- **Totals**: `includeTotal=true` adds `total` and `totalPages`\n- **Sorting**: `sort=colA,colB`, `order=asc,desc`\n- **Single record**: `only=latest` or `only=oldest` (optional `by=column`, defaults `id`)",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/Instance"
+          }
+        ],
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successfully retrieved records",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "status": {
+                      "type": "string"
+                    },
+                    "data": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "email": {
+                            "type": "string"
+                          },
+                          "password_hash": {
+                            "type": "string"
+                          },
+                          "nickname": {
+                            "type": "string"
+                          },
+                          "created_at": {
+                            "type": "string"
+                          }
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request"
+          },
+          "500": {
+            "description": "Server error"
+          }
+        }
+      }
+    },
+    "/read/users/{id}?Instance=55910_flashcard_app": {
+      "get": {
+        "tags": [
+          "Endpoints"
+        ],
+        "summary": "Retrieve a record by ID from users",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/Instance"
+          },
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "type": "integer"
+            },
+            "description": "The ID of the record to retrieve"
+          }
+        ],
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successfully retrieved the record",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "status": {
+                      "type": "string"
+                    },
+                    "data": {
+                      "type": "object",
+                      "properties": {
+                        "email": {
+                          "type": "string"
+                        },
+                        "password_hash": {
+                          "type": "string"
+                        },
+                        "nickname": {
+                          "type": "string"
+                        },
+                        "created_at": {
+                          "type": "string"
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request"
+          },
+          "404": {
+            "description": "Record Not Found"
+          },
+          "500": {
+            "description": "Server error"
+          }
+        }
+      }
+    },
+    "/search/users?Instance=55910_flashcard_app": {
+      "post": {
+        "tags": [
+          "Endpoints"
+        ],
+        "summary": "Search for records in users",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/Instance"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "email": {
+                    "type": "string"
+                  },
+                  "password_hash": {
+                    "type": "string"
+                  },
+                  "nickname": {
+                    "type": "string"
+                  },
+                  "created_at": {
+                    "type": "string"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successfully retrieved matching records",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "status": {
+                      "type": "string"
+                    },
+                    "data": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "email": {
+                            "type": "string"
+                          },
+                          "password_hash": {
+                            "type": "string"
+                          },
+                          "nickname": {
+                            "type": "string"
+                          },
+                          "created_at": {
+                            "type": "string"
+                          }
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request"
+          },
+          "500": {
+            "description": "Server error"
+          }
+        }
+      }
+    },
+    "/update/users/{id}?Instance=55910_flashcard_app": {
+      "put": {
+        "tags": [
+          "Endpoints"
+        ],
+        "summary": "Update a record in users",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/Instance"
+          },
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "type": "integer"
+            },
+            "description": "The ID of the record to update"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "email": {
+                    "type": "string"
+                  },
+                  "password_hash": {
+                    "type": "string"
+                  },
+                  "nickname": {
+                    "type": "string"
+                  },
+                  "created_at": {
+                    "type": "string"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successfully updated the record"
+          },
+          "400": {
+            "description": "Bad Request"
+          },
+          "500": {
+            "description": "Server error"
+          }
+        }
+      }
+    },
+    "/delete/users/{id}?Instance=55910_flashcard_app": {
+      "delete": {
+        "tags": [
+          "Endpoints"
+        ],
+        "summary": "Delete a record from users",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/Instance"
+          },
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "type": "integer"
+            },
+            "description": "The ID of the record to delete"
+          }
+        ],
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successfully deleted the record"
+          },
+          "400": {
+            "description": "Bad Request"
+          },
+          "404": {
+            "description": "Record Not Found"
+          },
+          "500": {
+            "description": "Server error"
+          }
+        }
+      }
+    }
+  },
+  "components": {
+    "securitySchemes": {
+      "bearerAuth": {
+        "type": "http",
+        "scheme": "bearer",
+        "bearerFormat": "JWT"
+      }
+    },
+    "parameters": {
+      "Instance": {
+        "name": "Instance",
+        "in": "query",
+        "required": true,
+        "schema": {
+          "type": "string",
+          "default": "55910_flashcard_app"
+        },
+        "description": "Instance Name"
+      }
+    }
+  },
+  "security": [
+    {
+      "bearerAuth": []
+    }
+  ],
+  "tags": [
+    {
+      "name": "Endpoints",
+      "description": "Operations related to the API endpoints"
+    },
+    {
+      "name": "Join Endpoints",
+      "description": "Operations related to table joins"
+    }
+  ]
+}

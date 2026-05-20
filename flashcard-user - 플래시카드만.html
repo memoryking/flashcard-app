@@ -1888,6 +1888,7 @@
                     // Update top title
                     document.getElementById('topTitle').textContent = item.title;
 
+                    // Update stat bar
                     await this.updateStatBar();
 
                     // Reset stat box active states
@@ -2402,7 +2403,6 @@
                                 '</div>';
                             document.getElementById('choiceArea').style.display = 'none';
                             document.getElementById('timerBarContainer').style.display = 'none';
-                            document.getElementById('statBar').style.display = '';
                             this.updateStatBar();
                             localStorage.removeItem('lastViewedContentId');
                         }

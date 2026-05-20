@@ -1,0 +1,299 @@
+<div id="guideRoot" style="all:initial;display:block;">
+<style>
+#guideRoot, #guideRoot * { all: initial; box-sizing: border-box; font-family: inherit; color: inherit; line-height: inherit; }
+#guideRoot {
+    display: block !important;
+    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif !important;
+    background: #fff !important;
+    color: #333 !important;
+    line-height: 1.7 !important;
+    padding: 20px !important;
+    max-width: 800px !important;
+    margin: 0 auto !important;
+    position: relative !important;
+    z-index: 1 !important;
+}
+#guideRoot h1 { display:block; font-size:2em; font-weight:800; color:#1a1a2e; margin:0 0 12px 0; line-height:1.3; }
+#guideRoot h2 { display:block; font-size:1.5em; font-weight:700; color:#1a1a2e; margin:40px 0 10px 0; line-height:1.3; border-bottom:2px solid #e94560; padding-bottom:8px; }
+#guideRoot h3 { display:block; font-size:1.15em; font-weight:600; color:#333; margin:24px 0 8px 0; line-height:1.4; }
+#guideRoot p { display:block; font-size:15px; color:#555; margin:0 0 12px 0; line-height:1.7; word-break:keep-all; overflow-wrap:break-word; }
+#guideRoot strong { font-weight:700; color:#333; }
+#guideRoot em { font-style:normal; }
+#guideRoot br { display:inline; }
+
+/* Step cards */
+#guideRoot .g-step {
+    display:flex; gap:16px; align-items:flex-start;
+    background:#f8f9fb; border:1px solid #e8e8ee; border-radius:14px;
+    padding:18px; margin:12px 0;
+}
+#guideRoot .g-step-num {
+    display:flex; align-items:center; justify-content:center;
+    width:36px; height:36px; min-width:36px;
+    background:linear-gradient(135deg,#e94560,#533483); border-radius:10px;
+    color:#fff; font-weight:800; font-size:16px;
+}
+#guideRoot .g-step-body { display:block; flex:1; }
+#guideRoot .g-step-body b { display:block; font-size:15px; font-weight:600; color:#333; margin-bottom:4px; }
+#guideRoot .g-step-body span { display:block; font-size:14px; color:#666; line-height:1.6; }
+
+/* App mockup frame */
+#guideRoot .g-mock {
+    display:block; background:#1a1a2e; border-radius:14px;
+    overflow:hidden; margin:16px 0; border:1px solid #2a2a4e;
+}
+#guideRoot .g-mock-label {
+    display:block; background:#16213e; padding:8px 14px;
+    font-size:12px; color:#999; border-bottom:1px solid #2a2a4e;
+}
+#guideRoot .g-mock-body {
+    display:flex; flex-direction:column; align-items:center;
+    padding:20px; gap:12px;
+}
+
+/* Sidebar mockup */
+#guideRoot .g-sidebar {
+    display:block; background:#16213e; border-radius:10px;
+    padding:14px; width:100%; max-width:260px; border:1px solid #2a2a4e;
+}
+#guideRoot .g-sidebar-title {
+    display:flex; align-items:center; justify-content:space-between;
+    font-size:13px; font-weight:600; color:#e0e0e0; margin-bottom:10px;
+}
+#guideRoot .g-sidebar-item {
+    display:flex; align-items:center; justify-content:space-between;
+    padding:8px 10px; background:#1a1a2e; border-radius:8px; margin:6px 0;
+    font-size:12px; color:#ccc; cursor:default;
+}
+#guideRoot .g-sidebar-item .g-sidebar-badge {
+    display:inline-block; font-size:10px; color:#888; background:#2a2a4e;
+    padding:2px 6px; border-radius:6px;
+}
+
+/* Annotation */
+#guideRoot .g-anno {
+    display:block; font-size:11px; color:#e94560; font-weight:600;
+    text-align:center; margin:4px 0;
+}
+
+/* Info boxes */
+#guideRoot .g-info {
+    display:block; padding:12px 16px; margin:14px 0;
+    border-radius:0 10px 10px 0; font-size:14px; line-height:1.6;
+    word-break:keep-all; overflow-wrap:break-word;
+}
+#guideRoot .g-info.tip { background:#f0faf0; border-left:3px solid #4caf50; color:#555; }
+#guideRoot .g-info.important {
+    background:linear-gradient(135deg,#fff8e1,#fff3e0); border:2px solid #ff9800;
+    border-left:5px solid #ff9800; border-radius:12px; padding:16px 18px;
+    font-size:15px; color:#333;
+}
+#guideRoot .g-info.important strong { color:#e65100; font-size:16px; }
+
+/* Flow diagram */
+#guideRoot .g-flow {
+    display:flex; flex-direction:column; align-items:center; gap:0; margin:16px 0;
+}
+#guideRoot .g-flow-box {
+    display:block; background:#f8f9fb; border:1px solid #e0e0e0;
+    border-radius:10px; padding:10px 20px; font-size:14px; text-align:center;
+    min-width:180px; color:#333;
+}
+#guideRoot .g-flow-box.hl { border-color:#e94560; background:#fff5f5; }
+#guideRoot .g-flow-arrow { display:block; font-size:16px; color:#533483; padding:4px 0; text-align:center; }
+#guideRoot .g-flow-branch { display:flex; gap:20px; justify-content:center; }
+#guideRoot .g-flow-branch > div { display:block; text-align:center; }
+
+#guideRoot hr { display:block; border:none; height:1px; background:linear-gradient(90deg,transparent,#ddd,transparent); margin:40px 0; }
+
+@media (max-width:600px) {
+    #guideRoot { padding:14px !important; }
+    #guideRoot h1 { font-size:1.4em; }
+    #guideRoot h2 { font-size:1.2em; margin:30px 0 8px 0; }
+    #guideRoot h3 { font-size:1.05em; }
+    #guideRoot p { font-size:14px; }
+    #guideRoot hr { margin:28px 0; }
+
+    #guideRoot .g-step { flex-direction:column; gap:10px; padding:14px; margin:10px 0; }
+    #guideRoot .g-step-num { width:32px; height:32px; min-width:32px; font-size:14px; border-radius:8px; }
+    #guideRoot .g-step-body b { font-size:14px; }
+    #guideRoot .g-step-body span { font-size:13px; }
+
+    #guideRoot .g-mock { border-radius:10px; margin:12px 0; }
+    #guideRoot .g-mock-label { font-size:11px; padding:6px 10px; }
+    #guideRoot .g-mock-body { padding:14px 10px; gap:10px; }
+
+    #guideRoot .g-info { padding:10px 12px; font-size:13px; margin:10px 0; }
+    #guideRoot .g-info.important { padding:12px 14px; font-size:14px; }
+    #guideRoot .g-info.important strong { font-size:14px; }
+
+    #guideRoot .g-sidebar { max-width:100%; }
+
+    #guideRoot .g-flow-branch { flex-direction:column; align-items:center; gap:12px; }
+    #guideRoot .g-flow-box { min-width:auto; padding:8px 14px; font-size:13px; }
+}
+</style>
+
+<!-- ============================================ -->
+<!--  이미지 콘텐츠 학습법                          -->
+<!-- ============================================ -->
+
+<h1>🖼️ 이미지 콘텐츠 학습법</h1>
+<p>이미지에 가려진 영역을 터치하며 핵심 내용을 암기하는 학습법입니다.<br>
+지도, 도표, 그림 등 시각 자료에 최적화되어 있어요.</p>
+
+<!-- ====== IMAGE STEP 1 ====== -->
+<h2>STEP 1. 이미지 콘텐츠 불러오기</h2>
+
+<div class="g-mock">
+    <div class="g-mock-label">사이드바 — 이미지 콘텐츠 선택</div>
+    <div class="g-mock-body">
+        <div class="g-sidebar" style="max-width:240px;">
+            <div class="g-sidebar-title">
+                <span style="display:inline;font-size:13px;font-weight:600;color:#e0e0e0;">저장된 콘텐츠</span>
+                <span style="display:inline;font-size:16px;color:#aaa;">✕</span>
+            </div>
+            <div class="g-sidebar-item">
+                <span style="display:inline;font-size:12px;color:#ccc;">🧠 수능영단어 필수명사 380</span>
+                <span class="g-sidebar-badge">380단어</span>
+            </div>
+            <div class="g-sidebar-item" style="border:2px solid #e94560;box-shadow:0 0 8px rgba(233,69,96,0.2);">
+                <span style="display:inline;font-size:12px;color:#e0e0e0;">🖼️ 조선시대 과학 발명품</span>
+            </div>
+            <div class="g-sidebar-item">
+                <span style="display:inline;font-size:12px;color:#ccc;">🖼️ 세계지도 수도 찾기</span>
+            </div>
+        </div>
+        <div class="g-anno" style="margin-top:8px;">↑ 🖼️ 아이콘이 이미지 콘텐츠예요!</div>
+    </div>
+</div>
+
+<div class="g-step">
+    <div class="g-step-num">1</div>
+    <div class="g-step-body">
+        <b>사이드바에서 🖼️ 이미지 콘텐츠를 터치하세요.</b>
+        <span>이미지가 화면에 표시되고, 선생님이 지정한 하이라이트 영역이 가려진 상태로 나타납니다.</span>
+    </div>
+</div>
+
+<!-- ====== IMAGE STEP 2 ====== -->
+<h2>STEP 2. 가려진 영역 확인하기</h2>
+<p>이미지 위에 <strong>노란색 박스</strong>로 가려진 부분이 보여요. 이것이 암기해야 할 핵심 영역입니다.</p>
+
+<div class="g-mock">
+    <div class="g-mock-label">이미지에 가려진 하이라이트 영역</div>
+    <div class="g-mock-body" style="padding:16px;">
+        <div style="display:block;position:relative;width:280px;height:160px;background:#0d1117;border-radius:8px;overflow:hidden;">
+            <div style="display:block;position:absolute;inset:0;background:linear-gradient(135deg,#87CEEB,#B0E0E6);"></div>
+            <!-- Highlight box 1 - masked -->
+            <div style="display:flex;align-items:center;justify-content:center;position:absolute;left:30px;top:25px;width:80px;height:45px;background:rgba(255,193,7,0.6);border:3px solid #ffc107;border-radius:4px;backdrop-filter:blur(4px);font-size:10px;color:rgba(255,255,255,0.3);">?</div>
+            <!-- Highlight box 2 - masked -->
+            <div style="display:flex;align-items:center;justify-content:center;position:absolute;left:160px;top:70px;width:90px;height:50px;background:rgba(255,193,7,0.6);border:3px solid #ffc107;border-radius:4px;backdrop-filter:blur(4px);font-size:10px;color:rgba(255,255,255,0.3);">?</div>
+        </div>
+    </div>
+</div>
+
+<!-- ====== IMAGE STEP 3 ====== -->
+<h2>STEP 3. 하이라이트를 터치해서 정답 확인!</h2>
+<p>가려진 영역을 <strong>터치</strong>하면 해당 부분이 투명해지면서 원본 이미지가 보이고, 하단에 텍스트 라벨이 표시됩니다.</p>
+
+<div class="g-mock">
+    <div class="g-mock-label">하이라이트 터치 → 정답 공개</div>
+    <div class="g-mock-body" style="padding:16px;">
+        <div style="display:block;position:relative;width:280px;height:200px;background:#0d1117;border-radius:8px;overflow:hidden;">
+            <div style="display:block;position:absolute;inset:0;background:linear-gradient(135deg,#87CEEB,#B0E0E6);"></div>
+            <!-- Highlight box 1 - revealed (thin border) -->
+            <div style="display:flex;align-items:center;justify-content:center;position:absolute;left:30px;top:25px;width:80px;height:45px;background:transparent;border:1px solid rgba(255,193,7,0.5);border-radius:4px;">
+                <span style="display:block;font-size:11px;color:#a0d0a0;font-weight:600;">측우기</span>
+            </div>
+            <!-- Highlight box 2 - still masked -->
+            <div style="display:flex;align-items:center;justify-content:center;position:absolute;left:160px;top:70px;width:90px;height:50px;background:rgba(255,193,7,0.6);border:3px solid #ffc107;border-radius:4px;backdrop-filter:blur(4px);font-size:10px;color:rgba(255,255,255,0.3);">?</div>
+            <!-- Text label overlay at bottom -->
+            <div style="display:flex;align-items:center;justify-content:center;position:absolute;bottom:0;left:0;right:0;padding:10px;background:rgba(22,33,62,0.92);backdrop-filter:blur(6px);border-top:1px solid #2a2a4e;">
+                <span style="display:block;font-size:1.1em;font-weight:600;color:#ffc107;">측우기</span>
+            </div>
+        </div>
+        <div class="g-anno" style="margin-top:8px;">↑ 터치하면 가림이 풀리고 하단에 이름이 표시돼요!</div>
+    </div>
+</div>
+
+<div class="g-step">
+    <div class="g-step-num">3</div>
+    <div class="g-step-body">
+        <b>터치 → 영역이 투명해지고 텍스트가 하단에 표시</b>
+        <span>가는 실선 테두리로 어느 영역인지 계속 알 수 있어요.</span>
+    </div>
+</div>
+
+<div class="g-info tip">
+    <strong>💡 팁:</strong> 다른 곳을 터치하면 다시 가려져요. 한 번에 하나씩 확인하며 학습하세요!
+</div>
+
+<!-- ====== IMAGE STEP 4 ====== -->
+<h2>STEP 4. 더블탭으로 암기 표시!</h2>
+<p>자신 있는 영역은 <strong>빠르게 두 번 터치(더블탭)</strong>하면 초록색으로 바뀌며 "암기 완료"로 표시됩니다.</p>
+
+<div class="g-mock">
+    <div class="g-mock-label">더블탭 → 암기 완료 (초록)</div>
+    <div class="g-mock-body" style="padding:16px;">
+        <div style="display:block;position:relative;width:280px;height:160px;background:#0d1117;border-radius:8px;overflow:hidden;">
+            <div style="display:block;position:absolute;inset:0;background:linear-gradient(135deg,#87CEEB,#B0E0E6);"></div>
+            <!-- Memorized (green) -->
+            <div style="display:flex;align-items:center;justify-content:center;position:absolute;left:30px;top:25px;width:80px;height:45px;background:rgba(76,175,80,0.95);border:3px solid #43a047;border-radius:4px;backdrop-filter:blur(8px);">
+                <span style="display:block;font-size:10px;color:#fff;font-weight:600;">✓ 암기</span>
+            </div>
+            <!-- Still masked -->
+            <div style="display:flex;align-items:center;justify-content:center;position:absolute;left:160px;top:70px;width:90px;height:50px;background:rgba(255,193,7,0.6);border:3px solid #ffc107;border-radius:4px;backdrop-filter:blur(4px);font-size:10px;color:rgba(255,255,255,0.3);">?</div>
+        </div>
+    </div>
+</div>
+
+<div class="g-step">
+    <div class="g-step-num" style="background:#4caf50;">✓</div>
+    <div class="g-step-body">
+        <b>더블탭 = 암기 완료 (초록색)</b>
+        <span>확실히 아는 영역을 표시해두면, 아직 모르는 영역에 집중할 수 있어요.</span>
+    </div>
+</div>
+
+<div class="g-step">
+    <div class="g-step-num" style="background:#ff9800;">↺</div>
+    <div class="g-step-body">
+        <b>다시 터치하면 암기 해제</b>
+        <span>암기 표시된 영역을 다시 터치하면 가려진 상태로 돌아가요. 재학습이 필요할 때 사용하세요.</span>
+    </div>
+</div>
+
+<!-- ====== IMAGE STEP 5 ====== -->
+<h2>STEP 5. 학습 전략</h2>
+
+<div class="g-flow">
+    <div class="g-flow-box" style="border-color:#ffc107;">가려진 영역을 보고 내용을 떠올리기</div>
+    <div class="g-flow-arrow">↓</div>
+    <div class="g-flow-box" style="border-color:#4fc3f7;">터치해서 정답 확인 + 텍스트 라벨 읽기</div>
+    <div class="g-flow-arrow">↓</div>
+    <div class="g-flow-branch">
+        <div>
+            <div class="g-flow-arrow" style="color:#4caf50;">✓ 알면</div>
+            <div class="g-flow-box" style="border-color:#4caf50;">더블탭 → 암기 (초록)</div>
+        </div>
+        <div>
+            <div class="g-flow-arrow" style="color:#e94560;">✗ 모르면</div>
+            <div class="g-flow-box" style="border-color:#ff9800;">다시 가림 → 반복</div>
+        </div>
+    </div>
+    <div class="g-flow-arrow">↕ 반복 학습</div>
+    <div class="g-flow-box hl">모든 영역이 초록(암기)이 될 때까지 반복!</div>
+</div>
+
+<div class="g-info important">
+    <strong>이미지 학습의 핵심은 '위치 + 이름'을 함께 기억하는 것!</strong><br>
+    가려진 영역의 위치를 보고 내용을 먼저 떠올린 뒤, 터치해서 확인하세요.<br>
+    이 과정을 반복하면 시각적 기억이 만들어져 오래 남습니다.
+</div>
+
+<hr>
+
+<p style="text-align:center;color:#aaa;margin-top:40px;font-size:13px;">영리한 반복 암기 · 반복하면 반드시 외워집니다 🧠</p>
+
+</div>

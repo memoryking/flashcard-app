@@ -1,0 +1,13 @@
+name = "stats-api"
+main = "worker.js"
+compatibility_date = "2024-01-01"
+
+# 배포 후 Cloudflare Dashboard 또는 CLI에서 Secret 설정:
+#   wrangler secret put NCB_SECRET_KEY
+#   wrangler secret put JWT_SECRET
+#   wrangler secret put AIRTABLE_TOKEN   ← airtable-proxy와 같은 PAT
+#   wrangler secret put AIRTABLE_BASE    ← 같은 Base ID
+#
+# NCB_API_URL, NCB_INSTANCE는 worker.js에 하드코딩됨 (비밀 아님):
+#   https://openapi.nocodebackend.com
+#   55910_flashcard_app

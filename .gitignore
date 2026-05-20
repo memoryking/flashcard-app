@@ -1,0 +1,9 @@
+# Wrangler 로컬 캐시/상태 (자동 생성, 계정 정보 포함)
+.wrangler/
+
+# OS / 에디터
+.DS_Store
+Thumbs.db
+
+# Excel 임시 잠금 파일
+~$*

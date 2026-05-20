@@ -1,0 +1,2306 @@
+<script>
+/* ── 가이드 설정 (업데이트 시 이 숫자만 올리세요) ── */
+var MK_GUIDE_VERSION = '3';
+/* ── 홈 버튼에서 전달된 토큰을 localStorage에 저장 ── */
+(function(){
+    var h = location.hash;
+    if (h && h.indexOf('mk_token=') > -1) {
+        var t = decodeURIComponent(h.split('mk_token=')[1]);
+        if (t) try { localStorage.setItem('mk_auth_token', t); } catch(e){}
+        try { history.replaceState(null, '', location.pathname + location.search); } catch(e){}
+    }
+})();
+</script>
+
+<div id="guideRoot" style="all:initial;display:block;">
+<style>
+#guideRoot, #guideRoot * { all: initial; box-sizing: border-box; font-family: inherit; color: inherit; line-height: inherit; }
+#guideRoot {
+    display: block !important;
+    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif !important;
+    background: #fff !important;
+    color: #333 !important;
+    line-height: 1.7 !important;
+    padding: 20px !important;
+    max-width: 800px !important;
+    margin: 0 auto !important;
+    position: relative !important;
+    z-index: 1 !important;
+}
+#guideRoot h1 { display:block; font-size:2em; font-weight:800; color:#1a1a2e; margin:0 0 12px 0; line-height:1.3; }
+#guideRoot h2 { display:block; font-size:1.5em; font-weight:700; color:#1a1a2e; margin:40px 0 10px 0; line-height:1.3; border-bottom:2px solid #e94560; padding-bottom:8px; }
+#guideRoot h3 { display:block; font-size:1.15em; font-weight:600; color:#333; margin:24px 0 8px 0; line-height:1.4; }
+#guideRoot p { display:block; font-size:15px; color:#555; margin:0 0 12px 0; line-height:1.7; word-break:keep-all; overflow-wrap:break-word; }
+#guideRoot strong { font-weight:700; color:#333; }
+#guideRoot em { font-style:normal; }
+#guideRoot br { display:inline; }
+
+/* Badges */
+#guideRoot .g-badge {
+    display:inline-block; padding:3px 10px; border-radius:12px;
+    font-size:12px; font-weight:600; margin:0 2px;
+}
+#guideRoot .g-badge.red { background:#ffeaee; color:#e94560; }
+#guideRoot .g-badge.orange { background:#fff3e0; color:#e67e00; }
+#guideRoot .g-badge.green { background:#e8f5e9; color:#2e7d32; }
+#guideRoot .g-badge.blue { background:#e3f2fd; color:#1565c0; }
+
+/* Step cards */
+#guideRoot .g-step {
+    display:flex; gap:16px; align-items:flex-start;
+    background:#f8f9fb; border:1px solid #e8e8ee; border-radius:14px;
+    padding:18px; margin:12px 0;
+}
+#guideRoot .g-step-num {
+    display:flex; align-items:center; justify-content:center;
+    width:36px; height:36px; min-width:36px;
+    background:linear-gradient(135deg,#e94560,#533483); border-radius:10px;
+    color:#fff; font-weight:800; font-size:16px;
+}
+#guideRoot .g-step-body { display:block; flex:1; }
+#guideRoot .g-step-body b { display:block; font-size:15px; font-weight:600; color:#333; margin-bottom:4px; }
+#guideRoot .g-step-body span { display:block; font-size:14px; color:#666; line-height:1.6; }
+
+/* App mockup frame */
+#guideRoot .g-mock {
+    display:block; background:#1a1a2e; border-radius:14px;
+    overflow:hidden; margin:16px 0; border:1px solid #2a2a4e;
+}
+#guideRoot .g-mock-label {
+    display:block; background:#16213e; padding:8px 14px;
+    font-size:12px; color:#999; border-bottom:1px solid #2a2a4e;
+}
+#guideRoot .g-mock-body {
+    display:flex; flex-direction:column; align-items:center;
+    padding:20px; gap:12px;
+}
+
+/* Top bar mockup */
+#guideRoot .g-topbar {
+    display:flex; align-items:center; width:100%; max-width:340px;
+    background:#16213e; border-radius:8px; padding:6px 8px; gap:6px;
+}
+#guideRoot .g-topbar-btn {
+    display:flex; align-items:center; justify-content:center;
+    width:32px; height:32px; min-width:32px; background:rgba(255,255,255,0.08);
+    border-radius:6px; font-size:16px; color:#e0e0e0; cursor:default; position:relative;
+}
+#guideRoot .g-topbar-title {
+    display:block; flex:1; font-size:12px; color:#aaa; text-align:center;
+    white-space:nowrap; overflow:hidden; text-overflow:ellipsis;
+}
+#guideRoot .g-topbar-btn.highlight {
+    border:2px solid #e94560; box-shadow:0 0 8px rgba(233,69,96,0.4);
+}
+#guideRoot .g-topbar-btn .g-new-badge {
+    display:block; position:absolute; top:-4px; right:-4px;
+    background:#e94560; color:#fff; font-size:7px; font-weight:700;
+    padding:1px 3px; border-radius:4px; line-height:1.2;
+}
+
+/* Stat bar mockup */
+#guideRoot .g-stat-bar { display:flex; gap:6px; width:100%; max-width:340px; }
+#guideRoot .g-stat {
+    display:flex; flex-direction:column; align-items:center; justify-content:center;
+    flex:1; background:#16213e; border:2px solid #2a2a4e;
+    border-radius:10px; padding:8px 4px; text-align:center; min-height:70px;
+}
+#guideRoot .g-stat-n { display:block; font-size:1.4em; font-weight:700; line-height:1; }
+#guideRoot .g-stat-l { display:block; font-size:10px; color:#888; margin-top:3px; }
+#guideRoot .g-stat-sub { display:block; font-size:1em; font-weight:700; color:#4fc3f7; margin-top:4px; line-height:1; }
+#guideRoot .g-stat-subl { display:block; font-size:9px; color:#888; margin-top:2px; }
+#guideRoot .g-stat.nm .g-stat-n { color:#ff9800; }
+#guideRoot .g-stat.rm .g-stat-n { color:#e94560; }
+#guideRoot .g-stat.mm .g-stat-n { color:#4caf50; }
+
+#guideRoot .g-stat.active { border-color:#e94560; box-shadow:0 0 10px rgba(233,69,96,0.3); }
+
+/* Toggle buttons in stat */
+#guideRoot .g-toggle-wrap { display:flex; gap:3px; margin-bottom:4px; }
+#guideRoot .g-toggle-btn {
+    display:flex; align-items:center; justify-content:center;
+    padding:2px 6px; border-radius:5px; font-size:9px; font-weight:600;
+    color:#888; background:transparent; border:1px solid #333; line-height:1.2; text-align:center;
+}
+#guideRoot .g-toggle-btn.on { background:#ff9800; color:#fff; border-color:#ff9800; }
+
+/* Sidebar mockup */
+#guideRoot .g-sidebar {
+    display:block; background:#16213e; border-radius:10px;
+    padding:14px; width:100%; max-width:260px; border:1px solid #2a2a4e;
+}
+#guideRoot .g-sidebar-title {
+    display:flex; align-items:center; justify-content:space-between;
+    font-size:13px; font-weight:600; color:#e0e0e0; margin-bottom:10px;
+}
+#guideRoot .g-sidebar-item {
+    display:flex; align-items:center; justify-content:space-between;
+    padding:8px 10px; background:#1a1a2e; border-radius:8px; margin:6px 0;
+    font-size:12px; color:#ccc; cursor:default;
+}
+#guideRoot .g-sidebar-item .g-sidebar-badge {
+    display:inline-block; font-size:10px; color:#888; background:#2a2a4e;
+    padding:2px 6px; border-radius:6px;
+}
+#guideRoot .g-sidebar-import {
+    display:flex; align-items:center; justify-content:center;
+    padding:10px; background:#533483; border-radius:8px; margin-top:10px;
+    font-size:13px; font-weight:600; color:#fff; cursor:default;
+}
+
+/* Card mockup */
+#guideRoot .g-card {
+    display:flex; flex-direction:column; align-items:center; justify-content:center;
+    width:180px; height:110px; background:#16213e; border:2px solid #2a2a4e;
+    border-radius:12px;
+}
+#guideRoot .g-card-w { display:block; font-size:1.4em; font-weight:700; color:#fff; }
+#guideRoot .g-card-m { display:block; font-size:0.8em; color:#aaa; margin-top:4px; }
+
+/* Choice buttons */
+#guideRoot .g-choices { display:flex; gap:10px; }
+#guideRoot .g-choice {
+    display:flex; align-items:center; justify-content:center;
+    width:70px; height:44px; background:#16213e; border:2px solid #2a2a4e;
+    border-radius:10px; color:#e0e0e0; font-size:1.2em; font-weight:700;
+}
+
+/* Timer bar */
+#guideRoot .g-timer-bar {
+    display:block; width:180px; height:4px; background:#2a2a4e;
+    border-radius:2px; overflow:hidden;
+}
+#guideRoot .g-timer-fill {
+    display:block; width:100%; height:100%; background:linear-gradient(90deg,#e94560,#ff9800);
+    border-radius:2px; animation:gTimerShrink 3s linear infinite;
+}
+@keyframes gTimerShrink {
+    0% { width:100%; } 100% { width:0%; }
+}
+
+/* Tap demo animation */
+#guideRoot .g-tap-demo {
+    display:block; position:relative; width:140px; height:130px; margin:0 auto;
+}
+#guideRoot .g-tap-demo .g-stat {
+    position:absolute; top:0; left:10px; right:10px;
+    min-height:auto; padding:8px 4px;
+}
+#guideRoot .g-tap-finger {
+    position:absolute; font-size:28px; z-index:10;
+    animation: gTapBtn 4s ease-in-out infinite;
+    filter: drop-shadow(0 2px 4px rgba(0,0,0,0.3));
+    transform-origin: center bottom;
+}
+@keyframes gTapBtn {
+    0%   { top:95px; left:22px; opacity:0; transform:scale(1); }
+    10%  { top:95px; left:22px; opacity:1; transform:scale(1); }
+    20%  { top:40px; left:22px; transform:scale(1); }
+    28%  { top:40px; left:22px; transform:scale(0.85); }
+    34%  { top:40px; left:22px; transform:scale(1); }
+    42%  { top:62px; left:38px; transform:scale(1); }
+    48%  { top:62px; left:38px; transform:scale(0.85); }
+    54%  { top:62px; left:38px; transform:scale(1); }
+    64%  { top:95px; left:22px; opacity:1; transform:scale(1); }
+    74%  { top:95px; left:22px; opacity:0; transform:scale(1); }
+    100% { top:95px; left:22px; opacity:0; transform:scale(1); }
+}
+#guideRoot .g-tap-demo .g-toggle-btn.g-tap-highlight {
+    animation: gBtnFlash 4s ease-in-out infinite;
+}
+@keyframes gBtnFlash {
+    0%,20%  { background:transparent; color:#888; border-color:#333; }
+    28%     { background:#ff9800; color:#fff; border-color:#ff9800; }
+    64%     { background:#ff9800; color:#fff; border-color:#ff9800; }
+    74%     { background:transparent; color:#888; border-color:#333; }
+    100%    { background:transparent; color:#888; border-color:#333; }
+}
+#guideRoot .g-tap-demo .g-stat-n.g-tap-num {
+    animation: gNumFlash 4s ease-in-out infinite;
+}
+@keyframes gNumFlash {
+    0%,42%  { transform:scale(1); }
+    48%,54% { transform:scale(1.3); color:#fff; }
+    64%     { transform:scale(1); }
+    100%    { transform:scale(1); }
+}
+#guideRoot .g-tap-label {
+    display:block; font-size:11px; color:#e94560; font-weight:600;
+    text-align:center; margin-top:4px;
+}
+
+/* Fly animations */
+@keyframes gFlyR {
+    0%,40% { transform:translate(0,0) scale(1); opacity:1; }
+    80%,100% { transform:translate(90px,-100px) scale(0.2); opacity:0; }
+}
+@keyframes gFlyL {
+    0%,40% { transform:translate(0,0) scale(1); opacity:1; }
+    80%,100% { transform:translate(-90px,-100px) scale(0.2); opacity:0; }
+}
+#guideRoot .g-fly-r { animation: gFlyR 3s ease-in infinite; }
+#guideRoot .g-fly-l { animation: gFlyL 3s ease-in infinite; }
+
+@keyframes gFlash {
+    0%,30%,100% { border-color:#2a2a4e; background:#16213e; }
+    40%,60% { border-color:#ffc107; background:rgba(255,193,7,0.15); }
+}
+#guideRoot .g-flash { animation: gFlash 4s ease infinite; }
+
+@keyframes gPulse {
+    0%,100% { transform:scale(1); border-color:#2a2a4e; }
+    50% { transform:scale(1.06); border-color:#e94560; box-shadow:0 0 12px rgba(233,69,96,0.3); }
+}
+#guideRoot .g-stat.pulse { animation: gPulse 2s ease-in-out infinite; }
+
+/* Info boxes */
+#guideRoot .g-info {
+    display:block; padding:12px 16px; margin:14px 0;
+    border-radius:0 10px 10px 0; font-size:14px; line-height:1.6;
+    word-break:keep-all; overflow-wrap:break-word;
+}
+#guideRoot .g-info.warn { background:#fff5f5; border-left:3px solid #e94560; color:#555; }
+#guideRoot .g-info.tip { background:#f0faf0; border-left:3px solid #4caf50; color:#555; }
+#guideRoot .g-info.important {
+    background:linear-gradient(135deg,#fff8e1,#fff3e0); border:2px solid #ff9800;
+    border-left:5px solid #ff9800; border-radius:12px; padding:16px 18px;
+    font-size:15px; color:#333;
+}
+#guideRoot .g-info.important strong { color:#e65100; font-size:16px; }
+
+/* Settings mockup */
+#guideRoot .g-settings {
+    display:block; background:#16213e; border-radius:12px; padding:16px;
+    width:100%; max-width:280px; border:1px solid #2a2a4e;
+}
+#guideRoot .g-settings-title {
+    display:block; font-size:14px; font-weight:700; color:#e0e0e0;
+    margin-bottom:12px; text-align:center;
+}
+#guideRoot .g-settings-row {
+    display:flex; align-items:center; justify-content:space-between;
+    padding:6px 0; font-size:12px; color:#ccc;
+}
+#guideRoot .g-settings-slider {
+    display:block; width:100px; height:6px; background:#2a2a4e;
+    border-radius:3px; position:relative; margin-left:8px;
+}
+#guideRoot .g-settings-slider-fill {
+    display:block; height:100%; background:linear-gradient(90deg,#e94560,#533483);
+    border-radius:3px;
+}
+#guideRoot .g-settings-slider-thumb {
+    display:block; position:absolute; top:-5px; width:16px; height:16px;
+    background:#fff; border-radius:50%; border:2px solid #e94560;
+}
+#guideRoot .g-settings-val {
+    display:block; font-size:11px; color:#e94560; font-weight:700;
+    min-width:30px; text-align:right;
+}
+
+/* Annotation arrow / label */
+#guideRoot .g-anno {
+    display:block; font-size:11px; color:#e94560; font-weight:600;
+    text-align:center; margin:4px 0;
+}
+#guideRoot .g-anno-arrow { display:block; font-size:14px; color:#e94560; text-align:center; line-height:1; }
+
+/* Accordion / collapsible */
+#guideRoot details {
+    display:block; margin:10px 0; border:1px solid #e8e8ee;
+    border-radius:12px; overflow:hidden;
+    transition: all 0.3s ease;
+}
+#guideRoot details[open] {
+    border-color:#e94560; box-shadow:0 2px 12px rgba(233,69,96,0.08);
+}
+#guideRoot summary {
+    display:flex; align-items:center; gap:12px;
+    padding:16px 18px; cursor:pointer; font-size:15px; font-weight:600;
+    color:#1a1a2e; background:#f8f9fb; list-style:none;
+    transition: background 0.2s;
+}
+#guideRoot summary::-webkit-details-marker { display:none; }
+#guideRoot summary::before {
+    content:'▸'; display:block; font-size:14px; color:#e94560;
+    transition:transform 0.3s; min-width:14px; text-align:center;
+}
+#guideRoot details[open] > summary::before { transform:rotate(90deg); }
+#guideRoot details[open] > summary { background:#fff5f7; border-bottom:1px solid #fce4ec; }
+#guideRoot summary:hover { background:#f0f0f5; }
+#guideRoot .g-acc-icon {
+    display:flex; align-items:center; justify-content:center;
+    width:30px; height:30px; min-width:30px; border-radius:8px;
+    font-size:16px;
+}
+#guideRoot .g-acc-content {
+    display:block; padding:18px;
+}
+#guideRoot .g-acc-close {
+    display:flex; align-items:center; justify-content:center; gap:6px;
+    margin:20px auto 0 auto; padding:10px 24px;
+    background:#f8f9fb; border:1.5px solid #e94560; border-radius:10px;
+    color:#e94560; font-size:14px; font-weight:600; cursor:pointer;
+    animation:gCloseBlink 1.5s ease-in-out infinite;
+    transition:background 0.2s;
+}
+#guideRoot .g-acc-close:hover { background:#fff0f3; }
+@keyframes gCloseBlink {
+    0%,100% { opacity:1; }
+    50% { opacity:0.4; }
+}
+
+/* Table */
+#guideRoot table {
+    display:table; width:100%; border-collapse:collapse;
+    margin:14px 0; font-size:14px;
+}
+#guideRoot th {
+    display:table-cell; background:#f8f9fb; padding:10px 12px;
+    text-align:left; border-bottom:2px solid #e94560;
+    color:#e94560; font-weight:600;
+}
+#guideRoot td {
+    display:table-cell; padding:10px 12px;
+    border-bottom:1px solid #eee; color:#555; vertical-align:middle;
+}
+#guideRoot tr { display:table-row; }
+#guideRoot thead { display:table-header-group; }
+#guideRoot tbody { display:table-row-group; }
+#guideRoot tr:hover td { background:#faf8ff; }
+
+/* Flow diagram */
+#guideRoot .g-flow {
+    display:flex; flex-direction:column; align-items:center; gap:0; margin:16px 0;
+}
+#guideRoot .g-flow-box {
+    display:block; background:#f8f9fb; border:1px solid #e0e0e0;
+    border-radius:10px; padding:10px 20px; font-size:14px; text-align:center;
+    min-width:180px; color:#333;
+}
+#guideRoot .g-flow-box.hl { border-color:#e94560; background:#fff5f5; }
+#guideRoot .g-flow-arrow { display:block; font-size:16px; color:#533483; padding:4px 0; text-align:center; }
+#guideRoot .g-flow-branch { display:flex; gap:20px; justify-content:center; }
+#guideRoot .g-flow-branch > div { display:block; text-align:center; }
+
+#guideRoot hr { display:block; border:none; height:1px; background:linear-gradient(90deg,transparent,#ddd,transparent); margin:40px 0; }
+
+/* Crown glow animation */
+@keyframes gCrownGlow {
+    0%,100% { text-shadow:0 0 0 transparent; }
+    50% { text-shadow:0 0 10px rgba(255,193,7,0.6); }
+}
+#guideRoot .g-crown { animation:gCrownGlow 2s ease-in-out infinite; font-size:1.2em; }
+
+/* Distribution animation */
+@keyframes gDistR {
+    0%,20% { transform:translate(0,0) scale(1); opacity:1; }
+    60%,100% { transform:translate(80px,-70px) scale(0.3); opacity:0; }
+}
+@keyframes gDistL {
+    0%,20% { transform:translate(0,0) scale(1); opacity:1; }
+    60%,100% { transform:translate(-80px,-70px) scale(0.3); opacity:0; }
+}
+#guideRoot .g-dist {
+    display:flex; align-items:center; justify-content:center;
+    position:absolute; width:46px; height:28px; background:#16213e;
+    border-radius:5px; font-size:8px; font-weight:600;
+    top:50%; left:50%; margin-left:-23px; margin-top:-14px;
+}
+#guideRoot .g-dist.ok { border:1.5px solid #4caf50; color:#4caf50; animation:gDistR 3s ease-in infinite; }
+#guideRoot .g-dist.no { border:1.5px solid #e94560; color:#e94560; animation:gDistL 3s ease-in infinite; }
+
+/* Memorize mode card */
+#guideRoot .g-mem-card {
+    display:flex; flex-direction:column; align-items:center; justify-content:center;
+    width:200px; min-height:130px; background:#16213e; border:2px solid #2a2a4e;
+    border-radius:12px; padding:14px; cursor:pointer;
+}
+#guideRoot .g-mem-card-w { display:block; font-size:1.3em; font-weight:700; color:#fff; }
+#guideRoot .g-mem-card-m { display:block; font-size:0.9em; color:#4fc3f7; margin-top:6px; }
+#guideRoot .g-mem-card-a { display:block; font-size:0.8em; color:#aaa; margin-top:4px; }
+/* Badge pulse for menu */
+@keyframes gBadgePulse {
+    0%,100% { transform:scale(1); }
+    50% { transform:scale(1.2); }
+}
+
+/* Guide toggle button */
+#guideRoot .g-guide-toggle {
+    display: flex; align-items: center; justify-content: center; gap: 10px;
+    width: 100%; padding: 16px 20px;
+    background: linear-gradient(135deg, #f8f9fb 0%, #fff 100%);
+    border: 2px solid #e8e8ee; border-radius: 14px;
+    cursor: pointer; font-size: 16px; font-weight: 700; color: #1a1a2e;
+    transition: all 0.3s ease; margin: 20px 0 0;
+    position: relative;
+}
+#guideRoot .g-guide-toggle:hover { border-color: #e94560; background: #fff5f7; }
+#guideRoot .g-guide-toggle.open { border-color: #e94560; background: #fff5f7; border-radius: 14px 14px 0 0; margin-bottom: 0; }
+#guideRoot .g-guide-toggle .g-arrow {
+    display: inline-block; transition: transform 0.3s ease; font-size: 14px; color: #e94560;
+}
+#guideRoot .g-guide-toggle.open .g-arrow { transform: rotate(180deg); }
+#guideRoot .g-guide-new {
+    display: inline-block; padding: 2px 8px; border-radius: 8px;
+    font-size: 11px; font-weight: 700; color: #fff; background: #e94560;
+    margin-left: 6px; animation: gNewPulse 2s ease-in-out infinite;
+    vertical-align: middle; line-height: 1.4;
+}
+@keyframes gNewPulse {
+    0%,100% { opacity: 1; transform: scale(1); }
+    50% { opacity: 0.7; transform: scale(1.08); }
+}
+#guideRoot .g-guide-body {
+    display: none; border: 2px solid #e94560; border-top: none;
+    border-radius: 0 0 14px 14px; padding: 20px; background: #fff;
+    margin-bottom: 20px;
+}
+#guideRoot .g-guide-body.open { display: block; }
+
+@media (max-width:600px) {
+    #guideRoot { padding:14px !important; }
+    #guideRoot h1 { font-size:1.4em; }
+    #guideRoot h2 { font-size:1.2em; margin:30px 0 8px 0; }
+    #guideRoot h3 { font-size:1.05em; }
+    #guideRoot p { font-size:14px; }
+    #guideRoot hr { margin:28px 0; }
+
+    #guideRoot .g-step { flex-direction:column; gap:10px; padding:14px; margin:10px 0; }
+    #guideRoot .g-step-num { width:32px; height:32px; min-width:32px; font-size:14px; border-radius:8px; }
+    #guideRoot .g-step-body b { font-size:14px; }
+    #guideRoot .g-step-body span { font-size:13px; }
+
+    #guideRoot .g-mock { border-radius:10px; margin:12px 0; }
+    #guideRoot .g-mock-label { font-size:11px; padding:6px 10px; }
+    #guideRoot .g-mock-body { padding:14px 10px; gap:10px; }
+
+    #guideRoot .g-card { width:150px; height:90px; border-radius:10px; }
+    #guideRoot .g-card-w { font-size:1.2em; }
+    #guideRoot .g-card-m { font-size:0.75em; }
+    #guideRoot .g-choice { width:60px; height:38px; font-size:1.1em; border-radius:8px; }
+
+    #guideRoot .g-stat-bar { max-width:100%; }
+    #guideRoot .g-stat { padding:6px 2px; border-radius:8px; min-height:60px; }
+    #guideRoot .g-stat-n { font-size:1.2em; }
+    #guideRoot .g-stat-l { font-size:9px; }
+
+    #guideRoot .g-info { padding:10px 12px; font-size:13px; margin:10px 0; }
+    #guideRoot .g-info.important { padding:12px 14px; font-size:14px; }
+    #guideRoot .g-info.important strong { font-size:14px; }
+
+    #guideRoot table { font-size:13px; }
+    #guideRoot th { padding:8px 6px; font-size:12px; }
+    #guideRoot td { padding:8px 6px; }
+
+    #guideRoot .g-sidebar { max-width:100%; }
+    #guideRoot .g-topbar { max-width:100%; }
+    #guideRoot .g-settings { max-width:100%; }
+    #guideRoot .g-mem-card { width:170px; min-height:110px; }
+
+    #guideRoot summary { padding:14px; font-size:14px; gap:10px; }
+    #guideRoot .g-acc-icon { width:26px; height:26px; min-width:26px; font-size:14px; border-radius:6px; }
+    #guideRoot .g-acc-content { padding:14px; }
+
+    #guideRoot .g-flow-branch { flex-direction:column; align-items:center; gap:12px; }
+    #guideRoot .g-flow-box { min-width:auto; padding:8px 14px; font-size:13px; }
+
+    #guideRoot .g-badge { font-size:11px; padding:2px 8px; }
+    #guideRoot .g-dist { width:40px; height:24px; font-size:7px; margin-left:-20px; margin-top:-12px; }
+}
+
+/* Welcome CTA card */
+#guideRoot .g-welcome-card {
+    display: block;
+    background: linear-gradient(135deg, #1a1a2e 0%, #16213e 50%, #0f3460 100%);
+    border-radius: 16px;
+    padding: 28px 24px 24px;
+    margin-bottom: 20px;
+    text-align: center;
+    position: relative;
+    overflow: hidden;
+}
+#guideRoot .g-welcome-card::before {
+    content: '';
+    display: block;
+    position: absolute;
+    top: 0; left: -50%; width: 200%; height: 100%;
+    background: linear-gradient(90deg, transparent 0%, rgba(255,255,255,0.03) 40%, rgba(255,255,255,0.08) 50%, rgba(255,255,255,0.03) 60%, transparent 100%);
+    animation: gWelcomeShine 3s ease-in-out infinite;
+}
+@keyframes gWelcomeShine {
+    0% { transform: translateX(-50%); }
+    100% { transform: translateX(50%); }
+}
+#guideRoot .g-welcome-text {
+    display: block;
+    position: relative;
+    font-size: 16px;
+    font-weight: 600;
+    color: #fff;
+    line-height: 1.7;
+    margin-bottom: 6px;
+    word-break: keep-all;
+}
+#guideRoot .g-welcome-text em {
+    font-style: normal;
+    color: #ff6b6b;
+    font-weight: 800;
+}
+#guideRoot .g-welcome-sub {
+    display: block;
+    position: relative;
+    font-size: 13px;
+    color: rgba(255,255,255,0.55);
+    margin-bottom: 20px;
+    line-height: 1.5;
+}
+#guideRoot .g-welcome-buttons {
+    display: flex;
+    gap: 12px;
+    justify-content: center;
+    position: relative;
+    flex-wrap: wrap;
+}
+#guideRoot .g-welcome-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    padding: 13px 24px;
+    border-radius: 50px;
+    font-size: 15px;
+    font-weight: 700;
+    text-decoration: none;
+    cursor: pointer;
+    transition: transform 0.2s, box-shadow 0.2s;
+    border: none;
+    line-height: 1;
+}
+#guideRoot .g-welcome-btn:hover {
+    transform: translateY(-2px);
+}
+#guideRoot .g-welcome-btn.free {
+    background: linear-gradient(135deg, #4caf50, #66bb6a);
+    color: #fff;
+    box-shadow: 0 4px 16px rgba(76,175,80,0.3);
+}
+#guideRoot .g-welcome-btn.free:hover {
+    box-shadow: 0 6px 24px rgba(76,175,80,0.5);
+}
+#guideRoot .g-welcome-btn.enroll {
+    background: linear-gradient(135deg, #e94560, #ff6b6b);
+    color: #fff;
+    box-shadow: 0 4px 16px rgba(233,69,96,0.3);
+}
+#guideRoot .g-welcome-btn.enroll:hover {
+    box-shadow: 0 6px 24px rgba(233,69,96,0.5);
+}
+
+/* Roadmap steps */
+#guideRoot .g-roadmap {
+    display: block; position: relative; margin: 20px 0 6px;
+}
+#guideRoot .g-road-step {
+    display: flex; align-items: flex-start; gap: 14px;
+    position: relative; padding-bottom: 18px;
+}
+#guideRoot .g-road-step:last-child { padding-bottom: 0; }
+#guideRoot .g-road-icon {
+    display: flex; align-items: center; justify-content: center;
+    width: 36px; height: 36px; min-width: 36px;
+    border-radius: 50%; font-size: 16px;
+    position: relative; z-index: 2;
+}
+#guideRoot .g-road-icon.step1 { background: #4caf50; color: #fff; }
+#guideRoot .g-road-icon.step2 { background: #ff9800; color: #fff; }
+#guideRoot .g-road-icon.step3 { background: #e94560; color: #fff; }
+#guideRoot .g-road-line {
+    display: block; position: absolute; left: 17px; top: 36px;
+    width: 2px; bottom: 0;
+    background: linear-gradient(180deg, rgba(255,255,255,0.2), rgba(255,255,255,0.05));
+}
+#guideRoot .g-road-step:last-child .g-road-line { display: none; }
+#guideRoot .g-road-body { display: block; flex: 1; padding-top: 4px; }
+#guideRoot .g-road-title {
+    display: block; font-size: 14px; font-weight: 700; color: #fff;
+    margin-bottom: 3px; line-height: 1.4;
+}
+#guideRoot .g-road-desc {
+    display: block; font-size: 12px; color: rgba(255,255,255,0.5);
+    line-height: 1.5;
+}
+#guideRoot .g-road-badge {
+    display: inline-block; padding: 2px 8px; border-radius: 10px;
+    font-size: 10px; font-weight: 600; margin-left: 6px; vertical-align: middle;
+}
+#guideRoot .g-road-badge.green { background: rgba(76,175,80,0.2); color: #81c784; }
+#guideRoot .g-road-badge.orange { background: rgba(255,152,0,0.2); color: #ffb74d; }
+#guideRoot .g-road-badge.red { background: rgba(233,69,96,0.2); color: #ff8a9e; }
+
+/* Community banner */
+@keyframes bannerPulse {
+    0%, 100% { box-shadow: 0 0 8px rgba(233,69,96,0.2), 0 0 0 0 rgba(83,52,131,0.1); }
+    50% { box-shadow: 0 0 20px rgba(233,69,96,0.4), 0 0 40px 4px rgba(83,52,131,0.15); }
+}
+@keyframes bannerShimmer {
+    0% { background-position: -200% center; }
+    100% { background-position: 200% center; }
+}
+#guideRoot .g-community-banner {
+    display: none;
+    background: linear-gradient(135deg, #e94560, #533483, #e94560, #533483);
+    background-size: 300% 100%;
+    border-radius: 16px;
+    padding: 22px 20px;
+    text-align: center;
+    font-size: 20px;
+    font-weight: 600;
+    color: #fff;
+    margin-bottom: 20px;
+    opacity: 0;
+    transition: opacity 0.8s ease;
+    animation: bannerPulse 2.5s ease-in-out infinite, bannerShimmer 4s linear infinite;
+    line-height: 1.6;
+}
+#guideRoot .g-community-banner b {
+    color: #fff;
+    font-weight: 800;
+    font-size: 26px;
+}
+#guideRoot .g-community-banner .banner-icon {
+    display: inline;
+    font-size: 22px;
+    margin-right: 4px;
+    vertical-align: middle;
+}
+
+/* Ranking Board */
+#guideRoot .g-ranking-board {
+    display: none;
+    background: #1a1a2e;
+    border-radius: 14px;
+    padding: 18px 20px;
+    margin-bottom: 20px;
+    border: 1px solid #2a2a4e;
+}
+#guideRoot .g-ranking-board .rank-title {
+    display: block;
+    font-size: 15px;
+    font-weight: 700;
+    color: #e0e0e0;
+    margin-bottom: 12px;
+    text-align: center;
+}
+#guideRoot .g-ranking-board .rank-list {
+    display: block;
+}
+#guideRoot .g-ranking-board .rank-item {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 8px 12px;
+    border-radius: 8px;
+    margin-bottom: 4px;
+    font-size: 14px;
+    color: #ccc;
+}
+#guideRoot .g-ranking-board .rank-item:nth-child(1) { background: rgba(255,215,0,0.1); }
+#guideRoot .g-ranking-board .rank-item:nth-child(2) { background: rgba(192,192,192,0.08); }
+#guideRoot .g-ranking-board .rank-item:nth-child(3) { background: rgba(205,127,50,0.08); }
+#guideRoot .g-ranking-board .rank-medal {
+    display: inline;
+    font-size: 16px;
+    margin-right: 8px;
+    min-width: 24px;
+    text-align: center;
+}
+#guideRoot .g-ranking-board .rank-num {
+    display: inline;
+    font-size: 13px;
+    color: #888;
+    margin-right: 8px;
+    min-width: 20px;
+    text-align: center;
+}
+#guideRoot .g-ranking-board .rank-nick {
+    display: inline;
+    flex: 1;
+    font-weight: 600;
+    color: #e0e0e0;
+}
+#guideRoot .g-ranking-board .rank-words {
+    display: inline;
+    font-weight: 700;
+    color: #4fc3f7;
+    font-size: 14px;
+}
+#guideRoot .g-ranking-board .rank-empty {
+    display: block;
+    text-align: center;
+    color: #666;
+    font-size: 13px;
+    padding: 10px;
+}
+
+/* Weekly Report */
+#guideRoot .g-weekly-report {
+    display: none;
+    background: linear-gradient(135deg, #1a1a2e, #16213e);
+    border-radius: 14px;
+    padding: 18px 20px;
+    margin-bottom: 20px;
+    border: 1px solid #2a2a4e;
+}
+#guideRoot .g-weekly-report .wr-title {
+    display: block;
+    font-size: 15px;
+    font-weight: 700;
+    color: #e0e0e0;
+    margin-bottom: 14px;
+    text-align: center;
+}
+#guideRoot .g-weekly-report .wr-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 10px;
+}
+#guideRoot .g-weekly-report .wr-card {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    background: rgba(255,255,255,0.05);
+    border-radius: 10px;
+    padding: 14px 8px;
+    text-align: center;
+}
+#guideRoot .g-weekly-report .wr-val {
+    display: block;
+    font-size: 1.5em;
+    font-weight: 800;
+    color: #4fc3f7;
+    line-height: 1.2;
+}
+#guideRoot .g-weekly-report .wr-label {
+    display: block;
+    font-size: 11px;
+    color: #888;
+    margin-top: 4px;
+}
+#guideRoot .g-weekly-report .wr-card:nth-child(2) .wr-val { color: #81c784; }
+#guideRoot .g-weekly-report .wr-card:nth-child(3) .wr-val { color: #ffb74d; }
+#guideRoot .g-weekly-report .wr-card:nth-child(4) .wr-val { color: #e94560; }
+#guideRoot .g-weekly-report .wr-chart {
+    display: flex; align-items: flex-end; justify-content: center;
+    gap: 6px; height: 56px; margin: 0 auto 14px; max-width: 240px;
+}
+#guideRoot .g-weekly-report .wr-bar-wrap { display: flex; flex-direction: column; align-items: center; flex: 1; }
+#guideRoot .g-weekly-report .wr-bar {
+    width: 100%; min-height: 2px; border-radius: 3px 3px 0 0;
+    background: #4fc3f7; transition: height 0.3s ease;
+}
+#guideRoot .g-weekly-report .wr-bar.today { background: #e94560; }
+#guideRoot .g-weekly-report .wr-bar.empty { background: rgba(255,255,255,0.08); }
+#guideRoot .g-weekly-report .wr-day { font-size: 9px; color: #666; margin-top: 3px; }
+#guideRoot .g-weekly-report .wr-day.today { color: #e94560; font-weight: 700; }
+#guideRoot .g-weekly-report .wr-avg {
+    text-align: center; font-size: 12px; color: #999;
+    margin-top: 12px; padding-top: 10px;
+    border-top: 1px solid rgba(255,255,255,0.06);
+    line-height: 1.5;
+}
+#guideRoot .g-weekly-report .wr-avg b { font-weight: 700; }
+#guideRoot .g-weekly-report .wr-avg .avg-up { color: #81c784; }
+#guideRoot .g-weekly-report .wr-avg .avg-even { color: #ffb74d; }
+#guideRoot .g-weekly-report .wr-avg .avg-down { color: #4fc3f7; }
+#guideRoot .g-ranking-board .rank-me {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 10px 12px; border-radius: 8px; margin-top: 8px;
+    background: rgba(233,69,96,0.1); border: 1px solid rgba(233,69,96,0.2);
+    font-size: 14px; color: #e0e0e0;
+}
+#guideRoot .g-ranking-board .rank-me .rank-num { color: #e94560; font-weight: 700; }
+#guideRoot .g-ranking-board .rank-me .rank-nick { color: #e94560; }
+#guideRoot .g-ranking-board .rank-me .rank-pct { font-size: 11px; color: #e94560; opacity: 0.8; margin-left: 6px; }
+#guideRoot .g-ranking-board .rank-item.is-me {
+    background: rgba(233,69,96,0.12) !important;
+    border: 1px solid rgba(233,69,96,0.25);
+}
+#guideRoot .g-ranking-board .rank-item.is-me .rank-nick { color: #e94560; }
+
+/* Daily Roulette */
+#guideRoot .g-roulette {
+    display: none;
+    background: linear-gradient(135deg, #1a1a2e, #16213e);
+    border-radius: 14px;
+    padding: 18px 20px 22px;
+    margin-bottom: 20px;
+    border: 1px solid #2a2a4e;
+    text-align: center;
+}
+#guideRoot .g-roulette .rl-title {
+    display: block;
+    font-size: 15px;
+    font-weight: 700;
+    color: #e0e0e0;
+    margin-bottom: 16px;
+}
+#guideRoot .g-roulette .rl-wheel-wrap {
+    display: block;
+    position: relative;
+    width: 200px;
+    height: 200px;
+    margin: 0 auto 14px;
+}
+#guideRoot .g-roulette .rl-pointer {
+    display: block;
+    position: absolute;
+    top: -14px;
+    left: 50%;
+    transform: translateX(-50%);
+    font-size: 22px;
+    color: #fff;
+    z-index: 3;
+    filter: drop-shadow(0 2px 4px rgba(0,0,0,0.5));
+    line-height: 1;
+}
+#guideRoot .g-roulette .rl-wheel {
+    display: block;
+    width: 200px;
+    height: 200px;
+    border-radius: 50%;
+    background: conic-gradient(
+        #4fc3f7 0deg 216deg,
+        #81c784 216deg 306deg,
+        #ffb74d 306deg 342deg,
+        #e94560 342deg 360deg
+    );
+    transition: transform 3s cubic-bezier(0.17, 0.67, 0.12, 0.99);
+    position: relative;
+    box-shadow: 0 0 0 4px #2a2a4e, 0 4px 20px rgba(0,0,0,0.4);
+}
+#guideRoot .g-roulette .rl-label {
+    display: block;
+    position: absolute;
+    font-size: 13px;
+    font-weight: 700;
+    color: #1a1a2e;
+    text-shadow: 0 1px 2px rgba(255,255,255,0.3);
+}
+#guideRoot .g-roulette .rl-label.lb10 { top: 58%; right: 12%; }
+#guideRoot .g-roulette .rl-label.lb20 { top: 52%; left: 8%; }
+#guideRoot .g-roulette .rl-label.lb50 { top: 18%; left: 18%; }
+#guideRoot .g-roulette .rl-label.lb100 { top: 6%; left: 38%; font-size: 11px; }
+#guideRoot .g-roulette .rl-spin {
+    display: inline-block;
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    width: 56px;
+    height: 56px;
+    border-radius: 50%;
+    background: linear-gradient(135deg, #e94560, #c62a40);
+    color: #fff;
+    font-size: 12px;
+    font-weight: 800;
+    border: 3px solid #fff;
+    cursor: pointer;
+    z-index: 2;
+    box-shadow: 0 2px 10px rgba(233,69,96,0.4);
+    line-height: 50px;
+    text-align: center;
+    letter-spacing: -0.5px;
+}
+#guideRoot .g-roulette .rl-spin:hover { background: linear-gradient(135deg, #ff6b81, #e94560); }
+#guideRoot .g-roulette .rl-spin:disabled {
+    background: #555;
+    cursor: default;
+    border-color: #888;
+    box-shadow: none;
+}
+#guideRoot .g-roulette .rl-result {
+    display: block;
+    min-height: 22px;
+    font-size: 15px;
+    font-weight: 700;
+    color: #ffb74d;
+    margin-top: 4px;
+}
+@media (max-width: 500px) {
+    #guideRoot .g-roulette .rl-wheel-wrap { width: 180px; height: 180px; }
+    #guideRoot .g-roulette .rl-wheel { width: 180px; height: 180px; }
+    #guideRoot .g-roulette .rl-spin { width: 50px; height: 50px; line-height: 44px; font-size: 11px; }
+}
+</style>
+
+<!-- ============================================ -->
+<!--  앞부분: 처음 사용자를 위한 단계별 안내       -->
+<!-- ============================================ -->
+
+<div class="g-welcome-card">
+    <p class="g-welcome-text"><em>메모리킹</em>에 오신 것을 환영합니다!</p>
+    <p class="g-welcome-sub">나에게 맞는 단계를 확인하고 시작하세요</p>
+
+    <div class="g-roadmap">
+        <div class="g-road-step">
+            <div class="g-road-icon step1">1</div>
+            <div class="g-road-line"></div>
+            <div class="g-road-body">
+                <span class="g-road-title">처음 오신 분 <span class="g-road-badge green">START</span></span>
+                <span class="g-road-desc">아래 학습 가이드 읽기 → 무료 체험학습 이동 → 설정(⚙)에서 회원가입 (학습 통계를 위해 권장)</span>
+            </div>
+        </div>
+        <div class="g-road-step">
+            <div class="g-road-icon step2">2</div>
+            <div class="g-road-line"></div>
+            <div class="g-road-body">
+                <span class="g-road-title">무료학습을 마치신 분 <span class="g-road-badge orange">NEXT</span></span>
+                <span class="g-road-desc">수강신청 → 전체 콘텐츠 이용 가능</span>
+            </div>
+        </div>
+        <div class="g-road-step">
+            <div class="g-road-icon step3">3</div>
+            <div class="g-road-body">
+                <span class="g-road-title">유료 학습자 <span class="g-road-badge red">PRO</span></span>
+                <span class="g-road-desc">열심히 반복 연습 → 최고 실력자가 됩니다!</span>
+            </div>
+        </div>
+    </div>
+
+    <div class="g-welcome-buttons">
+        <a class="g-welcome-btn free" href="https://vipup.site/memoryking-eng-voca-hs-free" target="_top">무료 체험학습</a>
+        <a class="g-welcome-btn enroll" href="https://vipup.site/memoryking-eng-course" target="_top">수강신청</a>
+    </div>
+</div>
+
+<div class="g-community-banner" id="gCommunityBanner"></div>
+<div class="g-ranking-board" id="gRankingBoard"></div>
+<div class="g-weekly-report" id="gWeeklyReport"></div>
+<div class="g-roulette" id="gRoulette"></div>
+
+<div class="g-guide-toggle" id="gGuideToggle" onclick="(function(){ var b=document.getElementById('gGuideBody'); var t=document.getElementById('gGuideToggle'); var n=document.getElementById('gGuideNew'); if(b.classList.contains('open')){ b.classList.remove('open'); t.classList.remove('open'); } else { b.classList.add('open'); t.classList.add('open'); if(n) n.style.display='none'; try{ localStorage.setItem('mk_guide_seen', MK_GUIDE_VERSION); }catch(e){} } })()">
+    📖 앱 사용법 가이드 <span id="gGuideNew" class="g-guide-new" style="display:none;">NEW</span>
+    <span class="g-arrow">▼</span>
+</div>
+<div class="g-guide-body" id="gGuideBody">
+
+<h1>걱정하지 마세요 <span style="color:#e94560;font-size:inherit;font-weight:inherit;">메모리킹 암기법</span>, 가장 확실한 방법</h1>
+<p>맥락과 반복의 완벽한 조화 : 구분학습과 암기학습 그리고 반복<br>
+지루하지 않고 자꾸 공부하고 싶게 만드는 과학적 시스템</p>
+
+<div class="g-info important" style="margin:20px 0;">
+<strong>🔥 다른 학습자들의 실시간 학습 현황!</strong><br>
+위 배너와 랭킹에서 <strong>지금 이 순간 함께 공부하고 있는 학습자들</strong>의 활동이 실시간으로 표시됩니다. 나만 공부하는 게 아니에요!
+</div>
+
+<div class="g-info tip" style="margin:20px 0;">
+<strong>👥 추천 코드 & 공부친구 시스템</strong><br>
+친구에게 <strong>내 추천 링크</strong>를 보내거나 SNS에 공유하세요! 새 유저가 내 추천 링크를 통해 가입하면 <strong>나에게 공부친구 포인트 100</strong>이 적립되고, <strong>서로 자동으로 공부친구</strong>가 됩니다. 공부친구가 열심히 학습하면 나에게도 추가 포인트가 쌓여요! 포인트가 모이면 <strong>특별 콘텐츠의 봉인을 해제</strong>할 수 있습니다.<br>
+<span style="display:inline;font-size:12px;color:#888;">자세한 내용은 아래 '추천 코드 & 공부친구' 섹션을 확인하세요.</span>
+</div>
+
+<hr>
+
+<!-- ====== STEP 1 ====== -->
+<h2>STEP 1. 앱 화면 살펴보기</h2>
+<p>앱에 처음 들어오면 이런 화면이 보여요. 각 버튼의 위치를 먼저 확인해 보세요.</p>
+
+<div class="g-mock">
+    <div class="g-mock-label">앱 상단 화면</div>
+    <div class="g-mock-body">
+        <div class="g-topbar">
+            <div class="g-topbar-btn highlight" style="font-size:18px;">☰</div>
+            <div class="g-topbar-title">콘텐츠를 선택하세요</div>
+            <div class="g-topbar-btn" style="font-size:15px;">🏠</div>
+            <div class="g-topbar-btn" style="font-size:15px;">⚙</div>
+        </div>
+        <div class="g-anno-arrow">↑</div>
+        <div class="g-anno">☰ 메뉴 버튼을 터치하세요!</div>
+    </div>
+</div>
+
+<div class="g-step">
+    <div class="g-step-num">1</div>
+    <div class="g-step-body">
+        <b>왼쪽 위 ☰ 메뉴를 터치해요</b>
+        <span>사이드바가 열리면서 저장된 콘텐츠 목록과 "자료 불러오기" 버튼이 보입니다.</span>
+    </div>
+</div>
+
+<!-- ====== STEP 2 ====== -->
+<h2>STEP 2. 자료 불러오기</h2>
+
+<div class="g-mock">
+    <div class="g-mock-label">사이드바 화면</div>
+    <div class="g-mock-body" style="align-items:flex-start;">
+        <div class="g-sidebar">
+            <div class="g-sidebar-title">
+                <span style="display:inline;font-size:13px;font-weight:600;color:#e0e0e0;">저장된 콘텐츠</span>
+                <span style="display:inline;font-size:16px;color:#aaa;cursor:pointer;">✕</span>
+            </div>
+            <div class="g-sidebar-item" style="opacity:0.4;">
+                <span style="display:inline;font-size:12px;color:#888;">아직 콘텐츠가 없어요</span>
+            </div>
+            <div class="g-sidebar-import" style="border:2px solid #e94560;box-shadow:0 0 10px rgba(233,69,96,0.3);">📥 자료 불러오기</div>
+        </div>
+        <div class="g-anno" style="margin-top:8px;text-align:left;">↑ 이 버튼을 터치하면 서버에서 단어 데이터를 가져올 수 있어요</div>
+    </div>
+</div>
+
+<div class="g-step">
+    <div class="g-step-num">2</div>
+    <div class="g-step-body">
+        <b>"📥 자료 불러오기"를 터치해요</b>
+        <span>서버에서 학습할 수 있는 콘텐츠 목록이 나타납니다.</span>
+    </div>
+</div>
+
+<!-- ====== STEP 3 ====== -->
+<h2>STEP 3. 콘텐츠 선택하고 불러오기</h2>
+<p>콘텐츠 목록에서 원하는 항목을 체크하고 "불러오기" 버튼을 터치하면 끝!</p>
+
+<div class="g-mock">
+    <div class="g-mock-label">자료 불러오기 화면</div>
+    <div class="g-mock-body" style="align-items:stretch;padding:14px;">
+        <div style="display:block;background:#16213e;border-radius:10px;padding:12px;border:1px solid #2a2a4e;">
+            <div style="display:flex;align-items:center;gap:8px;padding:8px 0;border-bottom:1px solid #2a2a4e;">
+                <span style="display:inline;width:16px;height:16px;border:2px solid #e94560;border-radius:3px;background:#e94560;font-size:10px;color:#fff;text-align:center;line-height:14px;">✓</span>
+                <span style="display:inline;font-size:13px;color:#e0e0e0;">🧠 수능영단어 필수명사 380</span>
+                <span class="g-badge blue" style="font-size:9px;padding:1px 6px;">신규</span>
+            </div>
+            <div style="display:flex;align-items:center;gap:8px;padding:8px 0;border-bottom:1px solid #2a2a4e;">
+                <span style="display:inline;width:16px;height:16px;border:2px solid #e94560;border-radius:3px;background:#e94560;font-size:10px;color:#fff;text-align:center;line-height:14px;">✓</span>
+                <span style="display:inline;font-size:13px;color:#e0e0e0;">🧠 수능영단어 필수동사 320</span>
+                <span class="g-badge blue" style="font-size:9px;padding:1px 6px;">신규</span>
+            </div>
+            <div style="display:flex;align-items:center;gap:8px;padding:8px 0;">
+                <span style="display:inline;width:16px;height:16px;border:2px solid #444;border-radius:3px;"></span>
+                <span style="display:inline;font-size:13px;color:#888;">🧠 수능영단어 형용사 200</span>
+                <span class="g-badge" style="font-size:9px;padding:1px 6px;background:#ffcdd2;color:#c62828;">중복</span>
+            </div>
+        </div>
+        <div style="display:flex;gap:6px;margin-top:8px;flex-wrap:wrap;">
+            <span style="display:inline-block;padding:6px 12px;background:#533483;border-radius:8px;font-size:11px;color:#fff;font-weight:600;">중복 제외 선택</span>
+            <span style="display:inline-block;padding:6px 12px;background:#e94560;border-radius:8px;font-size:11px;color:#fff;font-weight:600;">불러오기 (2)</span>
+        </div>
+    </div>
+</div>
+
+<div class="g-step">
+    <div class="g-step-num">3</div>
+    <div class="g-step-body">
+        <b>원하는 콘텐츠를 선택하고 "불러오기"</b>
+        <span>"중복 제외 선택" 버튼을 누르면 아직 없는 콘텐츠만 자동으로 선택돼요. 가장 편리한 방법!</span>
+    </div>
+</div>
+
+<div class="g-info tip">
+    <strong>처음이라면?</strong> "중복 제외 선택" → "불러오기"만 누르면 됩니다!
+</div>
+
+<!-- ====== STEP 4 ====== -->
+<h2>STEP 4. 콘텐츠 터치 → 학습 준비 완료</h2>
+
+<div class="g-mock">
+    <div class="g-mock-label">콘텐츠를 선택한 후 화면</div>
+    <div class="g-mock-body">
+        <div class="g-sidebar" style="max-width:240px;">
+            <div class="g-sidebar-title">
+                <span style="display:inline;font-size:13px;font-weight:600;color:#e0e0e0;">저장된 콘텐츠</span>
+                <span style="display:inline;font-size:16px;color:#aaa;">✕</span>
+            </div>
+            <div class="g-sidebar-item" style="border:2px solid #e94560;box-shadow:0 0 8px rgba(233,69,96,0.2);">
+                <span style="display:inline;font-size:12px;color:#e0e0e0;">🧠 수능영단어 필수명사 380</span>
+                <span class="g-sidebar-badge">380단어</span>
+            </div>
+            <div class="g-sidebar-item">
+                <span style="display:inline;font-size:12px;color:#ccc;">🧠 수능영단어 필수동사 320</span>
+                <span class="g-sidebar-badge">320단어</span>
+            </div>
+        </div>
+        <div class="g-anno" style="margin-top:8px;">↑ 학습할 콘텐츠를 터치하세요!</div>
+    </div>
+</div>
+
+<div class="g-step">
+    <div class="g-step-num">4</div>
+    <div class="g-step-body">
+        <b>사이드바에서 콘텐츠를 터치하면 학습 준비 완료!</b>
+        <span>상단에 세 개의 박스(미암기 / 남은 개수 / 암기)가 숫자와 함께 나타납니다.</span>
+    </div>
+</div>
+
+<!-- ====== STEP 5 ====== -->
+<h2>STEP 5. 박스를 터치해서 학습 시작!</h2>
+<p>세 개의 박스 중 하나를 터치하면 그 그룹의 단어로 퀴즈가 시작돼요.</p>
+
+<div class="g-mock">
+    <div class="g-mock-label">3개의 학습 박스 - 터치해서 시작</div>
+    <div class="g-mock-body">
+        <div class="g-stat-bar">
+            <div class="g-stat nm">
+                <div class="g-toggle-wrap">
+                    <div class="g-toggle-btn on">구분<br>학습</div>
+                    <div class="g-toggle-btn">암기<br>학습</div>
+                </div>
+                <span class="g-stat-n">0</span>
+                <span class="g-stat-l">미암기</span>
+            </div>
+            <div class="g-stat rm pulse">
+                <span class="g-stat-n">380</span>
+                <span class="g-stat-l">남은 개수</span>
+                <span class="g-stat-sub">0 / 0</span>
+                <span class="g-stat-subl">3월19일</span>
+            </div>
+            <div class="g-stat mm">
+                <span class="g-stat-n">0</span>
+                <span class="g-stat-l">암기</span>
+            </div>
+        </div>
+        <div class="g-anno" style="margin-top:6px;">처음에는 "남은 개수" 박스에 모든 단어가 있어요.<br>남은 개수 박스를 터치하면 학습이 시작됩니다!</div>
+    </div>
+</div>
+
+<div class="g-step">
+    <div class="g-step-num" style="background:#e94560;">남</div>
+    <div class="g-step-body">
+        <b><span class="g-badge red">남은 개수</span> 아직 한 번도 안 본 단어</b>
+        <span>처음 학습할 때 여기서 시작해요. 맞으면 → 암기로, 틀리면 → 미암기로 이동합니다.</span>
+    </div>
+</div>
+<div class="g-step">
+    <div class="g-step-num" style="background:#ff9800;">미</div>
+    <div class="g-step-body">
+        <b><span class="g-badge orange">미암기</span> 틀렸던 단어 모음</b>
+        <span>틀린 단어들이 여기에 모여요. 다시 맞추면 "암기"로 올라갑니다.</span>
+    </div>
+</div>
+<div class="g-step">
+    <div class="g-step-num" style="background:#4caf50;">암</div>
+    <div class="g-step-body">
+        <b><span class="g-badge green">암기</span> 맞은 단어 모음</b>
+        <span>외운 단어들이에요. 복습에서 다시 틀리면 "미암기"로 내려갑니다.</span>
+    </div>
+</div>
+
+<!-- ====== STEP 6 ====== -->
+<h2>STEP 6. 퀴즈 풀기</h2>
+<p>단어 카드가 나오면 뜻의 첫 글자를 보고 정답을 터치하세요!</p>
+
+<div class="g-mock">
+    <div class="g-mock-label">구분학습 - 두 보기 중 정답 터치!</div>
+    <div class="g-mock-body">
+        <p style="font-size:12px;color:#888;margin:0;">3 / 10</p>
+        <div class="g-timer-bar"><div class="g-timer-fill"></div></div>
+        <div class="g-card g-flash"><span class="g-card-w">harvest</span></div>
+        <div class="g-choices">
+            <div class="g-choice g-flash">수</div>
+            <div class="g-choice">파</div>
+        </div>
+        <p style="font-size:11px;color:#666;margin:0;">↑ "harvest = 수확" → 첫 글자 "수"를 터치!</p>
+    </div>
+</div>
+
+<h3>정답이면? 틀리면?</h3>
+<p>정답이든 오답이든 카드에 <strong>단어와 뜻</strong>이 함께 표시돼요. 색상으로 결과를 바로 알 수 있습니다.</p>
+<ul style="list-style:none;padding:0;margin:0 0 12px 0;">
+    <li style="display:block;margin:4px 0;font-size:14px;"><span style="color:#4caf50;font-weight:700;">● 초록색</span> — 정답</li>
+    <li style="display:block;margin:4px 0;font-size:14px;"><span style="color:#e94560;font-weight:700;">● 빨간색</span> — 오답</li>
+    <li style="display:block;margin:4px 0;font-size:14px;"><span style="color:#ff9800;font-weight:700;">● 주황색</span> — 시간 초과 (틀린 것으로 처리)</li>
+</ul>
+<div class="g-mock">
+    <div class="g-mock-label">정답 / 오답 / 시간초과 → 뜻 색상으로 구분</div>
+    <div class="g-mock-body" style="flex-direction:row;gap:12px;flex-wrap:wrap;justify-content:center;">
+        <div style="display:block;text-align:center;">
+            <p style="font-size:11px;color:#4caf50;margin:0 0 6px 0;">정답 → 암기</p>
+            <div class="g-card g-fly-r" style="width:100px;height:70px;border-color:#4caf50;">
+                <span class="g-card-w" style="font-size:0.85em;">gust</span>
+                <span style="display:block;font-size:0.7em;color:#4caf50;margin-top:2px;">돌풍</span>
+            </div>
+        </div>
+        <div style="display:block;text-align:center;">
+            <p style="font-size:11px;color:#e94560;margin:0 0 6px 0;">오답 → 미암기</p>
+            <div class="g-card g-fly-l" style="width:100px;height:70px;border-color:#e94560;">
+                <span class="g-card-w" style="font-size:0.85em;">stall</span>
+                <span style="display:block;font-size:0.7em;color:#e94560;margin-top:2px;">지연시키다</span>
+            </div>
+        </div>
+        <div style="display:block;text-align:center;">
+            <p style="font-size:11px;color:#ff9800;margin:0 0 6px 0;">시간초과 → 미암기</p>
+            <div class="g-card g-fly-l" style="width:100px;height:70px;border-color:#ff9800;">
+                <span class="g-card-w" style="font-size:0.85em;">harvest</span>
+                <span style="display:block;font-size:0.7em;color:#ff9800;margin-top:2px;">수확</span>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- ====== STEP 7 ====== -->
+<h2>STEP 7. 완료 → 점수 → 반복!</h2>
+<p>모든 카드를 풀면 정답률과 격려 메시지가 나옵니다. 카드들이 맞은 곳과 틀린 곳으로 날아가요!</p>
+
+<div class="g-mock">
+    <div class="g-mock-label">학습 완료 → 카드 분배 애니메이션</div>
+    <div class="g-mock-body" style="min-height:180px;">
+        <div class="g-stat-bar" style="margin-bottom:14px;">
+            <div class="g-stat nm"><span class="g-stat-n" style="font-size:1.1em;">3</span><span class="g-stat-l">미암기</span></div>
+            <div class="g-stat rm"><span class="g-stat-n" style="font-size:1.1em;">0</span><span class="g-stat-l">남은 개수</span></div>
+            <div class="g-stat mm"><span class="g-stat-n" style="font-size:1.1em;">7</span><span class="g-stat-l">암기</span></div>
+        </div>
+        <div style="display:block;position:relative;width:180px;height:70px;">
+            <div class="g-dist ok" style="animation-delay:0s;">gust</div>
+            <div class="g-dist ok" style="animation-delay:0.3s;">harvest</div>
+            <div class="g-dist no" style="animation-delay:0.6s;">stall</div>
+            <div class="g-dist ok" style="animation-delay:0.9s;">famine</div>
+        </div>
+        <p style="font-size:13px;color:#ccc;margin:0;">🧠 7 / 10 — 70% 정답</p>
+        <p style="font-size:12px;color:#888;margin:0;">영리한 반복은 당신을 천재로 만듭니다</p>
+    </div>
+</div>
+
+<div class="g-flow">
+    <div class="g-flow-box" style="border-color:#e94560;"><span class="g-badge red">남은 개수</span> 처음 보는 단어</div>
+    <div class="g-flow-arrow">↓ 학습 시작</div>
+    <div class="g-flow-branch">
+        <div>
+            <div class="g-flow-arrow" style="color:#4caf50;">✓ 정답</div>
+            <div class="g-flow-box" style="border-color:#4caf50;"><span class="g-badge green">암기</span></div>
+        </div>
+        <div>
+            <div class="g-flow-arrow" style="color:#e94560;">✗ 오답</div>
+            <div class="g-flow-box" style="border-color:#ff9800;"><span class="g-badge orange">미암기</span></div>
+        </div>
+    </div>
+    <div class="g-flow-arrow">↕ 반복 학습</div>
+    <div class="g-flow-box hl">암기에서 다시 틀리면 → 미암기로 이동<br>미암기에서 맞으면 → 암기로 복귀</div>
+</div>
+
+<div class="g-info important">
+    <strong>이 과정을 반복하면 반드시 외워집니다!</strong><br>
+    처음에는 하루에 <strong>30~50개</strong>씩 신규 단어를 학습하세요.<br>
+    학습법에 익숙해지면 하루 <strong>100개 이상</strong>도 거뜬합니다!<br>
+    남은 개수에서 오늘 분량을 학습한 뒤, 미암기와 암기를 반복하세요.
+</div>
+
+<hr>
+
+<!-- ============================================ -->
+<!--  뒷부분: 세부 기능 (접이식/아코디언)          -->
+<!-- ============================================ -->
+
+<h2>세부 기능 알아보기</h2>
+<p>더 자세한 기능이 궁금하다면 아래 항목을 터치해서 펼쳐 보세요.</p>
+
+<!-- ====== 1. 왕관표시 ====== -->
+<details>
+<summary>
+    <span class="g-acc-icon" style="background:#fff8e1;">👑</span>
+    <span style="display:block;flex:1;font-size:inherit;font-weight:inherit;color:inherit;">암기박스의 왕관표시는 무엇인가요?</span>
+</summary>
+<div class="g-acc-content">
+    <p>암기박스에 <span class="g-crown">👑</span> 왕관이 나타나면, <strong>오늘 복습해야 할 단어를 모두 완료했다</strong>는 뜻이에요!</p>
+
+    <div class="g-mock">
+        <div class="g-mock-label">왕관이 나타난 상태</div>
+        <div class="g-mock-body">
+            <div class="g-stat-bar">
+                <div class="g-stat nm">
+                    <span class="g-stat-n">5</span>
+                    <span class="g-stat-l">미암기</span>
+                </div>
+                <div class="g-stat rm">
+                    <span class="g-stat-n">0</span>
+                    <span class="g-stat-l">남은 개수</span>
+                    <span class="g-stat-sub">30 / 125</span>
+                    <span class="g-stat-subl">3월19일</span>
+                </div>
+                <div class="g-stat mm">
+                    <span class="g-stat-n">120</span>
+                    <span class="g-stat-l">암기 <span class="g-crown">👑</span></span>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <h3>왕관이 나타나는 조건</h3>
+    <p>암기박스에는 우선순위가 있어요. 먼저 복습해야 할 단어부터 나옵니다.</p>
+
+    <table>
+    <thead><tr><th>순서</th><th>어떤 단어?</th><th>왜 먼저?</th></tr></thead>
+    <tbody>
+    <tr><td><strong>1순위</strong></td><td>1차 암기, 오늘 아직 안 본 것</td><td>검증이 필요한 단어</td></tr>
+    <tr><td><strong>2순위</strong></td><td>완전 암기, 3일 이상 지난 것</td><td>잊어버렸을 수 있음</td></tr>
+    <tr><td style="color:#4caf50;font-weight:600;">👑 여기부터 왕관!</td><td colspan="2" style="color:#4caf50;">1순위 + 2순위를 모두 완료하면 왕관 표시</td></tr>
+    <tr><td>3순위</td><td>완전 암기, 최근 학습</td><td>덜 급한 복습</td></tr>
+    <tr><td>4순위</td><td>1차 암기, 오늘 이미 본 것</td><td>오늘 한 번 봤으므로 나중에</td></tr>
+    </tbody>
+    </table>
+
+    <div class="g-info tip">
+        <strong>왕관이 보이면 오늘의 복습은 충분해요!</strong><br>
+        왕관 이후의 단어(3~4순위)는 여유가 있을 때 추가로 복습하면 됩니다.
+    </div>
+    <div class="g-acc-close" onclick="var d=this.closest('details');d.removeAttribute('open');d.scrollIntoView({behavior:'smooth',block:'center'})">▲ 닫기</div>
+</div>
+</details>
+
+<!-- ====== 2. 구분학습과 암기학습 ====== -->
+<details>
+<summary>
+    <span class="g-acc-icon" style="background:#fff3e0;">🔄</span>
+    <span style="display:block;flex:1;font-size:inherit;font-weight:inherit;color:inherit;">구분학습과 암기학습의 차이</span>
+</summary>
+<div class="g-acc-content">
+    <p>미암기 박스에는 두 가지 학습 모드가 있어요. 상황에 맞게 골라 쓰세요!</p>
+
+    <div class="g-mock">
+        <div class="g-mock-label">미암기 박스의 토글 버튼</div>
+        <div class="g-mock-body">
+            <div class="g-stat" style="max-width:120px;background:#16213e;padding:12px 8px;">
+                <div class="g-toggle-wrap">
+                    <div class="g-toggle-btn on">구분<br>학습</div>
+                    <div class="g-toggle-btn">암기<br>학습</div>
+                </div>
+                <span class="g-stat-n" style="color:#ff9800;">15</span>
+                <span class="g-stat-l">미암기</span>
+            </div>
+        </div>
+    </div>
+
+    <div class="g-info important">
+        <strong>👆 버튼을 누르는 방법</strong><br>
+        "구분학습" 또는 "암기학습" <strong>버튼을 먼저 터치</strong>한 뒤, 아래의 <strong>미암기 숫자 영역을 터치</strong>하면 학습이 시작됩니다. 버튼과 숫자를 <strong>따로따로</strong> 눌러주세요!
+    </div>
+
+    <div class="g-mock">
+        <div class="g-mock-label">이렇게 눌러주세요 — ① 버튼 선택 → ② 미암기 숫자 터치</div>
+        <div class="g-mock-body">
+            <div class="g-tap-demo">
+                <div class="g-stat" style="max-width:120px;background:#16213e;padding:8px 6px;">
+                    <div class="g-toggle-wrap">
+                        <div class="g-toggle-btn g-tap-highlight">구분<br>학습</div>
+                        <div class="g-toggle-btn">암기<br>학습</div>
+                    </div>
+                    <span class="g-stat-n g-tap-num" style="color:#ff9800;">15</span>
+                    <span class="g-stat-l">미암기</span>
+                </div>
+                <div class="g-tap-finger">👆</div>
+            </div>
+            <span class="g-tap-label">① 원하는 모드 버튼 터치 → ② 숫자 터치로 시작!</span>
+        </div>
+    </div>
+
+    <h3>구분학습 (테스트 모드)</h3>
+    <p>타이머가 있는 퀴즈예요. 단어를 보고 뜻의 첫 글자를 빠르게 선택!</p>
+    <div class="g-mock">
+        <div class="g-mock-label">구분학습 화면</div>
+        <div class="g-mock-body">
+            <div class="g-timer-bar"><div class="g-timer-fill"></div></div>
+            <div class="g-card"><span class="g-card-w">harvest</span></div>
+            <div class="g-choices">
+                <div class="g-choice">수</div>
+                <div class="g-choice">파</div>
+            </div>
+        </div>
+    </div>
+
+    <h3>암기학습 (보고 외우기 모드)</h3>
+    <p>타이머 없이 천천히 외울 수 있어요. 카드를 터치하면 뜻과 <strong>연결고리</strong>가 나타납니다.</p>
+    <div class="g-mock">
+        <div class="g-mock-label">암기학습 화면 - 터치하면 뜻과 연결고리가 보여요</div>
+        <div class="g-mock-body">
+            <div class="g-mem-card" id="gDemoMem2">
+                <span class="g-mem-card-w">famine</span>
+                <span class="g-mem-card-m" id="gDemoM2" style="display:none;">기근</span>
+                <span class="g-mem-card-a" id="gDemoA2" style="display:none;">fa(파)닥파닥 mine(내 것) → 기근에 내 것 파닥파닥 챙김</span>
+            </div>
+            <p style="font-size:11px;color:#666;margin:0;">↑ 터치해 보세요!</p>
+        </div>
+    </div>
+
+    <div class="g-info important">
+        <strong>🧠 연결고리를 읽고 머릿속으로 상상하세요!</strong><br>
+        연결고리는 영단어의 발음과 뜻을 연결해 주는 이미지예요.<br>
+        예: <strong>famine</strong> → "fa(파)닥파닥 mine(내 것)" → 기근에 내 것을 파닥파닥 챙기는 장면을 <strong>머릿속에 생생하게 그려보세요.</strong><br>
+        단순히 읽기만 하지 말고, <strong>3초만 눈을 감고 그 장면을 상상</strong>하면 기억에 훨씬 오래 남습니다!
+    </div>
+
+    <div class="g-info important">
+        <strong>⏰ 구분학습과 암기학습 사이에 20분 이상 간격을 두세요!</strong><br>
+        구분학습으로 테스트한 직후 바로 암기학습을 하면 효과가 떨어져요.<br>
+        20분 이상 쉬고 나서 암기학습을 하면 <strong>장기 기억</strong>으로 넘어가는 데 훨씬 효과적입니다.
+    </div>
+
+    <table>
+    <thead><tr><th></th><th>구분학습</th><th>암기학습</th></tr></thead>
+    <tbody>
+    <tr><td><strong>방식</strong></td><td>보기 2개 중 선택</td><td>카드 터치 → 뜻+연결고리 확인</td></tr>
+    <tr><td><strong>타이머</strong></td><td>있음 (기본 3초)</td><td>없음</td></tr>
+    <tr><td><strong>연결고리</strong></td><td>표시 안 됨</td><td>함께 표시 → 상상하며 암기!</td></tr>
+    <tr><td><strong>추천</strong></td><td>빠른 테스트용</td><td>처음 외울 때</td></tr>
+    </tbody>
+    </table>
+    <div class="g-acc-close" onclick="var d=this.closest('details');d.removeAttribute('open');d.scrollIntoView({behavior:'smooth',block:'center'})">▲ 닫기</div>
+</div>
+</details>
+
+<!-- ====== 3. 각 버튼의 숫자 의미 ====== -->
+<details>
+<summary>
+    <span class="g-acc-icon" style="background:#e3f2fd;">🔢</span>
+    <span style="display:block;flex:1;font-size:inherit;font-weight:inherit;color:inherit;">각 박스의 숫자는 무슨 뜻인가요?</span>
+</summary>
+<div class="g-acc-content">
+    <p>상단 3개 박스에 표시되는 숫자들의 의미를 알아볼게요.</p>
+
+    <div class="g-mock">
+        <div class="g-mock-label">각 숫자의 의미</div>
+        <div class="g-mock-body" style="gap:16px;">
+            <div class="g-stat-bar">
+                <div class="g-stat nm">
+                    <div class="g-toggle-wrap">
+                        <div class="g-toggle-btn on" style="font-size:8px;">구분<br>학습</div>
+                        <div class="g-toggle-btn" style="font-size:8px;">암기<br>학습</div>
+                    </div>
+                    <span class="g-stat-n">23</span>
+                    <span class="g-stat-l">미암기</span>
+                </div>
+                <div class="g-stat rm">
+                    <span class="g-stat-n">157</span>
+                    <span class="g-stat-l">남은 개수</span>
+                    <span class="g-stat-sub">12 / 45</span>
+                    <span class="g-stat-subl">3월19일</span>
+                </div>
+                <div class="g-stat mm">
+                    <span class="g-stat-n">200</span>
+                    <span class="g-stat-l">암기 <span class="g-crown">👑</span></span>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <table>
+    <thead><tr><th>위치</th><th>숫자</th><th>의미</th></tr></thead>
+    <tbody>
+    <tr><td><span class="g-badge orange">미암기</span></td><td style="color:#ff9800;font-weight:700;">23</td><td>틀려서 다시 풀어야 할 단어 수</td></tr>
+    <tr><td><span class="g-badge red">남은 개수</span></td><td style="color:#e94560;font-weight:700;">157</td><td>아직 한 번도 안 본 단어 수</td></tr>
+    <tr><td><span class="g-badge blue">날짜 위</span></td><td style="color:#4fc3f7;font-weight:700;">12 / 45</td><td>오늘 신규학습 / 오늘 총학습<br><span style="display:inline;font-size:12px;color:#999;">(현재 보고 있는 암기장만 — 예: "필수명사 상편"에서 오늘 학습한 횟수, 중복 학습 포함)</span></td></tr>
+    <tr><td><span class="g-badge blue">날짜</span></td><td style="color:#4fc3f7;font-weight:700;">3월19일</td><td>오늘 날짜 (매일 자동 변경)</td></tr>
+    <tr><td><span class="g-badge green">암기</span></td><td style="color:#4caf50;font-weight:700;">200</td><td>맞춰서 암기된 단어 수</td></tr>
+    <tr><td>👑</td><td></td><td>오늘 복습 완료 표시</td></tr>
+    </tbody>
+    </table>
+
+    <div class="g-info tip">
+        <strong>목표:</strong> "남은 개수"를 0으로 만들고, "미암기"도 0으로 만들면 모든 단어를 외운 거예요!
+    </div>
+    <div class="g-acc-close" onclick="var d=this.closest('details');d.removeAttribute('open');d.scrollIntoView({behavior:'smooth',block:'center'})">▲ 닫기</div>
+</div>
+</details>
+
+<!-- ====== 4. 홈버튼 ====== -->
+<details>
+<summary>
+    <span class="g-acc-icon" style="background:#e8f5e9;">🏠</span>
+    <span style="display:block;flex:1;font-size:inherit;font-weight:inherit;color:inherit;">홈 버튼</span>
+</summary>
+<div class="g-acc-content">
+    <p>상단 오른쪽의 🏠 버튼을 터치하면 메모리킹 앱 메인 페이지로 이동합니다.</p>
+
+    <div class="g-mock">
+        <div class="g-mock-label">홈 버튼 위치</div>
+        <div class="g-mock-body">
+            <div class="g-topbar">
+                <div class="g-topbar-btn" style="font-size:18px;">☰</div>
+                <div class="g-topbar-title">수능영단어 필수명사 380</div>
+                <div class="g-topbar-btn highlight" style="font-size:15px;">🏠</div>
+                <div class="g-topbar-btn" style="font-size:15px;">⚙</div>
+            </div>
+            <div class="g-anno-arrow">↑</div>
+            <div class="g-anno">이 버튼을 터치하면 메인 페이지로 이동</div>
+        </div>
+    </div>
+
+    <div class="g-info tip">
+        다른 학습 페이지로 이동하거나 메인 페이지로 돌아가고 싶을 때 사용하세요.
+    </div>
+    <div class="g-acc-close" onclick="var d=this.closest('details');d.removeAttribute('open');d.scrollIntoView({behavior:'smooth',block:'center'})">▲ 닫기</div>
+</div>
+</details>
+
+<!-- ====== 5. 메뉴버튼 ====== -->
+<details>
+<summary>
+    <span class="g-acc-icon" style="background:#f3e5f5;">☰</span>
+    <span style="display:block;flex:1;font-size:inherit;font-weight:inherit;color:inherit;">메뉴 버튼</span>
+</summary>
+<div class="g-acc-content">
+    <p>왼쪽 위 ☰ 버튼은 사이드바를 열어 콘텐츠를 관리하는 버튼이에요.</p>
+
+    <div class="g-mock">
+        <div class="g-mock-label">메뉴 버튼과 NEW 배지</div>
+        <div class="g-mock-body">
+            <div class="g-topbar">
+                <div class="g-topbar-btn highlight" style="font-size:18px;">☰<span class="g-new-badge" style="animation:gBadgePulse 2s ease-in-out infinite;">NEW</span></div>
+                <div class="g-topbar-title">수능영단어 필수명사 380</div>
+                <div class="g-topbar-btn" style="font-size:15px;">🏠</div>
+                <div class="g-topbar-btn" style="font-size:15px;">⚙</div>
+            </div>
+            <div class="g-anno-arrow">↑</div>
+            <div class="g-anno">빨간 배지가 보이면 새로운 콘텐츠가 있다는 뜻!</div>
+        </div>
+    </div>
+
+    <h3>메뉴 버튼으로 할 수 있는 것</h3>
+    <div class="g-mock">
+        <div class="g-mock-label">사이드바 기능</div>
+        <div class="g-mock-body" style="align-items:flex-start;">
+            <div class="g-sidebar">
+                <div class="g-sidebar-title">
+                    <span style="display:inline;font-size:13px;font-weight:600;color:#e0e0e0;">저장된 콘텐츠</span>
+                    <span style="display:inline;font-size:16px;color:#aaa;">✕</span>
+                </div>
+                <div class="g-sidebar-item">
+                    <span style="display:inline;font-size:12px;color:#e0e0e0;">🧠 수능영단어 필수명사 380</span>
+                    <span style="display:inline-flex;align-items:center;gap:6px;">
+                        <span class="g-sidebar-badge">380단어</span>
+                        <span style="display:inline;font-size:14px;">🗑️</span>
+                    </span>
+                </div>
+                <div class="g-sidebar-item">
+                    <span style="display:inline;font-size:12px;color:#ccc;">🧠 수능영단어 필수동사 320</span>
+                    <span style="display:inline-flex;align-items:center;gap:6px;">
+                        <span class="g-sidebar-badge">320단어</span>
+                        <span style="display:inline;font-size:14px;">🗑️</span>
+                    </span>
+                </div>
+                <div class="g-sidebar-import">📥 자료 불러오기</div>
+            </div>
+        </div>
+    </div>
+
+    <table>
+    <thead><tr><th>기능</th><th>설명</th></tr></thead>
+    <tbody>
+    <tr><td><strong>콘텐츠 선택</strong></td><td>터치하면 해당 단어장으로 학습 전환</td></tr>
+    <tr><td><strong>🗑️ 삭제</strong></td><td>콘텐츠와 학습 기록을 삭제</td></tr>
+    <tr><td><strong>📥 자료 불러오기</strong></td><td>서버에서 새 콘텐츠를 다운로드</td></tr>
+    </tbody>
+    </table>
+
+    <h3>배지 표시</h3>
+    <p>하루에 한 번, 앱이 서버에서 새로운 콘텐츠가 있는지 자동으로 확인해요.</p>
+
+    <table>
+    <thead><tr><th>배지</th><th>의미</th></tr></thead>
+    <tbody>
+    <tr><td style="color:#e94560;font-weight:700;">NEW</td><td>새로운 콘텐츠가 추가되었어요</td></tr>
+    <tr><td style="color:#e94560;font-weight:700;">UP</td><td>기존 콘텐츠의 업데이트가 있어요</td></tr>
+    <tr><td style="color:#e94560;font-weight:700;">N+U</td><td>신규 + 업데이트 둘 다 있어요</td></tr>
+    </tbody>
+    </table>
+
+    <div class="g-info tip">
+        배지가 보이면 사이드바를 열어 확인하세요. 사이드바를 열면 배지가 자동으로 사라져요.
+    </div>
+    <div class="g-acc-close" onclick="var d=this.closest('details');d.removeAttribute('open');d.scrollIntoView({behavior:'smooth',block:'center'})">▲ 닫기</div>
+</div>
+</details>
+
+<!-- ====== 6. 설정버튼 ====== -->
+<details>
+<summary>
+    <span class="g-acc-icon" style="background:#fce4ec;">⚙</span>
+    <span style="display:block;flex:1;font-size:inherit;font-weight:inherit;color:inherit;">설정 버튼</span>
+</summary>
+<div class="g-acc-content">
+    <p>오른쪽 위 ⚙ 버튼을 터치하면 학습 설정을 변경할 수 있어요.</p>
+
+    <div class="g-mock">
+        <div class="g-mock-label">설정 버튼 위치</div>
+        <div class="g-mock-body">
+            <div class="g-topbar">
+                <div class="g-topbar-btn" style="font-size:18px;">☰</div>
+                <div class="g-topbar-title">수능영단어 필수명사 380</div>
+                <div class="g-topbar-btn" style="font-size:15px;">🏠</div>
+                <div class="g-topbar-btn highlight" style="font-size:15px;">⚙</div>
+            </div>
+            <div class="g-anno-arrow">↑</div>
+            <div class="g-anno">이 버튼을 터치하면 설정 화면이 열려요</div>
+        </div>
+    </div>
+
+    <h3>설정 화면</h3>
+    <div class="g-mock">
+        <div class="g-mock-label">설정 모달</div>
+        <div class="g-mock-body">
+            <div class="g-settings">
+                <div class="g-settings-title">학습 설정</div>
+                <div class="g-settings-row">
+                    <span style="display:inline;font-size:12px;color:#ccc;">⏱ 시간 제한</span>
+                    <div class="g-settings-slider">
+                        <div class="g-settings-slider-fill" style="width:55%;"></div>
+                        <div class="g-settings-slider-thumb" style="left:calc(55% - 8px);"></div>
+                    </div>
+                    <span class="g-settings-val">3.0초</span>
+                </div>
+                <div class="g-settings-row">
+                    <span style="display:inline;font-size:12px;color:#ccc;">남은개수</span>
+                    <div class="g-settings-slider">
+                        <div class="g-settings-slider-fill" style="width:10%;"></div>
+                        <div class="g-settings-slider-thumb" style="left:calc(10% - 8px);"></div>
+                    </div>
+                    <span class="g-settings-val">10개</span>
+                </div>
+                <div class="g-settings-row">
+                    <span style="display:inline;font-size:12px;color:#ccc;">미암기</span>
+                    <div class="g-settings-slider">
+                        <div class="g-settings-slider-fill" style="width:10%;"></div>
+                        <div class="g-settings-slider-thumb" style="left:calc(10% - 8px);"></div>
+                    </div>
+                    <span class="g-settings-val">10개</span>
+                </div>
+                <div class="g-settings-row">
+                    <span style="display:inline;font-size:12px;color:#ccc;">암기</span>
+                    <div class="g-settings-slider">
+                        <div class="g-settings-slider-fill" style="width:10%;"></div>
+                        <div class="g-settings-slider-thumb" style="left:calc(10% - 8px);"></div>
+                    </div>
+                    <span class="g-settings-val">10개</span>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <table>
+    <thead><tr><th>설정 항목</th><th>범위</th><th>기본값</th><th>설명</th></tr></thead>
+    <tbody>
+    <tr><td><strong>시간 제한</strong></td><td>0.5 ~ 5.0초</td><td>3.0초</td><td>구분학습 퀴즈 제한 시간</td></tr>
+    <tr><td><strong>남은개수</strong></td><td>10 ~ 100개</td><td>10개</td><td>한 번에 풀 남은 단어 수</td></tr>
+    <tr><td><strong>미암기</strong></td><td>10 ~ 100개</td><td>10개</td><td>한 번에 풀 미암기 단어 수</td></tr>
+    <tr><td><strong>암기</strong></td><td>10 ~ 100개</td><td>10개</td><td>한 번에 복습할 암기 단어 수</td></tr>
+    </tbody>
+    </table>
+
+    <div class="g-info tip">
+        <strong>팁:</strong> 처음에는 시간 제한을 넉넉하게(3~5초) 설정하고, 익숙해지면 점점 줄여보세요. 1.5초까지 줄이면 순간 기억력이 좋아져요!
+    </div>
+    <div class="g-acc-close" onclick="var d=this.closest('details');d.removeAttribute('open');d.scrollIntoView({behavior:'smooth',block:'center'})">▲ 닫기</div>
+</div>
+</details>
+
+<!-- 이미지 콘텐츠 학습법은 image-guide.html 참조 -->
+
+
+<!-- 메모리킹 바로가기 만들기 -->
+<details>
+<summary>
+    <span class="g-acc-icon" style="background:#e3f2fd;">📲</span>
+    <span style="display:block;flex:1;font-size:inherit;font-weight:inherit;color:inherit;">메모리킹 바로가기 만들기</span>
+</summary>
+<div class="g-acc-content">
+    <p>홈 화면에 바로가기를 추가하면 <strong>앱처럼 한 번의 터치로</strong> 메모리킹을 실행할 수 있어요!</p>
+
+    <div id="shortcutAndroid">
+        <h3>Android (크롬 브라우저)</h3>
+        <div class="g-step">
+            <div class="g-step-num">1</div>
+            <div class="g-step-body">
+                <b>메뉴 열기</b>
+                <span>지금 보고 있는 이 화면에서 오른쪽 상단 <strong>⋮</strong> (점 3개) 메뉴를 터치하세요.</span>
+            </div>
+        </div>
+        <div class="g-step">
+            <div class="g-step-num">2</div>
+            <div class="g-step-body">
+                <b>"홈 화면에 추가" 선택</b>
+                <span>메뉴에서 <strong>"홈 화면에 추가"</strong>를 터치하세요.</span>
+            </div>
+        </div>
+        <div class="g-step">
+            <div class="g-step-num">3</div>
+            <div class="g-step-body">
+                <b>"설치" 선택 (권장)</b>
+                <span><strong>"설치"</strong>와 "바로가기 만들기" 두 가지가 나타납니다. <strong>"설치"를 선택하면 앱처럼 독립 실행</strong>되어 더 쾌적합니다!</span>
+            </div>
+        </div>
+    </div>
+
+    <div id="shortcutIOS" style="margin-top:24px;">
+        <h3>iPhone / iPad (Safari)</h3>
+        <div class="g-step">
+            <div class="g-step-num">1</div>
+            <div class="g-step-body">
+                <b>Safari에서 보기</b>
+                <span>지금 이 페이지를 <strong>Safari</strong>에서 보고 있어야 합니다. 다른 브라우저라면 Safari에서 <strong>vipup.site/memoryking-app</strong>을 열어주세요.</span>
+            </div>
+        </div>
+        <div class="g-step">
+            <div class="g-step-num">2</div>
+            <div class="g-step-body">
+                <b>공유 버튼 터치</b>
+                <span>하단(또는 상단)의 공유 버튼 <strong>□↑</strong> 을 터치하세요.</span>
+            </div>
+        </div>
+        <div class="g-step">
+            <div class="g-step-num">3</div>
+            <div class="g-step-body">
+                <b>"홈 화면에 추가" 선택</b>
+                <span>공유 메뉴를 아래로 스크롤하여 <strong>"홈 화면에 추가"</strong>를 터치하세요.</span>
+            </div>
+        </div>
+        <div class="g-step">
+            <div class="g-step-num">4</div>
+            <div class="g-step-body">
+                <b>"추가" 터치</b>
+                <span>이름을 확인하고 <strong>"추가"</strong>를 터치하면 홈 화면에 아이콘이 생겨요!</span>
+            </div>
+        </div>
+    </div>
+
+    <div id="shortcutPC" style="margin-top:24px;">
+        <h3>PC (크롬 브라우저)</h3>
+        <div class="g-step">
+            <div class="g-step-num">1</div>
+            <div class="g-step-body">
+                <b>메뉴 열기</b>
+                <span>크롬 오른쪽 상단 <strong>⋮</strong> (점 3개)를 클릭하세요.</span>
+            </div>
+        </div>
+        <div class="g-step">
+            <div class="g-step-num">2</div>
+            <div class="g-step-body">
+                <b>"전송, 저장, 공유" 클릭</b>
+                <span>메뉴에서 <strong>"전송, 저장, 공유"</strong>를 클릭하세요.</span>
+            </div>
+        </div>
+        <div class="g-step">
+            <div class="g-step-num">3</div>
+            <div class="g-step-body">
+                <b>"페이지를 앱으로 설치" 선택 (권장)</b>
+                <span><strong>"페이지를 앱으로 설치"</strong>를 선택하면 독립 창으로 실행되어 앱처럼 사용할 수 있습니다. "바로가기 만들기"도 가능하지만, 앱 설치가 더 편리합니다!</span>
+            </div>
+        </div>
+    </div>
+
+    <div class="g-info tip" style="margin-top:20px;">
+        <strong>팁:</strong> 앱으로 설치하면 브라우저 주소창 없이 전체 화면으로 학습할 수 있어요. 매번 브라우저를 열고 주소를 입력할 필요가 없습니다!
+    </div>
+    <div class="g-acc-close" onclick="var d=this.closest('details');d.removeAttribute('open');d.scrollIntoView({behavior:'smooth',block:'center'})">▲ 닫기</div>
+</div>
+</details>
+
+<details>
+<summary>
+    <span class="g-acc-icon" style="background:#fff3e0;">📊</span>
+    <span style="display:block;flex:1;font-size:inherit;font-weight:inherit;color:inherit;">학습 현황 기능</span>
+</summary>
+<div class="g-acc-content">
+    <p>혼자가 아닙니다! 지금 이 시간에도 다른 학습자들이 함께 공부하고 있어요.</p>
+
+    <div class="g-step">
+        <div class="g-step-num">📊</div>
+        <div class="g-step-body">
+            <b>상단 배너 — 실시간 학습 현황</b>
+            <span>이 페이지 맨 위의 반짝이는 배너에 <strong>오늘 함께 공부하는 학습자 수</strong>와 <strong>최다 학습자가 외운 단어 수</strong>가 실시간으로 표시됩니다.</span>
+        </div>
+    </div>
+    <div class="g-step">
+        <div class="g-step-num">🏆</div>
+        <div class="g-step-body">
+            <b>퀴즈 완료 후 — 커뮤니티 통계 카드</b>
+            <span>퀴즈를 끝내면 격려 메시지 아래에 <strong>"오늘 N명이 함께 공부했어요"</strong>과 함께, 로그인한 경우 <strong>오늘 나의 학습량</strong>와 <strong>연속 학습일(streak)</strong>이 표시됩니다.</span>
+        </div>
+    </div>
+    <div class="g-step">
+        <div class="g-step-num">🔥</div>
+        <div class="g-step-body">
+            <b>연속 학습 (Streak)</b>
+            <span>매일 학습하면 연속일이 쌓입니다. 하루라도 빼먹으면 <strong>1일부터 다시 시작</strong>되니, 매일 조금씩이라도 학습해 보세요!</span>
+        </div>
+    </div>
+
+    <div class="g-info tip" style="margin-top:16px;">
+        <strong>숫자 의미:</strong><br>
+        · <strong>N명이 함께 공부했어요</strong> — 오늘 학습한 전체 사용자 수<br>
+        · <strong>최다 N단어</strong> — 오늘 가장 많이 학습한 사람의 단어 수<br>
+        · <strong>오늘 나의 학습량</strong> — 모든 콘텐츠(필수명사 상·하편, 필수동사, 테마별 등)에서 학습한 단어를 합산한 수치입니다. 같은 단어를 반복 학습한 횟수도 포함되므로, 많이 반복할수록 숫자가 올라갑니다! (오프라인 학습한 량 제외)
+    </div>
+    <div class="g-acc-close" onclick="var d=this.closest('details');d.removeAttribute('open');d.scrollIntoView({behavior:'smooth',block:'center'})">▲ 닫기</div>
+</div>
+</details>
+
+<!-- ====== 추천 코드 & 공부친구 ====== -->
+<details>
+<summary>
+    <span class="g-acc-icon" style="background:#e3f2fd;">👥</span>
+    <span style="display:block;flex:1;font-size:inherit;font-weight:inherit;color:inherit;">추천 코드 & 공부친구 시스템</span>
+</summary>
+<div class="g-acc-content">
+    <p>내 <strong>추천 링크</strong>를 친구에게 보내거나 SNS에 공유하세요! 새 유저가 가입하면 <strong>나에게 보너스 포인트</strong>가 적립되고, <strong>서로 자동으로 공부친구</strong>가 됩니다.</p>
+
+    <h3>🤝 공부친구란?</h3>
+    <p><strong>공부친구</strong>는 내 추천 링크(또는 추천 코드)로 가입한 친구입니다. 서로 자동으로 공부친구가 되며, 친구가 열심히 공부하면 <strong>나에게도 포인트가 쌓이는</strong> 구조예요. 설정(⚙) 화면에서 내 공부친구 목록과 각 친구의 닉네임을 확인할 수 있습니다.</p>
+
+    <h3>📌 포인트란?</h3>
+    <table>
+    <thead><tr><th>포인트</th><th>쉽게 말하면</th><th>어떻게 쌓이나요?</th></tr></thead>
+    <tbody>
+    <tr><td><strong>내 포인트</strong></td><td>나의 학습량</td><td>내가 퀴즈에서 10단어 학습 → 내 포인트 +10</td></tr>
+    <tr><td><strong>공부친구 포인트</strong></td><td>친구 덕분에 받는 보상</td><td>① 추천으로 친구 가입 시 +100<br>② 공부친구가 열심히 학습할 때 추가 적립</td></tr>
+    </tbody>
+    </table>
+
+    <h3>🔗 방법 1: 친구에게 추천 링크 보내기</h3>
+    <div class="g-step">
+        <div class="g-step-num">1</div>
+        <div class="g-step-body">
+            <b>설정(⚙) 열기</b>
+            <span>오른쪽 상단 ⚙ 버튼을 터치합니다. (로그인 필수)</span>
+        </div>
+    </div>
+    <div class="g-step">
+        <div class="g-step-num">2</div>
+        <div class="g-step-body">
+            <b>"링크 복사" 버튼 터치</b>
+            <span>설정 하단의 <strong>"내 추천 코드"</strong> 섹션에서 <strong>"링크 복사"</strong> 버튼을 누르면 내 추천 링크가 클립보드에 복사됩니다.</span>
+        </div>
+    </div>
+    <div class="g-step">
+        <div class="g-step-num">3</div>
+        <div class="g-step-body">
+            <b>친구에게 링크 전달</b>
+            <span>카카오톡, 문자, DM 등으로 복사한 링크를 친구에게 보내세요. 친구가 링크를 통해 가입하면 <strong>자동으로 서로 공부친구</strong>가 되고, 나에게 <strong>공부친구 포인트 100</strong>이 바로 적립됩니다!</span>
+        </div>
+    </div>
+
+    <h3>📱 방법 2: SNS/블로그에 추천 링크 올리기</h3>
+    <div class="g-step">
+        <div class="g-step-num">1</div>
+        <div class="g-step-body">
+            <b>"링크 복사" 버튼 터치</b>
+            <span>위와 같은 방법으로 설정(⚙) → "링크 복사"를 누릅니다.</span>
+        </div>
+    </div>
+    <div class="g-step">
+        <div class="g-step-num">2</div>
+        <div class="g-step-body">
+            <b>SNS/블로그에 링크 붙여넣기</b>
+            <span>인스타그램 프로필, 네이버 블로그, 트위터(X), 에브리타임, 오픈채팅방, 유튜브 댓글 등 어디든 링크를 올리세요.</span>
+        </div>
+    </div>
+    <div class="g-step">
+        <div class="g-step-num">3</div>
+        <div class="g-step-body">
+            <b>새 유저가 가입할 때마다 포인트 적립</b>
+            <span>누구든 내 링크를 통해 가입하면 <strong>건당 공부친구 포인트 100</strong>이 적립되고, 자동으로 서로 공부친구가 됩니다. 많이 공유할수록 포인트가 빠르게 쌓여요!</span>
+        </div>
+    </div>
+
+    <div class="g-info tip">
+        <strong>가입 시 추천 코드 직접 입력도 가능!</strong><br>
+        링크 없이도 회원가입 화면에서 친구의 추천 코드를 직접 입력할 수 있습니다. 추천 코드는 설정(⚙) → "내 추천 코드"에서 확인할 수 있어요.
+    </div>
+
+    <h3>💡 공부친구 포인트 적립 방식</h3>
+    <p>공부친구 포인트는 <strong>두 가지 방법</strong>으로 적립됩니다.</p>
+
+    <p><strong>방법 ①</strong> 추천으로 새 친구가 가입하면 <strong>즉시 100 포인트</strong></p>
+    <div class="g-flow">
+        <div class="g-flow-box hl">내 추천 링크로 친구가 가입!</div>
+        <div class="g-flow-arrow">↓</div>
+        <div class="g-flow-box">나에게 <strong>공부친구 포인트 100</strong> 즉시 적립 + 서로 공부친구 자동 등록</div>
+    </div>
+
+    <p style="margin-top:16px;"><strong>방법 ②</strong> 공부친구가 열심히 공부하면 <strong>자동으로 추가 적립</strong></p>
+    <p style="font-size:13px;color:#666;">공부친구의 포인트가 100, 200, 300… 처럼 <strong>100 단위를 넘을 때마다</strong> 나에게 100 포인트가 적립됩니다.</p>
+    <div class="g-flow">
+        <div class="g-flow-box">공부친구가 퀴즈 학습 (예: 10단어)</div>
+        <div class="g-flow-arrow">↓</div>
+        <div class="g-flow-box">친구의 포인트 95 → <strong>105</strong> (100을 넘었다!)</div>
+        <div class="g-flow-arrow">↓</div>
+        <div class="g-flow-box hl">나에게 <strong>공부친구 포인트 100</strong> 자동 적립!</div>
+    </div>
+    <p style="font-size:13px;color:#888;margin-top:6px;">예: 친구 포인트가 295→310이 되면 300을 넘었으므로 나에게 또 100 적립! 친구가 공부를 계속할수록 계속 쌓여요.</p>
+
+    <div class="g-info tip">
+        <strong>친구가 많을수록 포인트가 빠르게!</strong><br>
+        공부친구가 3명이면, 3명 각각이 100 단위를 넘을 때마다 나에게 포인트가 적립됩니다. 친구를 많이 추천할수록 포인트가 빠르게 쌓여요!
+    </div>
+
+    <h3>🎁 공부친구 포인트로 뭘 할 수 있나요?</h3>
+    <p>선생님이 설정한 <strong>이벤트 콘텐츠의 봉인을 해제</strong>할 수 있습니다. 예를 들어 "공부친구 포인트 200" 조건이 걸린 콘텐츠는, 내 공부친구 포인트가 200 이상이 되면 자동으로 열립니다!</p>
+
+    <h3>❓ 자주 묻는 질문</h3>
+    <table>
+    <thead><tr><th>질문</th><th>답변</th></tr></thead>
+    <tbody>
+    <tr><td>추천 링크 없이도 공부친구가 될 수 있나요?</td><td>아니요. 반드시 추천 링크 또는 추천 코드를 통해 가입해야 서로 공부친구가 됩니다.</td></tr>
+    <tr><td>공부친구를 삭제할 수 있나요?</td><td>네. 설정(⚙) → 공부친구 목록에서 ✕ 버튼을 누르면 삭제할 수 있습니다.</td></tr>
+    <tr><td>내 포인트와 공부친구 포인트는 다른 건가요?</td><td>네! 내 포인트는 내가 공부한 양이고, 공부친구 포인트는 친구 추천 + 친구의 학습으로 받는 보상입니다.</td></tr>
+    <tr><td>공부친구 목록은 어디서 보나요?</td><td>설정(⚙) 화면 → "공부친구" 섹션에서 친구 닉네임과 수를 확인할 수 있습니다.</td></tr>
+    </tbody>
+    </table>
+
+    <div class="g-info warn">
+        <strong>설정(⚙)에서 한눈에 확인!</strong><br>
+        내 포인트, 공부친구 포인트, 공부친구 목록, 내가 추천한 친구 수, 내 추천 코드를 모두 설정 화면에서 확인할 수 있습니다.
+    </div>
+    <div class="g-acc-close" onclick="var d=this.closest('details');d.removeAttribute('open');d.scrollIntoView({behavior:'smooth',block:'center'})">▲ 닫기</div>
+</div>
+</details>
+
+<!-- ====== 이벤트 콘텐츠 ====== -->
+<details>
+<summary>
+    <span class="g-acc-icon" style="background:#fff8e1;">🎁</span>
+    <span style="display:block;flex:1;font-size:inherit;font-weight:inherit;color:inherit;">이벤트 콘텐츠란 무엇인가요?</span>
+</summary>
+<div class="g-acc-content">
+    <p><strong>이벤트 콘텐츠</strong>는 선생님이 특별히 설정한 <strong>보상형 학습 콘텐츠</strong>입니다. 일정 조건을 달성하면 잠금이 해제되어 학습할 수 있습니다!</p>
+
+    <h3>🔒 잠금 상태</h3>
+    <p>이벤트 콘텐츠를 가져오면, 조건을 달성할 때까지 <strong>잠금 상태</strong>로 표시됩니다.</p>
+
+    <div class="g-step">
+        <div class="g-step-num">1</div>
+        <div class="g-step-body">
+            <b>자료 불러오기에서 확인</b>
+            <span>이벤트 콘텐츠는 🔒 아이콘과 함께 잠금 해제 조건이 표시됩니다. (예: "연속 3일 + 200단어")</span>
+        </div>
+    </div>
+    <div class="g-step">
+        <div class="g-step-num">2</div>
+        <div class="g-step-body">
+            <b>사이드바에서 확인</b>
+            <span>가져온 이벤트 콘텐츠는 사이드바 목록에 🔒 표시와 함께 반투명하게 나타납니다. 잠금 상태에서는 클릭해도 열리지 않습니다.</span>
+        </div>
+    </div>
+
+    <h3>🔓 잠금 해제 조건</h3>
+    <p>선생님이 설정한 조건을 <strong>모두</strong> 만족하면 잠금이 해제됩니다. 조건은 크게 두 종류입니다.</p>
+
+    <table>
+    <thead><tr><th>조건</th><th>의미</th><th>예시</th></tr></thead>
+    <tbody>
+    <tr><td><strong>연속 학습일</strong></td><td>매일 학습을 이어온 연속 일수</td><td>3일 연속</td></tr>
+    <tr><td><strong>학습 단어수</strong></td><td>연속 학습 기간 동안 학습한 단어 수</td><td>200단어</td></tr>
+    <tr><td><strong>공부친구 포인트</strong></td><td>추천 보너스 + 공부친구들이 학습해서 적립된 포인트</td><td>200 포인트</td></tr>
+    </tbody>
+    </table>
+
+    <div class="g-info tip">
+        <strong>연속 학습 조건</strong><br>
+        예를 들어 "3일 연속 + 200단어" 조건이면, 3일 연속으로 학습하면서 그 3일 동안 총 200단어 이상을 학습해야 합니다. 하루라도 빠지면 연속일이 1일부터 다시 시작되고, 단어수도 새로 쌓이기 시작합니다.<br>
+        <strong>※ 현재 진행 중인 연속 학습만 인정됩니다.</strong> 과거에 조건을 달성한 적이 있더라도, 연속 학습이 끊긴 상태라면 다시 처음부터 쌓아야 합니다.
+    </div>
+
+    <div class="g-info tip">
+        <strong>공부친구 포인트 조건</strong><br>
+        "공부친구 포인트 200" 조건이면, 나의 공부친구 포인트가 200 이상이어야 합니다. 공부친구 포인트는 추천 가입 보너스(건당 100)와 공부친구들이 열심히 학습할 때 자동으로 적립됩니다. 조건에 따라 연속 학습과 공부친구 포인트를 동시에 만족해야 할 수도 있고, 공부친구 포인트만으로도 해제될 수 있습니다.
+    </div>
+
+    <h3>🎉 잠금 해제 순간</h3>
+    <div class="g-step">
+        <div class="g-step-num">✨</div>
+        <div class="g-step-body">
+            <b>축하 애니메이션</b>
+            <span>조건을 달성하면 퀴즈 완료 후 <strong>폭죽 애니메이션</strong>과 함께 축하 메시지가 나타납니다!</span>
+        </div>
+    </div>
+    <div class="g-step">
+        <div class="g-step-num">📖</div>
+        <div class="g-step-body">
+            <b>봉인 해제 완료</b>
+            <span>"확인" 버튼을 누르면 현재 학습을 계속할 수 있고, 해제된 콘텐츠는 사이드바 목록에서 자유롭게 열어볼 수 있습니다.</span>
+        </div>
+    </div>
+
+    <div class="g-info important">
+        <strong>⚠️ 이벤트 콘텐츠는 미리 다운로드해 두세요!</strong><br>
+        이벤트 콘텐츠는 <strong>먼저 "자료 불러오기"에서 다운로드</strong>해 놓아야, 나중에 조건을 달성했을 때 바로 잠금이 해제되어 학습할 수 있습니다. 다운로드하지 않은 상태에서는 조건을 달성해도 잠금 해제가 되지 않으니, 이벤트 콘텐츠가 보이면 미리 가져와 두세요!<br>
+        다운로드 시점에 이미 조건을 충족하고 있다면 <strong>즉시 봉인이 해제</strong>됩니다.
+    </div>
+
+    <div class="g-info tip">
+        <strong>매일 꾸준히 학습하는 것이 핵심!</strong><br>
+        이벤트 콘텐츠는 매일 학습하는 습관을 기르기 위한 보상 시스템입니다. 하루에 몰아서 하는 것보다 매일 조금씩 학습하면 더 쉽게 달성할 수 있어요.
+    </div>
+    <div class="g-acc-close" onclick="var d=this.closest('details');d.removeAttribute('open');d.scrollIntoView({behavior:'smooth',block:'center'})">▲ 닫기</div>
+</div>
+</details>
+
+<p style="text-align:center;color:#aaa;margin-top:40px;font-size:13px;">영리한 반복 암기 · 반복하면 반드시 외워집니다 🧠</p>
+
+</div><!-- /g-guide-body -->
+
+<script>
+(function(){
+    var seen = '';
+    try { seen = localStorage.getItem('mk_guide_seen') || ''; } catch(e){}
+    var badge = document.getElementById('gGuideNew');
+    if (badge && seen !== MK_GUIDE_VERSION) {
+        badge.style.display = 'inline-block';
+    }
+})();
+</script>
+
+<script>
+(function(){
+    var card2 = document.getElementById('gDemoMem2');
+    var m2 = document.getElementById('gDemoM2');
+    var a2 = document.getElementById('gDemoA2');
+    if(card2 && m2){
+        var shown2 = false;
+        card2.addEventListener('click', function(){
+            shown2 = !shown2;
+            m2.style.display = shown2 ? 'block' : 'none';
+            if(a2) a2.style.display = shown2 ? 'block' : 'none';
+        });
+    }
+})();
+</script>
+
+<script>
+(function(){
+    var banner = document.getElementById('gCommunityBanner');
+    if (!banner) return;
+    var ctrl = new AbortController();
+    setTimeout(function(){ ctrl.abort(); }, 4000);
+    fetch('https://stats-api.memoryking.workers.dev/stats/today', { signal: ctrl.signal })
+        .then(function(r){ return r.json(); })
+        .then(function(d){
+            if (!d || !d.active_users) return;
+            banner.innerHTML = '<span class="banner-icon">\uD83D\uDD25</span> 오늘 <b>' + d.active_users + '명</b>이 함께 공부했어요!' + (d.max_words ? ' · 최다 <b>' + d.max_words + '단어</b> 학습' : '') + '<br><span style="display:inline;font-size:12px;opacity:0.8;">나만 공부하는 게 아니에요, 함께 하면 더 힘이 납니다</span>';
+            banner.style.display = 'block';
+            setTimeout(function(){ banner.style.opacity = '1'; }, 30);
+        })
+        .catch(function(){
+            banner.style.display = 'none';
+        });
+})();
+</script>
+
+<script>
+(function(){
+    var board = document.getElementById('gRankingBoard');
+    if (!board) return;
+    var token = null;
+    try { token = localStorage.getItem('mk_auth_token'); } catch(e){}
+    var ctrl = new AbortController();
+    setTimeout(function(){ ctrl.abort(); }, 4000);
+    var headers = {};
+    if (token) headers['Authorization'] = 'Bearer ' + token;
+    fetch('https://stats-api.memoryking.workers.dev/stats/ranking', { signal: ctrl.signal, headers: headers })
+        .then(function(r){ return r.json(); })
+        .then(function(d){
+            if (!d || !d.ranking || d.ranking.length === 0) return;
+            var medals = ['\uD83E\uDD47','\uD83E\uDD48','\uD83E\uDD49'];
+            var myRank = d.my_rank;
+            var totalUsers = d.total_users || 0;
+            var html = '<div class="rank-title">\uD83C\uDFC6 \uC624\uB298\uC758 \uD559\uC2B5 \uB7AD\uD0B9 TOP 10</div><div class="rank-list">';
+            d.ranking.forEach(function(item, i){
+                var isMe = myRank && (i + 1) === myRank;
+                html += '<div class="rank-item' + (isMe ? ' is-me' : '') + '">';
+                if (i < 3) {
+                    html += '<span class="rank-medal">' + medals[i] + '</span>';
+                } else {
+                    html += '<span class="rank-num">' + (i+1) + '</span>';
+                }
+                html += '<span class="rank-nick">' + (item.nickname || '\uD559\uC2B5\uC790') + (isMe ? ' (나)' : '') + '</span>';
+                html += '<span class="rank-words">' + item.words + '\uB2E8\uC5B4</span>';
+                html += '</div>';
+            });
+            html += '</div>';
+            // 내가 TOP 10 밖이면 하단에 내 순위 표시
+            if (myRank && myRank > 10 && totalUsers > 0) {
+                var pct = Math.round((myRank / totalUsers) * 100);
+                html += '<div class="rank-me">';
+                html += '<span><span class="rank-num">' + myRank + '\uC704</span> <span class="rank-nick">\uB098\uC758 \uC704\uCE58</span><span class="rank-pct">\uC0C1\uC704 ' + pct + '%</span></span>';
+                html += '<span class="rank-words">' + (d.my_words || 0) + '\uB2E8\uC5B4</span>';
+                html += '</div>';
+            }
+            board.innerHTML = html;
+            board.style.display = 'block';
+        })
+        .catch(function(){
+            board.style.display = 'none';
+        });
+})();
+</script>
+
+<script>
+(function(){
+    var report = document.getElementById('gWeeklyReport');
+    if (!report) return;
+    var token = null;
+    try { token = localStorage.getItem('mk_auth_token'); } catch(e){}
+    if (!token) return;
+    var ctrl = new AbortController();
+    setTimeout(function(){ ctrl.abort(); }, 4000);
+    fetch('https://stats-api.memoryking.workers.dev/stats/me', {
+        signal: ctrl.signal,
+        headers: { 'Authorization': 'Bearer ' + token }
+    })
+        .then(function(r){ return r.json(); })
+        .then(function(d){
+            if (!d || d.error) return;
+            var html = '<div class="wr-title">\uD83D\uDCCA \uB098\uC758 \uC8FC\uAC04 \uB9AC\uD3EC\uD2B8</div>';
+
+            // 7일 미니 바 차트
+            if (d.week_daily && d.week_daily.length) {
+                var days = ['\uC77C','\uC6D4','\uD654','\uC218','\uBAA9','\uAE08','\uD1A0'];
+                var maxW = 1;
+                for (var k = 0; k < d.week_daily.length; k++) {
+                    if (d.week_daily[k].words > maxW) maxW = d.week_daily[k].words;
+                }
+                html += '<div class="wr-chart">';
+                for (var k = 0; k < d.week_daily.length; k++) {
+                    var dd = d.week_daily[k];
+                    var isToday = (k === d.week_daily.length - 1);
+                    var h = dd.words > 0 ? Math.max(4, Math.round((dd.words / maxW) * 50)) : 2;
+                    var cls = isToday ? 'today' : (dd.words === 0 ? 'empty' : '');
+                    var dayName = days[new Date(dd.date).getDay()];
+                    html += '<div class="wr-bar-wrap">'
+                         +  '<div class="wr-bar ' + cls + '" style="height:' + h + 'px"></div>'
+                         +  '<div class="wr-day ' + (isToday ? 'today' : '') + '">' + dayName + '</div>'
+                         +  '</div>';
+                }
+                html += '</div>';
+            }
+
+            // 2x2 숫자 카드
+            html += '<div class="wr-grid">';
+            html += '<div class="wr-card"><span class="wr-val">' + (d.week_words || 0) + '</span><span class="wr-label">\uC774\uBC88 \uC8FC \uD559\uC2B5 \uB2E8\uC5B4</span></div>';
+            html += '<div class="wr-card"><span class="wr-val">' + (d.week_days || 0) + ' / 7</span><span class="wr-label">\uC774\uBC88 \uC8FC \uD559\uC2B5 \uC77C\uC218</span></div>';
+            html += '<div class="wr-card"><span class="wr-val">' + (d.streak || 0) + '\uC77C</span><span class="wr-label">\uC5F0\uC18D \uD559\uC2B5</span></div>';
+            html += '<div class="wr-card"><span class="wr-val">' + (d.total_words || 0).toLocaleString() + '</span><span class="wr-label">\uCD1D \uB204\uC801 \uB2E8\uC5B4</span></div>';
+            html += '</div>';
+
+            // 평균 대비 메시지
+            var myWeek = d.week_words || 0;
+            var avg = d.week_avg;
+            if (typeof avg === 'number' && avg > 0) {
+                var diff = myWeek - avg;
+                html += '<div class="wr-avg">';
+                if (diff > 0) {
+                    html += '\uD83D\uDD25 \uC774\uBC88 \uC8FC \uD3C9\uADE0\uBCF4\uB2E4 <b class="avg-up">' + diff + '\uB2E8\uC5B4</b> \uB354 \uD559\uC2B5\uD588\uC5B4\uC694!';
+                } else if (diff === 0) {
+                    html += '\uD83D\uDCAA \uC774\uBC88 \uC8FC \uD3C9\uADE0\uACFC \uAC19\uC740 \uD398\uC774\uC2A4\uC608\uC694!';
+                } else {
+                    html += '\uD83D\uDCAA \uD3C9\uADE0\uAE4C\uC9C0 <b class="avg-down">' + Math.abs(diff) + '\uB2E8\uC5B4</b>\uB9CC \uB354 \uD558\uBA74 \uB3FC\uC694!';
+                }
+                html += '</div>';
+            }
+
+            report.innerHTML = html;
+            report.style.display = 'block';
+        })
+        .catch(function(){
+            report.style.display = 'none';
+        });
+})();
+</script>
+
+<script>
+(function(){
+    var roulette = document.getElementById('gRoulette');
+    if (!roulette) return;
+    var token = null;
+    try { token = localStorage.getItem('mk_auth_token'); } catch(e){}
+
+    /* ── 섹터 정의 (각도 = 확률 × 360) ── */
+    var sectors = [
+        { prize: 10,  deg: 216, color: '#4fc3f7' },
+        { prize: 20,  deg: 90,  color: '#81c784' },
+        { prize: 50,  deg: 36,  color: '#ffb74d' },
+        { prize: 100, deg: 18,  color: '#e94560' }
+    ];
+
+    /* ── 렌더링 ── */
+    roulette.innerHTML =
+        '<div class="rl-title">\uD83C\uDFB0 \uC77C\uC77C \uB8F0\uB81B \uC774\uBCA4\uD2B8</div>' +
+        '<div class="rl-wheel-wrap">' +
+            '<span class="rl-pointer">\u25BC</span>' +
+            '<div class="rl-wheel" id="rlWheel">' +
+                '<span class="rl-label lb10">10pt</span>' +
+                '<span class="rl-label lb20">20pt</span>' +
+                '<span class="rl-label lb50">50pt</span>' +
+                '<span class="rl-label lb100">100pt</span>' +
+            '</div>' +
+            '<button class="rl-spin" id="rlSpin">SPIN</button>' +
+        '</div>' +
+        '<div class="rl-result" id="rlResult">' + (token ? '' : '\uB85C\uADF8\uC778 \uD6C4 \uCC38\uC5EC\uD560 \uC218 \uC788\uC5B4\uC694!') + '</div>';
+    roulette.style.display = 'block';
+
+    var wheel = document.getElementById('rlWheel');
+    var btn   = document.getElementById('rlSpin');
+    var result = document.getElementById('rlResult');
+    var spinning = false;
+    var currentRotation = 0;
+
+    if (!token) { btn.disabled = true; return; }
+
+    btn.addEventListener('click', function(){
+        if (spinning || btn.disabled) return;
+        spinning = true;
+        btn.disabled = true;
+        result.textContent = '';
+
+        var ctrl = new AbortController();
+        setTimeout(function(){ ctrl.abort(); }, 6000);
+
+        fetch('https://stats-api.memoryking.workers.dev/daily/roulette', {
+            method: 'POST',
+            signal: ctrl.signal,
+            headers: { 'Authorization': 'Bearer ' + token }
+        })
+        .then(function(r){ return r.json(); })
+        .then(function(d){
+            if (d.already) {
+                result.textContent = '\uC624\uB298\uC740 \uC774\uBBF8 \uCC38\uC5EC\uD588\uC5B4\uC694! \uB0B4\uC77C \uB2E4\uC2DC \uB3C4\uC804\uD558\uC138\uC694 \uD83D\uDE0A';
+                spinning = false;
+                return;
+            }
+            if (!d.ok) {
+                result.textContent = '\uC624\uB958\uAC00 \uBC1C\uC0DD\uD588\uC5B4\uC694.';
+                spinning = false;
+                btn.disabled = false;
+                return;
+            }
+
+            /* 당첨 prize에 해당하는 섹터 중심 각도 계산 */
+            var prize = d.prize;
+            var startDeg = 0;
+            var targetCenter = 0;
+            for (var i = 0; i < sectors.length; i++) {
+                if (sectors[i].prize === prize) {
+                    targetCenter = startDeg + sectors[i].deg / 2;
+                    break;
+                }
+                startDeg += sectors[i].deg;
+            }
+            /* 포인터가 상단(0°)이므로 360 - targetCenter 로 맞춤 + 4바퀴 */
+            var extra = 1440 + (360 - targetCenter);
+            currentRotation += extra;
+            wheel.style.transform = 'rotate(' + currentRotation + 'deg)';
+
+            var handler = function(){
+                wheel.removeEventListener('transitionend', handler);
+                result.innerHTML = '\uD83C\uDF89 <b>' + prize + ' \uD3EC\uC778\uD2B8</b> \uB2F9\uCCA8! (\uB0B4 \uD3EC\uC778\uD2B8: ' + d.cm_point + 'pt)';
+                spinning = false;
+            };
+            wheel.addEventListener('transitionend', handler);
+        })
+        .catch(function(){
+            result.textContent = '\uB124\uD2B8\uC6CC\uD06C \uC624\uB958. \uB2E4\uC2DC \uC2DC\uB3C4\uD574\uC8FC\uC138\uC694.';
+            spinning = false;
+            btn.disabled = false;
+        });
+    });
+})();
+</script>
+
+</div>

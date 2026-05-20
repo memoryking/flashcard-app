@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>영리한 반복으로 반드시 암기 - 학생</title>
+    <title>메모리킹 - 통합 학습</title>
     <style>
         * {
             margin: 0;
@@ -175,6 +175,24 @@
         }
         .sidebar-delete-btn:hover { background: rgba(233,69,96,0.15); }
 
+        /* ===== Sidebar Tree Group ===== */
+        .sidebar-group { margin-bottom: 4px; }
+        .sidebar-group-header {
+            display: flex; align-items: center;
+            padding: 8px 10px; cursor: pointer; border-radius: 8px;
+            font-size: 13px; font-weight: 600; color: #ccc;
+            transition: background 0.2s; user-select: none;
+        }
+        .sidebar-group-header:hover { background: rgba(83,52,131,0.2); }
+        .sidebar-group-header .group-arrow {
+            display: inline-block; margin-right: 6px; font-size: 10px;
+            transition: transform 0.2s;
+        }
+        .sidebar-group-header.collapsed .group-arrow { transform: rotate(-90deg); }
+        .sidebar-group-children { overflow: hidden; transition: max-height 0.3s; }
+        .sidebar-group-children.collapsed { max-height: 0 !important; }
+        .sidebar-group-count { margin-left: auto; font-size: 11px; color: #888; }
+
         /* ===== Top Bar ===== */
         .top-bar {
             display: flex;
@@ -303,6 +321,7 @@
             justify-content: center;
             padding: 10px 20px;
             min-height: 0;
+            overflow: hidden;
             position: relative;
         }
 
@@ -542,6 +561,265 @@
             animation: statBump 0.35s ease-out;
         }
 
+        /* ===== Highlight Styles ===== */
+        .highlight {
+            background: linear-gradient(120deg, #fff3cd 0%, #ffeaa7 100%);
+            padding: 4px 6px;
+            border-radius: 6px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            position: relative;
+            box-shadow: 0 2px 4px rgba(255, 193, 7, 0.2);
+            border: 2px solid #ffc107;
+            min-height: 32px;
+            display: inline-flex;
+            align-items: center;
+            margin: 2px;
+        }
+        .highlight:hover {
+            transform: scale(1.02);
+            box-shadow: 0 4px 8px rgba(255, 193, 7, 0.3);
+        }
+        .highlight.masked {
+            color: transparent;
+            background: linear-gradient(120deg, #ffeaa7 0%, #fdcb6e 100%);
+            text-shadow: 0 0 8px rgba(0, 0, 0, 0.3);
+        }
+        .highlight.revealed {
+            color: inherit;
+            background: linear-gradient(120deg, #a8e6cf 0%, #81c784 100%);
+            animation: reveal 0.3s ease;
+        }
+        .highlight.priority {
+            background: linear-gradient(120deg, #ff6b6b 0%, #ff5252 100%);
+            border-color: #f44336;
+            box-shadow: 0 2px 4px rgba(244, 67, 54, 0.3);
+        }
+        .highlight.priority:hover {
+            box-shadow: 0 4px 8px rgba(244, 67, 54, 0.4);
+        }
+        .highlight.priority.masked {
+            color: transparent;
+            background: linear-gradient(120deg, #ff5252 0%, #e53935 100%);
+            text-shadow: 0 0 8px rgba(0, 0, 0, 0.4);
+        }
+        .highlight.priority.revealed {
+            color: inherit;
+            background: linear-gradient(120deg, #ffcdd2 0%, #ef9a9a 100%);
+        }
+        @keyframes reveal {
+            from { color: transparent; transform: scale(0.98); }
+            to { color: inherit; transform: scale(1); }
+        }
+        @keyframes priorityPulse {
+            0% { transform: scale(1); }
+            50% { transform: scale(1.05); }
+            100% { transform: scale(1); }
+        }
+        .highlight.priority-added {
+            animation: priorityPulse 0.5s ease;
+        }
+
+        /* ===== Image Highlight Styles ===== */
+        .image-highlight {
+            position: absolute;
+            border: 3px solid #ffc107;
+            background: rgba(255, 193, 7, 0.2);
+            cursor: pointer;
+            transition: all 0.3s ease;
+            border-radius: 4px;
+            pointer-events: all;
+            min-width: 20px;
+            min-height: 20px;
+        }
+        .image-highlight:hover {
+            transform: scale(1.02);
+            box-shadow: 0 4px 8px rgba(255, 193, 7, 0.4);
+        }
+        .image-highlight.masked {
+            background: rgba(255, 193, 7, 0.6);
+            backdrop-filter: blur(8px);
+        }
+        .image-highlight.revealed {
+            background: transparent;
+            border: 1px solid rgba(255, 193, 7, 0.5);
+            animation: reveal 0.3s ease;
+            backdrop-filter: none;
+        }
+        .image-highlight.priority {
+            border-color: #f44336;
+            background: rgba(244, 67, 54, 0.2);
+        }
+        .image-highlight.priority.masked {
+            background: rgba(244, 67, 54, 0.6);
+        }
+        .image-highlight.priority.revealed {
+            background: transparent;
+            border: 1px solid rgba(244, 67, 54, 0.5);
+            backdrop-filter: none;
+        }
+
+        /* ===== Memorized Highlight Styles ===== */
+        .highlight.memorized {
+            background: linear-gradient(120deg, #a8e6cf 0%, #81c784 100%) !important;
+            border-color: #66bb6a !important;
+            box-shadow: 0 2px 4px rgba(76, 175, 80, 0.2) !important;
+            opacity: 0.6;
+            color: inherit !important;
+            text-shadow: none !important;
+        }
+        .image-highlight.memorized {
+            background: rgba(76, 175, 80, 0.95) !important;
+            border-color: #43a047 !important;
+            border-width: 3px !important;
+            box-shadow: 0 2px 6px rgba(76, 175, 80, 0.4) !important;
+            opacity: 1;
+            backdrop-filter: blur(8px) !important;
+        }
+
+        /* ===== Image Container ===== */
+        .image-wrapper {
+            width: 100%;
+            height: 100%;
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+            position: relative;
+        }
+        .image-view-area {
+            flex: 1;
+            min-height: 0;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            overflow: hidden;
+            position: relative;
+        }
+        .image-container {
+            position: relative;
+            display: inline-block;
+            max-width: 100%;
+            max-height: 100%;
+        }
+        .image-container img {
+            display: block;
+            max-width: 100%;
+            max-height: 100%;
+            object-fit: contain;
+            user-select: none;
+            -webkit-user-select: none;
+            -moz-user-select: none;
+        }
+
+        /* ===== Image Navigation Buttons ===== */
+        .image-nav-btn {
+            position: absolute; top: 50%; transform: translateY(-50%); z-index: 10;
+            width: 40px; height: 60px;
+            background: rgba(22,33,62,0.7); border: 1px solid rgba(83,52,131,0.5);
+            border-radius: 8px; color: #e0e0e0; font-size: 20px; cursor: pointer;
+            display: flex; align-items: center; justify-content: center;
+            transition: background 0.2s, opacity 0.2s; opacity: 0.6;
+        }
+        .image-nav-btn:hover { background: rgba(83,52,131,0.6); opacity: 1; }
+        .image-nav-btn:active { background: rgba(233,69,96,0.4); }
+        .image-nav-btn.nav-prev { left: 8px; }
+        .image-nav-btn.nav-next { right: 8px; }
+        .image-nav-btn:disabled { opacity: 0.2; cursor: default; pointer-events: none; }
+        .image-nav-indicator {
+            position: absolute; bottom: 8px; left: 50%; transform: translateX(-50%);
+            z-index: 10; font-size: 11px; color: #aaa;
+            background: rgba(22,33,62,0.8); padding: 2px 10px; border-radius: 10px;
+        }
+
+        .highlight-text-reserve {
+            width: 100%;
+            flex-shrink: 0;
+            min-height: 48px;
+        }
+        .highlight-text-display {
+            width: 100%;
+            text-align: center;
+            padding: 12px 16px;
+            background: rgba(22, 33, 62, 0.92);
+            color: #ffc107;
+            font-size: 1.3em;
+            font-weight: 600;
+            border-top: 1px solid #2a2a4e;
+            z-index: 20;
+            backdrop-filter: blur(6px);
+            visibility: hidden;
+        }
+        .highlight-text-display.visible {
+            visibility: visible;
+        }
+
+        /* ===== Story Overlay ===== */
+        .story-overlay {
+            position: absolute;
+            top: 0; left: 0; right: 0;
+            max-height: 60%;
+            z-index: 30;
+            background: rgba(22, 33, 62, 0.92);
+            border-bottom: 2px solid rgba(83,52,131,0.6);
+            border-radius: 0 0 16px 16px;
+            display: flex;
+            flex-direction: column;
+            animation: storySlideDown 0.3s ease;
+            backdrop-filter: blur(8px);
+        }
+        @keyframes storySlideDown {
+            from { transform: translateY(-20px); opacity: 0; }
+            to { transform: translateY(0); opacity: 1; }
+        }
+        .story-overlay-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 10px 16px;
+            border-bottom: 1px solid #2a2a4e;
+            flex-shrink: 0;
+        }
+        .story-overlay-title {
+            font-size: 14px;
+            font-weight: 600;
+            color: #ffc107;
+        }
+        .story-overlay-close {
+            background: none;
+            border: none;
+            color: #aaa;
+            font-size: 22px;
+            cursor: pointer;
+            padding: 4px 8px;
+            border-radius: 6px;
+        }
+        .story-overlay-close:hover { color: #e94560; background: rgba(233,69,96,0.15); }
+        .story-overlay-body {
+            flex: 1;
+            overflow-y: auto;
+            padding: 14px 16px;
+            font-size: 1em;
+            line-height: 1.8;
+            color: #e0e0e0;
+            white-space: pre-wrap;
+            word-break: break-word;
+        }
+
+        /* ===== Text View Container ===== */
+        .text-view-container {
+            width: 100%;
+            height: 100%;
+            overflow-y: auto;
+            overflow-x: hidden;
+            -webkit-overflow-scrolling: touch;
+            padding: 16px;
+            font-size: 1.05em;
+            line-height: 1.8;
+            color: #e0e0e0;
+            white-space: pre-wrap;
+            word-break: break-word;
+        }
+
         /* ===== Empty / Idle State ===== */
         .flashcard-idle {
             text-align: center;
@@ -566,6 +844,42 @@
         .quiz-complete-text {
             font-size: 16px;
             color: #aaa;
+        }
+
+        /* ===== Community Stats Card ===== */
+        .community-stats {
+            background: rgba(255,255,255,0.06);
+            border-radius: 12px;
+            padding: 14px 18px;
+            margin: 16px auto 0;
+            max-width: 340px;
+            text-align: center;
+            animation: fadeIn 0.6s ease;
+        }
+        .community-stats-line {
+            font-size: 13px;
+            color: #999;
+            margin-bottom: 6px;
+            line-height: 1.5;
+        }
+        .community-stats-line b {
+            color: #4fc3f7;
+            font-weight: 700;
+        }
+        .community-stats-my {
+            font-size: 13px;
+            color: #bbb;
+            line-height: 1.5;
+        }
+        .community-stats-my .cs-words { color: #81c784; font-weight: 700; }
+        .community-stats-my .cs-streak { color: #ffb74d; font-weight: 700; }
+        .community-stats-motivation {
+            font-size: 13px;
+            color: #bbb;
+            line-height: 1.5;
+            margin-top: 8px;
+            padding-top: 8px;
+            border-top: 1px solid rgba(255,255,255,0.08);
         }
 
         /* ===== Settings Modal ===== */
@@ -634,6 +948,53 @@
             font-size: 15px;
             cursor: pointer;
         }
+
+        /* ===== Auth Modal ===== */
+        .auth-modal {
+            position: fixed; top: 0; left: 0; right: 0; bottom: 0;
+            background: rgba(0,0,0,0.7); z-index: 10001;
+            display: flex; align-items: center; justify-content: center;
+            animation: fadeIn 0.2s ease;
+        }
+        .auth-dialog {
+            background: #16213e; border-radius: 16px; padding: 24px;
+            width: 90%; max-width: 360px; color: #e0e0e0;
+        }
+        .auth-tabs {
+            display: flex; gap: 0; margin-bottom: 16px; border-radius: 10px; overflow: hidden;
+            border: 1px solid #333;
+        }
+        .auth-tab {
+            flex: 1; padding: 10px; text-align: center; cursor: pointer;
+            background: #0f3460; color: #aaa; border: none; font-size: 14px; transition: all 0.2s;
+        }
+        .auth-tab.active { background: #e94560; color: white; }
+        .auth-input {
+            width: 100%; padding: 10px 12px; margin-bottom: 10px;
+            background: #0f3460; border: 1px solid #333; border-radius: 8px;
+            color: #e0e0e0; font-size: 14px; outline: none;
+        }
+        .auth-input:focus { border-color: #e94560; }
+        .auth-submit {
+            width: 100%; padding: 11px; margin-top: 6px;
+            background: #e94560; color: white; border: none; border-radius: 10px;
+            font-size: 15px; cursor: pointer;
+        }
+        .auth-submit:disabled { opacity: 0.5; cursor: not-allowed; }
+        .auth-error {
+            color: #ff6b6b; font-size: 13px; margin-top: 8px; min-height: 18px;
+        }
+        .settings-login-row {
+            display: flex; align-items: center; justify-content: space-between;
+            padding: 10px 0; margin-top: 12px; border-top: 1px solid #333;
+        }
+        .settings-login-row .nickname { color: #4ecca3; font-weight: 600; font-size: 14px; }
+        .settings-login-btn {
+            padding: 6px 14px; border-radius: 8px; border: none;
+            font-size: 13px; cursor: pointer;
+        }
+        .settings-login-btn.login { background: #e94560; color: white; }
+        .settings-login-btn.logout { background: #333; color: #aaa; }
 
         /* ===== Button CSS (kept) ===== */
         .btn {
@@ -902,12 +1263,32 @@
             <div class="stat-box remaining" id="statRemaining" onclick="window.app && window.app.startQuiz('remaining')">
                 <div class="stat-box-count" id="countRemaining">0</div>
                 <div class="stat-box-label">남은 개수</div>
-                <div class="stat-box-count" id="countStudiedToday" style="font-size:1.4em;color:#4fc3f7;margin-top:4px;">0</div>
-                <div class="stat-box-label" id="labelStudiedToday">오늘 학습</div>
+                <span id="todayNewTotal" style="display:block;font-size:1.3em;font-weight:700;color:#4fc3f7;margin-top:6px;line-height:1;"></span>
+                <span id="todayDateLabel" style="display:block;font-size:10px;color:#666;margin-top:3px;"></span>
             </div>
             <div class="stat-box memorized" id="statMemorized" onclick="window.app && window.app.startQuiz('memorized')" style="display:flex;flex-direction:column;align-items:center;justify-content:center;">
                 <div class="stat-box-count" id="countMemorized">0</div>
                 <div class="stat-box-label">암기 <span id="memorizedCrown" style="display:none;">👑</span></div>
+            </div>
+        </div>
+
+        <!-- Highlight Stat Bar (for text/image content) -->
+        <div class="flashcard-stat-bar" id="highlightStatBar" style="display:none;">
+            <div class="stat-box not-memorized" id="statHighlightPreview" onclick="window.app && window.app.showFullImage()">
+                <div class="stat-box-count" style="font-size:1.5em;">🖼️</div>
+                <div class="stat-box-label">원본보기</div>
+            </div>
+            <div class="stat-box" id="statStory" onclick="window.app && window.app.showStoryOverlay()" style="display:none;">
+                <div class="stat-box-count" style="font-size:1.5em;">📖</div>
+                <div class="stat-box-label">스토리</div>
+            </div>
+            <div class="stat-box remaining" style="pointer-events:none;">
+                <div class="stat-box-count" id="countHighlights">0</div>
+                <div class="stat-box-label">하이라이트</div>
+            </div>
+            <div class="stat-box memorized" style="pointer-events:none;">
+                <div class="stat-box-count" id="countHighlightMemorized">0</div>
+                <div class="stat-box-label">암기</div>
             </div>
         </div>
 
@@ -973,6 +1354,17 @@
                 this.currentText = '';
                 this.currentMindmapData = null;
                 this.currentImageData = null;
+                this.currentStoryText = '';
+
+                // Image navigation state
+                this.imageContentsList = [];
+                this.sidebarGroupState = JSON.parse(localStorage.getItem('sidebarGroupState') || '{}');
+
+                // Highlight state (for text/image view)
+                this.highlights = [];
+                this.highlightRanges = [];
+                this.holdDuration = 500;
+                this._revealedElement = null;
 
                 this.isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
 
@@ -997,6 +1389,13 @@
                 this.wordLimitNotMemorized = parseInt(localStorage.getItem('wordLimitNotMemorized')) || 10;
                 this.wordLimitMemorized = parseInt(localStorage.getItem('wordLimitMemorized')) || 10;
 
+                // Stats / Auth
+                this.statsApiUrl = 'https://stats-api.memoryking.workers.dev';
+                this.authToken = localStorage.getItem('mk_auth_token') || null;
+                this.userNickname = localStorage.getItem('mk_user_nickname') || null;
+                this.userId = localStorage.getItem('mk_user_id') || null;
+                this.deviceId = localStorage.getItem('mk_device_id') || this.generateDeviceId();
+
                 this.init();
             }
 
@@ -1007,6 +1406,13 @@
                     this.setupFlashcardEventListeners();
                     await this.loadData();
 
+                    // Click elsewhere to un-reveal highlights
+                    document.getElementById('flashcardArea').addEventListener('click', (e) => {
+                        if (!e.target.closest('.highlight, .image-highlight')) {
+                            this.unrevealHighlight(this._revealedElement);
+                        }
+                    });
+
                     // Restore not-memorized toggle UI
                     this.updateToggleUI();
 
@@ -1016,6 +1422,9 @@
 
                     // 하루 1회 업데이트 체크 (앱 로드 2초 후)
                     setTimeout(() => this.checkForUpdates(), 2000);
+
+                    // 비차단 인증 검증
+                    this.verifyAuth();
 
                     console.log('앱 초기화 완료');
                 } catch (error) {
@@ -1209,10 +1618,13 @@
                 const hasP2 = memorizedWords.some(w => w.known === 2 && (w.last_studied ? w.last_studied.substring(0, 10) : '') <= cutoffStr);
                 const memorizedAllToday = memorized > 0 && !hasP1 && !hasP2;
 
-                // 오늘 학습한 단어 수 (known 값이 변경된 모든 단어)
-                const studiedToday = all.filter(w => w.last_studied && w.last_studied.startsWith(todayKST)).length;
+                // 오늘 학습한 총 횟수 (중복 포함)
+                const studiedToday = all.reduce((sum, w) => sum + (w.today_date === todayKST ? (w.today_count || 0) : 0), 0);
 
-                return { remaining, notMemorized, memorized, memorizedAllToday, studiedToday };
+                // 오늘 신규 학습 (최초 학습일이 오늘인 단어)
+                const newToday = all.filter(w => w.first_studied && w.first_studied.startsWith(todayKST)).length;
+
+                return { remaining, notMemorized, memorized, memorizedAllToday, studiedToday, newToday };
             }
 
             async queryWords(contentId, { known = undefined, limit = 50, excludeToday = false } = {}) {
@@ -1305,8 +1717,19 @@
                 }
 
                 wordProgress.known = newKnown;
-                wordProgress.last_studied = this.getKSTISOString();
+                const now = this.getKSTISOString();
+                const todayKST = this.getKSTDateString();
+                if (!wordProgress.first_studied) {
+                    wordProgress.first_studied = wordProgress.last_studied || now;
+                }
+                wordProgress.last_studied = now;
                 wordProgress.study_count = (wordProgress.study_count || 0) + 1;
+                // 오늘 학습 횟수: 날짜 바뀌면 리셋
+                if (wordProgress.today_date !== todayKST) {
+                    wordProgress.today_date = todayKST;
+                    wordProgress.today_count = 0;
+                }
+                wordProgress.today_count = (wordProgress.today_count || 0) + 1;
                 if (isCorrect) {
                     wordProgress.correct_count = (wordProgress.correct_count || 0) + 1;
                 }
@@ -1318,6 +1741,21 @@
                     tx.oncomplete = () => resolve();
                     tx.onerror = () => reject(tx.error);
                 });
+            }
+
+            async getTodayTotalCounts() {
+                if (!this.db) return { newToday: 0, studiedToday: 0 };
+                const all = await new Promise((resolve, reject) => {
+                    const tx = this.db.transaction(['word_progress'], 'readonly');
+                    const store = tx.objectStore('word_progress');
+                    const req = store.getAll();
+                    req.onsuccess = () => resolve(req.result || []);
+                    req.onerror = () => reject(req.error);
+                });
+                const todayKST = this.getKSTDateString();
+                const studiedToday = all.reduce((sum, w) => sum + (w.today_date === todayKST ? (w.today_count || 0) : 0), 0);
+                const newToday = all.filter(w => w.first_studied && w.first_studied.startsWith(todayKST)).length;
+                return { newToday, studiedToday };
             }
 
             async getAllWordsForContent(contentId) {
@@ -1335,11 +1773,17 @@
             // ===== Stat Bar =====
             async updateStatBar() {
                 const crown = document.getElementById('memorizedCrown');
+                const todayKST = this.getKSTDateString();
+                const [, m, d] = todayKST.split('-');
+                const dateLabel = parseInt(m) + '월' + parseInt(d) + '일';
+
                 if (!this.currentTextId) {
                     document.getElementById('countRemaining').textContent = '0';
                     document.getElementById('countNotMemorized').textContent = '0';
                     document.getElementById('countMemorized').textContent = '0';
-                    document.getElementById('countStudiedToday').textContent = '0';
+                    const totalCounts = await this.getTodayTotalCounts();
+                    document.getElementById('todayNewTotal').textContent = totalCounts.studiedToday > 0 ? totalCounts.newToday + ' / ' + totalCounts.studiedToday : '';
+                    document.getElementById('todayDateLabel').textContent = dateLabel;
                     if (crown) crown.style.display = 'none';
                     return;
                 }
@@ -1348,12 +1792,10 @@
                 document.getElementById('countRemaining').textContent = counts.remaining;
                 document.getElementById('countNotMemorized').textContent = counts.notMemorized;
                 document.getElementById('countMemorized').textContent = counts.memorized;
-                document.getElementById('countStudiedToday').textContent = counts.studiedToday;
 
-                // 오늘 날짜를 M/D 형식으로 표시
-                const todayKST = this.getKSTDateString();
-                const [, m, d] = todayKST.split('-');
-                document.getElementById('labelStudiedToday').textContent = parseInt(m) + '/' + parseInt(d);
+                // 이 암기장의 오늘 신규/총학습 + 날짜 표시
+                document.getElementById('todayNewTotal').textContent = counts.studiedToday > 0 ? counts.newToday + ' / ' + counts.studiedToday : '';
+                document.getElementById('todayDateLabel').textContent = dateLabel;
 
                 // 암기 단어가 모두 오늘 학습한 단어일 때 왕관 표시
                 if (crown) crown.style.display = counts.memorizedAllToday ? 'inline' : 'none';
@@ -1437,12 +1879,36 @@
             }
 
             showQuizComplete() {
+                this.sendStudyLog();
+                this.fetchCommunityStats();
                 const area = document.getElementById('flashcardArea');
                 document.getElementById('choiceArea').style.display = 'none';
                 document.getElementById('timerBarContainer').style.display = 'none';
 
+                const isMemorizeMode = (this.quizMode === 'notMemorized' && this.notMemorizedMode === 'memorize');
                 const results = this.quizSessionResults;
                 const total = results.length;
+
+                // 암기학습 완료: 카드분배 없이 격려 메시지
+                if (isMemorizeMode) {
+                    const wordCount = this.quizWords.length;
+                    const msgs = [
+                        ['🧠', wordCount + '개의 씨앗이 머릿속에 심어졌어요!'],
+                        ['✨', '기억의 조각들이 연결되고 있어요!'],
+                        ['🌱', wordCount + '개 단어, 반복할수록 단단해져요!'],
+                        ['🔮', '지금 본 것들이 곧 당신의 지식이 됩니다'],
+                        ['💡', '반복은 기억의 어머니, 당신은 점점 강해지고 있어요!']
+                    ];
+                    const pick = msgs[Math.floor(Math.random() * msgs.length)];
+                    area.innerHTML =
+                        '<div class="quiz-complete">' +
+                            '<div class="quiz-complete-icon">' + pick[0] + '</div>' +
+                            '<div class="quiz-complete-text">' + pick[1] + '</div>' +
+                        '</div>';
+                    this.updateStatBar();
+                    this.showCommunityStats();
+                    return;
+                }
 
                 // No results (empty quiz) - show simple message
                 if (total === 0) {
@@ -1452,6 +1918,7 @@
                             '<div class="quiz-complete-text">더 이상 학습할 단어가 없습니다</div>' +
                         '</div>';
                     this.updateStatBar();
+                    this.showCommunityStats();
                     return;
                 }
 
@@ -1546,6 +2013,535 @@
                 return str.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
             }
 
+            // ===== Text/Image Display Methods =====
+
+            displayText(text, title) {
+                const area = document.getElementById('flashcardArea');
+
+                area.style.opacity = '0.7';
+
+                setTimeout(() => {
+                    area.innerHTML = '<div class="text-view-container"></div>';
+                    const container = area.querySelector('.text-view-container');
+                    container.textContent = text;
+
+                    this.highlights = [];
+                    this.highlightRanges = [];
+
+                    if (this.currentTextId) {
+                        setTimeout(() => {
+                            this.loadHighlights();
+                        }, 100);
+                    }
+
+                    area.style.opacity = '1';
+                }, 100);
+            }
+
+            displayImage(imageData, title) {
+                const area = document.getElementById('flashcardArea');
+
+                area.style.opacity = '0.7';
+
+                setTimeout(() => {
+                    // Build nav buttons HTML
+                    let navHtml = '';
+                    const imgIdx = this.imageContentsList.findIndex(i => i.id === this.currentTextId);
+                    const totalImages = this.imageContentsList.length;
+
+                    if (totalImages > 1) {
+                        navHtml =
+                            '<button class="image-nav-btn nav-prev"' + (imgIdx <= 0 ? ' disabled' : '') + ' onclick="window.app.navigateImage(-1)">◀</button>' +
+                            '<button class="image-nav-btn nav-next"' + (imgIdx >= totalImages - 1 ? ' disabled' : '') + ' onclick="window.app.navigateImage(1)">▶</button>' +
+                            '<div class="image-nav-indicator">' + (imgIdx + 1) + ' / ' + totalImages + '</div>';
+                    }
+
+                    area.innerHTML =
+                        '<div class="image-wrapper">' +
+                            '<div class="image-view-area">' +
+                                navHtml +
+                                '<div class="image-container">' +
+                                    '<img src="' + imageData + '" alt="' + this.escapeHtml(title) + '">' +
+                                '</div>' +
+                            '</div>' +
+                            '<div class="highlight-text-reserve">' +
+                                '<div class="highlight-text-display" id="highlightTextDisplay"></div>' +
+                            '</div>' +
+                        '</div>';
+
+                    this.highlights = [];
+                    this.highlightRanges = [];
+
+                    const img = area.querySelector('img');
+                    const container = area.querySelector('.image-container');
+                    const viewArea = area.querySelector('.image-view-area');
+                    const fitImage = () => {
+                        // view-area 크기 기준으로 이미지 제한
+                        if (img && viewArea) {
+                            const maxW = viewArea.clientWidth;
+                            const maxH = viewArea.clientHeight;
+                            if (maxH > 0) img.style.maxHeight = maxH + 'px';
+                            if (maxW > 0) img.style.maxWidth = maxW + 'px';
+                        }
+                        // 리플로우 후 container를 이미지 렌더 크기에 맞춤
+                        requestAnimationFrame(() => {
+                            if (img && container) {
+                                container.style.width = img.offsetWidth + 'px';
+                                container.style.height = img.offsetHeight + 'px';
+                            }
+                            if (this.currentTextId) {
+                                this.loadHighlights();
+                            }
+                        });
+                    };
+
+                    if (img) {
+                        if (img.complete && img.naturalWidth > 0) {
+                            fitImage();
+                        } else {
+                            img.onload = () => fitImage();
+                        }
+                    }
+
+                    // Setup swipe for mobile
+                    const wrapper = area.querySelector('.image-wrapper');
+                    if (wrapper && totalImages > 1) {
+                        this.setupImageSwipe(wrapper);
+                    }
+
+                    area.style.opacity = '1';
+                }, 100);
+            }
+
+            navigateImage(direction) {
+                const idx = this.imageContentsList.findIndex(i => i.id === this.currentTextId);
+                const newIdx = idx + direction;
+                if (newIdx < 0 || newIdx >= this.imageContentsList.length) return;
+                this.loadContent(this.imageContentsList[newIdx]);
+            }
+
+            setupImageSwipe(wrapper) {
+                let startX = 0, startY = 0, startTime = 0;
+                wrapper.addEventListener('touchstart', (e) => {
+                    if (e.target.closest('.image-nav-btn') || e.target.closest('.highlight') || e.target.closest('.image-highlight-box')) return;
+                    startX = e.touches[0].clientX;
+                    startY = e.touches[0].clientY;
+                    startTime = Date.now();
+                }, { passive: true });
+                wrapper.addEventListener('touchend', (e) => {
+                    if (!startTime) return;
+                    const dx = e.changedTouches[0].clientX - startX;
+                    const dy = e.changedTouches[0].clientY - startY;
+                    const elapsed = Date.now() - startTime;
+                    startTime = 0;
+                    if (elapsed > 500 || Math.abs(dx) < 60 || Math.abs(dx) < Math.abs(dy)) return;
+                    this.navigateImage(dx < 0 ? 1 : -1);
+                }, { passive: true });
+            }
+
+            async loadHighlights() {
+                if (!this.db || !this.currentTextId) return;
+
+                try {
+                    const transaction = this.db.transaction(['highlights'], 'readonly');
+                    const store = transaction.objectStore('highlights');
+                    const index = store.index('content_id');
+
+                    const request = index.getAll(parseInt(this.currentTextId));
+
+                    request.onsuccess = () => {
+                        const highlights = request.result;
+
+                        const textHighlights = highlights.filter(h => h.highlight_type === 'text').sort((a, b) => a.start_offset - b.start_offset);
+                        const imageHighlights = highlights.filter(h => h.highlight_type === 'image');
+
+                        if (textHighlights.length > 0) {
+                            this.recreateAllTextHighlights(textHighlights);
+                        }
+
+                        imageHighlights.forEach(highlight => {
+                            this.recreateImageHighlight(highlight);
+                        });
+
+                        this.updateHighlightStats();
+                    };
+                } catch (error) {
+                    console.error('하이라이트 로드 오류:', error);
+                }
+            }
+
+            recreateAllTextHighlights(highlights) {
+                try {
+                    const container = document.querySelector('.text-view-container');
+                    if (!container) return;
+                    let textContent = container.textContent;
+
+                    if (!textContent) {
+                        console.warn('텍스트 내용이 없습니다');
+                        return;
+                    }
+
+                    highlights.sort((a, b) => a.start_offset - b.start_offset);
+
+                    const fragment = document.createDocumentFragment();
+                    let currentPos = 0;
+
+                    highlights.forEach((highlightData) => {
+                        if (highlightData.start_offset >= textContent.length ||
+                            highlightData.end_offset > textContent.length ||
+                            highlightData.start_offset < 0 ||
+                            highlightData.end_offset <= highlightData.start_offset) {
+                            console.warn('유효하지 않은 하이라이트 오프셋:', highlightData);
+                            return;
+                        }
+
+                        if (currentPos < highlightData.start_offset) {
+                            const beforeText = textContent.substring(currentPos, highlightData.start_offset);
+                            if (beforeText) {
+                                fragment.appendChild(document.createTextNode(beforeText));
+                            }
+                        }
+
+                        const highlightText = textContent.substring(highlightData.start_offset, highlightData.end_offset);
+                        const highlightElement = document.createElement('span');
+                        highlightElement.className = 'highlight masked';
+
+                        if (highlightData.is_priority) {
+                            highlightElement.classList.add('priority');
+                        }
+                        if (highlightData.is_memorized) {
+                            highlightElement.classList.remove('masked');
+                            highlightElement.classList.add('memorized');
+                        }
+
+                        highlightElement.textContent = highlightText;
+                        highlightElement.setAttribute('data-id', highlightData.id);
+                        highlightElement.setAttribute('data-timestamp', highlightData.timestamp || Date.now());
+
+                        this.setupHoldEvents(highlightElement);
+
+                        fragment.appendChild(highlightElement);
+
+                        const highlightObj = {
+                            type: 'text',
+                            text: highlightText,
+                            start: highlightData.start_offset,
+                            end: highlightData.end_offset,
+                            timestamp: highlightData.timestamp || Date.now(),
+                            element: highlightElement,
+                            isPriority: highlightData.is_priority || false,
+                            isMemorized: highlightData.is_memorized || false,
+                            id: highlightData.id
+                        };
+
+                        this.highlights.push(highlightObj);
+
+                        this.highlightRanges.push({
+                            start: highlightData.start_offset,
+                            end: highlightData.end_offset,
+                            element: highlightElement
+                        });
+
+                        currentPos = highlightData.end_offset;
+                    });
+
+                    if (currentPos < textContent.length) {
+                        const afterText = textContent.substring(currentPos);
+                        if (afterText) {
+                            fragment.appendChild(document.createTextNode(afterText));
+                        }
+                    }
+
+                    container.innerHTML = '';
+                    container.appendChild(fragment);
+
+                    console.log('텍스트 하이라이트 재생성 완료:', highlights.length + '개');
+
+                } catch (error) {
+                    console.error('텍스트 하이라이트 재생성 오류:', error);
+                }
+            }
+
+            recreateImageHighlight(highlightData) {
+                try {
+                    const imageContainer = document.querySelector('.image-container');
+                    const img = imageContainer?.querySelector('img');
+                    if (!imageContainer || !img) return;
+
+                    let rect;
+
+                    if (highlightData.relative_data && highlightData.relative_data !== 'undefined') {
+                        try {
+                            const relativeRect = JSON.parse(highlightData.relative_data);
+
+                            const displayWidth = img.offsetWidth;
+                            const displayHeight = img.offsetHeight;
+
+                            rect = {
+                                left: relativeRect.left * displayWidth,
+                                top: relativeRect.top * displayHeight,
+                                width: relativeRect.width * displayWidth,
+                                height: relativeRect.height * displayHeight
+                            };
+                        } catch (parseError) {
+                            console.error('relative_data 파싱 오류:', parseError);
+                            rect = null;
+                        }
+                    }
+
+                    if (!rect && highlightData.rect_data && highlightData.rect_data !== 'undefined') {
+                        try {
+                            rect = JSON.parse(highlightData.rect_data);
+                        } catch (parseError) {
+                            console.error('rect_data 파싱 오류:', parseError);
+                            rect = null;
+                        }
+                    }
+
+                    if (!rect || typeof rect !== 'object') {
+                        console.warn('이미지 하이라이트에 유효한 위치 데이터가 없습니다');
+                        return;
+                    }
+
+                    rect.left = typeof rect.left === 'number' ? Math.max(0, rect.left) : 0;
+                    rect.top = typeof rect.top === 'number' ? Math.max(0, rect.top) : 0;
+                    rect.width = typeof rect.width === 'number' ? Math.max(10, rect.width) : 50;
+                    rect.height = typeof rect.height === 'number' ? Math.max(10, rect.height) : 30;
+
+                    const highlightElement = document.createElement('div');
+                    highlightElement.className = 'image-highlight masked';
+                    if (highlightData.is_priority) {
+                        highlightElement.classList.add('priority');
+                    }
+                    if (highlightData.is_memorized) {
+                        highlightElement.classList.remove('masked');
+                        highlightElement.classList.add('memorized');
+                    }
+
+                    highlightElement.style.left = rect.left + 'px';
+                    highlightElement.style.top = rect.top + 'px';
+                    highlightElement.style.width = rect.width + 'px';
+                    highlightElement.style.height = rect.height + 'px';
+
+                    highlightElement.setAttribute('data-id', highlightData.id);
+                    highlightElement.setAttribute('data-timestamp', highlightData.timestamp || Date.now());
+
+                    imageContainer.appendChild(highlightElement);
+
+                    this.setupHoldEvents(highlightElement);
+
+                    const highlightObj = {
+                        type: 'image',
+                        rect: rect,
+                        timestamp: highlightData.timestamp || Date.now(),
+                        element: highlightElement,
+                        isPriority: highlightData.is_priority || false,
+                        isMemorized: highlightData.is_memorized || false,
+                        id: highlightData.id,
+                        highlightText: highlightData.highlight_text || ''
+                    };
+
+                    this.highlights.push(highlightObj);
+
+                } catch (error) {
+                    console.error('이미지 하이라이트 재생성 오류:', error);
+                }
+            }
+
+            setupHoldEvents(element) {
+                let clickTimer = null;
+
+                // Desktop: click to reveal, dblclick to memorize
+                element.addEventListener('click', (e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    if (clickTimer) {
+                        clearTimeout(clickTimer);
+                        clickTimer = null;
+                        return;
+                    }
+                    clickTimer = setTimeout(() => {
+                        clickTimer = null;
+                        this.revealHighlight(element);
+                    }, 250);
+                });
+
+                element.addEventListener('dblclick', (e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    if (clickTimer) {
+                        clearTimeout(clickTimer);
+                        clickTimer = null;
+                    }
+                    this.toggleHighlightMemorized(element);
+                });
+
+                // Mobile: tap to reveal, double-tap to memorize
+                let lastTapTime = 0;
+                element.addEventListener('touchend', (e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    const now = Date.now();
+                    if (now - lastTapTime < 350) {
+                        lastTapTime = 0;
+                        if (clickTimer) { clearTimeout(clickTimer); clickTimer = null; }
+                        this.toggleHighlightMemorized(element);
+                    } else {
+                        lastTapTime = now;
+                        if (clickTimer) { clearTimeout(clickTimer); clickTimer = null; }
+                        clickTimer = setTimeout(() => {
+                            clickTimer = null;
+                            this.revealHighlight(element);
+                        }, 350);
+                    }
+                });
+
+            }
+
+            revealHighlight(element) {
+                // Un-reveal previous
+                if (this._revealedElement && this._revealedElement !== element) {
+                    this.unrevealHighlight(this._revealedElement);
+                }
+
+                element.classList.remove('masked', 'memorized');
+                element.classList.add('revealed');
+                this._revealedElement = element;
+
+                // Show highlight text label if available
+                const highlightId = parseInt(element.getAttribute('data-id'));
+                const highlightObj = this.highlights.find(h => h.id === highlightId);
+                const textEl = document.getElementById('highlightTextDisplay');
+                if (textEl && highlightObj && highlightObj.highlightText) {
+                    textEl.textContent = highlightObj.highlightText;
+                    textEl.classList.add('visible');
+                }
+            }
+
+            unrevealHighlight(element) {
+                if (!element) return;
+                // Hide highlight text display
+                const textEl = document.getElementById('highlightTextDisplay');
+                if (textEl) {
+                    textEl.textContent = '';
+                    textEl.classList.remove('visible');
+                }
+                if (element.classList.contains('revealed')) {
+                    element.classList.remove('revealed');
+
+                    // If was memorized, un-memorize (clicking = don't know)
+                    const highlightId = parseInt(element.getAttribute('data-id'));
+                    const highlightObj = this.highlights.find(h => h.id === highlightId);
+                    if (highlightObj && highlightObj.isMemorized) {
+                        highlightObj.isMemorized = false;
+                        if (this.db) {
+                            try {
+                                const tx = this.db.transaction(['highlights'], 'readwrite');
+                                const store = tx.objectStore('highlights');
+                                const req = store.get(highlightId);
+                                req.onsuccess = () => {
+                                    const record = req.result;
+                                    if (record) { record.is_memorized = false; store.put(record); }
+                                };
+                            } catch (e) {}
+                        }
+                        this.updateHighlightStats();
+                    }
+
+                    element.classList.add('masked');
+                }
+                if (this._revealedElement === element) {
+                    this._revealedElement = null;
+                }
+            }
+
+            showFullImage() {
+                const highlights = document.querySelectorAll('.image-highlight, .highlight');
+                if (highlights.length === 0) return;
+
+                highlights.forEach(el => { el.style.display = 'none'; });
+
+                setTimeout(() => {
+                    highlights.forEach(el => { el.style.display = ''; });
+                }, 3000);
+            }
+
+            showStoryOverlay() {
+                if (!this.currentStoryText) return;
+                const area = document.getElementById('flashcardArea');
+                const wrapper = area.querySelector('.image-wrapper');
+                if (!wrapper) return;
+
+                // Remove existing overlay if any
+                const existing = wrapper.querySelector('.story-overlay');
+                if (existing) { existing.remove(); return; }
+
+                const overlay = document.createElement('div');
+                overlay.className = 'story-overlay';
+                overlay.innerHTML =
+                    '<div class="story-overlay-header">' +
+                        '<span class="story-overlay-title">📖 스토리</span>' +
+                        '<button class="story-overlay-close" onclick="window.app && window.app.closeStoryOverlay()">&times;</button>' +
+                    '</div>' +
+                    '<div class="story-overlay-body"></div>';
+                overlay.querySelector('.story-overlay-body').textContent = this.currentStoryText;
+                wrapper.appendChild(overlay);
+            }
+
+            closeStoryOverlay() {
+                const overlay = document.querySelector('.story-overlay');
+                if (overlay) overlay.remove();
+            }
+
+            // ===== Highlight Stats =====
+            updateHighlightStats() {
+                const total = this.highlights.length;
+                const memorized = this.highlights.filter(h => h.isMemorized).length;
+                const notMemorized = total - memorized;
+
+                const countEl = document.getElementById('countHighlights');
+                const memorizedEl = document.getElementById('countHighlightMemorized');
+                if (countEl) countEl.textContent = notMemorized;
+                if (memorizedEl) memorizedEl.textContent = memorized;
+            }
+
+            toggleHighlightMemorized(element) {
+                const highlightId = parseInt(element.getAttribute('data-id'));
+                const highlightObj = this.highlights.find(h => h.id === highlightId);
+                if (!highlightObj) return;
+
+                const newState = !highlightObj.isMemorized;
+                highlightObj.isMemorized = newState;
+
+                if (newState) {
+                    element.classList.remove('masked');
+                    element.classList.add('memorized');
+                } else {
+                    element.classList.remove('memorized');
+                    element.classList.add('masked');
+                }
+
+                this.updateHighlightStats();
+
+                // Persist to IndexedDB
+                if (this.db) {
+                    try {
+                        const tx = this.db.transaction(['highlights'], 'readwrite');
+                        const store = tx.objectStore('highlights');
+                        const getReq = store.get(highlightId);
+                        getReq.onsuccess = () => {
+                            const record = getReq.result;
+                            if (record) {
+                                record.is_memorized = newState;
+                                store.put(record);
+                            }
+                        };
+                    } catch (e) {
+                        console.error('하이라이트 암기 상태 저장 오류:', e);
+                    }
+                }
+            }
+
             // ===== Extract Hint Character =====
             getHintChar(meaning) {
                 if (!meaning) return '?';
@@ -1616,16 +2612,17 @@
                     card.classList.add(isCorrect ? 'flash-correct' : 'flash-wrong');
                 }
 
-                // Show meaning briefly if wrong
-                if (!isCorrect && card) {
-                    const meaningDiv = card.querySelector('.flashcard-meaning');
+                // Show meaning with color
+                if (card) {
+                    let meaningDiv = card.querySelector('.flashcard-meaning');
                     if (!meaningDiv) {
-                        const md = document.createElement('div');
-                        md.className = 'flashcard-meaning';
-                        md.style.display = 'block';
-                        md.textContent = word.meaning;
-                        card.appendChild(md);
+                        meaningDiv = document.createElement('div');
+                        meaningDiv.className = 'flashcard-meaning';
+                        card.appendChild(meaningDiv);
                     }
+                    meaningDiv.style.display = 'block';
+                    meaningDiv.style.color = isCorrect ? '#4caf50' : '#e94560';
+                    meaningDiv.textContent = word.meaning;
                 }
 
                 // Determine target box for fly animation
@@ -1658,7 +2655,24 @@
                         this.memorizeRevealed = true;
                     }
                 } else {
-                    // Second tap: next card (no known change)
+                    // Second tap: update last_studied and move to next card
+                    const word = this.quizWords[this.quizIndex];
+                    if (word && this.db) {
+                        const now = this.getKSTISOString();
+                        const todayKST = this.getKSTDateString();
+                        if (!word.first_studied) {
+                            word.first_studied = word.last_studied || now;
+                        }
+                        word.last_studied = now;
+                        word.study_count = (word.study_count || 0) + 1;
+                        if (word.today_date !== todayKST) {
+                            word.today_date = todayKST;
+                            word.today_count = 0;
+                        }
+                        word.today_count = (word.today_count || 0) + 1;
+                        const tx = this.db.transaction(['word_progress'], 'readwrite');
+                        tx.objectStore('word_progress').put(word);
+                    }
                     this.quizIndex++;
                     this.memorizeRevealed = false;
                     this.showNextCard();
@@ -1716,6 +2730,7 @@
                         card.appendChild(meaningDiv);
                     }
                     meaningDiv.style.display = 'block';
+                    meaningDiv.style.color = '#ff9800';
                     meaningDiv.textContent = word.meaning;
                 }
 
@@ -1830,6 +2845,7 @@
                                 '<div class="quiz-complete-icon">' + icon + '</div>' +
                                 '<div class="quiz-complete-text">' + msg + '</div>' +
                             '</div>';
+                        this.showCommunityStats();
                     }, 500);
                 }, totalTime);
             }
@@ -1877,23 +2893,41 @@
                     this.currentText = item.content || '';
                     this.currentMindmapData = null;
                     this.currentImageData = null;
+                    this.currentStoryText = '';
 
                     if (item.content_type === 'mindmap') {
                         this.currentMindmapData = item.mindmap_data ? JSON.parse(item.mindmap_data) : this.parseMindmapData(item.content);
                         await this.initWordProgress(item.id);
                     } else if (item.content_type === 'image') {
                         this.currentImageData = item.image_data;
+                        this.currentStoryText = item.story_text || '';
                     }
 
                     // Update top title
                     document.getElementById('topTitle').textContent = item.title;
 
-                    await this.updateStatBar();
+                    // Show/hide stat bar based on content type
+                    const statBar = document.getElementById('statBar');
+                    const highlightStatBar = document.getElementById('highlightStatBar');
+                    if (item.content_type === 'mindmap') {
+                        statBar.style.display = '';
+                        highlightStatBar.style.display = 'none';
+                        await this.updateStatBar();
+                    } else {
+                        statBar.style.display = 'none';
+                        highlightStatBar.style.display = '';
+                    }
+
+                    // Show/hide story button
+                    const storyBtn = document.getElementById('statStory');
+                    if (storyBtn) {
+                        storyBtn.style.display = (item.content_type === 'image' && this.currentStoryText) ? '' : 'none';
+                    }
 
                     // Reset stat box active states
                     document.querySelectorAll('.stat-box').forEach(b => b.classList.remove('active'));
 
-                    // Show idle state
+                    // Show content based on type
                     const area = document.getElementById('flashcardArea');
                     if (item.content_type === 'mindmap') {
                         area.innerHTML =
@@ -1901,11 +2935,15 @@
                                 '<div class="flashcard-idle-icon">📚</div>' +
                                 '<div>위의 박스를 터치하여 학습을 시작하세요</div>' +
                             '</div>';
+                    } else if (item.content_type === 'text') {
+                        this.displayText(item.content || '', item.title);
+                    } else if (item.content_type === 'image' && this.currentImageData) {
+                        this.displayImage(this.currentImageData, item.title);
                     } else {
                         area.innerHTML =
                             '<div class="flashcard-idle">' +
                                 '<div class="flashcard-idle-icon">📄</div>' +
-                                '<div>이 콘텐츠는 플래시카드를 지원하지 않습니다</div>' +
+                                '<div>이 콘텐츠를 지원하지 않습니다</div>' +
                             '</div>';
                     }
                     document.getElementById('choiceArea').style.display = 'none';
@@ -1920,6 +2958,9 @@
                     item.last_viewed = new Date();
                     store.put(item);
                     localStorage.setItem('lastViewedContentId', item.id.toString());
+                    if (item.content_type === 'image') {
+                        localStorage.setItem('lastViewedImageContentId', item.id.toString());
+                    }
 
                 } catch (error) {
                     console.error('콘텐츠 로드 오류:', error);
@@ -1929,10 +2970,20 @@
 
             updateActiveState(activeId) {
                 const allItems = document.querySelectorAll('.sidebar-item');
-                allItems.forEach((item, index) => {
-                    item.classList.remove('active');
-                    if (this.savedTexts[index] && this.savedTexts[index].id === activeId) {
-                        item.classList.add('active');
+                allItems.forEach((el) => {
+                    el.classList.remove('active');
+                    if (parseInt(el.getAttribute('data-id')) === activeId) {
+                        el.classList.add('active');
+                        // Auto-expand parent group if collapsed
+                        const parentChildren = el.closest('.sidebar-group-children');
+                        if (parentChildren && parentChildren.classList.contains('collapsed')) {
+                            parentChildren.classList.remove('collapsed');
+                            const parentGroup = parentChildren.closest('.sidebar-group');
+                            if (parentGroup) {
+                                const header = parentGroup.querySelector('.sidebar-group-header');
+                                if (header) header.classList.remove('collapsed');
+                            }
+                        }
                     }
                 });
             }
@@ -2105,10 +3156,23 @@
                             '<div class="settings-value" id="wordLimitMValue">' + this.wordLimitMemorized + '개</div>' +
                         '</div>' +
                         previewHtml +
+                        '<div class="settings-login-row">' +
+                            (this.authToken && this.userNickname
+                                ? '<span class="nickname">' + this.escapeHtml(this.userNickname) + '</span>' +
+                                  '<button class="settings-login-btn logout" id="settingsLogoutBtn">로그아웃</button>'
+                                : '<span style="color:#aaa;font-size:13px">학습 기록을 저장하려면 로그인하세요</span>' +
+                                  '<button class="settings-login-btn login" id="settingsLoginBtn">로그인</button>') +
+                        '</div>' +
                         '<button class="settings-close-btn" id="settingsCloseBtn">닫기</button>' +
                     '</div>';
 
                 document.body.appendChild(modal);
+
+                // 로그인/로그아웃 버튼 이벤트
+                const loginBtn = modal.querySelector('#settingsLoginBtn');
+                if (loginBtn) loginBtn.addEventListener('click', () => { modal.remove(); this.openAuthModal(); });
+                const logoutBtn = modal.querySelector('#settingsLogoutBtn');
+                if (logoutBtn) logoutBtn.addEventListener('click', () => { this.logout(); modal.remove(); this.openSettings(); });
 
                 const slider = modal.querySelector('#timeLimitSlider');
                 const valueDisplay = modal.querySelector('#timeLimitValue');
@@ -2150,10 +3214,273 @@
                 modal.addEventListener('click', (e) => { if (e.target === modal) modal.remove(); });
             }
 
+            // ===== Auth & Stats Methods =====
+            generateDeviceId() {
+                const id = 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, c => {
+                    const r = Math.random() * 16 | 0;
+                    return (c === 'x' ? r : (r & 0x3 | 0x8)).toString(16);
+                });
+                localStorage.setItem('mk_device_id', id);
+                return id;
+            }
+
+            async verifyAuth() {
+                if (!this.authToken) return;
+                try {
+                    const res = await fetch(this.statsApiUrl + '/auth/verify', {
+                        headers: { 'Authorization': 'Bearer ' + this.authToken }
+                    });
+                    const data = await res.json();
+                    if (!data.valid) {
+                        this.logout(true);
+                    }
+                } catch (e) {
+                    // 네트워크 오류 시 기존 토큰 유지
+                }
+            }
+
+            sendStudyLog() {
+                try {
+                    const isMemorizeMode = (this.quizMode === 'notMemorized' && this.notMemorizedMode === 'memorize');
+                    const results = this.quizSessionResults || [];
+                    const correct = results.filter(r => r.correct).length;
+                    const wrong = results.filter(r => !r.correct).length;
+
+                    const kst = new Date(Date.now() + 9 * 3600000);
+                    const studyDate = kst.toISOString().slice(0, 10);
+
+                    const log = {
+                        device_id: this.deviceId,
+                        content_name: this.currentTitle || '',
+                        quiz_mode: this.quizMode || '',
+                        words_studied: isMemorizeMode ? (this.quizWords ? this.quizWords.length : 0) : results.length,
+                        words_correct: isMemorizeMode ? 0 : correct,
+                        words_wrong: isMemorizeMode ? 0 : wrong,
+                        study_date: studyDate,
+                    };
+
+                    const headers = { 'Content-Type': 'application/json' };
+                    if (this.authToken) headers['Authorization'] = 'Bearer ' + this.authToken;
+
+                    this._studyLogPromise = fetch(this.statsApiUrl + '/study-log', {
+                        method: 'POST', headers, body: JSON.stringify(log)
+                    }).catch(() => {});
+                } catch (e) {
+                    // 학습 흐름 방해 금지
+                }
+            }
+
+            fetchCommunityStats() {
+                try {
+                    const logDone = this._studyLogPromise || Promise.resolve();
+                    this._communityStatsPromise = logDone.then(() => {
+                        const ctrl = new AbortController();
+                        setTimeout(() => ctrl.abort(), 3000);
+
+                        const fetches = [
+                            fetch(this.statsApiUrl + '/stats/today', { signal: ctrl.signal }).then(r => r.json())
+                        ];
+
+                        if (this.authToken) {
+                            fetches.push(
+                                fetch(this.statsApiUrl + '/stats/me', {
+                                    headers: { 'Authorization': 'Bearer ' + this.authToken },
+                                    signal: ctrl.signal
+                                }).then(r => r.ok ? r.json() : null)
+                            );
+                        }
+
+                        return Promise.all(fetches).then(([today, me]) => ({ today, me: me || null }));
+                    });
+                } catch (e) {
+                    this._communityStatsPromise = Promise.resolve(null);
+                }
+            }
+
+            showCommunityStats() {
+                if (!this._communityStatsPromise) return;
+                this._communityStatsPromise.then(data => {
+                    if (!data || !data.today) return;
+                    const area = document.getElementById('flashcardArea');
+                    if (!area) return;
+                    const existing = area.querySelector('.community-stats');
+                    if (existing) existing.remove();
+
+                    const t = data.today;
+                    let html = '<div class="community-stats">';
+                    html += '<div class="community-stats-line">오늘 <b>' + (t.active_users || 0) + '명</b>이 함께 공부했어요!' + (t.max_words ? ' · 최다 <b>' + t.max_words + '단어</b> 학습' : '') + '</div>';
+
+                    if (data.me) {
+                        const m = data.me;
+                        html += '<div class="community-stats-my">오늘 나의 학습량: <span class="cs-words">' + (m.today_words || 0) + '단어</span>';
+                        if (m.streak > 0) {
+                            html += ' · 연속 <span class="cs-streak">' + m.streak + '일째!</span>';
+                        }
+                        html += '</div>';
+
+                        // 어제 비교 칭찬
+                        const todayW = m.today_words || 0;
+                        const yesterdayW = m.yesterday_words;
+                        if (typeof yesterdayW === 'number' && todayW > 0) {
+                            let motiv = '';
+                            if (yesterdayW === 0) {
+                                motiv = '\uD83D\uDC4F 오늘도 열심히!';
+                            } else if (todayW > yesterdayW) {
+                                motiv = '\uD83D\uDD25 어제보다 ' + (todayW - yesterdayW) + '단어 더 많이 학습했어요!';
+                            } else if (todayW === yesterdayW) {
+                                motiv = '\uD83D\uDCAA 어제와 같은 페이스예요! 꾸준함이 실력!';
+                            }
+                            if (motiv) {
+                                html += '<div class="community-stats-motivation">' + motiv + '</div>';
+                            }
+                        }
+
+                    }
+
+                    html += '</div>';
+                    area.insertAdjacentHTML('beforeend', html);
+                }).catch(() => {});
+            }
+
+            openAuthModal() {
+                const existing = document.querySelector('.auth-modal');
+                if (existing) existing.remove();
+
+                const modal = document.createElement('div');
+                modal.className = 'auth-modal';
+                modal.innerHTML =
+                    '<div class="auth-dialog">' +
+                        '<div class="auth-tabs">' +
+                            '<button class="auth-tab active" data-tab="login">로그인</button>' +
+                            '<button class="auth-tab" data-tab="signup">회원가입</button>' +
+                        '</div>' +
+                        '<div id="authLoginPane">' +
+                            '<input class="auth-input" id="authLoginEmail" type="email" placeholder="이메일" autocomplete="email">' +
+                            '<input class="auth-input" id="authLoginPw" type="password" placeholder="비밀번호" autocomplete="current-password">' +
+                            '<button class="auth-submit" id="authLoginBtn">로그인</button>' +
+                        '</div>' +
+                        '<div id="authSignupPane" style="display:none">' +
+                            '<input class="auth-input" id="authSignupEmail" type="email" placeholder="이메일" autocomplete="email">' +
+                            '<input class="auth-input" id="authSignupNick" type="text" placeholder="닉네임" autocomplete="nickname">' +
+                            '<input class="auth-input" id="authSignupPw" type="password" placeholder="비밀번호 (6자 이상)" autocomplete="new-password">' +
+                            '<button class="auth-submit" id="authSignupBtn">회원가입</button>' +
+                        '</div>' +
+                        '<div class="auth-error" id="authError"></div>' +
+                    '</div>';
+
+                document.body.appendChild(modal);
+
+                // 탭 전환
+                modal.querySelectorAll('.auth-tab').forEach(tab => {
+                    tab.addEventListener('click', () => {
+                        modal.querySelectorAll('.auth-tab').forEach(t => t.classList.remove('active'));
+                        tab.classList.add('active');
+                        const isLogin = tab.dataset.tab === 'login';
+                        modal.querySelector('#authLoginPane').style.display = isLogin ? '' : 'none';
+                        modal.querySelector('#authSignupPane').style.display = isLogin ? 'none' : '';
+                        modal.querySelector('#authError').textContent = '';
+                    });
+                });
+
+                // 로그인
+                modal.querySelector('#authLoginBtn').addEventListener('click', async () => {
+                    const email = modal.querySelector('#authLoginEmail').value.trim();
+                    const pw = modal.querySelector('#authLoginPw').value;
+                    const errEl = modal.querySelector('#authError');
+                    const btn = modal.querySelector('#authLoginBtn');
+                    if (!email || !pw) { errEl.textContent = '이메일과 비밀번호를 입력해주세요.'; return; }
+                    btn.disabled = true; btn.textContent = '로그인 중...';
+                    try {
+                        await this.handleLogin(email, pw);
+                        modal.remove();
+                        this.showToast(this.userNickname + '님 환영합니다!');
+                    } catch (e) {
+                        errEl.textContent = e.message;
+                    } finally { btn.disabled = false; btn.textContent = '로그인'; }
+                });
+
+                // 회원가입
+                modal.querySelector('#authSignupBtn').addEventListener('click', async () => {
+                    const email = modal.querySelector('#authSignupEmail').value.trim();
+                    const nick = modal.querySelector('#authSignupNick').value.trim();
+                    const pw = modal.querySelector('#authSignupPw').value;
+                    const errEl = modal.querySelector('#authError');
+                    const btn = modal.querySelector('#authSignupBtn');
+                    if (!email || !nick || !pw) { errEl.textContent = '모든 항목을 입력해주세요.'; return; }
+                    if (pw.length < 6) { errEl.textContent = '비밀번호는 6자 이상이어야 합니다.'; return; }
+                    btn.disabled = true; btn.textContent = '가입 중...';
+                    try {
+                        await this.handleSignup(email, pw, nick);
+                        modal.remove();
+                        this.showToast(this.userNickname + '님 가입 완료!');
+                    } catch (e) {
+                        errEl.textContent = e.message;
+                    } finally { btn.disabled = false; btn.textContent = '회원가입'; }
+                });
+
+                // 배경 클릭으로 닫기
+                modal.addEventListener('click', (e) => { if (e.target === modal) modal.remove(); });
+            }
+
+            async handleLogin(email, password) {
+                const res = await fetch(this.statsApiUrl + '/auth/login', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ email, password }),
+                });
+                const data = await res.json();
+                if (!res.ok) throw new Error(data.error || '로그인에 실패했습니다.');
+                this.authToken = data.token;
+                this.userNickname = data.user.nickname;
+                this.userId = data.user.id;
+                localStorage.setItem('mk_auth_token', data.token);
+                localStorage.setItem('mk_user_nickname', data.user.nickname);
+                localStorage.setItem('mk_user_id', data.user.id);
+            }
+
+            async handleSignup(email, password, nickname) {
+                const res = await fetch(this.statsApiUrl + '/auth/signup', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ email, password, nickname }),
+                });
+                const data = await res.json();
+                if (!res.ok) throw new Error(data.error || '회원가입에 실패했습니다.');
+                this.authToken = data.token;
+                this.userNickname = data.user.nickname;
+                this.userId = data.user.id;
+                localStorage.setItem('mk_auth_token', data.token);
+                localStorage.setItem('mk_user_nickname', data.user.nickname);
+                localStorage.setItem('mk_user_id', data.user.id);
+            }
+
+            logout(silent) {
+                this.authToken = null;
+                this.userNickname = null;
+                this.userId = null;
+                localStorage.removeItem('mk_auth_token');
+                localStorage.removeItem('mk_user_nickname');
+                localStorage.removeItem('mk_user_id');
+                if (!silent) this.showToast('로그아웃되었습니다.');
+            }
+
             // ===== Event Listeners =====
             setupFlashcardEventListeners() {
                 // Keyboard shortcuts
                 document.addEventListener('keydown', (e) => {
+                    // Image navigation with arrow keys
+                    if (!this.isQuizActive && this.currentContentType === 'image' && this.imageContentsList.length > 1) {
+                        if (e.key === 'ArrowLeft') {
+                            e.preventDefault();
+                            this.navigateImage(-1);
+                            return;
+                        } else if (e.key === 'ArrowRight') {
+                            e.preventDefault();
+                            this.navigateImage(1);
+                            return;
+                        }
+                    }
+
                     if (!this.isQuizActive || this.isProcessing) return;
 
                     const isMemorize = (this.quizMode === 'notMemorized' && this.notMemorizedMode === 'memorize');
@@ -2245,48 +3572,90 @@
 
                 if (this.savedTexts.length === 0) {
                     container.innerHTML = '<div class="flashcard-idle" style="padding:20px;font-size:13px;">저장된 콘텐츠가 없습니다</div>';
+                    this.imageContentsList = [];
                     return;
                 }
 
                 container.innerHTML = '';
 
-                for (let i = 0; i < this.savedTexts.length; i++) {
-                    const item = this.savedTexts[i];
-                    const listItem = document.createElement('div');
-                    listItem.className = 'sidebar-item';
-                    listItem.setAttribute('data-id', item.id);
-                    if (this.currentTextId === item.id) {
-                        listItem.classList.add('active');
-                    }
+                // Group by content_type: mindmap → image → text
+                const groups = [
+                    { key: 'mindmap', icon: '🧠', label: '메모리킹카드', items: [] },
+                    { key: 'image', icon: '🖼️', label: '이미지 콘텐츠', items: [] },
+                    { key: 'text', icon: '📝', label: '텍스트', items: [] }
+                ];
+                const groupMap = {};
+                groups.forEach(g => { groupMap[g.key] = g; });
+                this.savedTexts.forEach(item => {
+                    const g = groupMap[item.content_type] || groupMap['text'];
+                    g.items.push(item);
+                });
 
-                    const typeIcon = item.content_type === 'image' ? '🖼️' : (item.content_type === 'mindmap' ? '🧠' : '📝');
+                // Build imageContentsList for navigation
+                this.imageContentsList = groups.find(g => g.key === 'image').items.slice();
 
-                    // Get word progress counts for mindmap items
-                    let badgeHtml = '';
-                    if (item.content_type === 'mindmap') {
-                        try {
-                            const counts = await this.getWordCounts(item.id);
-                            const total = counts.remaining + counts.notMemorized + counts.memorized;
-                            if (total > 0) {
-                                badgeHtml = '<span class="sidebar-badge">' + total + '단어</span>';
-                            }
-                        } catch (e) {}
-                    }
+                for (const group of groups) {
+                    if (group.items.length === 0) continue;
 
-                    listItem.innerHTML =
-                        '<div class="sidebar-item-title">' + typeIcon + ' ' + item.title + '</div>' +
-                        '<div class="sidebar-item-actions">' +
-                            badgeHtml +
-                            '<button class="sidebar-delete-btn" onclick="event.stopPropagation(); window.app && window.app.deleteContent(' + item.id + ')" title="삭제">🗑️</button>' +
-                        '</div>';
+                    const groupEl = document.createElement('div');
+                    groupEl.className = 'sidebar-group';
 
-                    listItem.addEventListener('click', (e) => {
-                        if (e.target.closest('.sidebar-delete-btn')) return;
-                        this.loadContent(item);
-                        this.toggleSidebar();
+                    const isCollapsed = this.sidebarGroupState[group.key] === true;
+                    const header = document.createElement('div');
+                    header.className = 'sidebar-group-header' + (isCollapsed ? ' collapsed' : '');
+                    header.innerHTML =
+                        '<span class="group-arrow">▼</span>' +
+                        group.icon + ' ' + group.label +
+                        '<span class="sidebar-group-count">' + group.items.length + '</span>';
+
+                    const childrenEl = document.createElement('div');
+                    childrenEl.className = 'sidebar-group-children' + (isCollapsed ? ' collapsed' : '');
+
+                    header.addEventListener('click', () => {
+                        const nowCollapsed = header.classList.toggle('collapsed');
+                        childrenEl.classList.toggle('collapsed', nowCollapsed);
+                        this.sidebarGroupState[group.key] = nowCollapsed;
+                        localStorage.setItem('sidebarGroupState', JSON.stringify(this.sidebarGroupState));
                     });
 
-                    container.appendChild(listItem);
+                    for (const item of group.items) {
+                        const listItem = document.createElement('div');
+                        listItem.className = 'sidebar-item';
+                        listItem.setAttribute('data-id', item.id);
+                        if (this.currentTextId === item.id) {
+                            listItem.classList.add('active');
+                        }
+
+                        let badgeHtml = '';
+                        if (item.content_type === 'mindmap') {
+                            try {
+                                const counts = await this.getWordCounts(item.id);
+                                const total = counts.remaining + counts.notMemorized + counts.memorized;
+                                if (total > 0) {
+                                    badgeHtml = '<span class="sidebar-badge">' + total + '단어</span>';
+                                }
+                            } catch (e) {}
+                        }
+
+                        listItem.innerHTML =
+                            '<div class="sidebar-item-title">' + group.icon + ' ' + item.title + '</div>' +
+                            '<div class="sidebar-item-actions">' +
+                                badgeHtml +
+                                '<button class="sidebar-delete-btn" onclick="event.stopPropagation(); window.app && window.app.deleteContent(' + item.id + ')" title="삭제">🗑️</button>' +
+                            '</div>';
+
+                        listItem.addEventListener('click', (e) => {
+                            if (e.target.closest('.sidebar-delete-btn')) return;
+                            this.loadContent(item);
+                            this.toggleSidebar();
+                        });
+
+                        childrenEl.appendChild(listItem);
+                    }
+
+                    groupEl.appendChild(header);
+                    groupEl.appendChild(childrenEl);
+                    container.appendChild(groupEl);
                 }
             }
 
@@ -2391,6 +3760,7 @@
                             this.currentContentType = 'text';
                             this.currentImageData = null;
                             this.currentMindmapData = null;
+                            this.currentStoryText = '';
                             this.isQuizActive = false;
                             this.stopQuizTimer();
 
@@ -2403,8 +3773,17 @@
                             document.getElementById('choiceArea').style.display = 'none';
                             document.getElementById('timerBarContainer').style.display = 'none';
                             document.getElementById('statBar').style.display = '';
+                            document.getElementById('highlightStatBar').style.display = 'none';
                             this.updateStatBar();
                             localStorage.removeItem('lastViewedContentId');
+                        }
+
+                        // Clean up lastViewedImageContentId if the deleted content was the last viewed image
+                        if (content.content_type === 'image') {
+                            const lastImgId = localStorage.getItem('lastViewedImageContentId');
+                            if (lastImgId && parseInt(lastImgId) === contentId) {
+                                localStorage.removeItem('lastViewedImageContentId');
+                            }
                         }
 
                         this.loadData();
@@ -2841,6 +4220,9 @@
                             item.content.mindmap_data = JSON.stringify({ title: item.content.title || '플래시카드', branches: branches });
                         }
                         importData.contents.push(item.content);
+                        if (item.highlights && Array.isArray(item.highlights)) {
+                            item.highlights.forEach(h => importData.highlights.push(h));
+                        }
                         importData.updateMap.push({
                             isUpdate: !!airtableItem.isUpdate,
                             updateTargetId: airtableItem.updateTargetId || null
@@ -2881,81 +4263,138 @@
                     let updatedCount = 0;
                     const contentIdMap = new Map();
                     const updateMap = data.updateMap || [];
+                    const urlPath = this.detectUrlPath();
 
-                    for (let i = 0; i < data.contents.length; i++) {
-                        const content = data.contents[i];
-                        const updateInfo = updateMap[i] || { isUpdate: false, updateTargetId: null };
+                    // 1) Pre-fetch all existing titles in one transaction
+                    const existingTitles = await new Promise((resolve) => {
+                        const tx = this.db.transaction(['contents'], 'readonly');
+                        const idx = tx.objectStore('contents').index('title');
+                        const req = idx.getAll();
+                        req.onsuccess = () => resolve(new Set((req.result || []).map(r => r.title)));
+                        req.onerror = () => resolve(new Set());
+                    });
 
-                        try {
-                            if (updateInfo.isUpdate && updateInfo.updateTargetId) {
-                                const targetId = updateInfo.updateTargetId;
-
-                                const existing = await new Promise((resolve, reject) => {
-                                    const tx = this.db.transaction(['contents'], 'readonly');
-                                    const st = tx.objectStore('contents');
-                                    const req = st.get(targetId);
-                                    req.onsuccess = () => resolve(req.result);
-                                    req.onerror = () => reject(req.error);
-                                });
-
-                                if (!existing) {
-                                    await this._addNewContent(content, contentIdMap);
-                                    importedCount++;
-                                    continue;
-                                }
-
-                                const updatedContent = {
-                                    ...existing,
-                                    title: content.title,
-                                    content: content.content,
-                                    content_type: content.content_type,
-                                    mindmap_data: content.mindmap_data || existing.mindmap_data,
-                                    image_data: content.image_data || existing.image_data,
-                                    category1: content.category1 || existing.category1,
-                                    category2: content.category2 || existing.category2,
-                                    category3: content.category3 || existing.category3,
-                                    updated_at: new Date()
-                                };
-                                updatedContent.id = existing.id;
-
-                                await new Promise((resolve, reject) => {
-                                    const tx = this.db.transaction(['contents'], 'readwrite');
-                                    const st = tx.objectStore('contents');
-                                    st.put(updatedContent);
-                                    tx.oncomplete = () => { updatedCount++; resolve(); };
-                                    tx.onerror = () => reject(tx.error);
-                                });
-
-                            } else {
-                                await this._addNewContent(content, contentIdMap);
-                                importedCount++;
-                            }
-                        } catch (error) {
-                            console.error('콘텐츠 저장 오류:', error);
-                        }
+                    // 2) Pre-fetch all update targets in one transaction
+                    const updateTargetIds = updateMap.filter(u => u.isUpdate && u.updateTargetId).map(u => u.updateTargetId);
+                    const existingMap = new Map();
+                    if (updateTargetIds.length > 0) {
+                        await new Promise((resolve) => {
+                            const tx = this.db.transaction(['contents'], 'readonly');
+                            const st = tx.objectStore('contents');
+                            let pending = updateTargetIds.length;
+                            updateTargetIds.forEach(id => {
+                                const req = st.get(id);
+                                req.onsuccess = () => { if (req.result) existingMap.set(id, req.result); if (--pending === 0) resolve(); };
+                                req.onerror = () => { if (--pending === 0) resolve(); };
+                            });
+                            if (pending === 0) resolve();
+                        });
                     }
 
-                    if (data.highlights && Array.isArray(data.highlights)) {
-                        const validHighlights = data.highlights.filter(highlight => contentIdMap.has(highlight.content_id));
-                        for (const highlight of validHighlights) {
-                            try {
-                                const newContentId = contentIdMap.get(highlight.content_id);
-                                delete highlight.id;
-                                highlight.content_id = newContentId;
-                                highlight.imported_at = new Date();
-                                highlight.is_priority = false;
+                    // Helper: generate unique title from pre-fetched set
+                    const getUniqueTitleFast = (baseTitle) => {
+                        let title = baseTitle;
+                        let counter = 1;
+                        while (existingTitles.has(title)) {
+                            title = baseTitle + ' (' + counter + ')';
+                            counter++;
+                        }
+                        existingTitles.add(title);
+                        return title;
+                    };
 
-                                await new Promise((resolve, reject) => {
-                                    const tx = this.db.transaction(['highlights'], 'readwrite');
-                                    const store = tx.objectStore('highlights');
-                                    const request = store.add(highlight);
-                                    request.onsuccess = () => resolve();
-                                    request.onerror = () => reject(request.error);
-                                });
-                            } catch (error) {
-                                console.error('하이라이트 저장 오류:', error);
+                    // 3) Save all contents in one transaction
+                    const highlightDeleteTargets = [];
+                    await new Promise((resolve, reject) => {
+                        const tx = this.db.transaction(['contents'], 'readwrite');
+                        const st = tx.objectStore('contents');
+
+                        for (let i = 0; i < data.contents.length; i++) {
+                            const content = data.contents[i];
+                            const info = updateMap[i] || { isUpdate: false, updateTargetId: null };
+
+                            if (info.isUpdate && info.updateTargetId) {
+                                const existing = existingMap.get(info.updateTargetId);
+                                if (!existing) {
+                                    const origId = content.id;
+                                    delete content.id;
+                                    content.title = getUniqueTitleFast(content.title);
+                                    content.imported_at = new Date();
+                                    content.url_path = urlPath;
+                                    const req = st.add(content);
+                                    req.onsuccess = () => { contentIdMap.set(origId, req.result); importedCount++; };
+                                } else {
+                                    const updated = {
+                                        ...existing,
+                                        title: content.title,
+                                        content: content.content,
+                                        content_type: content.content_type,
+                                        mindmap_data: content.mindmap_data || existing.mindmap_data,
+                                        image_data: content.image_data || existing.image_data,
+                                        story_text: content.story_text || existing.story_text || null,
+                                        category1: content.category1 || existing.category1,
+                                        category2: content.category2 || existing.category2,
+                                        category3: content.category3 || existing.category3,
+                                        updated_at: new Date()
+                                    };
+                                    updated.id = existing.id;
+                                    st.put(updated);
+                                    updatedCount++;
+                                    if (content.id != null) contentIdMap.set(content.id, existing.id);
+                                    highlightDeleteTargets.push(existing.id);
+                                }
+                            } else {
+                                const origId = content.id;
+                                delete content.id;
+                                content.title = getUniqueTitleFast(content.title);
+                                content.imported_at = new Date();
+                                content.url_path = urlPath;
+                                const req = st.add(content);
+                                req.onsuccess = () => { contentIdMap.set(origId, req.result); importedCount++; };
                             }
                         }
+
+                        tx.oncomplete = () => resolve();
+                        tx.onerror = () => reject(tx.error);
+                    });
+
+                    // 4) Delete old highlights + add new highlights in one transaction
+                    const newHighlights = (data.highlights && Array.isArray(data.highlights))
+                        ? data.highlights.filter(h => contentIdMap.has(h.content_id))
+                        : [];
+
+                    if (highlightDeleteTargets.length > 0 || newHighlights.length > 0) {
+                        await new Promise((resolve, reject) => {
+                            const tx = this.db.transaction(['highlights'], 'readwrite');
+                            const store = tx.objectStore('highlights');
+                            const idx = store.index('content_id');
+
+                            // Delete old highlights for updated contents
+                            let deletesPending = highlightDeleteTargets.length;
+                            if (deletesPending === 0) addNewHighlights();
+                            highlightDeleteTargets.forEach(cid => {
+                                const req = idx.getAll(cid);
+                                req.onsuccess = () => {
+                                    (req.result || []).forEach(h => store.delete(h.id));
+                                    if (--deletesPending === 0) addNewHighlights();
+                                };
+                                req.onerror = () => { if (--deletesPending === 0) addNewHighlights(); };
+                            });
+
+                            function addNewHighlights() {
+                                newHighlights.forEach(h => {
+                                    const newCid = contentIdMap.get(h.content_id);
+                                    delete h.id;
+                                    h.content_id = newCid;
+                                    h.imported_at = new Date();
+                                    h.is_priority = false;
+                                    store.add(h);
+                                });
+                            }
+
+                            tx.oncomplete = () => resolve();
+                            tx.onerror = () => reject(tx.error);
+                        });
                     }
 
                     await this.loadData();
@@ -3067,6 +4506,11 @@
         window.addEventListener('DOMContentLoaded', () => {
             window.app = new WordMemorizationApp();
         });
+    </script>
+    <script>
+        if ('serviceWorker' in navigator) {
+            navigator.serviceWorker.register('./sw.js');
+        }
     </script>
 </body>
 </html>
