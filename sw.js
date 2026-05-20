@@ -1,17 +1,16 @@
-const CACHE_NAME = 'memoryking-v2';
+const CACHE_NAME = 'memoryking-v3';
 const CACHE_FILES = [
-  './',
   './memoryking-user.html',
   './guide.html',
   './icon-192.png',
   './icon-512.png',
 ];
 
-// 설치: 핵심 파일 캐싱
+// 설치: 핵심 파일 캐싱 (개별 캐싱 — 일부 파일이 없어도 설치는 성공)
 self.addEventListener('install', (e) => {
   e.waitUntil(
     caches.open(CACHE_NAME)
-      .then(cache => cache.addAll(CACHE_FILES))
+      .then(cache => Promise.allSettled(CACHE_FILES.map(f => cache.add(f))))
       .then(() => self.skipWaiting())
   );
 });
