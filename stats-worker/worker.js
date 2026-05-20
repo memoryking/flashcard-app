@@ -586,50 +586,37 @@ export default {
         const kst = new Date(Date.now() + 9 * 3600000);
         const today = kst.toISOString().slice(0, 10);
 
-        // 오늘 학습 로그
+        // 오늘 학습 로그 — 정답 수·세션 수는 study_logs(완료 세션) 기준
         const todayLogs = await ncbRead(env, 'study_logs', `user_id=${userId}&study_date=${today}&limit=1000`);
         const todayList = todayLogs?.data || [];
-
-        let todayWords = 0, todayCorrect = 0, todaySessions = todayList.length;
+        let todayCorrect = 0, todaySessions = todayList.length;
         for (const log of todayList) {
-          todayWords += Number(log.words_studied) || 0;
           todayCorrect += Number(log.words_correct) || 0;
         }
 
-        // 오늘 학습 단어 수는 daily_study(동기화 기반 — 미완료 세션 포함)를 우선 사용
-        try {
-          const ds = await ncbSearch(env, 'daily_study', { user_id: String(userId) });
-          const dsRow = (ds?.data || []).find(r => r.study_date === today);
-          if (dsRow) todayWords = Number(dsRow.words) || 0;
-        } catch (e) {
-          console.error('daily_study 조회 오류:', e);
-        }
-
-        // 전체 학습 단어 & streak 계산
-        const allLogs = await ncbRead(env, 'study_logs', `user_id=${userId}&limit=10000`);
-        const allList = allLogs?.data || [];
-
+        // 학습량(오늘·주간·누적·streak)은 daily_study(동기화 기반 — 미완료 세션 포함) 기준
+        const myDaily = await ncbRead(env, 'daily_study', `user_id=${userId}&limit=10000`);
         let totalWords = 0;
-        const dateSet = new Set();
         const dateWordsMap = new Map();
-        for (const log of allList) {
-          const w = Number(log.words_studied) || 0;
+        for (const r of (myDaily?.data || [])) {
+          if (!r.study_date) continue;
+          const w = Number(r.words) || 0;
           totalWords += w;
-          if (log.study_date) {
-            dateSet.add(log.study_date);
-            dateWordsMap.set(log.study_date, (dateWordsMap.get(log.study_date) || 0) + w);
-          }
+          dateWordsMap.set(r.study_date, (dateWordsMap.get(r.study_date) || 0) + w);
         }
 
-        // Streak: 오늘부터 역순 연속일 + 연속일 동안 학습 단어수
+        const todayWords = dateWordsMap.get(today) || 0;
+
+        // Streak: 오늘부터 역순으로 학습량(>0)이 있는 연속일
         let streak = 0;
         let streakWords = 0;
         const d = new Date(Date.now() + 9 * 3600000);
         while (true) {
           const ds = d.toISOString().slice(0, 10);
-          if (dateSet.has(ds)) {
+          const w = dateWordsMap.get(ds) || 0;
+          if (w > 0) {
             streak++;
-            streakWords += dateWordsMap.get(ds) || 0;
+            streakWords += w;
             d.setDate(d.getDate() - 1);
           } else {
             break;
@@ -656,18 +643,19 @@ export default {
           if (dayWords > 0) weekDays++;
         }
 
-        // 주간 전체 유저 평균 계산 (7일 병렬 조회)
+        // 주간 전체 유저 평균 계산 (7일 병렬 조회 — daily_study)
         let weekAvg = 0;
         try {
-          const weekDateStrs = weekDaily.map(d => d.date);
+          const weekDateStrs = weekDaily.map(x => x.date);
           const weekAllResults = await Promise.all(
-            weekDateStrs.map(ds => ncbRead(env, 'study_logs', `study_date=${ds}&limit=1000`))
+            weekDateStrs.map(ds => ncbRead(env, 'daily_study', `study_date=${ds}&limit=1000`))
           );
           const weekUserTotals = new Map();
           for (const res of weekAllResults) {
-            for (const log of (res?.data || [])) {
-              if (!log.user_id) continue;
-              weekUserTotals.set(log.user_id, (weekUserTotals.get(log.user_id) || 0) + (Number(log.words_studied) || 0));
+            for (const r of (res?.data || [])) {
+              if (!r.user_id) continue;
+              const uid = String(r.user_id);
+              weekUserTotals.set(uid, (weekUserTotals.get(uid) || 0) + (Number(r.words) || 0));
             }
           }
           if (weekUserTotals.size > 0) {
