@@ -23,6 +23,8 @@
 20. [localStorage 저장 값](#20-localstorage-저장-값)
 21. [CSS 애니메이션](#21-css-애니메이션)
 22. [이미지 하이라이트 텍스트 라벨](#22-이미지-하이라이트-텍스트-라벨)
+23. [단어 키 전역 진도 (무료↔유료 학습 연속성)](#23-단어-키-전역-진도-무료유료-학습-연속성)
+24. [서비스워커 / 캐싱](#24-서비스워커--캐싱)
 
 ---
 
@@ -36,7 +38,8 @@
 constructor()
   └→ init()
       ├→ loadPageCategory()         에어테이블에서 페이지 카테고리 로드
-      ├→ initDB()                   IndexedDB v6 초기화
+      ├→ initDB()                   IndexedDB v7 초기화
+      ├→ migrateVocabState()        v6 word_progress → vocab_state 1회 마이그레이션
       ├→ setupFlashcardEventListeners()  이벤트 리스너 등록
       ├→ loadData()                 저장된 콘텐츠 목록 로드
       ├→ updateToggleUI()           구분학습/암기학습 토글 UI 복원
@@ -55,8 +58,12 @@ HTML에서 `window.app && window.app.메서드()` 형태로 호출
 ## 2. IndexedDB 구조
 
 - **DB명**: `MemorykingDB_User`
-- **버전**: 6
+- **버전**: 7
 - **Origin**: `memoryking.github.io` (모든 iframe이 공유)
+
+> **v7 핵심 변경**: 단어 학습 진도가 콘텐츠(`content_id`)가 아니라 **단어 자체**에
+> 귀속된다. `vocab_state` 스토어가 진도의 단일 진실원본이며, `word_progress`는
+> 레거시(마이그레이션 소스)로만 남는다. → [23번 참조](#23-단어-키-전역-진도-무료유료-학습-연속성)
 
 ### contents 스토어
 | 필드 | 설명 |
@@ -80,21 +87,30 @@ HTML에서 `window.app && window.app.메서드()` 형태로 호출
 | text | 하이라이트 텍스트 |
 | is_priority | 우선 학습 여부 |
 
-### word_progress 스토어
+### vocab_state 스토어 (v7 — 진도의 단일 진실원본)
+| 필드 | 설명 |
+|------|------|
+| word | 정규화된 단어 키 (`trim().toLowerCase()`) — **keyPath** |
+| known | `null`=미학습, `0`=미암기, `1`=1차암기, `2`=완전암기 |
+| last_studied | 마지막 학습일 (KST ISO 문자열) |
+| first_studied | 최초 학습일 |
+| study_count | 총 시도 횟수 |
+| correct_count | 총 정답 횟수 |
+| today_date / today_count | 오늘 학습 횟수 (날짜 바뀌면 리셋) |
+
+**단어 1개당 레코드 1개** — 콘텐츠와 무관. 단어 목록·뜻·연상법은 `contents.mindmap_data`에서 가져온다.
+
+### word_progress 스토어 (레거시)
+v6까지 쓰던 콘텐츠별 진도 스토어. **v7부터 읽지/쓰지 않으며**, 마이그레이션 소스로만 남는다.
+
 | 필드 | 설명 |
 |------|------|
 | id | 자동 증가 (keyPath) |
 | content_id | contents 참조 |
 | word | 영단어 (level1) |
-| meaning | 뜻 (level2) |
-| association | 연결고리 (level3) |
-| known | `null`=미학습, `0`=미암기, `1`=1차암기, `2`=완전암기 |
-| last_studied | 마지막 학습일 (KST ISO 문자열) |
-| study_count | 총 시도 횟수 |
-| correct_count | 총 정답 횟수 |
-| created_at | 생성일 |
+| known / last_studied / study_count / correct_count | 진도 (레거시) |
 
-**유니크 인덱스**: `[content_id, word]` — 같은 콘텐츠에 같은 단어 중복 불가
+**유니크 인덱스**: `[content_id, word]`
 
 ---
 
@@ -138,7 +154,8 @@ HTML에서 `window.app && window.app.메서드()` 형태로 호출
 ### 용도
 - 에어테이블 `page_config`의 `url_path`와 매칭 → 카테고리 결정
 - 콘텐츠 저장 시 `url_path` 필드에 기록
-- **page= 값이 같으면 같은 학습 데이터**, 다르면 다른 학습 데이터
+- **page= 값에 따라 받는 콘텐츠(자료)가 달라진다.** 단, v7부터 학습 진도는 콘텐츠가
+  아닌 단어 단위로 공유되므로, 페이지가 달라도 같은 단어는 진도가 이어진다 → [23번 참조](#23-단어-키-전역-진도-무료유료-학습-연속성)
 
 ---
 
@@ -397,29 +414,46 @@ null (남은박스)
 
 ---
 
-## 12. 단어 진행도 관리
+## 12. 단어 진행도 관리 (v7 — 단어 키 전역 진도)
+
+### 핵심 모델
+진도(`known`, `last_studied`, `study_count` 등)는 **`vocab_state` 스토어**에
+**단어 키 1개당 레코드 1개**로 저장된다. 콘텐츠별 단어 목록·뜻·연상법은
+`contents.mindmap_data`에서 가져오고, 진도는 `vocab_state`에서 가져와 합친다.
+
+- **단어 키**: `wordKey(w)` = 원본 단어를 `trim().toLowerCase()`로 정규화
+- 표시되는 단어/뜻/연상법은 각 콘텐츠의 데이터, 진도(`known`)는 단어로 공유
+
+### 주요 메서드
+| 메서드 | 역할 |
+|--------|------|
+| `getContentBranches(id)` | 콘텐츠의 `mindmap_data`에서 단어 목록 추출 |
+| `getVocabMap()` | `vocab_state` 전체를 `{ 단어키 → 레코드 }` Map으로 |
+| `loadContentWords(id)` | 콘텐츠 단어 목록 + 전역 진도를 합쳐 학습용 객체 배열 생성 |
+| `saveVocabState(w)` | 단어 객체의 진도를 `vocab_state`에 저장 |
+| `initWordProgress(id)` | 콘텐츠 로드 시 — 콘텐츠 단어 중 `vocab_state`에 없는 것만 신규 등록 |
+| `migrateVocabState()` | v6 `word_progress` → `vocab_state` 1회 자동 병합 |
 
 ### initWordProgress(contentId)
-
-콘텐츠를 열 때 호출 — `mindmap_data`의 branches를 word_progress에 동기화
-
+콘텐츠를 열 때 호출:
 ```
-1. 기존 word_progress 조회 → existingMap (word 기준)
-2. branches 순회:
-   - existingMap에 있으면 → 건너뜀 (학습 기록 유지)
-   - 없으면 → 새 레코드 생성 (known: null)
-3. 뜻/연결고리 변경 감지:
-   - 기존 단어의 meaning/association이 다르면 → 업데이트 (known 유지)
+1. vocab_state 전체 로드 (getVocabMap)
+2. 콘텐츠 branches 순회:
+   - vocab_state에 이미 있으면 → 건너뜀 (다른 콘텐츠 학습 진도 그대로 상속)
+   - 없으면 → known: null 신규 레코드 추가
+3. 하이라이트 1순위(is_priority) 단어는 known: 1로 마이그레이션
 ```
+→ **다른 콘텐츠에서 이미 학습한 단어는 진도가 자동으로 이어진다.**
 
-### 중복 단어 처리
-- `[content_id, word]` 유니크 인덱스로 보호
-- 같은 단어가 2번 있으면 첫 번째만 등록, 두 번째는 무시
-- **380단어 중 중복 1개 → 379개로 표시되는 이유**
+### 콘텐츠/페이지 간 연속성
+- 무료(`...-free`) → 명사 상편(`...-noun-1`) → 동사 ... 어떤 순서로 받아도
+  철자가 같은 단어는 진도 공유
+- 표시 뜻·연상법은 패키지별이지만 "외웠음" 상태는 단어로 공유
+- 자세한 설계 → [23번 참조](#23-단어-키-전역-진도-무료유료-학습-연속성)
 
 ### 콘텐츠 업데이트 시
-- 기존 학습 기록 (known, study_count 등) **완전 유지**
-- meaning/association만 최신으로 갱신
+- 진도는 `vocab_state`에 있으므로 콘텐츠 갱신과 무관하게 **완전 유지**
+- 단어 목록·뜻·연상법만 새 `mindmap_data`로 갱신
 
 ---
 
@@ -517,6 +551,10 @@ null (남은박스)
 ### 완전 삭제 보장
 - word_progress 트랜잭션 완료를 `await`로 대기한 후 다음 삭제 진행
 - 이전 버그: await 없이 실행 → 데이터 잔류 가능 → 수정 완료
+
+### v7 진도 보존
+- `vocab_state`(단어 키 전역 진도)는 콘텐츠를 삭제해도 **지우지 않는다.**
+- 콘텐츠를 지워도 그 단어들의 학습 진도는 유지 → 재구매·재다운로드 시 그대로 이어짐
 
 ---
 
@@ -693,6 +731,53 @@ highlights 스토어에 `highlight_text` 필드 추가:
 - `#highlightTextDisplay` — `.image-wrapper` 안에 `position: absolute; bottom: 0`
 - 반투명 배경 (`rgba(22,33,62,0.92)`) + `backdrop-filter: blur(6px)`
 - 노란색 텍스트 (`#ffc107`), 1.3em, 굵게
+
+---
+
+## 23. 단어 키 전역 진도 (무료↔유료 학습 연속성)
+
+### 배경 — 해결한 문제
+무료 학습 페이지와 유료 구매 페이지는 서로 다른 콘텐츠 패키지를 다운로드한다
+(각각 다른 `content_id`). v6까지는 진도가 `(content_id, word)`에 묶여 있어,
+무료에서 외운 단어를 유료 패키지에서 **다시 미학습 상태로** 만나는 문제가 있었다.
+
+### 해결 — 진도를 "단어"에 귀속
+v7부터 진도는 `vocab_state` 스토어에 **정규화된 단어 키 1개당 1레코드**로 저장된다.
+- 콘텐츠(자료)는 패키지별로 따로 존재 — 단어 목록·뜻·연상법
+- 진도(`known` 등)는 단어 단위로 전역 공유
+- 무료 → 명사 → 동사 어떤 순서·조합으로 받아도 겹치는 단어는 진도 연속
+
+### 마이그레이션 (migrateVocabState)
+앱 시작 시 1회 실행. `vocab_state`가 비어 있고 `word_progress`에 데이터가 있으면,
+기존 진도를 단어 키로 병합(같은 단어는 `last_studied` 최신값 채택)해 이전한다.
+멱등 — 이미 끝났으면 건너뜀. → 기존 사용자의 학습 기록 보존.
+
+### 전제 조건
+- 모든 페이지(무료·유료)가 **같은 앱 파일**(`memoryking-user.html`)을 같은
+  origin에서 로드해야 IndexedDB를 공유한다 (`?page=` 값만 다름)
+- 서드파티 iframe 저장소 분할 때문에, 모든 아임웹 페이지는 같은 도메인
+  (`vipup.site`) 아래 있어야 한다
+- 진도는 브라우저·기기 종속(IndexedDB). 기기 간 동기화는 향후 서버 연동 과제
+
+### 한계
+- 철자가 다르면(대소문자 제외) 다른 단어로 취급 — 무료/유료 자료의 단어 표기 일관성 필요
+- 무료 자료는 유료 자료에 실제로 등장하는 단어로 구성해야 연속성 효과가 큼
+
+---
+
+## 24. 서비스워커 / 캐싱 (sw.js)
+
+| 대상 | 전략 |
+|------|------|
+| HTML 문서 | 네트워크 우선 + `cache: 'reload'`로 HTTP 캐시 우회 → 항상 최신 코드 |
+| 이미지 등 정적 자산 | 캐시 우선, 없으면 네트워크 |
+| 외부 origin (API) | 가로채지 않음 |
+
+- SW 등록: `register('./sw.js', { updateViaCache: 'none' })` — `sw.js` 자체도 항상 최신 확인
+- `CACHE_NAME` 변경 시 activate에서 이전 캐시 자동 삭제
+- **결과**: 코드 배포 = GitHub Pages에 푸시만. 아임웹 iframe의 `&v=` 캐시버스터를
+  매번 바꿀 필요 없음
+- 오프라인: HTML은 마지막 캐시본으로 폴백
 
 ---
 
