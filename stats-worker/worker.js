@@ -888,18 +888,26 @@ export default {
         // 기존 서버 데이터 조회
         const existing = await ncbSearch(env, 'user_vocab', { user_id: userId });
         const row = (existing?.data || [])[0];
+        // data 컬럼은 JSON 타입 — 객체로 반환되지만, 문자열로 올 수도 있어 둘 다 대응
         let serverWords = {};
-        if (row && row.data) { try { serverWords = JSON.parse(row.data); } catch {} }
+        const rawData = row && row.data;
+        if (rawData) {
+          if (typeof rawData === 'string') {
+            try { serverWords = JSON.parse(rawData); } catch {}
+          } else if (typeof rawData === 'object') {
+            serverWords = rawData;
+          }
+        }
 
         // 단어별 병합 (last_studied 최신값 우선)
         const merged = mergeVocab(serverWords, incoming);
-        const dataStr = JSON.stringify(merged);
         const now = new Date(Date.now() + 9 * 3600000).toISOString().replace('Z', '+09:00');
 
+        // JSON 컬럼에는 객체를 그대로 전달
         if (row) {
-          await ncbUpdate(env, 'user_vocab', row.id, { data: dataStr, updated_at: now });
+          await ncbUpdate(env, 'user_vocab', row.id, { data: merged, updated_at: now });
         } else {
-          await ncbCreate(env, 'user_vocab', { user_id: userId, data: dataStr, updated_at: now });
+          await ncbCreate(env, 'user_vocab', { user_id: userId, data: merged, updated_at: now });
         }
 
         return json({ words: merged }, 200, request);
