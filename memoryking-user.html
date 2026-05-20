@@ -1617,9 +1617,11 @@
 
             async init() {
                 try {
-                    await this.loadPageCategory();
+                    // DB를 먼저 연다 — 네트워크 호출(loadPageCategory)보다 우선해
+                    // this.db가 null인 시간 창을 최소화
                     await this.initDB();
                     await this.migrateVocabState();
+                    await this.loadPageCategory();
                     this.setupFlashcardEventListeners();
                     await this.loadData();
 
@@ -1650,14 +1652,26 @@
                 }
             }
 
-            // ===== IndexedDB v6 =====
+            // ===== IndexedDB v7 =====
             async initDB() {
                 return new Promise((resolve, reject) => {
                     const request = indexedDB.open('MemorykingDB_User', 7);
 
-                    request.onerror = () => reject(request.error);
+                    request.onerror = () => {
+                        console.error('DB 열기 실패:', request.error);
+                        reject(request.error);
+                    };
+                    request.onblocked = () => {
+                        console.warn('DB 업그레이드 차단됨 — 다른 탭/창이 열려 있습니다');
+                    };
                     request.onsuccess = () => {
                         this.db = request.result;
+                        // 다른 탭에서 버전 업그레이드를 시도하면 이 연결을 닫아 차단을 방지
+                        this.db.onversionchange = () => {
+                            this.db.close();
+                            this.db = null;
+                            console.warn('DB 버전 변경 감지 — 연결을 닫음');
+                        };
                         console.log('DB 초기화 완료');
                         resolve();
                     };
@@ -4556,6 +4570,10 @@
             // ===== Airtable Import =====
             async importFromAirtable() {
                 try {
+                    if (!this.db) {
+                        this.showToast('앱이 아직 준비 중입니다. 잠시 후 다시 시도해주세요.', 'info');
+                        return;
+                    }
                     this.showToast('자료에서 데이터를 가져오는 중...', 'info');
 
                     let response;
