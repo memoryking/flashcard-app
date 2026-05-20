@@ -1,6 +1,6 @@
 <script>
 /* ── 가이드 설정 (업데이트 시 이 숫자만 올리세요) ── */
-var MK_GUIDE_VERSION = '3';
+var MK_GUIDE_VERSION = '4';
 /* ── 홈 버튼에서 전달된 토큰을 localStorage에 저장 ── */
 (function(){
     var h = location.hash;
@@ -949,7 +949,7 @@ var MK_GUIDE_VERSION = '3';
             <div class="g-road-line"></div>
             <div class="g-road-body">
                 <span class="g-road-title">처음 오신 분 <span class="g-road-badge green">START</span></span>
-                <span class="g-road-desc">아래 학습 가이드 읽기 → 무료 체험학습 이동 → 설정(⚙)에서 회원가입 (학습 통계를 위해 권장)</span>
+                <span class="g-road-desc">아래 학습 가이드 읽기 → 무료 체험학습 이동 → 회원가입·로그인 (학습하려면 로그인이 필요해요)</span>
             </div>
         </div>
         <div class="g-road-step">
@@ -1804,7 +1804,7 @@ var MK_GUIDE_VERSION = '3';
         <div class="g-step-num">📊</div>
         <div class="g-step-body">
             <b>상단 배너 — 실시간 학습 현황</b>
-            <span>이 페이지 맨 위의 반짝이는 배너에 <strong>오늘 함께 공부하는 학습자 수</strong>와 <strong>최다 학습자가 외운 단어 수</strong>가 실시간으로 표시됩니다.</span>
+            <span>이 페이지 맨 위의 반짝이는 배너에 <strong>오늘 함께 공부하는 학습자 수</strong>와 <strong>최다 학습자가 학습한 암기카드 수</strong>가 실시간으로 표시됩니다.</span>
         </div>
     </div>
     <div class="g-step">
@@ -1817,16 +1817,16 @@ var MK_GUIDE_VERSION = '3';
     <div class="g-step">
         <div class="g-step-num">🔥</div>
         <div class="g-step-body">
-            <b>연속 학습 (Streak)</b>
-            <span>매일 학습하면 연속일이 쌓입니다. 하루라도 빼먹으면 <strong>1일부터 다시 시작</strong>되니, 매일 조금씩이라도 학습해 보세요!</span>
+            <b>연속 학습 (Streak) — 매일 보너스 포인트!</b>
+            <span>매일 빠짐없이 학습하면 연속일이 쌓이고, <strong>연속일수 × 10 포인트</strong>가 매일 보너스로 적립됩니다 (3일째 30P, 7일째 70P …). 하루라도 빼먹으면 <strong>1일부터 다시 시작</strong>되니, 매일 조금씩이라도 학습해 보세요!</span>
         </div>
     </div>
 
     <div class="g-info tip" style="margin-top:16px;">
         <strong>숫자 의미:</strong><br>
         · <strong>N명이 함께 공부했어요</strong> — 오늘 학습한 전체 사용자 수<br>
-        · <strong>최다 N단어</strong> — 오늘 가장 많이 학습한 사람의 단어 수<br>
-        · <strong>오늘 나의 학습량</strong> — 모든 콘텐츠(필수명사 상·하편, 필수동사, 테마별 등)에서 학습한 단어를 합산한 수치입니다. 같은 단어를 반복 학습한 횟수도 포함되므로, 많이 반복할수록 숫자가 올라갑니다! (오프라인 학습한 량 제외)
+        · <strong>최다 N암기카드</strong> — 오늘 가장 많이 학습한 사람의 암기카드 수<br>
+        · <strong>오늘 나의 학습량</strong> — 모든 콘텐츠(필수명사 상·하편, 필수동사, 테마별 등)에서 학습한 암기카드를 합산한 수치입니다. 같은 단어를 반복 학습한 횟수도 포함되므로, 많이 반복할수록 숫자가 올라갑니다! (오프라인 학습도 온라인 연결 시 자동 반영)
     </div>
     <div class="g-acc-close" onclick="var d=this.closest('details');d.removeAttribute('open');d.scrollIntoView({behavior:'smooth',block:'center'})">▲ 닫기</div>
 </div>
@@ -1848,7 +1848,8 @@ var MK_GUIDE_VERSION = '3';
     <table>
     <thead><tr><th>포인트</th><th>쉽게 말하면</th><th>어떻게 쌓이나요?</th></tr></thead>
     <tbody>
-    <tr><td><strong>내 포인트</strong></td><td>나의 학습량</td><td>내가 퀴즈에서 10단어 학습 → 내 포인트 +10</td></tr>
+    <tr><td><strong>내 포인트</strong></td><td>나의 학습량</td><td>퀴즈에서 10암기카드 학습 → 내 포인트 +10</td></tr>
+    <tr><td><strong>연속 보너스</strong></td><td>매일 빠짐없이 학습한 보상</td><td>연속 학습 시 매일 (연속일수 × 10) 포인트 추가 적립 (3일째 30P, 7일째 70P …)</td></tr>
     <tr><td><strong>공부친구 포인트</strong></td><td>친구 덕분에 받는 보상</td><td>① 추천으로 친구 가입 시 +100<br>② 공부친구가 열심히 학습할 때 추가 적립</td></tr>
     </tbody>
     </table>
