@@ -2073,7 +2073,7 @@ var MK_GUIDE_VERSION = '3';
         .then(function(r){ return r.json(); })
         .then(function(d){
             if (!d || !d.active_users) return;
-            banner.innerHTML = '<span class="banner-icon">\uD83D\uDD25</span> 오늘 <b>' + d.active_users + '명</b>이 함께 공부했어요!' + (d.max_words ? ' · 최다 <b>' + d.max_words + '단어</b> 학습' : '') + '<br><span style="display:inline;font-size:12px;opacity:0.8;">나만 공부하는 게 아니에요, 함께 하면 더 힘이 납니다</span>';
+            banner.innerHTML = '<span class="banner-icon">\uD83D\uDD25</span> 오늘 <b>' + d.active_users + '명</b>이 함께 공부했어요!' + (d.max_words ? ' · 최다 <b>' + d.max_words + '암기카드</b> 학습' : '') + '<br><span style="display:inline;font-size:12px;opacity:0.8;">나만 공부하는 게 아니에요, 함께 하면 더 힘이 납니다</span>';
             banner.style.display = 'block';
             setTimeout(function(){ banner.style.opacity = '1'; }, 30);
         })
@@ -2110,7 +2110,7 @@ var MK_GUIDE_VERSION = '3';
                     html += '<span class="rank-num">' + (i+1) + '</span>';
                 }
                 html += '<span class="rank-nick">' + (item.nickname || '\uD559\uC2B5\uC790') + (isMe ? ' (나)' : '') + '</span>';
-                html += '<span class="rank-words">' + item.words + '\uB2E8\uC5B4</span>';
+                html += '<span class="rank-words">' + item.words + '\uC554\uAE30\uCE74\uB4DC</span>';
                 html += '</div>';
             });
             html += '</div>';
@@ -2119,7 +2119,7 @@ var MK_GUIDE_VERSION = '3';
                 var pct = Math.round((myRank / totalUsers) * 100);
                 html += '<div class="rank-me">';
                 html += '<span><span class="rank-num">' + myRank + '\uC704</span> <span class="rank-nick">\uB098\uC758 \uC704\uCE58</span><span class="rank-pct">\uC0C1\uC704 ' + pct + '%</span></span>';
-                html += '<span class="rank-words">' + (d.my_words || 0) + '\uB2E8\uC5B4</span>';
+                html += '<span class="rank-words">' + (d.my_words || 0) + '\uC554\uAE30\uCE74\uB4DC</span>';
                 html += '</div>';
             }
             board.innerHTML = html;
