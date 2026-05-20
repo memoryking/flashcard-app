@@ -901,13 +901,14 @@ export default {
 
         // 단어별 병합 (last_studied 최신값 우선)
         const merged = mergeVocab(serverWords, incoming);
+        const dataStr = JSON.stringify(merged);
         const now = new Date(Date.now() + 9 * 3600000).toISOString().replace('Z', '+09:00');
 
-        // JSON 컬럼에는 객체를 그대로 전달
+        // data 컬럼은 longtext(문자열) — JSON 문자열로 저장
         if (row) {
-          await ncbUpdate(env, 'user_vocab', row.id, { data: merged, updated_at: now });
+          await ncbUpdate(env, 'user_vocab', row.id, { data: dataStr, updated_at: now });
         } else {
-          await ncbCreate(env, 'user_vocab', { user_id: userId, data: merged, updated_at: now });
+          await ncbCreate(env, 'user_vocab', { user_id: userId, data: dataStr, updated_at: now });
         }
 
         return json({ words: merged }, 200, request);
