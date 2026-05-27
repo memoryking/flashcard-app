@@ -882,14 +882,16 @@ function renderHome() {
 }
 
 function renderChapterCard(c) {
+  const isTeacher = state.user && state.user.role === 'teacher';
   const access = state.chapterAccess[c.id];
   const dLeft = access ? daysLeft(access.expires_at) : null;
-  const isActive = dLeft != null && dLeft > 0;
   const isAllFree = Number(c.is_all_free) === 1;
+  const isActive = isTeacher || isAllFree || (dLeft != null && dLeft > 0);
 
   let statusBadge, statusClass;
-  if (isAllFree) { statusBadge = '✨ 무료'; statusClass = 'free'; }
-  else if (isActive) { statusBadge = `D-${dLeft}`; statusClass = 'active'; }
+  if (isTeacher) { statusBadge = '🛠 관리자'; statusClass = 'free'; }
+  else if (isAllFree) { statusBadge = '✨ 무료'; statusClass = 'free'; }
+  else if (dLeft != null && dLeft > 0) { statusBadge = `D-${dLeft}`; statusClass = 'active'; }
   else if (access) { statusBadge = '만료됨'; statusClass = 'expired'; }
   else { statusBadge = '미구매'; statusClass = 'never'; }
 
@@ -897,7 +899,7 @@ function renderChapterCard(c) {
   const canRedeem = state.point >= REDEEM_COST;
 
   let actions;
-  if (isAllFree || isActive) {
+  if (isActive) {
     actions = `<button class="primary" onclick="event.stopPropagation();enterChapter(${c.id})">열기 →</button>`;
   } else {
     actions = `
@@ -907,7 +909,7 @@ function renderChapterCard(c) {
   }
 
   return `
-    <div class="chapter-card ${access && !isActive ? 'expired' : ''}" onclick="${isActive || isAllFree ? `enterChapter(${c.id})` : `openPayModal(${c.id})`}">
+    <div class="chapter-card ${access && !isActive && !isTeacher ? 'expired' : ''}" onclick="${isActive ? `enterChapter(${c.id})` : `openPayModal(${c.id})`}">
       <div class="ch-icon">${escapeHtml(c.icon || '📘')}</div>
       <div class="ch-title">${escapeHtml(c.title)}</div>
       <div class="ch-desc">${escapeHtml(c.description || '')}</div>
@@ -932,18 +934,22 @@ async function enterChapter(chapterId) {
   $('chName').textContent = c.title || '';
   $('chBrand').textContent = c.title || '원페이지';
 
+  const isTeacher = state.user && state.user.role === 'teacher';
   const access = state.chapterAccess[chapterId];
   const dLeft = access ? daysLeft(access.expires_at) : null;
   const isAllFree = Number(c.is_all_free) === 1;
-  if (isAllFree) $('chStatus').textContent = '✨ 무료';
+  if (isTeacher) $('chStatus').textContent = '🛠 관리자';
+  else if (isAllFree) $('chStatus').textContent = '✨ 무료';
   else if (dLeft != null && dLeft > 0) $('chStatus').textContent = `D-${dLeft}`;
   else $('chStatus').textContent = '미구독';
 
-  $('chMeta').innerHTML = isAllFree
-    ? '<span style="color:#81c784">전체 무료 공개</span>'
-    : (dLeft != null && dLeft > 0
-        ? `남은 기간 ${dLeft}일`
-        : `<button class="icon-btn" onclick="openPayModal(${chapterId})">구독으로 전체 보기 →</button>`);
+  $('chMeta').innerHTML = isTeacher
+    ? '<span style="color:#ffd54f">관리자 — 모든 챕터 무제한 열람</span>'
+    : (isAllFree
+        ? '<span style="color:#81c784">전체 무료 공개</span>'
+        : (dLeft != null && dLeft > 0
+            ? `남은 기간 ${dLeft}일`
+            : `<button class="icon-btn" onclick="openPayModal(${chapterId})">구독으로 전체 보기 →</button>`));
 
   $('chapterTree').innerHTML = '<div class="empty-state">로딩 중…</div>';
   await loadTopics(chapterId);
@@ -983,9 +989,10 @@ async function loadItems(subtopicId) {
 function renderTree(chapterId) {
   const topics = state.topicsByChapter[chapterId] || [];
   const c = state.currentChapter;
+  const isTeacher = state.user && state.user.role === 'teacher';
   const access = state.chapterAccess[chapterId];
   const dLeft = access ? daysLeft(access.expires_at) : null;
-  const hasAccess = Number(c.is_all_free) === 1 || (dLeft != null && dLeft > 0);
+  const hasAccess = isTeacher || Number(c.is_all_free) === 1 || (dLeft != null && dLeft > 0);
 
   if (!topics.length) {
     $('chapterTree').innerHTML = '<div class="empty-state">아직 콘텐츠가 없습니다.</div>';
