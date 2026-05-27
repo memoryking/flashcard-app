@@ -966,6 +966,10 @@ function goHome() {
 async function loadTopics(chapterId) {
   const r = await api('GET', '/topics?chapter_id=' + chapterId);
   state.topicsByChapter[chapterId] = r.topics || [];
+  // 워커가 동봉한 subtopics를 캐시 → 토픽 펼침 시 별도 fetch 불필요
+  for (const t of (r.topics || [])) {
+    if (Array.isArray(t.subtopics)) state.subtopicsByTopic[t.id] = t.subtopics;
+  }
 }
 async function loadSubtopics(topicId) {
   const r = await api('GET', '/subtopics?topic_id=' + topicId);

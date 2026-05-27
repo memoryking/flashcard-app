@@ -505,11 +505,19 @@ async function handleListTopics(request, env) {
     (Number(a.sort_order) || 0) - (Number(b.sort_order) || 0) ||
     (Number(a.id) || 0) - (Number(b.id) || 0)
   );
-  // 각 토픽에 소목차 개수 부착 (배지용)
-  for (const t of topics) {
-    const subs = await ncbRead(env, 'op_subtopics', `topic_id=${t.id}&limit=200`);
-    t.subtopic_count = (subs.data || []).length;
-  }
+  // 각 토픽의 소목차를 병렬 fetch — 한꺼번에 가져와 count + 캐시
+  const subsArr = await Promise.all(
+    topics.map(t => ncbRead(env, 'op_subtopics', `topic_id=${t.id}&limit=200`))
+  );
+  topics.forEach((t, i) => {
+    const subs = (subsArr[i] && subsArr[i].data) || [];
+    t.subtopic_count = subs.length;
+    // 클라이언트가 별도 /subtopics 호출 없이 바로 쓰도록 동봉
+    t.subtopics = subs.sort((a, b) =>
+      (Number(a.sort_order) || 0) - (Number(b.sort_order) || 0) ||
+      (Number(a.id) || 0) - (Number(b.id) || 0)
+    );
+  });
   return json({ topics }, 200, request);
 }
 
@@ -595,22 +603,35 @@ async function handleListItems(request, env) {
   if (!subId) return json({ error: 'subtopic_id required' }, 400, request);
 
   const auth = await verifyAuth(request, env);
-  const gate = await getSubtopicGate(env, subId);
+
+  // 선생님: 게이트 우회 — items만 한 번 fetch
+  if (auth && auth.role === 'teacher') {
+    const r = await ncbRead(env, 'op_items', `subtopic_id=${subId}&limit=200`);
+    const items = (r.data || [])
+      .map(it => ({ ...it, image_b64: unwrapImg(it.image_b64) }))
+      .sort((a, b) =>
+        (Number(a.sort_order) || 0) - (Number(b.sort_order) || 0) ||
+        (Number(a.id) || 0) - (Number(b.id) || 0)
+      );
+    return json({ items }, 200, request);
+  }
+
+  // 학생: 게이트 체크 + items fetch를 병렬로 (게이트 실패 시 items 버림)
+  const [gate, itemsRes] = await Promise.all([
+    getSubtopicGate(env, subId),
+    ncbRead(env, 'op_items', `subtopic_id=${subId}&limit=200`),
+  ]);
   if (!gate) return json({ error: 'subtopic_not_found' }, 404, request);
 
-  // 게이트: 자유면 통과 / 아니면 구독 필요 (선생님은 항상 통과)
   if (!gate.isFree) {
     if (!auth) return json({ error: 'login_required', chapter_id: gate.chapterId }, 401, request);
-    if (auth.role !== 'teacher') {
-      const active = await getActiveChapterIds(env, auth.phone);
-      if (!active.has(Number(gate.chapterId))) {
-        return json({ error: 'subscription_required', chapter_id: gate.chapterId }, 402, request);
-      }
+    const active = await getActiveChapterIds(env, auth.phone);
+    if (!active.has(Number(gate.chapterId))) {
+      return json({ error: 'subscription_required', chapter_id: gate.chapterId }, 402, request);
     }
   }
 
-  const r = await ncbRead(env, 'op_items', `subtopic_id=${subId}&limit=200`);
-  const items = (r.data || [])
+  const items = (itemsRes.data || [])
     .map(it => ({ ...it, image_b64: unwrapImg(it.image_b64) }))
     .sort((a, b) =>
       (Number(a.sort_order) || 0) - (Number(b.sort_order) || 0) ||
