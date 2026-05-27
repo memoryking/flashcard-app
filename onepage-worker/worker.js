@@ -18,9 +18,14 @@ const ALLOWED_ORIGINS = [
   'https://memoryking.github.io',
   'https://vipup.site',
   'https://www.vipup.site',
+  'https://onepage.vipup.site',
   'http://localhost:3000',
   'http://localhost:8080',
   'http://127.0.0.1:5500',
+];
+// Vercel 자동 도메인 (*.vercel.app) 패턴 매칭도 허용
+const ALLOWED_ORIGIN_PATTERNS = [
+  /^https:\/\/[a-z0-9-]+\.vercel\.app$/i,
 ];
 
 const NCB_BASE = 'https://openapi.nocodebackend.com';
@@ -37,9 +42,14 @@ const REDEEM_DAYS = 30;
 const PING_WINDOW_MIN = 5;
 
 // ── CORS ──────────────────────────────────────────────────────
+function isAllowedOrigin(origin) {
+  if (!origin) return false;
+  if (ALLOWED_ORIGINS.includes(origin)) return true;
+  return ALLOWED_ORIGIN_PATTERNS.some(p => p.test(origin));
+}
 function corsHeaders(request) {
   const origin = request.headers.get('Origin') || '';
-  const allowed = ALLOWED_ORIGINS.includes(origin) ? origin : ALLOWED_ORIGINS[0];
+  const allowed = isAllowedOrigin(origin) ? origin : ALLOWED_ORIGINS[0];
   return {
     'Access-Control-Allow-Origin': allowed,
     'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, OPTIONS',

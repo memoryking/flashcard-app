@@ -1,0 +1,1362 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+<meta name="theme-color" content="#0a0a1a">
+<title>원페이지 학습</title>
+<style>
+* { box-sizing: border-box; margin: 0; padding: 0; }
+html, body { height: 100%; font-family: -apple-system, BlinkMacSystemFont, 'Pretendard', 'Segoe UI', sans-serif; background: #0a0a1a; color: #e5e7eb; }
+body {
+  line-height: 1.6; -webkit-text-size-adjust: 100%;
+  -webkit-user-select: none; -moz-user-select: none; user-select: none;
+  -webkit-touch-callout: none;
+  overflow-x: hidden;
+}
+button { font: inherit; cursor: pointer; border: none; }
+input { font: inherit; outline: none; }
+a { color: #4fc3f7; text-decoration: none; }
+/* 인쇄 차단 */
+@media print { html, body { display: none !important; } }
+
+/* ─────────────────────────────────────────────
+   워터마크 — 전체 화면 대각선 반복 (캡쳐 추적용)
+   ───────────────────────────────────────────── */
+#watermark {
+  position: fixed; inset: 0; z-index: 9999;
+  pointer-events: none; overflow: hidden;
+  display: none;
+}
+#watermark.show { display: block; }
+#watermark svg { width: 100%; height: 100%; }
+
+/* ─────────────────────────────────────────────
+   공통 — 헤더
+   ───────────────────────────────────────────── */
+.app-header {
+  display: flex; align-items: center; gap: 10px;
+  padding: 10px 14px; background: rgba(10,10,26,0.95);
+  border-bottom: 1px solid #1f1f3a;
+  position: sticky; top: 0; z-index: 50;
+  backdrop-filter: blur(10px);
+}
+.app-header .brand {
+  display: flex; align-items: center; gap: 6px;
+  font-size: 15px; font-weight: 800; color: #fff;
+}
+.app-header .brand em { font-style: normal; color: #e94560; }
+.app-header .back-btn {
+  background: rgba(255,255,255,0.05); color: #fff;
+  padding: 6px 10px; border-radius: 6px; font-size: 13px;
+  margin-right: 2px;
+}
+.app-header .live-chip {
+  display: flex; align-items: center; gap: 5px;
+  background: rgba(76,175,80,0.15); border: 1px solid rgba(76,175,80,0.3);
+  padding: 4px 10px; border-radius: 50px; font-size: 11px; color: #81c784;
+  font-weight: 600;
+}
+.app-header .live-dot {
+  width: 6px; height: 6px; border-radius: 50%;
+  background: #4caf50; animation: pulse 1.5s ease-in-out infinite;
+}
+@keyframes pulse { 0%,100%{opacity:1}50%{opacity:0.4} }
+.app-header .spacer { flex: 1; }
+.app-header .icon-btn {
+  background: rgba(255,255,255,0.05); color: #ddd;
+  padding: 6px 10px; border-radius: 6px; font-size: 12px;
+  display: inline-flex; align-items: center; gap: 4px;
+}
+.app-header .icon-btn:hover { background: rgba(255,255,255,0.1); }
+
+/* ─────────────────────────────────────────────
+   로그인/회원가입
+   ───────────────────────────────────────────── */
+#authScreen { display: flex; align-items: center; justify-content: center; min-height: 100vh; padding: 20px; }
+.auth-card {
+  width: 100%; max-width: 380px;
+  background: linear-gradient(135deg, #1a1a2e, #16213e);
+  border: 1px solid #2a2a4e; border-radius: 18px;
+  padding: 26px;
+  box-shadow: 0 20px 60px rgba(0,0,0,0.4);
+}
+.auth-card h1 {
+  text-align: center; font-size: 1.5em; font-weight: 800;
+  color: #fff; margin-bottom: 4px;
+}
+.auth-card .sub {
+  text-align: center; font-size: 13px;
+  color: rgba(255,255,255,0.55); margin-bottom: 18px;
+}
+.auth-tabs {
+  display: flex; gap: 4px; background: rgba(0,0,0,0.3);
+  border-radius: 8px; padding: 4px; margin-bottom: 16px;
+}
+.auth-tabs button {
+  flex: 1; padding: 8px; background: transparent;
+  color: rgba(255,255,255,0.5); border-radius: 6px;
+  font-size: 13px; font-weight: 600; transition: all 0.15s;
+}
+.auth-tabs button.active {
+  background: rgba(233,69,96,0.2); color: #fff;
+}
+.auth-card label {
+  display: block; font-size: 12px; color: rgba(255,255,255,0.6);
+  margin-bottom: 4px; margin-top: 10px; font-weight: 600;
+}
+.auth-card input {
+  width: 100%; padding: 10px 12px;
+  background: rgba(0,0,0,0.3); border: 1px solid rgba(255,255,255,0.1);
+  border-radius: 8px; color: #fff; font-size: 14px;
+  -webkit-user-select: text; user-select: text;
+}
+.auth-card input:focus { border-color: #e94560; }
+.auth-card .err {
+  background: rgba(239,68,68,0.15); border: 1px solid rgba(239,68,68,0.4);
+  color: #fca5a5; padding: 9px 12px; border-radius: 8px;
+  font-size: 13px; margin-top: 12px; display: none;
+}
+.auth-card .err.show { display: block; }
+.auth-card .ref-info {
+  background: rgba(255,193,7,0.1); border: 1px solid rgba(255,193,7,0.3);
+  color: #ffd54f; padding: 8px 12px; border-radius: 6px;
+  font-size: 12px; margin-top: 8px; display: none;
+}
+.auth-card .ref-info.show { display: block; }
+.auth-card button.primary {
+  width: 100%; margin-top: 18px; padding: 12px;
+  background: linear-gradient(135deg, #e94560, #ff6b6b);
+  color: #fff; font-weight: 700; border-radius: 8px;
+  font-size: 14px;
+}
+.auth-card button.primary:disabled { opacity: 0.5; cursor: wait; }
+
+/* ─────────────────────────────────────────────
+   홈 — 챕터 카드 목록
+   ───────────────────────────────────────────── */
+#homeScreen { display: none; }
+.home-top {
+  background: linear-gradient(180deg, #16213e 0%, #0a0a1a 100%);
+  padding: 20px 18px 26px;
+}
+.home-greeting {
+  font-size: 18px; font-weight: 700; color: #fff;
+  margin-bottom: 6px;
+}
+.home-meta {
+  font-size: 13px; color: rgba(255,255,255,0.55);
+  display: flex; flex-wrap: wrap; gap: 10px; align-items: center;
+}
+.home-meta .point-chip {
+  display: inline-flex; align-items: center; gap: 4px;
+  background: rgba(255,193,7,0.15); border: 1px solid rgba(255,193,7,0.3);
+  padding: 3px 10px; border-radius: 50px; color: #ffd54f; font-weight: 600;
+}
+.home-actions {
+  display: flex; gap: 8px; margin-top: 14px; flex-wrap: wrap;
+}
+.home-actions button {
+  background: rgba(255,255,255,0.08); color: #fff;
+  padding: 8px 14px; border-radius: 50px; font-size: 13px;
+  display: inline-flex; align-items: center; gap: 5px;
+}
+.home-actions button.featured {
+  background: linear-gradient(135deg, #e94560, #ff6b6b); color: #fff;
+}
+.home-actions button:hover { background: rgba(255,255,255,0.15); }
+.home-actions button.featured:hover { filter: brightness(1.1); }
+
+.home-content {
+  max-width: 760px; margin: 0 auto; padding: 22px 16px 60px;
+}
+.subject-section {
+  margin-bottom: 26px;
+}
+.subject-title {
+  font-size: 12px; color: rgba(255,255,255,0.5);
+  margin-bottom: 10px; padding-left: 4px; letter-spacing: 0.08em;
+  font-weight: 700;
+}
+.chapter-cards {
+  display: grid; grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+  gap: 12px;
+}
+.chapter-card {
+  background: linear-gradient(135deg, #1a1a2e, #16213e);
+  border: 1px solid #2a2a4e; border-radius: 14px;
+  padding: 16px; cursor: pointer; transition: all 0.2s;
+  position: relative; overflow: hidden;
+}
+.chapter-card:hover { transform: translateY(-3px); border-color: rgba(233,69,96,0.4); }
+.chapter-card.expired { opacity: 0.7; }
+.chapter-card .ch-icon { font-size: 32px; margin-bottom: 8px; }
+.chapter-card .ch-title { font-size: 16px; font-weight: 700; color: #fff; margin-bottom: 4px; word-break: keep-all; }
+.chapter-card .ch-desc { font-size: 11px; color: rgba(255,255,255,0.5); margin-bottom: 12px; min-height: 16px; }
+.chapter-card .ch-status {
+  display: inline-block; padding: 3px 10px; border-radius: 50px;
+  font-size: 10px; font-weight: 700;
+}
+.chapter-card .ch-status.active { background: rgba(76,175,80,0.2); color: #81c784; }
+.chapter-card .ch-status.expired { background: rgba(255,152,0,0.2); color: #ffb74d; }
+.chapter-card .ch-status.never { background: rgba(255,255,255,0.08); color: rgba(255,255,255,0.6); }
+.chapter-card .ch-status.free { background: rgba(76,175,80,0.25); color: #81c784; }
+.chapter-card .ch-actions {
+  display: flex; gap: 5px; margin-top: 10px;
+}
+.chapter-card .ch-actions button {
+  flex: 1; padding: 7px; font-size: 11px; font-weight: 600;
+  background: rgba(255,255,255,0.08); color: #fff; border-radius: 6px;
+}
+.chapter-card .ch-actions button.primary {
+  background: linear-gradient(135deg, #e94560, #ff6b6b);
+}
+.chapter-card .ch-actions button:disabled { opacity: 0.4; cursor: not-allowed; }
+.chapter-card .ch-progress {
+  margin-top: 8px; font-size: 10px; color: rgba(255,255,255,0.4);
+}
+
+/* ─────────────────────────────────────────────
+   챕터 상세 — 트리
+   ───────────────────────────────────────────── */
+#chapterScreen { display: none; }
+.chapter-header {
+  background: linear-gradient(180deg, #16213e 0%, #0a0a1a 100%);
+  padding: 16px 18px;
+}
+.chapter-header .ch-subj {
+  font-size: 11px; color: rgba(255,255,255,0.5);
+  letter-spacing: 0.08em; margin-bottom: 4px;
+}
+.chapter-header .ch-name {
+  font-size: 22px; font-weight: 800; color: #fff;
+}
+.chapter-header .ch-meta {
+  margin-top: 6px; font-size: 12px; color: rgba(255,255,255,0.55);
+}
+.chapter-tree {
+  max-width: 760px; margin: 0 auto; padding: 16px 14px 80px;
+}
+
+.topic-card {
+  background: rgba(255,255,255,0.03);
+  border: 1px solid rgba(255,255,255,0.06);
+  border-radius: 12px; margin-bottom: 10px; overflow: hidden;
+  transition: border-color 0.2s;
+}
+.topic-card.opened { border-color: rgba(233,69,96,0.4); }
+.topic-card.locked { background: rgba(255,255,255,0.02); }
+.topic-head {
+  display: flex; align-items: center; gap: 10px;
+  padding: 14px 16px; cursor: pointer;
+}
+.topic-head:hover { background: rgba(255,255,255,0.02); }
+.topic-arrow {
+  color: #e94560; font-size: 12px; width: 12px; text-align: center;
+  transition: transform 0.2s; flex-shrink: 0;
+}
+.topic-card.opened .topic-arrow { transform: rotate(90deg); }
+.topic-card.locked .topic-arrow { color: rgba(255,255,255,0.3); }
+.topic-title {
+  flex: 1; font-size: 15px; font-weight: 700; color: #fff;
+}
+.topic-title .free-tag {
+  display: inline-block; background: rgba(76,175,80,0.25); color: #81c784;
+  font-size: 10px; padding: 2px 8px; border-radius: 50px;
+  margin-left: 8px; font-weight: 700; vertical-align: middle;
+}
+.topic-title .lock-icon { color: rgba(255,255,255,0.4); font-size: 14px; margin-left: 6px; }
+.topic-count {
+  background: rgba(255,255,255,0.08); color: rgba(255,255,255,0.7);
+  font-size: 10px; padding: 3px 9px; border-radius: 50px; font-weight: 600;
+}
+.topic-body { display: none; padding: 0 14px 14px; }
+.topic-card.opened > .topic-body { display: block; }
+
+.locked-banner {
+  background: linear-gradient(135deg, rgba(233,69,96,0.1), rgba(83,52,131,0.1));
+  border: 1px solid rgba(233,69,96,0.3); border-radius: 10px;
+  padding: 16px; text-align: center; margin: 8px 0;
+}
+.locked-banner h4 {
+  font-size: 14px; color: #fff; font-weight: 700; margin-bottom: 6px;
+}
+.locked-banner p {
+  font-size: 12px; color: rgba(255,255,255,0.6); margin-bottom: 12px;
+}
+.locked-banner button {
+  background: linear-gradient(135deg, #e94560, #ff6b6b); color: #fff;
+  padding: 9px 22px; font-size: 13px; font-weight: 700; border-radius: 50px;
+}
+
+.subtopic {
+  background: rgba(0,0,0,0.2); border-radius: 8px;
+  margin-top: 8px; overflow: hidden;
+  border: 1px solid transparent; transition: all 0.2s;
+}
+.subtopic.understood { border-color: rgba(76,175,80,0.3); }
+.subtopic-head {
+  display: flex; align-items: center; gap: 10px;
+  padding: 12px 14px; cursor: pointer;
+}
+.subtopic-head:hover { background: rgba(255,255,255,0.03); }
+.subtopic-dot {
+  width: 12px; height: 12px; border-radius: 50%;
+  border: 2px solid rgba(255,255,255,0.3); flex-shrink: 0;
+  transition: all 0.2s;
+}
+.subtopic.understood .subtopic-dot {
+  background: #4caf50; border-color: #4caf50;
+  box-shadow: 0 0 10px rgba(76,175,80,0.5);
+}
+.subtopic-arrow {
+  color: #b39ddb; font-size: 11px; width: 11px; text-align: center;
+  transition: transform 0.2s; flex-shrink: 0;
+}
+.subtopic.opened .subtopic-arrow { transform: rotate(90deg); }
+.subtopic-title {
+  flex: 1; font-size: 14px; color: rgba(255,255,255,0.92); font-weight: 600;
+}
+.subtopic.understood .subtopic-title { color: #a5d6a7; }
+.subtopic-hint {
+  font-size: 10px; color: rgba(255,255,255,0.35);
+}
+.subtopic-body { display: none; padding: 4px 14px 14px 38px; }
+.subtopic.opened > .subtopic-body { display: block; }
+
+.item {
+  background: rgba(0,0,0,0.25); border-radius: 8px;
+  padding: 12px 14px; margin-top: 8px;
+}
+.item .item-text {
+  font-size: 14px; color: rgba(255,255,255,0.92);
+  white-space: pre-wrap; word-break: break-word; line-height: 1.7;
+  -webkit-user-select: none; user-select: none;
+}
+.item .item-image {
+  max-width: 100%; max-height: 500px; border-radius: 6px; display: block;
+  pointer-events: none; -webkit-user-drag: none;
+}
+.item .item-caption {
+  font-size: 11px; color: rgba(255,255,255,0.4); margin-top: 6px;
+}
+
+.empty-state {
+  text-align: center; padding: 30px 16px;
+  color: rgba(255,255,255,0.4); font-size: 13px;
+}
+
+/* ─────────────────────────────────────────────
+   모달
+   ───────────────────────────────────────────── */
+.modal-backdrop {
+  position: fixed; inset: 0; background: rgba(0,0,0,0.75);
+  display: flex; align-items: center; justify-content: center;
+  z-index: 200; padding: 20px; backdrop-filter: blur(4px);
+}
+.modal {
+  width: 100%; max-width: 420px;
+  background: linear-gradient(135deg, #1a1a2e, #16213e);
+  border: 1px solid #2a2a4e; border-radius: 16px;
+  overflow: hidden; max-height: 90vh; display: flex; flex-direction: column;
+}
+.modal-head {
+  padding: 16px 20px; border-bottom: 1px solid rgba(255,255,255,0.08);
+  display: flex; align-items: center; justify-content: space-between;
+}
+.modal-head h3 { font-size: 16px; font-weight: 700; color: #fff; }
+.modal-head .close {
+  background: transparent; color: rgba(255,255,255,0.5);
+  padding: 4px 10px; font-size: 22px;
+}
+.modal-body { padding: 22px; overflow-y: auto; }
+.modal-foot {
+  padding: 14px 20px; border-top: 1px solid rgba(255,255,255,0.08);
+  display: flex; justify-content: flex-end; gap: 8px;
+}
+.modal-foot button {
+  background: rgba(255,255,255,0.08); color: #fff;
+  padding: 9px 16px; border-radius: 8px; font-size: 13px; font-weight: 600;
+}
+.modal-foot button.primary {
+  background: linear-gradient(135deg, #e94560, #ff6b6b);
+}
+
+.referral-modal .ref-link {
+  background: rgba(0,0,0,0.4); padding: 12px;
+  border-radius: 8px; font-family: monospace; font-size: 12px;
+  color: #4fc3f7; word-break: break-all; margin: 12px 0;
+  -webkit-user-select: all; user-select: all;
+}
+.referral-modal .ref-steps {
+  display: grid; gap: 8px; margin-top: 16px;
+}
+.referral-modal .ref-step {
+  display: flex; gap: 10px; align-items: flex-start;
+  background: rgba(255,255,255,0.04); padding: 10px 12px; border-radius: 8px;
+  font-size: 12px; color: rgba(255,255,255,0.8);
+}
+.referral-modal .ref-step b {
+  flex-shrink: 0; width: 22px; height: 22px;
+  background: #e94560; color: #fff; border-radius: 50%;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 11px; font-weight: 800;
+}
+.referral-modal .ref-stats {
+  display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-top: 14px;
+}
+.referral-modal .ref-stat {
+  background: rgba(0,0,0,0.3); padding: 10px 12px; border-radius: 8px;
+  text-align: center;
+}
+.referral-modal .ref-stat .v {
+  font-size: 20px; font-weight: 800; color: #ffd54f; display: block;
+}
+.referral-modal .ref-stat .l {
+  font-size: 10px; color: rgba(255,255,255,0.5); margin-top: 2px;
+}
+
+.pay-modal .pay-row {
+  display: flex; align-items: center; gap: 10px;
+  padding: 12px; background: rgba(0,0,0,0.3); border-radius: 8px;
+  margin-bottom: 8px;
+}
+.pay-modal .pay-row .ico { font-size: 22px; flex-shrink: 0; }
+.pay-modal .pay-row .body { flex: 1; }
+.pay-modal .pay-row .body strong { display: block; font-size: 14px; color: #fff; font-weight: 700; margin-bottom: 2px; }
+.pay-modal .pay-row .body small { display: block; font-size: 11px; color: rgba(255,255,255,0.5); }
+.pay-modal .pay-row button {
+  background: linear-gradient(135deg, #e94560, #ff6b6b); color: #fff;
+  padding: 8px 14px; border-radius: 6px; font-size: 12px; font-weight: 700;
+}
+.pay-modal .pay-row button:disabled { opacity: 0.5; cursor: not-allowed; }
+
+/* ─────────────────────────────────────────────
+   Toast / Loading
+   ───────────────────────────────────────────── */
+#toast {
+  position: fixed; bottom: 20px; left: 50%; transform: translateX(-50%);
+  background: rgba(20,20,40,0.95); color: #fff;
+  padding: 10px 18px; border-radius: 8px;
+  font-size: 13px; z-index: 1000;
+  border: 1px solid rgba(255,255,255,0.1);
+  opacity: 0; pointer-events: none; transition: opacity 0.2s;
+  max-width: 90%; text-align: center;
+}
+#toast.show { opacity: 1; }
+#toast.error { border-color: rgba(239,68,68,0.5); color: #fca5a5; }
+#loading {
+  position: fixed; inset: 0; background: rgba(10,10,26,0.7);
+  display: none; align-items: center; justify-content: center;
+  z-index: 999; backdrop-filter: blur(2px);
+}
+#loading.show { display: flex; }
+.spinner {
+  width: 36px; height: 36px;
+  border: 3px solid rgba(255,255,255,0.1);
+  border-top-color: #e94560; border-radius: 50%;
+  animation: spin 0.7s linear infinite;
+}
+@keyframes spin { to { transform: rotate(360deg); } }
+
+@media (max-width: 600px) {
+  .chapter-cards { grid-template-columns: repeat(2, 1fr); }
+  .chapter-card { padding: 14px 12px; }
+  .chapter-card .ch-icon { font-size: 26px; }
+  .chapter-card .ch-title { font-size: 14px; }
+  .app-header { padding: 8px 12px; gap: 6px; }
+  .app-header .brand { font-size: 14px; }
+  .home-greeting { font-size: 16px; }
+  .chapter-header .ch-name { font-size: 20px; }
+  .item .item-text { font-size: 13px; }
+}
+</style>
+</head>
+<body>
+
+<!-- 워터마크 (전화번호 대각선 반복) -->
+<div id="watermark"></div>
+
+<!-- 로그인/회원가입 -->
+<div id="authScreen">
+  <div class="auth-card">
+    <h1>원페이지 학습</h1>
+    <p class="sub">이 한 페이지가 곧 시험 범위입니다</p>
+    <div class="auth-tabs">
+      <button id="tabLogin" class="active" onclick="switchTab('login')">로그인</button>
+      <button id="tabSignup" onclick="switchTab('signup')">회원가입</button>
+    </div>
+    <div id="loginForm">
+      <label>이메일</label><input id="li_email" type="email" autocomplete="username">
+      <label>비밀번호</label><input id="li_password" type="password" autocomplete="current-password">
+      <div class="err" id="loginErr"></div>
+      <button class="primary" id="loginBtn">로그인</button>
+    </div>
+    <div id="signupForm" style="display:none">
+      <label>이름</label><input id="su_name" type="text">
+      <label>전화번호</label><input id="su_phone" type="tel" placeholder="010-1234-5678">
+      <label>이메일</label><input id="su_email" type="email" autocomplete="username">
+      <label>비밀번호 (6자 이상)</label><input id="su_password" type="password" autocomplete="new-password">
+      <label>추천 코드 (선택)</label><input id="su_ref" type="text" placeholder="친구의 추천 코드" maxlength="6" style="text-transform:uppercase">
+      <div class="ref-info" id="refInfo"></div>
+      <div class="err" id="signupErr"></div>
+      <button class="primary" id="signupBtn">가입하기</button>
+    </div>
+  </div>
+</div>
+
+<!-- 홈 (챕터 카드 목록) -->
+<div id="homeScreen">
+  <header class="app-header">
+    <div class="brand">원페이지 <em>학습</em></div>
+    <div class="live-chip" id="liveChip" style="display:none">
+      <div class="live-dot"></div><span id="liveCount">0</span>명 학습 중
+    </div>
+    <div class="spacer"></div>
+    <button class="icon-btn" onclick="openReferralModal()">👥 추천</button>
+    <button class="icon-btn" onclick="logout()">🚪</button>
+  </header>
+  <div class="home-top">
+    <div class="home-greeting" id="homeGreeting">안녕하세요</div>
+    <div class="home-meta">
+      <span class="point-chip">💰 <span id="homePoint">0</span>P</span>
+      <span id="homePointHint" style="font-size:11px;color:rgba(255,255,255,0.4);">— 3,000P 모이면 챕터 1개월 무료</span>
+    </div>
+  </div>
+  <div class="home-content" id="chapterCards"></div>
+</div>
+
+<!-- 챕터 상세 (트리) -->
+<div id="chapterScreen">
+  <header class="app-header">
+    <button class="back-btn" onclick="goHome()">◀ 챕터 목록</button>
+    <div class="brand" id="chBrand">미분</div>
+    <div class="spacer"></div>
+    <span class="icon-btn" id="chStatus">D-30</span>
+  </header>
+  <div class="chapter-header">
+    <div class="ch-subj" id="chSubj">수학</div>
+    <div class="ch-name" id="chName">미분</div>
+    <div class="ch-meta" id="chMeta"></div>
+  </div>
+  <div class="chapter-tree" id="chapterTree"></div>
+</div>
+
+<!-- Modal / Toast / Loading -->
+<div id="modal"></div>
+<div id="toast"></div>
+<div id="loading"><div class="spinner"></div></div>
+
+<script>
+'use strict';
+
+// ============================================================
+// 설정
+// ============================================================
+const API = 'https://onepage-api.memoryking.workers.dev';
+const TOKEN_KEY = 'op_user_token';
+const REF_KEY = 'op_ref_code';
+const LANDING_URL = 'https://vipup.site/onepage';   // 결제 안내 페이지
+const REDEEM_COST = 3000;
+
+// ============================================================
+// 상태
+// ============================================================
+const state = {
+  user: null,
+  point: 0,
+  chapterAccess: {},          // chapter_id → { expires_at, source }
+  chapters: [],
+  currentChapter: null,
+  topicsByChapter: {},
+  subtopicsByTopic: {},
+  itemsBySubtopic: {},
+  understoodSet: new Set(),
+  expanded: { topic: new Set(), subtopic: new Set() },
+  liveCount: 0,
+  pingTimer: null,
+  liveTimer: null,
+};
+
+// ============================================================
+// API
+// ============================================================
+async function api(method, path, body) {
+  const token = localStorage.getItem(TOKEN_KEY);
+  const headers = { 'Content-Type': 'application/json' };
+  if (token) headers['Authorization'] = 'Bearer ' + token;
+  const res = await fetch(API + path, {
+    method, headers,
+    body: body !== undefined ? JSON.stringify(body) : undefined,
+  });
+  let data = null;
+  try { data = await res.json(); } catch (_) {}
+  if (!res.ok) {
+    const err = new Error((data && data.error) || `HTTP ${res.status}`);
+    err.status = res.status;
+    err.data = data;
+    throw err;
+  }
+  return data;
+}
+
+// ============================================================
+// 유틸
+// ============================================================
+function $(id) { return document.getElementById(id); }
+function escapeHtml(s) {
+  return String(s == null ? '' : s).replace(/[&<>"']/g, c => ({
+    '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'
+  })[c]);
+}
+function toast(msg, isError) {
+  const t = $('toast');
+  t.textContent = msg;
+  t.className = 'show' + (isError ? ' error' : '');
+  setTimeout(() => t.className = '', 2400);
+}
+function showLoading(on) { $('loading').classList.toggle('show', !!on); }
+function formatPhone(p) {
+  p = String(p || '').replace(/\D/g, '');
+  if (p.length === 11) return `${p.slice(0,3)}-${p.slice(3,7)}-${p.slice(7)}`;
+  if (p.length === 10) return `${p.slice(0,3)}-${p.slice(3,6)}-${p.slice(6)}`;
+  return p;
+}
+function daysLeft(iso) {
+  if (!iso) return null;
+  const now = new Date();
+  const exp = new Date(iso);
+  const diff = Math.ceil((exp - now) / (1000 * 60 * 60 * 24));
+  return diff;
+}
+// JSON 컬럼에서 base64가 문자열 따옴표로 한번 더 감싸여 올 수 있는 경우 처리
+function unwrapImage(b) {
+  if (!b) return '';
+  if (typeof b === 'string' && b.startsWith('"') && b.endsWith('"')) {
+    try { return JSON.parse(b); } catch {}
+  }
+  return b;
+}
+
+// ============================================================
+// 워터마크 — 전화번호 SVG 패턴
+// ============================================================
+function renderWatermark() {
+  const wm = $('watermark');
+  if (!state.user || !state.user.phone) {
+    wm.classList.remove('show');
+    wm.innerHTML = '';
+    return;
+  }
+  const text = formatPhone(state.user.phone);
+  // SVG 패턴: 대각선 반복, 알파 낮음
+  wm.innerHTML = `
+    <svg xmlns="http://www.w3.org/2000/svg" preserveAspectRatio="none">
+      <defs>
+        <pattern id="wmPat" x="0" y="0" width="320" height="180" patternUnits="userSpaceOnUse" patternTransform="rotate(-30)">
+          <text x="0" y="80" fill="rgba(255,255,255,0.06)" font-size="22" font-weight="600" font-family="monospace">${escapeHtml(text)}</text>
+          <text x="160" y="160" fill="rgba(255,255,255,0.06)" font-size="22" font-weight="600" font-family="monospace">${escapeHtml(text)}</text>
+        </pattern>
+      </defs>
+      <rect width="100%" height="100%" fill="url(#wmPat)"/>
+    </svg>
+  `;
+  wm.classList.add('show');
+}
+
+// ============================================================
+// 복사·우클릭 차단
+// ============================================================
+document.addEventListener('contextmenu', e => { if (state.user) e.preventDefault(); });
+document.addEventListener('keydown', e => {
+  if (!state.user) return;
+  const k = e.key.toLowerCase();
+  if ((e.ctrlKey || e.metaKey) && ['c','a','s','p','u'].includes(k)) {
+    // 입력 필드에서는 허용
+    const tag = (e.target.tagName || '').toLowerCase();
+    if (tag === 'input' || tag === 'textarea') return;
+    e.preventDefault();
+    if (k === 'p' || k === 's') toast('인쇄·저장은 차단됩니다', true);
+  }
+});
+
+// ============================================================
+// 인증 — 탭 전환 / 로그인 / 회원가입
+// ============================================================
+function switchTab(tab) {
+  const isLogin = tab === 'login';
+  $('tabLogin').classList.toggle('active', isLogin);
+  $('tabSignup').classList.toggle('active', !isLogin);
+  $('loginForm').style.display = isLogin ? 'block' : 'none';
+  $('signupForm').style.display = isLogin ? 'none' : 'block';
+}
+
+async function doLogin() {
+  const email = $('li_email').value.trim();
+  const password = $('li_password').value;
+  if (!email || !password) return showAuthErr('login', '이메일/비밀번호 입력');
+  $('loginBtn').disabled = true;
+  hideAuthErr();
+  try {
+    const r = await api('POST', '/auth/login', { email, password });
+    localStorage.setItem(TOKEN_KEY, r.token);
+    state.user = r.user;
+    state.point = Number(r.user.point) || 0;
+    await loadMeAndEnter();
+  } catch (e) {
+    showAuthErr('login', e.message);
+  } finally {
+    $('loginBtn').disabled = false;
+  }
+}
+
+async function doSignup() {
+  const name = $('su_name').value.trim();
+  const phone = $('su_phone').value.trim();
+  const email = $('su_email').value.trim();
+  const password = $('su_password').value;
+  const ref = $('su_ref').value.trim().toUpperCase();
+  if (!name || !phone || !email || !password) return showAuthErr('signup', '모든 필수 항목을 입력하세요');
+  if (password.length < 6) return showAuthErr('signup', '비밀번호는 6자 이상');
+  $('signupBtn').disabled = true;
+  hideAuthErr();
+  try {
+    const body = { name, phone, email, password };
+    if (ref) body.referral_code = ref;
+    const r = await api('POST', '/auth/signup', body);
+    localStorage.setItem(TOKEN_KEY, r.token);
+    localStorage.removeItem(REF_KEY);
+    state.user = r.user;
+    state.point = 0;
+    await loadMeAndEnter();
+    toast('가입 완료! 환영합니다.');
+  } catch (e) {
+    showAuthErr('signup', e.message);
+  } finally {
+    $('signupBtn').disabled = false;
+  }
+}
+
+function showAuthErr(form, msg) {
+  const el = $(form === 'login' ? 'loginErr' : 'signupErr');
+  el.textContent = msg;
+  el.classList.add('show');
+}
+function hideAuthErr() {
+  $('loginErr').classList.remove('show');
+  $('signupErr').classList.remove('show');
+}
+
+async function checkRefCode(code) {
+  const info = $('refInfo');
+  if (!code || code.length < 4) { info.classList.remove('show'); return; }
+  try {
+    const r = await api('GET', '/referral/info?code=' + encodeURIComponent(code));
+    if (r.valid) {
+      info.textContent = `✓ ${r.name_masked} 님의 추천 — 가입+첫 결제 시 둘 다 1,000P`;
+      info.classList.add('show');
+    } else {
+      info.textContent = '✗ 유효하지 않은 추천 코드';
+      info.classList.add('show');
+    }
+  } catch { info.classList.remove('show'); }
+}
+
+// ============================================================
+// 로그아웃
+// ============================================================
+function logout() {
+  if (!confirm('로그아웃 하시겠습니까?')) return;
+  localStorage.removeItem(TOKEN_KEY);
+  state.user = null;
+  stopTimers();
+  $('watermark').classList.remove('show');
+  $('homeScreen').style.display = 'none';
+  $('chapterScreen').style.display = 'none';
+  $('authScreen').style.display = 'flex';
+}
+
+// ============================================================
+// 자동 로그인 / 진입
+// ============================================================
+async function tryAutoLogin() {
+  // ?ref=CODE URL 캡쳐
+  try {
+    const u = new URL(window.location.href);
+    const ref = u.searchParams.get('ref');
+    if (ref) localStorage.setItem(REF_KEY, ref);
+  } catch {}
+  const saved = localStorage.getItem(REF_KEY);
+  if (saved && !localStorage.getItem(TOKEN_KEY)) {
+    switchTab('signup');
+    $('su_ref').value = saved.toUpperCase();
+    checkRefCode(saved);
+  }
+  if (!localStorage.getItem(TOKEN_KEY)) return;
+  try {
+    await loadMeAndEnter();
+  } catch (e) {
+    localStorage.removeItem(TOKEN_KEY);
+  }
+}
+
+async function loadMeAndEnter() {
+  showLoading(true);
+  try {
+    const r = await api('GET', '/auth/me');
+    state.user = r.user;
+    state.point = Number(r.user.point) || 0;
+    state.chapterAccess = r.chapter_access || {};
+    renderWatermark();
+    await enterHome();
+  } finally {
+    showLoading(false);
+  }
+}
+
+// ============================================================
+// 홈 화면
+// ============================================================
+async function enterHome() {
+  $('authScreen').style.display = 'none';
+  $('chapterScreen').style.display = 'none';
+  $('homeScreen').style.display = 'block';
+  startTimers();
+  await Promise.all([
+    loadChapters(),
+    loadUnderstood(),
+    loadLiveCount(),
+  ]);
+  renderHome();
+}
+
+async function loadChapters() {
+  const r = await api('GET', '/chapters');
+  state.chapters = r.chapters || [];
+}
+
+async function loadUnderstood() {
+  try {
+    const r = await api('GET', '/understood');
+    state.understoodSet = new Set((r.subtopic_ids || []).map(Number));
+  } catch {}
+}
+
+async function loadLiveCount() {
+  try {
+    const r = await api('GET', '/stats/learners-now');
+    state.liveCount = Number(r.count) || 0;
+    const chip = $('liveChip');
+    $('liveCount').textContent = state.liveCount;
+    chip.style.display = state.liveCount > 0 ? 'flex' : 'none';
+  } catch {}
+}
+
+function renderHome() {
+  $('homeGreeting').textContent = `${state.user.name || ''} 님, 안녕하세요`;
+  $('homePoint').textContent = state.point.toLocaleString();
+
+  const cards = $('chapterCards');
+  if (!state.chapters.length) {
+    cards.innerHTML = '<div class="empty-state">아직 공개된 챕터가 없습니다.</div>';
+    return;
+  }
+
+  // 과목별 그룹핑
+  const groups = {};
+  for (const c of state.chapters) {
+    const s = c.subject || '기타';
+    if (!groups[s]) groups[s] = [];
+    groups[s].push(c);
+  }
+  let html = '';
+  for (const subj of Object.keys(groups).sort()) {
+    html += `<div class="subject-section">
+      <div class="subject-title">${escapeHtml(subj).toUpperCase()}</div>
+      <div class="chapter-cards">
+        ${groups[subj].map(c => renderChapterCard(c)).join('')}
+      </div>
+    </div>`;
+  }
+  cards.innerHTML = html;
+}
+
+function renderChapterCard(c) {
+  const access = state.chapterAccess[c.id];
+  const dLeft = access ? daysLeft(access.expires_at) : null;
+  const isActive = dLeft != null && dLeft > 0;
+  const isAllFree = Number(c.is_all_free) === 1;
+
+  let statusBadge, statusClass;
+  if (isAllFree) { statusBadge = '✨ 무료'; statusClass = 'free'; }
+  else if (isActive) { statusBadge = `D-${dLeft}`; statusClass = 'active'; }
+  else if (access) { statusBadge = '만료됨'; statusClass = 'expired'; }
+  else { statusBadge = '미구매'; statusClass = 'never'; }
+
+  const price = Number(c.monthly_price) || 3000;
+  const canRedeem = state.point >= REDEEM_COST;
+
+  let actions;
+  if (isAllFree || isActive) {
+    actions = `<button class="primary" onclick="event.stopPropagation();enterChapter(${c.id})">열기 →</button>`;
+  } else {
+    actions = `
+      <button onclick="event.stopPropagation();openPayModal(${c.id})">${price.toLocaleString()}원 결제</button>
+      <button onclick="event.stopPropagation();confirmRedeem(${c.id})" ${canRedeem ? '' : 'disabled'}>${REDEEM_COST}P 사용</button>
+    `;
+  }
+
+  return `
+    <div class="chapter-card ${access && !isActive ? 'expired' : ''}" onclick="${isActive || isAllFree ? `enterChapter(${c.id})` : `openPayModal(${c.id})`}">
+      <div class="ch-icon">${escapeHtml(c.icon || '📘')}</div>
+      <div class="ch-title">${escapeHtml(c.title)}</div>
+      <div class="ch-desc">${escapeHtml(c.description || '')}</div>
+      <span class="ch-status ${statusClass}">${statusBadge}</span>
+      <div class="ch-actions">${actions}</div>
+    </div>
+  `;
+}
+
+// ============================================================
+// 챕터 상세
+// ============================================================
+async function enterChapter(chapterId) {
+  state.currentChapter = state.chapters.find(x => x.id === chapterId);
+  if (!state.currentChapter) return;
+  $('homeScreen').style.display = 'none';
+  $('chapterScreen').style.display = 'block';
+  window.scrollTo(0, 0);
+
+  const c = state.currentChapter;
+  $('chSubj').textContent = c.subject || '';
+  $('chName').textContent = c.title || '';
+  $('chBrand').textContent = c.title || '원페이지';
+
+  const access = state.chapterAccess[chapterId];
+  const dLeft = access ? daysLeft(access.expires_at) : null;
+  const isAllFree = Number(c.is_all_free) === 1;
+  if (isAllFree) $('chStatus').textContent = '✨ 무료';
+  else if (dLeft != null && dLeft > 0) $('chStatus').textContent = `D-${dLeft}`;
+  else $('chStatus').textContent = '미구독';
+
+  $('chMeta').innerHTML = isAllFree
+    ? '<span style="color:#81c784">전체 무료 공개</span>'
+    : (dLeft != null && dLeft > 0
+        ? `남은 기간 ${dLeft}일`
+        : `<button class="icon-btn" onclick="openPayModal(${chapterId})">구독으로 전체 보기 →</button>`);
+
+  $('chapterTree').innerHTML = '<div class="empty-state">로딩 중…</div>';
+  await loadTopics(chapterId);
+  renderTree(chapterId);
+}
+
+function goHome() {
+  state.currentChapter = null;
+  $('chapterScreen').style.display = 'none';
+  $('homeScreen').style.display = 'block';
+  renderHome();
+}
+
+async function loadTopics(chapterId) {
+  const r = await api('GET', '/topics?chapter_id=' + chapterId);
+  state.topicsByChapter[chapterId] = r.topics || [];
+}
+async function loadSubtopics(topicId) {
+  const r = await api('GET', '/subtopics?topic_id=' + topicId);
+  state.subtopicsByTopic[topicId] = r.subtopics || [];
+  renderTree(state.currentChapter.id);
+}
+async function loadItems(subtopicId) {
+  try {
+    const r = await api('GET', '/items?subtopic_id=' + subtopicId);
+    state.itemsBySubtopic[subtopicId] = r.items || [];
+  } catch (e) {
+    if (e.status === 402) {
+      state.itemsBySubtopic[subtopicId] = { locked: true, chapter_id: e.data?.chapter_id };
+    } else {
+      state.itemsBySubtopic[subtopicId] = { error: e.message };
+    }
+  }
+  renderTree(state.currentChapter.id);
+}
+
+function renderTree(chapterId) {
+  const topics = state.topicsByChapter[chapterId] || [];
+  const c = state.currentChapter;
+  const access = state.chapterAccess[chapterId];
+  const dLeft = access ? daysLeft(access.expires_at) : null;
+  const hasAccess = Number(c.is_all_free) === 1 || (dLeft != null && dLeft > 0);
+
+  if (!topics.length) {
+    $('chapterTree').innerHTML = '<div class="empty-state">아직 콘텐츠가 없습니다.</div>';
+    return;
+  }
+  $('chapterTree').innerHTML = topics.map(t => renderTopic(t, hasAccess)).join('');
+}
+
+function renderTopic(t, hasAccess) {
+  const isFree = Number(t.is_free) === 1;
+  const locked = !isFree && !hasAccess;
+  const opened = state.expanded.topic.has(t.id);
+  const cls = 'topic-card' + (opened ? ' opened' : '') + (locked ? ' locked' : '');
+
+  let body = '';
+  if (opened) {
+    if (locked) {
+      body = `
+        <div class="locked-banner">
+          <h4>🔒 구독 후 볼 수 있는 내용입니다</h4>
+          <p>이 챕터를 결제하거나, 보유 포인트로 1개월 무료 연장하세요.</p>
+          <button onclick="event.stopPropagation();openPayModal(${state.currentChapter.id})">구독하기 →</button>
+        </div>
+      `;
+    } else {
+      const subs = state.subtopicsByTopic[t.id];
+      if (subs === undefined) {
+        loadSubtopics(t.id);
+        body = '<div class="empty-state">소목차 로딩…</div>';
+      } else if (!subs.length) {
+        body = '<div class="empty-state">소목차 없음</div>';
+      } else {
+        body = subs.map(s => renderSubtopic(s)).join('');
+      }
+    }
+  }
+
+  return `
+    <div class="${cls}">
+      <div class="topic-head" onclick="toggleTopic(${t.id})">
+        <div class="topic-arrow">▶</div>
+        <div class="topic-title">${escapeHtml(t.title)}${isFree ? '<span class="free-tag">✨무료</span>' : (locked ? '<span class="lock-icon">🔒</span>' : '')}</div>
+        <span class="topic-count">${t.subtopic_count || 0}</span>
+      </div>
+      <div class="topic-body">${body}</div>
+    </div>
+  `;
+}
+
+function renderSubtopic(s) {
+  const opened = state.expanded.subtopic.has(s.id);
+  const understood = state.understoodSet.has(Number(s.id));
+  const cls = 'subtopic' + (opened ? ' opened' : '') + (understood ? ' understood' : '');
+
+  let body = '';
+  if (opened) {
+    const items = state.itemsBySubtopic[s.id];
+    if (items === undefined) {
+      loadItems(s.id);
+      body = '<div class="empty-state">로딩…</div>';
+    } else if (items.locked) {
+      body = `
+        <div class="locked-banner">
+          <h4>🔒 구독 후 볼 수 있습니다</h4>
+          <button onclick="event.stopPropagation();openPayModal(${items.chapter_id})">구독하기 →</button>
+        </div>`;
+    } else if (items.error) {
+      body = `<div class="empty-state">오류: ${escapeHtml(items.error)}</div>`;
+    } else if (!items.length) {
+      body = '<div class="empty-state">아직 내용이 없습니다.</div>';
+    } else {
+      body = items.map(it => renderItem(it)).join('');
+    }
+  }
+
+  return `
+    <div class="${cls}" data-sub="${s.id}">
+      <div class="subtopic-head"
+           onmousedown="longPressStart(event,${s.id})"
+           ontouchstart="longPressStart(event,${s.id})"
+           onmouseup="longPressEnd(event,${s.id})"
+           onmouseleave="longPressCancel()"
+           ontouchend="longPressEnd(event,${s.id})"
+           ontouchcancel="longPressCancel()">
+        <div class="subtopic-dot"></div>
+        <div class="subtopic-arrow">▶</div>
+        <div class="subtopic-title">${escapeHtml(s.title)}</div>
+        <div class="subtopic-hint">${opened ? '꾹눌러 ●' : ''}</div>
+      </div>
+      <div class="subtopic-body">${body}</div>
+    </div>
+  `;
+}
+
+function renderItem(it) {
+  if (it.kind === 'image') {
+    const url = unwrapImage(it.image_b64);
+    return `
+      <div class="item">
+        <img class="item-image" src="${escapeHtml(url)}" alt="" oncontextmenu="return false">
+        ${it.caption ? `<div class="item-caption">${escapeHtml(it.caption)}</div>` : ''}
+      </div>
+    `;
+  }
+  return `<div class="item"><div class="item-text">${escapeHtml(it.text)}</div></div>`;
+}
+
+// ============================================================
+// 펼침 토글 + 꾹누르기
+// ============================================================
+function toggleTopic(id) {
+  if (state.expanded.topic.has(id)) state.expanded.topic.delete(id);
+  else state.expanded.topic.add(id);
+  renderTree(state.currentChapter.id);
+}
+
+let _pressTimer = null;
+let _pressDone = false;
+function longPressStart(e, subId) {
+  _pressDone = false;
+  _pressTimer = setTimeout(async () => {
+    _pressDone = true;
+    if (navigator.vibrate) try { navigator.vibrate(20); } catch {}
+    await toggleUnderstood(subId);
+  }, 600);
+}
+function longPressEnd(e, subId) {
+  if (_pressTimer) { clearTimeout(_pressTimer); _pressTimer = null; }
+  if (_pressDone) { _pressDone = false; return; }
+  // 클릭 = 토글 펼침
+  if (state.expanded.subtopic.has(subId)) state.expanded.subtopic.delete(subId);
+  else state.expanded.subtopic.add(subId);
+  renderTree(state.currentChapter.id);
+}
+function longPressCancel() {
+  if (_pressTimer) { clearTimeout(_pressTimer); _pressTimer = null; }
+}
+
+async function toggleUnderstood(subId) {
+  if (!state.user) return;
+  const had = state.understoodSet.has(Number(subId));
+  // 낙관적 업데이트
+  if (had) state.understoodSet.delete(Number(subId));
+  else state.understoodSet.add(Number(subId));
+  renderTree(state.currentChapter.id);
+  try {
+    await api('POST', '/understood', { subtopic_id: subId });
+    toast(had ? '이해 표시 해제' : '● 이해 완료');
+  } catch (e) {
+    // 롤백
+    if (had) state.understoodSet.add(Number(subId));
+    else state.understoodSet.delete(Number(subId));
+    renderTree(state.currentChapter.id);
+    toast(e.message, true);
+  }
+}
+
+// ============================================================
+// 결제·포인트 사용 모달
+// ============================================================
+function openPayModal(chapterId) {
+  if (!state.user) {
+    toast('먼저 로그인하세요', true);
+    logout();
+    return;
+  }
+  const c = state.chapters.find(x => x.id === chapterId);
+  if (!c) return;
+  const price = Number(c.monthly_price) || 3000;
+  const canRedeem = state.point >= REDEEM_COST;
+  const access = state.chapterAccess[chapterId];
+  const dLeft = access ? daysLeft(access.expires_at) : null;
+  const statusMsg = (dLeft != null && dLeft > 0)
+    ? `현재 D-${dLeft}일. 결제하면 만료일이 30일 더 연장됩니다.`
+    : '결제하면 30일 동안 이 챕터의 모든 내용을 봅니다.';
+
+  showModal({
+    title: c.title + ' 구독',
+    klass: 'pay-modal',
+    body: `
+      <p style="font-size:13px;color:rgba(255,255,255,0.7);margin-bottom:14px;line-height:1.6;">${statusMsg}</p>
+      <div class="pay-row">
+        <div class="ico">💳</div>
+        <div class="body">
+          <strong>${price.toLocaleString()}원으로 결제</strong>
+          <small>페이앱 결제 페이지로 이동</small>
+        </div>
+        <button onclick="goPayment(${chapterId})">결제 →</button>
+      </div>
+      <div class="pay-row">
+        <div class="ico">💰</div>
+        <div class="body">
+          <strong>${REDEEM_COST.toLocaleString()}P 사용 (보유 ${state.point.toLocaleString()}P)</strong>
+          <small>${canRedeem ? '즉시 30일 연장' : '포인트 부족 — 친구 추천으로 채우세요'}</small>
+        </div>
+        <button onclick="confirmRedeem(${chapterId})" ${canRedeem ? '' : 'disabled'}>포인트</button>
+      </div>
+      <div style="margin-top:14px;padding:10px;background:rgba(76,175,80,0.08);border-radius:8px;font-size:12px;color:#a5d6a7;">
+        💡 친구 1명 추천하고 결제하면 둘 다 1,000P. 3명이면 챕터 1개월 무료.
+      </div>
+    `,
+    foot: `<button onclick="closeModal()">닫기</button>`
+  });
+}
+
+function goPayment(chapterId) {
+  closeModal();
+  // 결제 페이지로 이동 (랜딩페이지 + 챕터·사용자 정보 prefill)
+  const url = `${LANDING_URL}?chapter=${chapterId}&phone=${encodeURIComponent(state.user.phone)}&email=${encodeURIComponent(state.user.email)}`;
+  window.open(url, '_blank');
+  toast('결제 후 잠시 후 갱신됩니다. (Pull-to-refresh 또는 새로고침)');
+}
+
+async function confirmRedeem(chapterId) {
+  if (state.point < REDEEM_COST) {
+    toast('포인트가 부족합니다.', true);
+    return;
+  }
+  const c = state.chapters.find(x => x.id === chapterId);
+  if (!confirm(`"${c.title}" 챕터를 ${REDEEM_COST.toLocaleString()}P로 30일 연장합니다.\n진행할까요?`)) return;
+  showLoading(true);
+  try {
+    const r = await api('POST', '/access/redeem', { chapter_id: chapterId });
+    state.point = Number(r.new_point) || 0;
+    state.chapterAccess[chapterId] = { expires_at: r.expires_at, source: 'point_redeem' };
+    closeModal();
+    toast(`${REDEEM_COST.toLocaleString()}P 사용 — 30일 연장됨`);
+    renderHome();
+    if (state.currentChapter && state.currentChapter.id === chapterId) {
+      enterChapter(chapterId);
+    }
+  } catch (e) { toast(e.message, true); }
+  finally { showLoading(false); }
+}
+
+// ============================================================
+// 추천 모달
+// ============================================================
+function openReferralModal() {
+  const code = state.user.referral_code || '';
+  const link = `${LANDING_URL}?ref=${code}`;
+  showModal({
+    title: '친구에게 추천',
+    klass: 'referral-modal',
+    body: `
+      <p style="font-size:13px;color:rgba(255,255,255,0.75);line-height:1.6;margin-bottom:6px;">
+        링크를 친구에게 문자로 보내세요.<br>
+        친구가 가입 + 첫 결제 시 <strong style="color:#ffd54f">둘 다 1,000P</strong> 적립.
+      </p>
+      <div class="ref-link" id="refLinkBox">${escapeHtml(link)}</div>
+      <div style="text-align:center;">
+        <button onclick="copyReferralLink()" style="background:linear-gradient(135deg,#e94560,#ff6b6b);color:#fff;padding:10px 22px;border-radius:50px;font-weight:700;font-size:13px;">
+          📋 링크 복사
+        </button>
+      </div>
+      <div class="ref-stats">
+        <div class="ref-stat"><span class="v">${state.point.toLocaleString()}</span><span class="l">내 포인트</span></div>
+        <div class="ref-stat"><span class="v">${REDEEM_COST}P</span><span class="l">= 챕터 1개월</span></div>
+      </div>
+      <div class="ref-steps">
+        <div class="ref-step"><b>1</b><span>위 링크 복사 → 친구 문자/카톡</span></div>
+        <div class="ref-step"><b>2</b><span>친구가 가입 + 챕터 결제</span></div>
+        <div class="ref-step"><b>3</b><span>둘 다 자동으로 +1,000P</span></div>
+        <div class="ref-step"><b>★</b><span>3,000P 모이면 [포인트 사용] 버튼으로 챕터 1개월 무료</span></div>
+      </div>
+    `,
+    foot: `<button onclick="closeModal()">닫기</button>`
+  });
+}
+
+async function copyReferralLink() {
+  const link = $('refLinkBox').textContent;
+  try {
+    await navigator.clipboard.writeText(link);
+    toast('링크가 복사되었습니다.');
+  } catch {
+    // 폴백
+    const ta = document.createElement('textarea');
+    ta.value = link; document.body.appendChild(ta); ta.select();
+    try { document.execCommand('copy'); toast('링크가 복사되었습니다.'); } catch { toast('복사 실패 — 직접 선택해주세요.', true); }
+    document.body.removeChild(ta);
+  }
+}
+
+// ============================================================
+// 모달 헬퍼
+// ============================================================
+function showModal({ title, body, foot = '', klass = '' }) {
+  const m = $('modal');
+  m.innerHTML = `
+    <div class="modal-backdrop" id="modalBackdrop">
+      <div class="modal ${klass}" onclick="event.stopPropagation()">
+        <div class="modal-head">
+          <h3>${escapeHtml(title)}</h3>
+          <button class="close" onclick="closeModal()">×</button>
+        </div>
+        <div class="modal-body">${body}</div>
+        <div class="modal-foot">${foot}</div>
+      </div>
+    </div>
+  `;
+  $('modalBackdrop').onclick = (e) => { if (e.target.id === 'modalBackdrop') closeModal(); };
+}
+function closeModal() { $('modal').innerHTML = ''; }
+
+// ============================================================
+// 타이머 — ping 60초마다 + live count 30초마다
+// ============================================================
+function startTimers() {
+  stopTimers();
+  // 즉시 1회
+  api('POST', '/stats/ping').catch(() => {});
+  state.pingTimer = setInterval(() => api('POST', '/stats/ping').catch(() => {}), 60000);
+  state.liveTimer = setInterval(loadLiveCount, 30000);
+}
+function stopTimers() {
+  if (state.pingTimer) clearInterval(state.pingTimer);
+  if (state.liveTimer) clearInterval(state.liveTimer);
+  state.pingTimer = state.liveTimer = null;
+}
+
+// ============================================================
+// 초기화
+// ============================================================
+$('loginBtn').onclick = doLogin;
+$('signupBtn').onclick = doSignup;
+$('li_password').onkeydown = (e) => { if (e.key === 'Enter') doLogin(); };
+$('su_password').onkeydown = (e) => { if (e.key === 'Enter') doSignup(); };
+
+// 추천 코드 디바운스 검증
+let _refTimer;
+$('su_ref').oninput = () => {
+  clearTimeout(_refTimer);
+  const v = $('su_ref').value.trim().toUpperCase();
+  $('su_ref').value = v;
+  _refTimer = setTimeout(() => checkRefCode(v), 400);
+};
+
+document.addEventListener('keydown', (e) => {
+  if (e.key === 'Escape') closeModal();
+});
+
+// 백그라운드/포그라운드 — 갱신
+document.addEventListener('visibilitychange', () => {
+  if (!document.hidden && state.user) {
+    loadLiveCount();
+    api('GET', '/auth/me').then(r => {
+      state.point = Number(r.user.point) || 0;
+      state.chapterAccess = r.chapter_access || {};
+      if (state.currentChapter == null) renderHome();
+    }).catch(() => {});
+  }
+});
+
+// 전역 노출
+window.switchTab = switchTab;
+window.logout = logout;
+window.enterChapter = enterChapter;
+window.goHome = goHome;
+window.toggleTopic = toggleTopic;
+window.longPressStart = longPressStart;
+window.longPressEnd = longPressEnd;
+window.longPressCancel = longPressCancel;
+window.openReferralModal = openReferralModal;
+window.copyReferralLink = copyReferralLink;
+window.openPayModal = openPayModal;
+window.goPayment = goPayment;
+window.confirmRedeem = confirmRedeem;
+window.closeModal = closeModal;
+
+tryAutoLogin();
+</script>
+</body>
+</html>
