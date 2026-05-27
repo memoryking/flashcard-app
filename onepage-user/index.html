@@ -985,17 +985,50 @@ async function loadSubtopics(topicId) {
   renderTree(state.currentChapter.id);
 }
 async function loadItems(subtopicId) {
-  try {
-    const r = await api('GET', '/items?subtopic_id=' + subtopicId);
-    state.itemsBySubtopic[subtopicId] = r.items || [];
-  } catch (e) {
-    if (e.status === 402) {
-      state.itemsBySubtopic[subtopicId] = { locked: true, chapter_id: e.data?.chapter_id };
-    } else {
-      state.itemsBySubtopic[subtopicId] = { error: e.message };
+  return ensureItems(subtopicId, false);
+}
+
+// 같은 소목차의 동시 중복 fetch 방지 + prefetch 일 때는 강제 리렌더 안 함
+const _itemsLoading = new Map();   // subtopicId → Promise
+async function ensureItems(subId, isPrefetch) {
+  const existing = state.itemsBySubtopic[subId];
+  if (existing !== undefined) return existing;
+  if (_itemsLoading.has(subId)) return _itemsLoading.get(subId);
+
+  const p = (async () => {
+    try {
+      const r = await api('GET', '/items?subtopic_id=' + subId);
+      state.itemsBySubtopic[subId] = r.items || [];
+    } catch (e) {
+      if (e.status === 402) {
+        state.itemsBySubtopic[subId] = { locked: true, chapter_id: e.data?.chapter_id };
+      } else if (e.status !== 401) {
+        state.itemsBySubtopic[subId] = { error: e.message };
+      } else {
+        // 401은 prefetch에서 자주 발생 가능 — 캐시 안 함
+        return;
+      }
+    } finally {
+      _itemsLoading.delete(subId);
     }
+    // 현재 펼쳐진 소목차일 때만 리렌더 (백그라운드 prefetch는 조용히)
+    if (!isPrefetch || state.expanded.subtopic.has(Number(subId))) {
+      if (state.currentChapter) renderTree(state.currentChapter.id);
+    }
+  })();
+  _itemsLoading.set(subId, p);
+  return p;
+}
+
+// 펼친 대목차들의 모든 소목차 items를 백그라운드로 미리 가져오기
+function prefetchOpenTopics() {
+  if (!state.currentChapter) return;
+  const topics = state.topicsByChapter[state.currentChapter.id] || [];
+  for (const t of topics) {
+    if (!state.expanded.topic.has(t.id)) continue;
+    const subs = state.subtopicsByTopic[t.id] || [];
+    for (const s of subs) ensureItems(s.id, true);
   }
-  renderTree(state.currentChapter.id);
 }
 
 function renderTree(chapterId) {
@@ -1120,6 +1153,7 @@ function toggleTopic(id) {
   if (state.expanded.topic.has(id)) state.expanded.topic.delete(id);
   else state.expanded.topic.add(id);
   renderTree(state.currentChapter.id);
+  prefetchOpenTopics();   // 새로 펼친 토픽의 items 백그라운드 fetch
 }
 
 function collapseAll() {
