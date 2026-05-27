@@ -1,0 +1,1143 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+<title>OnePage 편집기</title>
+<style>
+* { box-sizing: border-box; margin: 0; padding: 0; }
+html, body { height: 100%; font-family: -apple-system, BlinkMacSystemFont, 'Pretendard', 'Segoe UI', sans-serif; background: #0a0a1a; color: #e5e7eb; }
+body { line-height: 1.55; -webkit-text-size-adjust: 100%; }
+button { font: inherit; cursor: pointer; border: none; }
+input, textarea, select { font: inherit; outline: none; }
+a { color: #4fc3f7; text-decoration: none; }
+
+/* ── 인증 화면 ── */
+#loginScreen { display: flex; align-items: center; justify-content: center; min-height: 100vh; padding: 20px; }
+.login-card {
+  width: 100%; max-width: 380px;
+  background: linear-gradient(135deg, #1a1a2e, #16213e);
+  border: 1px solid #2a2a4e; border-radius: 18px;
+  padding: 30px 26px;
+  box-shadow: 0 20px 60px rgba(0,0,0,0.4);
+}
+.login-card h1 {
+  font-size: 1.5em; font-weight: 800; text-align: center;
+  margin-bottom: 6px; color: #fff;
+}
+.login-card .sub {
+  text-align: center; font-size: 13px; color: rgba(255,255,255,0.5);
+  margin-bottom: 20px;
+}
+.login-card label {
+  display: block; font-size: 12px; color: rgba(255,255,255,0.6);
+  margin-bottom: 4px; margin-top: 12px;
+}
+.login-card input {
+  width: 100%; padding: 10px 12px;
+  background: rgba(0,0,0,0.3); border: 1px solid rgba(255,255,255,0.1);
+  border-radius: 8px; color: #fff; font-size: 14px;
+}
+.login-card input:focus { border-color: #e94560; }
+.login-card .err {
+  background: rgba(239,68,68,0.15); border: 1px solid rgba(239,68,68,0.4);
+  color: #fca5a5; padding: 9px 12px; border-radius: 8px;
+  font-size: 13px; margin-top: 14px; display: none;
+}
+.login-card button {
+  width: 100%; margin-top: 18px; padding: 12px;
+  background: linear-gradient(135deg, #e94560, #ff6b6b);
+  color: #fff; font-weight: 700; border-radius: 8px;
+}
+.login-card button:disabled { opacity: 0.5; cursor: wait; }
+
+/* ── 앱 헤더 ── */
+.app-header {
+  display: flex; align-items: center; gap: 14px;
+  padding: 12px 18px; background: #0a0a1a;
+  border-bottom: 1px solid #1f1f3a; position: sticky; top: 0; z-index: 10;
+}
+.app-header .brand {
+  font-weight: 800; font-size: 16px; color: #fff;
+}
+.app-header .brand em {
+  font-style: normal; color: #e94560;
+}
+.app-header .user-chip {
+  margin-left: auto;
+  display: flex; align-items: center; gap: 10px;
+  font-size: 13px; color: rgba(255,255,255,0.7);
+}
+.app-header .user-chip .role {
+  background: rgba(76,175,80,0.2); color: #81c784;
+  font-size: 10px; padding: 2px 8px; border-radius: 50px; font-weight: 700;
+}
+.app-header button.icon-btn {
+  background: rgba(255,255,255,0.05); color: #ddd;
+  padding: 7px 12px; border-radius: 8px; font-size: 12px;
+}
+.app-header button.icon-btn:hover { background: rgba(255,255,255,0.1); }
+
+/* ── 메인 ── */
+.app-main {
+  max-width: 980px; margin: 0 auto; padding: 18px;
+}
+.toolbar {
+  display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 16px;
+}
+.btn-primary {
+  background: linear-gradient(135deg, #e94560, #ff6b6b);
+  color: #fff; padding: 10px 18px; border-radius: 8px;
+  font-weight: 700; font-size: 14px;
+}
+.btn-secondary {
+  background: rgba(255,255,255,0.08); color: #ddd;
+  padding: 8px 14px; border-radius: 8px; font-size: 13px;
+}
+.btn-danger {
+  background: rgba(239,68,68,0.15); color: #fca5a5;
+  padding: 6px 10px; border-radius: 6px; font-size: 12px;
+}
+.btn-ghost {
+  background: transparent; color: rgba(255,255,255,0.6);
+  padding: 6px 10px; border-radius: 6px; font-size: 12px;
+}
+.btn-ghost:hover { color: #fff; background: rgba(255,255,255,0.05); }
+.btn-small { padding: 4px 8px; font-size: 11px; }
+
+/* ── 트리 ── */
+.tree-node { margin-bottom: 8px; }
+
+/* 챕터 카드 */
+.chapter {
+  background: linear-gradient(135deg, #1a1a2e, #16213e);
+  border: 1px solid #2a2a4e; border-radius: 12px;
+  overflow: hidden;
+}
+.chapter.opened { border-color: rgba(233,69,96,0.4); }
+.chapter-head {
+  display: flex; align-items: center; gap: 12px;
+  padding: 14px 16px; cursor: pointer; user-select: none;
+}
+.chapter-head:hover { background: rgba(255,255,255,0.02); }
+.chapter-arrow {
+  color: #e94560; font-size: 12px; transition: transform 0.2s;
+  flex-shrink: 0; width: 12px; text-align: center;
+}
+.chapter.opened .chapter-arrow { transform: rotate(90deg); }
+.chapter-icon { font-size: 20px; flex-shrink: 0; }
+.chapter-title {
+  flex: 1; min-width: 0;
+  display: flex; flex-direction: column; gap: 2px;
+}
+.chapter-title .subj {
+  font-size: 11px; color: rgba(255,255,255,0.5);
+  letter-spacing: 0.05em;
+}
+.chapter-title .name {
+  font-size: 15px; font-weight: 700; color: #fff;
+}
+.chapter-meta {
+  font-size: 12px; color: rgba(255,255,255,0.5);
+  display: flex; gap: 8px; flex-shrink: 0;
+}
+.chapter-meta .free-all {
+  background: rgba(76,175,80,0.2); color: #81c784;
+  padding: 2px 8px; border-radius: 50px; font-weight: 700;
+}
+.chapter-actions {
+  display: flex; gap: 4px; flex-shrink: 0;
+}
+.chapter-body {
+  display: none; padding: 6px 14px 14px;
+  border-top: 1px solid rgba(255,255,255,0.05);
+}
+.chapter.opened > .chapter-body { display: block; }
+
+/* 대목차 */
+.topic {
+  background: rgba(0,0,0,0.2); border-radius: 8px; margin-top: 8px;
+  overflow: hidden;
+}
+.topic.opened { background: rgba(0,0,0,0.3); }
+.topic-head {
+  display: flex; align-items: center; gap: 10px;
+  padding: 10px 14px; cursor: pointer; user-select: none;
+}
+.topic-head:hover { background: rgba(255,255,255,0.03); }
+.topic-arrow {
+  color: #4fc3f7; font-size: 11px; width: 11px; text-align: center;
+  transition: transform 0.2s; flex-shrink: 0;
+}
+.topic.opened .topic-arrow { transform: rotate(90deg); }
+.topic-title { flex: 1; font-size: 14px; font-weight: 600; color: #fff; min-width: 0; }
+.topic-title .free-badge {
+  background: rgba(76,175,80,0.25); color: #81c784;
+  font-size: 9px; padding: 2px 6px; border-radius: 50px; margin-left: 6px;
+  font-weight: 700; vertical-align: middle;
+}
+.topic-count {
+  background: rgba(255,255,255,0.08); color: rgba(255,255,255,0.7);
+  font-size: 10px; padding: 2px 7px; border-radius: 50px; font-weight: 600;
+}
+.topic-actions { display: flex; gap: 4px; }
+.topic-body {
+  display: none; padding: 4px 14px 12px;
+  border-top: 1px solid rgba(255,255,255,0.05);
+}
+.topic.opened > .topic-body { display: block; }
+
+/* 소목차 */
+.subtopic {
+  background: rgba(0,0,0,0.25); border-radius: 6px;
+  margin-top: 6px; overflow: hidden;
+}
+.subtopic-head {
+  display: flex; align-items: center; gap: 10px;
+  padding: 8px 12px; cursor: pointer; user-select: none;
+}
+.subtopic-head:hover { background: rgba(255,255,255,0.03); }
+.subtopic-arrow {
+  color: #b39ddb; font-size: 10px; width: 10px; text-align: center;
+  transition: transform 0.2s; flex-shrink: 0;
+}
+.subtopic.opened .subtopic-arrow { transform: rotate(90deg); }
+.subtopic-title { flex: 1; font-size: 13px; color: rgba(255,255,255,0.9); min-width: 0; }
+.subtopic-actions { display: flex; gap: 4px; }
+.subtopic-body {
+  display: none; padding: 4px 12px 10px 28px;
+  border-top: 1px solid rgba(255,255,255,0.04);
+}
+.subtopic.opened > .subtopic-body { display: block; }
+
+/* 아이템 */
+.item {
+  background: rgba(0,0,0,0.3); border: 1px solid rgba(255,255,255,0.05);
+  border-radius: 6px; padding: 10px 12px; margin-top: 6px;
+  display: flex; gap: 10px; align-items: flex-start;
+}
+.item-icon { color: rgba(255,255,255,0.4); font-size: 11px; flex-shrink: 0; padding-top: 2px; }
+.item-body { flex: 1; min-width: 0; }
+.item-body .item-text {
+  font-size: 13px; color: rgba(255,255,255,0.85); white-space: pre-wrap;
+  word-break: break-word;
+}
+.item-body .item-image { max-width: 100%; max-height: 300px; border-radius: 4px; display: block; }
+.item-body .item-caption {
+  font-size: 11px; color: rgba(255,255,255,0.4); margin-top: 4px;
+}
+.item-actions { display: flex; gap: 4px; flex-shrink: 0; }
+.item-edit-text {
+  width: 100%; padding: 8px 10px; min-height: 80px;
+  background: rgba(0,0,0,0.5); border: 1px solid #2a2a4e;
+  border-radius: 6px; color: #fff; font-size: 13px; resize: vertical;
+}
+
+.empty-state {
+  text-align: center; padding: 24px 12px; color: rgba(255,255,255,0.35);
+  font-size: 13px;
+}
+.empty-state.small { padding: 12px; font-size: 12px; }
+
+/* ── 모달 ── */
+.modal-backdrop {
+  position: fixed; inset: 0; background: rgba(0,0,0,0.7);
+  display: flex; align-items: center; justify-content: center;
+  z-index: 100; padding: 20px; backdrop-filter: blur(4px);
+}
+.modal {
+  width: 100%; max-width: 480px;
+  background: linear-gradient(135deg, #1a1a2e, #16213e);
+  border: 1px solid #2a2a4e; border-radius: 14px;
+  overflow: hidden; max-height: 90vh; display: flex; flex-direction: column;
+}
+.modal-head {
+  padding: 16px 20px; border-bottom: 1px solid rgba(255,255,255,0.08);
+  display: flex; align-items: center; justify-content: space-between;
+}
+.modal-head h3 { font-size: 16px; font-weight: 700; color: #fff; }
+.modal-head .close {
+  background: transparent; color: rgba(255,255,255,0.5);
+  padding: 4px 10px; font-size: 22px;
+}
+.modal-body { padding: 20px; overflow-y: auto; }
+.modal-foot {
+  padding: 14px 20px; border-top: 1px solid rgba(255,255,255,0.08);
+  display: flex; justify-content: flex-end; gap: 8px;
+}
+.form-row { margin-bottom: 14px; }
+.form-row label {
+  display: block; font-size: 12px; color: rgba(255,255,255,0.6);
+  margin-bottom: 5px; font-weight: 600;
+}
+.form-row input[type="text"],
+.form-row input[type="number"],
+.form-row textarea {
+  width: 100%; padding: 10px 12px;
+  background: rgba(0,0,0,0.3); border: 1px solid rgba(255,255,255,0.1);
+  border-radius: 6px; color: #fff; font-size: 14px;
+}
+.form-row textarea { min-height: 80px; resize: vertical; font-family: monospace; font-size: 13px; }
+.form-row input:focus, .form-row textarea:focus { border-color: #e94560; }
+.form-row .help {
+  font-size: 11px; color: rgba(255,255,255,0.4); margin-top: 4px;
+}
+.form-row .check {
+  display: flex; align-items: center; gap: 8px; cursor: pointer;
+}
+.form-row .check input { width: auto; }
+.form-row.row-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+
+.tsv-modal { max-width: 720px; }
+.tsv-modal .modal-body { padding: 16px 20px; }
+.tsv-modal textarea {
+  min-height: 320px; font-family: monospace; font-size: 12px;
+  white-space: pre; overflow: auto;
+}
+.tsv-help {
+  background: rgba(79,195,247,0.08); border: 1px solid rgba(79,195,247,0.2);
+  border-radius: 6px; padding: 10px 14px; font-size: 12px;
+  color: #b3e5fc; margin-bottom: 12px; line-height: 1.7;
+}
+.tsv-help code { background: rgba(0,0,0,0.3); padding: 1px 5px; border-radius: 3px; }
+
+/* ── Toast ── */
+#toast {
+  position: fixed; bottom: 20px; left: 50%; transform: translateX(-50%);
+  background: rgba(20,20,40,0.95); color: #fff;
+  padding: 10px 18px; border-radius: 8px;
+  font-size: 13px; z-index: 200;
+  border: 1px solid rgba(255,255,255,0.1);
+  opacity: 0; pointer-events: none; transition: opacity 0.2s;
+}
+#toast.show { opacity: 1; }
+#toast.error { border-color: rgba(239,68,68,0.5); color: #fca5a5; }
+
+/* ── 로딩 오버레이 ── */
+#loading {
+  position: fixed; inset: 0; background: rgba(10,10,26,0.8);
+  display: none; align-items: center; justify-content: center;
+  z-index: 300; backdrop-filter: blur(2px);
+}
+#loading.show { display: flex; }
+.spinner {
+  width: 36px; height: 36px;
+  border: 3px solid rgba(255,255,255,0.1);
+  border-top-color: #e94560; border-radius: 50%;
+  animation: spin 0.7s linear infinite;
+}
+@keyframes spin { to { transform: rotate(360deg); } }
+
+@media (max-width: 600px) {
+  .app-main { padding: 12px; }
+  .chapter-head { padding: 12px 12px; }
+  .modal { max-height: 95vh; }
+}
+</style>
+</head>
+<body>
+
+<!-- ============ 로그인 화면 ============ -->
+<div id="loginScreen">
+  <div class="login-card">
+    <h1>OnePage <span style="color:#e94560">편집기</span></h1>
+    <p class="sub">선생님 계정으로 로그인하세요</p>
+    <label>이메일</label>
+    <input id="loginEmail" type="email" autocomplete="username">
+    <label>비밀번호</label>
+    <input id="loginPassword" type="password" autocomplete="current-password">
+    <div class="err" id="loginErr"></div>
+    <button id="loginBtn">로그인</button>
+  </div>
+</div>
+
+<!-- ============ 메인 앱 ============ -->
+<div id="appScreen" style="display:none">
+  <header class="app-header">
+    <div class="brand">OnePage <em>편집기</em></div>
+    <div class="user-chip">
+      <span id="userName">-</span>
+      <span class="role">선생님</span>
+      <button class="icon-btn" id="logoutBtn">로그아웃</button>
+    </div>
+  </header>
+
+  <main class="app-main">
+    <div class="toolbar">
+      <button class="btn-primary" onclick="openChapterModal()">+ 챕터 추가</button>
+      <button class="btn-secondary" onclick="reloadChapters()">↻ 새로고침</button>
+    </div>
+    <div id="chapterList"></div>
+  </main>
+</div>
+
+<!-- ============ Toast / Loading ============ -->
+<div id="toast"></div>
+<div id="loading"><div class="spinner"></div></div>
+
+<!-- ============ Modal 컨테이너 ============ -->
+<div id="modalContainer"></div>
+
+<script>
+'use strict';
+
+// ============================================================
+// 설정
+// ============================================================
+const API = 'https://onepage-api.memoryking.workers.dev';
+const TOKEN_KEY = 'op_teacher_token';
+
+// ============================================================
+// 상태
+// ============================================================
+const state = {
+  user: null,
+  chapters: [],
+  expanded: {
+    chapter: new Set(),
+    topic: new Set(),
+    subtopic: new Set(),
+  },
+  topicsByChapter: {},     // chapterId → topics[]
+  subtopicsByTopic: {},    // topicId → subtopics[]
+  itemsBySubtopic: {},     // subtopicId → items[]
+};
+
+// ============================================================
+// API
+// ============================================================
+async function api(method, path, body) {
+  const token = localStorage.getItem(TOKEN_KEY);
+  const headers = { 'Content-Type': 'application/json' };
+  if (token) headers['Authorization'] = 'Bearer ' + token;
+  const res = await fetch(API + path, {
+    method,
+    headers,
+    body: body !== undefined ? JSON.stringify(body) : undefined,
+  });
+  let data = null;
+  try { data = await res.json(); } catch (_) {}
+  if (!res.ok) {
+    const err = new Error((data && data.error) || `HTTP ${res.status}`);
+    err.status = res.status;
+    throw err;
+  }
+  return data;
+}
+
+// ============================================================
+// UI 유틸
+// ============================================================
+function $(id) { return document.getElementById(id); }
+function escapeHtml(s) {
+  return String(s || '').replace(/[&<>"']/g, c => ({
+    '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'
+  })[c]);
+}
+function toast(msg, isError) {
+  const t = $('toast');
+  t.textContent = msg;
+  t.className = 'show' + (isError ? ' error' : '');
+  setTimeout(() => t.className = '', 2400);
+}
+function showLoading(on) { $('loading').classList.toggle('show', !!on); }
+
+// ============================================================
+// 로그인
+// ============================================================
+async function login() {
+  const email = $('loginEmail').value.trim();
+  const password = $('loginPassword').value;
+  if (!email || !password) {
+    $('loginErr').textContent = '이메일/비밀번호를 입력하세요.';
+    $('loginErr').style.display = 'block';
+    return;
+  }
+  $('loginBtn').disabled = true;
+  $('loginErr').style.display = 'none';
+  try {
+    const r = await api('POST', '/auth/login', { email, password });
+    if (r.user.role !== 'teacher') {
+      throw new Error('이 계정은 선생님 권한이 없습니다. (관리자에게 문의)');
+    }
+    localStorage.setItem(TOKEN_KEY, r.token);
+    state.user = r.user;
+    enterApp();
+  } catch (e) {
+    $('loginErr').textContent = e.message;
+    $('loginErr').style.display = 'block';
+  } finally {
+    $('loginBtn').disabled = false;
+  }
+}
+
+async function tryAutoLogin() {
+  if (!localStorage.getItem(TOKEN_KEY)) return false;
+  try {
+    const r = await api('GET', '/auth/me');
+    if (r.user.role !== 'teacher') {
+      localStorage.removeItem(TOKEN_KEY);
+      return false;
+    }
+    state.user = r.user;
+    enterApp();
+    return true;
+  } catch {
+    localStorage.removeItem(TOKEN_KEY);
+    return false;
+  }
+}
+
+function logout() {
+  localStorage.removeItem(TOKEN_KEY);
+  state.user = null;
+  $('loginScreen').style.display = 'flex';
+  $('appScreen').style.display = 'none';
+}
+
+function enterApp() {
+  $('loginScreen').style.display = 'none';
+  $('appScreen').style.display = 'block';
+  $('userName').textContent = state.user.name || state.user.email;
+  reloadChapters();
+}
+
+// ============================================================
+// 챕터 로드 & 렌더
+// ============================================================
+async function reloadChapters() {
+  showLoading(true);
+  try {
+    const r = await api('GET', '/chapters');
+    state.chapters = r.chapters || [];
+    render();
+  } catch (e) {
+    toast('챕터 로드 실패: ' + e.message, true);
+  } finally {
+    showLoading(false);
+  }
+}
+
+async function loadTopics(chapterId) {
+  const r = await api('GET', '/topics?chapter_id=' + chapterId);
+  state.topicsByChapter[chapterId] = r.topics || [];
+  render();
+}
+
+async function loadSubtopics(topicId) {
+  const r = await api('GET', '/subtopics?topic_id=' + topicId);
+  state.subtopicsByTopic[topicId] = r.subtopics || [];
+  render();
+}
+
+async function loadItems(subtopicId) {
+  const r = await api('GET', '/items?subtopic_id=' + subtopicId);
+  state.itemsBySubtopic[subtopicId] = r.items || [];
+  render();
+}
+
+// ============================================================
+// 트리 렌더
+// ============================================================
+function render() {
+  const list = $('chapterList');
+  if (!state.chapters.length) {
+    list.innerHTML = '<div class="empty-state">아직 챕터가 없습니다. 우측 상단 [+ 챕터 추가]로 시작하세요.</div>';
+    return;
+  }
+  // 과목별 그룹핑
+  const groups = {};
+  for (const c of state.chapters) {
+    const s = c.subject || '(분류 없음)';
+    if (!groups[s]) groups[s] = [];
+    groups[s].push(c);
+  }
+  let html = '';
+  for (const subject of Object.keys(groups).sort()) {
+    html += `<div style="font-size:12px;color:rgba(255,255,255,0.4);margin:14px 0 6px;letter-spacing:0.1em;font-weight:700;">${escapeHtml(subject).toUpperCase()}</div>`;
+    for (const c of groups[subject]) html += renderChapter(c);
+  }
+  list.innerHTML = html;
+}
+
+function renderChapter(c) {
+  const opened = state.expanded.chapter.has(c.id);
+  const cls = 'chapter' + (opened ? ' opened' : '');
+  let body = '';
+  if (opened) {
+    const topics = state.topicsByChapter[c.id];
+    if (topics === undefined) {
+      loadTopics(c.id);
+      body = '<div class="empty-state small">로드 중…</div>';
+    } else {
+      body = `
+        <div style="margin:6px 0;">
+          <button class="btn-secondary" onclick="event.stopPropagation();openTopicModal(${c.id})">+ 대목차 추가</button>
+          <button class="btn-secondary" onclick="event.stopPropagation();openBulkModal(${c.id})">📋 일괄 입력 (엑셀)</button>
+        </div>
+      `;
+      if (!topics.length) {
+        body += '<div class="empty-state small">아직 대목차가 없습니다.</div>';
+      } else {
+        body += topics.map(t => renderTopic(t)).join('');
+      }
+    }
+  }
+  return `
+    <div class="tree-node">
+      <div class="${cls}">
+        <div class="chapter-head" onclick="toggle('chapter',${c.id})">
+          <div class="chapter-arrow">▶</div>
+          <div class="chapter-icon">${escapeHtml(c.icon || '📘')}</div>
+          <div class="chapter-title">
+            <div class="subj">${escapeHtml(c.subject || '')}</div>
+            <div class="name">${escapeHtml(c.title || '')}</div>
+          </div>
+          <div class="chapter-meta">
+            ${c.is_all_free ? '<span class="free-all">✨ 전체 무료</span>' : ''}
+            <span>${Number(c.monthly_price || 0).toLocaleString()}원/월</span>
+          </div>
+          <div class="chapter-actions">
+            <button class="btn-ghost btn-small" onclick="event.stopPropagation();openChapterModal(${c.id})">✎</button>
+            <button class="btn-danger btn-small" onclick="event.stopPropagation();deleteChapter(${c.id})">🗑️</button>
+          </div>
+        </div>
+        <div class="chapter-body">${body}</div>
+      </div>
+    </div>
+  `;
+}
+
+function renderTopic(t) {
+  const opened = state.expanded.topic.has(t.id);
+  const cls = 'topic' + (opened ? ' opened' : '');
+  let body = '';
+  if (opened) {
+    const subs = state.subtopicsByTopic[t.id];
+    if (subs === undefined) {
+      loadSubtopics(t.id);
+      body = '<div class="empty-state small">로드 중…</div>';
+    } else {
+      body = `<div style="margin:6px 0;"><button class="btn-secondary btn-small" onclick="event.stopPropagation();openSubtopicModal(${t.id})">+ 소목차 추가</button></div>`;
+      if (!subs.length) {
+        body += '<div class="empty-state small">아직 소목차가 없습니다.</div>';
+      } else {
+        body += subs.map(s => renderSubtopic(s)).join('');
+      }
+    }
+  }
+  return `
+    <div class="${cls}">
+      <div class="topic-head" onclick="toggle('topic',${t.id})">
+        <div class="topic-arrow">▶</div>
+        <div class="topic-title">${escapeHtml(t.title)}${t.is_free ? '<span class="free-badge">✨무료</span>' : ''}</div>
+        <span class="topic-count">${t.subtopic_count || 0}</span>
+        <div class="topic-actions">
+          <button class="btn-ghost btn-small" onclick="event.stopPropagation();openTopicModal(${t.chapter_id},${t.id})">✎</button>
+          <button class="btn-danger btn-small" onclick="event.stopPropagation();deleteTopic(${t.id})">🗑️</button>
+        </div>
+      </div>
+      <div class="topic-body">${body}</div>
+    </div>
+  `;
+}
+
+function renderSubtopic(s) {
+  const opened = state.expanded.subtopic.has(s.id);
+  const cls = 'subtopic' + (opened ? ' opened' : '');
+  let body = '';
+  if (opened) {
+    const items = state.itemsBySubtopic[s.id];
+    if (items === undefined) {
+      loadItems(s.id);
+      body = '<div class="empty-state small">로드 중…</div>';
+    } else {
+      body = `
+        <div style="margin:6px 0;display:flex;gap:6px;flex-wrap:wrap;">
+          <button class="btn-secondary btn-small" onclick="event.stopPropagation();addTextItem(${s.id})">+ 텍스트</button>
+          <button class="btn-secondary btn-small" onclick="event.stopPropagation();triggerImagePick(${s.id})">+ 이미지 (파일)</button>
+          <span style="font-size:11px;color:rgba(255,255,255,0.4);align-self:center;">← Ctrl+V로 화면 캡쳐 붙여넣기 가능</span>
+        </div>
+      `;
+      if (!items.length) {
+        body += '<div class="empty-state small">아직 내용이 없습니다.</div>';
+      } else {
+        body += items.map(it => renderItem(it)).join('');
+      }
+    }
+  }
+  return `
+    <div class="${cls}" data-subid="${s.id}">
+      <div class="subtopic-head" onclick="toggle('subtopic',${s.id})">
+        <div class="subtopic-arrow">▶</div>
+        <div class="subtopic-title">${escapeHtml(s.title)}</div>
+        <div class="subtopic-actions">
+          <button class="btn-ghost btn-small" onclick="event.stopPropagation();openSubtopicModal(${s.topic_id},${s.id})">✎</button>
+          <button class="btn-danger btn-small" onclick="event.stopPropagation();deleteSubtopic(${s.id})">🗑️</button>
+        </div>
+      </div>
+      <div class="subtopic-body">${body}</div>
+    </div>
+  `;
+}
+
+function renderItem(it) {
+  if (it.kind === 'image') {
+    return `
+      <div class="item">
+        <div class="item-icon">🖼️</div>
+        <div class="item-body">
+          <img class="item-image" src="${escapeHtml(it.image_b64)}" alt="">
+          ${it.caption ? `<div class="item-caption">${escapeHtml(it.caption)}</div>` : ''}
+        </div>
+        <div class="item-actions">
+          <button class="btn-ghost btn-small" onclick="editItemCaption(${it.id})">✎</button>
+          <button class="btn-danger btn-small" onclick="deleteItem(${it.id},${it.subtopic_id})">🗑️</button>
+        </div>
+      </div>
+    `;
+  }
+  return `
+    <div class="item">
+      <div class="item-icon">📝</div>
+      <div class="item-body">
+        <div class="item-text" id="text-${it.id}">${escapeHtml(it.text)}</div>
+      </div>
+      <div class="item-actions">
+        <button class="btn-ghost btn-small" onclick="editItemText(${it.id})">✎</button>
+        <button class="btn-danger btn-small" onclick="deleteItem(${it.id},${it.subtopic_id})">🗑️</button>
+      </div>
+    </div>
+  `;
+}
+
+function toggle(level, id) {
+  const set = state.expanded[level];
+  if (set.has(id)) set.delete(id); else set.add(id);
+  render();
+}
+
+// ============================================================
+// 챕터 CRUD
+// ============================================================
+function openChapterModal(id) {
+  const c = id ? state.chapters.find(x => x.id === id) : null;
+  modal({
+    title: id ? '챕터 편집' : '챕터 추가',
+    body: `
+      <div class="form-row row-2">
+        <div><label>과목 *</label><input type="text" id="m_subject" value="${escapeHtml(c?.subject || '')}" placeholder="수학"></div>
+        <div><label>아이콘</label><input type="text" id="m_icon" value="${escapeHtml(c?.icon || '')}" placeholder="📘"></div>
+      </div>
+      <div class="form-row"><label>제목 *</label><input type="text" id="m_title" value="${escapeHtml(c?.title || '')}" placeholder="미분"></div>
+      <div class="form-row"><label>설명</label><input type="text" id="m_description" value="${escapeHtml(c?.description || '')}" placeholder="(선택)"></div>
+      <div class="form-row row-2">
+        <div><label>월 가격 (원)</label><input type="number" id="m_price" value="${c?.monthly_price ?? 3000}" min="0" step="500"></div>
+        <div><label>표시 순서</label><input type="number" id="m_order" value="${c?.sort_order ?? 0}"></div>
+      </div>
+      <div class="form-row"><label class="check"><input type="checkbox" id="m_freeAll" ${c?.is_all_free ? 'checked' : ''}> 챕터 전체 무료 (구독 없이 모든 내용 공개)</label></div>
+    `,
+    save: async () => {
+      const data = {
+        subject: $('m_subject').value.trim(),
+        title: $('m_title').value.trim(),
+        icon: $('m_icon').value.trim(),
+        description: $('m_description').value.trim(),
+        monthly_price: Number($('m_price').value) || 3000,
+        sort_order: Number($('m_order').value) || 0,
+        is_all_free: $('m_freeAll').checked,
+      };
+      if (!data.subject || !data.title) { toast('과목·제목 필수', true); return false; }
+      try {
+        if (id) await api('PUT', '/chapters/' + id, data);
+        else await api('POST', '/chapters', data);
+        await reloadChapters();
+        toast('저장됨');
+        return true;
+      } catch (e) { toast(e.message, true); return false; }
+    }
+  });
+}
+
+async function deleteChapter(id) {
+  const c = state.chapters.find(x => x.id === id);
+  if (!confirm(`"${c.title}" 챕터를 삭제할까요?\n안의 모든 대목차·소목차·내용이 함께 삭제됩니다.`)) return;
+  showLoading(true);
+  try {
+    await api('DELETE', '/chapters/' + id);
+    state.expanded.chapter.delete(id);
+    delete state.topicsByChapter[id];
+    await reloadChapters();
+    toast('삭제됨');
+  } catch (e) { toast(e.message, true); }
+  finally { showLoading(false); }
+}
+
+// ============================================================
+// 대목차 CRUD
+// ============================================================
+function openTopicModal(chapterId, topicId) {
+  const t = topicId ? (state.topicsByChapter[chapterId] || []).find(x => x.id === topicId) : null;
+  modal({
+    title: topicId ? '대목차 편집' : '대목차 추가',
+    body: `
+      <div class="form-row"><label>제목 *</label><input type="text" id="m_title" value="${escapeHtml(t?.title || '')}" placeholder="미분의 기본"></div>
+      <div class="form-row row-2">
+        <div><label>표시 순서</label><input type="number" id="m_order" value="${t?.sort_order ?? 0}"></div>
+        <div style="align-self:end;"><label class="check"><input type="checkbox" id="m_free" ${t?.is_free ? 'checked' : ''}> ✨ 무료 공개</label></div>
+      </div>
+      <div class="form-row"><div class="help">무료 공개로 설정하면 이 대목차 전체가 비구독자에게도 보입니다.</div></div>
+    `,
+    save: async () => {
+      const data = {
+        chapter_id: chapterId,
+        title: $('m_title').value.trim(),
+        sort_order: Number($('m_order').value) || 0,
+        is_free: $('m_free').checked,
+      };
+      if (!data.title) { toast('제목 필수', true); return false; }
+      try {
+        if (topicId) await api('PUT', '/topics/' + topicId, data);
+        else await api('POST', '/topics', data);
+        await loadTopics(chapterId);
+        toast('저장됨');
+        return true;
+      } catch (e) { toast(e.message, true); return false; }
+    }
+  });
+}
+
+async function deleteTopic(id) {
+  if (!confirm('이 대목차를 삭제할까요?\n안의 소목차·내용도 함께 삭제됩니다.')) return;
+  showLoading(true);
+  try {
+    // 어느 챕터인지 찾기
+    let chapterId = null;
+    for (const cid in state.topicsByChapter) {
+      if ((state.topicsByChapter[cid] || []).some(t => t.id === id)) { chapterId = Number(cid); break; }
+    }
+    await api('DELETE', '/topics/' + id);
+    state.expanded.topic.delete(id);
+    delete state.subtopicsByTopic[id];
+    if (chapterId) await loadTopics(chapterId); else await reloadChapters();
+    toast('삭제됨');
+  } catch (e) { toast(e.message, true); }
+  finally { showLoading(false); }
+}
+
+// ============================================================
+// 소목차 CRUD
+// ============================================================
+function openSubtopicModal(topicId, subId) {
+  const s = subId ? (state.subtopicsByTopic[topicId] || []).find(x => x.id === subId) : null;
+  modal({
+    title: subId ? '소목차 편집' : '소목차 추가',
+    body: `
+      <div class="form-row"><label>제목 *</label><input type="text" id="m_title" value="${escapeHtml(s?.title || '')}" placeholder="미분계수의 정의"></div>
+      <div class="form-row"><label>표시 순서</label><input type="number" id="m_order" value="${s?.sort_order ?? 0}"></div>
+    `,
+    save: async () => {
+      const data = {
+        topic_id: topicId,
+        title: $('m_title').value.trim(),
+        sort_order: Number($('m_order').value) || 0,
+      };
+      if (!data.title) { toast('제목 필수', true); return false; }
+      try {
+        if (subId) await api('PUT', '/subtopics/' + subId, data);
+        else await api('POST', '/subtopics', data);
+        await loadSubtopics(topicId);
+        // 대목차의 count 갱신을 위해 topics도 reload
+        const topics = state.topicsByChapter || {};
+        for (const cid in topics) {
+          if ((topics[cid] || []).some(t => t.id === topicId)) { await loadTopics(Number(cid)); break; }
+        }
+        toast('저장됨');
+        return true;
+      } catch (e) { toast(e.message, true); return false; }
+    }
+  });
+}
+
+async function deleteSubtopic(id) {
+  if (!confirm('이 소목차를 삭제할까요?\n안의 모든 내용 블록도 함께 삭제됩니다.')) return;
+  showLoading(true);
+  try {
+    let topicId = null;
+    for (const tid in state.subtopicsByTopic) {
+      if ((state.subtopicsByTopic[tid] || []).some(s => s.id === id)) { topicId = Number(tid); break; }
+    }
+    await api('DELETE', '/subtopics/' + id);
+    state.expanded.subtopic.delete(id);
+    delete state.itemsBySubtopic[id];
+    if (topicId) {
+      await loadSubtopics(topicId);
+      for (const cid in state.topicsByChapter) {
+        if ((state.topicsByChapter[cid] || []).some(t => t.id === topicId)) { await loadTopics(Number(cid)); break; }
+      }
+    }
+    toast('삭제됨');
+  } catch (e) { toast(e.message, true); }
+  finally { showLoading(false); }
+}
+
+// ============================================================
+// 아이템 CRUD
+// ============================================================
+async function addTextItem(subId) {
+  const text = prompt('텍스트 내용을 입력하세요:');
+  if (text === null || !text.trim()) return;
+  const items = state.itemsBySubtopic[subId] || [];
+  const order = items.length ? Math.max(...items.map(i => Number(i.sort_order) || 0)) + 1 : 1;
+  showLoading(true);
+  try {
+    await api('POST', '/items', {
+      subtopic_id: subId, kind: 'text', text, sort_order: order,
+    });
+    await loadItems(subId);
+    toast('추가됨');
+  } catch (e) { toast(e.message, true); }
+  finally { showLoading(false); }
+}
+
+async function editItemText(itemId) {
+  // 현재 텍스트 찾기
+  let cur = '', subId = null;
+  for (const sid in state.itemsBySubtopic) {
+    const it = (state.itemsBySubtopic[sid] || []).find(x => x.id === itemId);
+    if (it) { cur = it.text || ''; subId = Number(sid); break; }
+  }
+  const text = prompt('텍스트 수정:', cur);
+  if (text === null) return;
+  showLoading(true);
+  try {
+    await api('PUT', '/items/' + itemId, { text });
+    if (subId) await loadItems(subId);
+    toast('저장됨');
+  } catch (e) { toast(e.message, true); }
+  finally { showLoading(false); }
+}
+
+async function editItemCaption(itemId) {
+  let cur = '', subId = null;
+  for (const sid in state.itemsBySubtopic) {
+    const it = (state.itemsBySubtopic[sid] || []).find(x => x.id === itemId);
+    if (it) { cur = it.caption || ''; subId = Number(sid); break; }
+  }
+  const caption = prompt('이미지 캡션:', cur);
+  if (caption === null) return;
+  showLoading(true);
+  try {
+    await api('PUT', '/items/' + itemId, { caption });
+    if (subId) await loadItems(subId);
+    toast('저장됨');
+  } catch (e) { toast(e.message, true); }
+  finally { showLoading(false); }
+}
+
+async function deleteItem(itemId, subId) {
+  if (!confirm('이 블록을 삭제할까요?')) return;
+  showLoading(true);
+  try {
+    await api('DELETE', '/items/' + itemId);
+    await loadItems(subId);
+    toast('삭제됨');
+  } catch (e) { toast(e.message, true); }
+  finally { showLoading(false); }
+}
+
+// ============================================================
+// 이미지 추가 (파일 선택 + Ctrl+V 붙여넣기)
+// ============================================================
+function triggerImagePick(subId) {
+  const inp = document.createElement('input');
+  inp.type = 'file';
+  inp.accept = 'image/*';
+  inp.onchange = async () => {
+    const f = inp.files[0];
+    if (f) await uploadImage(subId, f);
+  };
+  inp.click();
+}
+
+async function uploadImage(subId, fileOrBlob) {
+  showLoading(true);
+  try {
+    const dataUrl = await compressImage(fileOrBlob);
+    const sizeKb = Math.round(dataUrl.length * 0.75 / 1024);
+    if (sizeKb > 500) {
+      if (!confirm(`압축 후에도 이미지가 큽니다 (~${sizeKb}KB).\n그래도 저장할까요?`)) {
+        showLoading(false); return;
+      }
+    }
+    const items = state.itemsBySubtopic[subId] || [];
+    const order = items.length ? Math.max(...items.map(i => Number(i.sort_order) || 0)) + 1 : 1;
+    await api('POST', '/items', {
+      subtopic_id: subId, kind: 'image', image_b64: dataUrl, sort_order: order,
+    });
+    await loadItems(subId);
+    toast(`이미지 추가됨 (${sizeKb}KB)`);
+  } catch (e) { toast('이미지 처리 실패: ' + e.message, true); }
+  finally { showLoading(false); }
+}
+
+async function compressImage(blob) {
+  const bmp = await createImageBitmap(blob);
+  const MAX_W = 1200;
+  const scale = Math.min(1, MAX_W / bmp.width);
+  const w = Math.round(bmp.width * scale);
+  const h = Math.round(bmp.height * scale);
+  const canvas = document.createElement('canvas');
+  canvas.width = w; canvas.height = h;
+  canvas.getContext('2d').drawImage(bmp, 0, 0, w, h);
+  // WebP 지원 확인
+  const webpBlob = await new Promise(r => canvas.toBlob(r, 'image/webp', 0.85));
+  const finalBlob = webpBlob || await new Promise(r => canvas.toBlob(r, 'image/jpeg', 0.85));
+  return await blobToDataURL(finalBlob);
+}
+
+function blobToDataURL(blob) {
+  return new Promise((resolve, reject) => {
+    const r = new FileReader();
+    r.onload = () => resolve(r.result);
+    r.onerror = reject;
+    r.readAsDataURL(blob);
+  });
+}
+
+// 전역 paste 핸들러 — 펼친 소목차 중 첫 번째에 넣음
+document.addEventListener('paste', async (e) => {
+  if (!state.user || state.user.role !== 'teacher') return;
+  const items = (e.clipboardData || window.clipboardData)?.items;
+  if (!items) return;
+  for (const it of items) {
+    if (it.type && it.type.startsWith('image/')) {
+      const file = it.getAsFile();
+      if (!file) continue;
+      const openedSubs = Array.from(state.expanded.subtopic);
+      if (!openedSubs.length) {
+        toast('이미지를 추가할 소목차를 먼저 펼치세요.', true);
+        return;
+      }
+      const targetSubId = openedSubs[openedSubs.length - 1];
+      e.preventDefault();
+      await uploadImage(targetSubId, file);
+      return;
+    }
+  }
+});
+
+// ============================================================
+// 일괄 입력 (TSV)
+// ============================================================
+function openBulkModal(chapterId) {
+  const chapter = state.chapters.find(x => x.id === chapterId);
+  modal({
+    title: `일괄 입력 — ${chapter.title}`,
+    klass: 'tsv-modal',
+    body: `
+      <div class="tsv-help">
+        엑셀 3열 (<code>대목차</code> · <code>소목차</code> · <code>내용</code>)을 선택해 복사 후 아래에 붙여넣기.<br>
+        대목차·소목차 칸이 비어 있으면 "이전 값에 계속"으로 처리됩니다.<br>
+        첫 행이 헤더(<code>대목차</code>)면 자동 인식해 스킵.
+      </div>
+      <div class="form-row">
+        <label>붙여넣기 (탭 구분 TSV)</label>
+        <textarea id="m_tsv" placeholder="대목차&#9;소목차&#9;내용&#10;미분의 기본&#9;미분계수&#9;순간변화율의 극한&#10;&#9;도함수&#9;모든 x에 대한 일반화"></textarea>
+      </div>
+      <div class="form-row">
+        <label class="check"><input type="radio" name="mode" id="m_modeA" value="append" checked> 기존 내용 뒤에 추가</label>
+        <label class="check"><input type="radio" name="mode" id="m_modeR" value="replace"> ⚠️ 전체 교체 (기존 모든 대목차 삭제 후 신규)</label>
+      </div>
+    `,
+    save: async () => {
+      const tsv = $('m_tsv').value;
+      const mode = $('m_modeR').checked ? 'replace' : 'append';
+      if (!tsv.trim()) { toast('내용 비어 있음', true); return false; }
+      if (mode === 'replace') {
+        if (!confirm('전체 교체는 기존 모든 대목차·소목차·내용을 삭제합니다.\n정말 진행할까요?')) return false;
+      }
+      showLoading(true);
+      try {
+        const r = await api('POST', `/chapters/${chapterId}/bulk`, { tsv, mode });
+        toast(`완료: 대목차 ${r.topics_added} / 소목차 ${r.subtopics_added} / 내용 ${r.items_added}`);
+        // 캐시 무효화
+        delete state.topicsByChapter[chapterId];
+        Object.keys(state.subtopicsByTopic).forEach(k => delete state.subtopicsByTopic[k]);
+        Object.keys(state.itemsBySubtopic).forEach(k => delete state.itemsBySubtopic[k]);
+        await loadTopics(chapterId);
+        return true;
+      } catch (e) { toast(e.message, true); return false; }
+      finally { showLoading(false); }
+    },
+    saveLabel: '입력 실행'
+  });
+}
+
+// ============================================================
+// 모달 헬퍼
+// ============================================================
+function modal({ title, body, save, saveLabel = '저장', klass = '' }) {
+  const c = $('modalContainer');
+  c.innerHTML = `
+    <div class="modal-backdrop" id="curBackdrop">
+      <div class="modal ${klass}" onclick="event.stopPropagation()">
+        <div class="modal-head">
+          <h3>${escapeHtml(title)}</h3>
+          <button class="close" onclick="closeModal()">×</button>
+        </div>
+        <div class="modal-body">${body}</div>
+        <div class="modal-foot">
+          <button class="btn-secondary" onclick="closeModal()">취소</button>
+          <button class="btn-primary" id="modalSaveBtn">${saveLabel}</button>
+        </div>
+      </div>
+    </div>
+  `;
+  $('curBackdrop').onclick = (e) => { if (e.target.id === 'curBackdrop') closeModal(); };
+  $('modalSaveBtn').onclick = async () => {
+    $('modalSaveBtn').disabled = true;
+    const ok = await save();
+    $('modalSaveBtn').disabled = false;
+    if (ok) closeModal();
+  };
+  // ESC 키
+  setTimeout(() => {
+    const firstInput = c.querySelector('input, textarea');
+    if (firstInput) firstInput.focus();
+  }, 50);
+}
+function closeModal() { $('modalContainer').innerHTML = ''; }
+
+// ============================================================
+// 초기화
+// ============================================================
+$('loginBtn').onclick = login;
+$('loginPassword').onkeydown = (e) => { if (e.key === 'Enter') login(); };
+$('loginEmail').onkeydown = (e) => { if (e.key === 'Enter') $('loginPassword').focus(); };
+$('logoutBtn').onclick = logout;
+
+document.addEventListener('keydown', (e) => {
+  if (e.key === 'Escape') closeModal();
+});
+
+window.openChapterModal = openChapterModal;
+window.openTopicModal = openTopicModal;
+window.openSubtopicModal = openSubtopicModal;
+window.openBulkModal = openBulkModal;
+window.deleteChapter = deleteChapter;
+window.deleteTopic = deleteTopic;
+window.deleteSubtopic = deleteSubtopic;
+window.deleteItem = deleteItem;
+window.addTextItem = addTextItem;
+window.editItemText = editItemText;
+window.editItemCaption = editItemCaption;
+window.triggerImagePick = triggerImagePick;
+window.toggle = toggle;
+window.reloadChapters = reloadChapters;
+window.closeModal = closeModal;
+
+tryAutoLogin();
+</script>
+</body>
+</html>

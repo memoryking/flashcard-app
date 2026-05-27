@@ -1,0 +1,825 @@
+<div id="opRoot" style="all:initial;display:block;">
+<style>
+/* ========== Scoping reset (iframe·임베드 안전) ========== */
+#opRoot, #opRoot * { all: initial; box-sizing: border-box; font-family: inherit; color: inherit; line-height: inherit; }
+#opRoot {
+    display: block !important;
+    font-family: -apple-system, BlinkMacSystemFont, 'Pretendard', 'Segoe UI', Tahoma, sans-serif !important;
+    background: #fff !important;
+    color: #1a1a2e !important;
+    line-height: 1.65 !important;
+    max-width: 820px !important;
+    margin: 0 auto !important;
+    padding: 0 0 80px !important;
+    position: relative !important;
+    overflow: hidden !important;
+    -webkit-text-size-adjust: 100%;
+}
+#opRoot a { text-decoration: none; cursor: pointer; }
+#opRoot button { cursor: pointer; border: none; }
+
+/* ========== Sticky bottom CTA ========== */
+#opRoot .op-sticky {
+    display: flex; align-items: center; justify-content: space-between; gap: 12px;
+    position: fixed; bottom: 0; left: 50%; transform: translateX(-50%);
+    width: 100%; max-width: 820px;
+    background: rgba(10,10,26,0.95); backdrop-filter: blur(10px);
+    padding: 12px 18px; z-index: 999;
+    border-top: 1px solid rgba(233,69,96,0.3);
+    box-shadow: 0 -4px 20px rgba(0,0,0,0.3);
+}
+#opRoot .op-sticky-text {
+    display: block; font-size: 13px; font-weight: 600; color: #fff;
+}
+#opRoot .op-sticky-text em { font-style: normal; color: #ff8a9e; font-weight: 800; }
+#opRoot .op-sticky-text small { display: block; font-size: 11px; color: rgba(255,255,255,0.55); font-weight: 400; margin-top: 2px; }
+#opRoot .op-sticky-cta {
+    display: inline-block;
+    background: linear-gradient(135deg, #e94560, #ff6b6b);
+    color: #fff !important;
+    font-size: 14px; font-weight: 700; padding: 11px 22px;
+    border-radius: 50px; white-space: nowrap;
+    animation: opStickyPulse 2s ease-in-out infinite;
+}
+@keyframes opStickyPulse {
+    0%, 100% { box-shadow: 0 0 0 0 rgba(233,69,96,0.4); }
+    50% { box-shadow: 0 0 0 8px rgba(233,69,96,0); }
+}
+
+/* ========== Hero ========== */
+#opRoot .op-hero {
+    display: block; position: relative; overflow: hidden;
+    background: linear-gradient(135deg, #0a0a1a 0%, #16213e 50%, #0f3460 100%);
+    padding: 56px 24px 56px; text-align: center;
+    border-radius: 0 0 32px 32px;
+}
+#opRoot .op-hero::before {
+    content: ''; position: absolute; inset: 0;
+    background: radial-gradient(ellipse at top, rgba(233,69,96,0.18), transparent 60%);
+    pointer-events: none;
+}
+#opRoot .op-hero-badge {
+    display: inline-flex; align-items: center; gap: 6px;
+    background: rgba(233,69,96,0.15); border: 1px solid rgba(233,69,96,0.4);
+    padding: 6px 16px; border-radius: 50px;
+    font-size: 12px; font-weight: 700; color: #ff8a9e;
+    margin-bottom: 18px; position: relative; z-index: 2;
+}
+#opRoot .op-hero h1 {
+    display: block; position: relative; z-index: 2;
+    font-size: 2.1em; font-weight: 900; color: #fff;
+    line-height: 1.3; letter-spacing: -0.02em;
+    margin: 0 0 14px; word-break: keep-all;
+}
+#opRoot .op-hero h1 em {
+    font-style: normal;
+    background: linear-gradient(90deg, #ff6b6b, #ffb347);
+    -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+    background-clip: text;
+}
+#opRoot .op-hero-sub {
+    display: block; position: relative; z-index: 2;
+    font-size: 15px; color: rgba(255,255,255,0.78);
+    margin: 0 auto 22px; max-width: 460px;
+    word-break: keep-all; line-height: 1.65;
+}
+#opRoot .op-hero-promise {
+    display: inline-block; position: relative; z-index: 2;
+    background: rgba(255,193,7,0.12); border: 1px solid rgba(255,193,7,0.35);
+    border-radius: 10px; padding: 9px 18px; margin-bottom: 24px;
+    font-size: 14px; font-weight: 700; color: #ffc107;
+}
+#opRoot .op-cta-primary {
+    display: inline-block; position: relative; z-index: 2;
+    background: linear-gradient(135deg, #e94560, #ff6b6b);
+    color: #fff !important;
+    font-size: 17px; font-weight: 800;
+    padding: 16px 38px; border-radius: 50px;
+    box-shadow: 0 8px 32px rgba(233,69,96,0.4);
+    animation: opCtaPulse 2.5s ease-in-out infinite;
+}
+@keyframes opCtaPulse {
+    0%, 100% { transform: scale(1); }
+    50% { transform: scale(1.04); box-shadow: 0 10px 40px rgba(233,69,96,0.55); }
+}
+#opRoot .op-cta-sub {
+    display: block; position: relative; z-index: 2;
+    font-size: 12px; color: rgba(255,255,255,0.5);
+    margin-top: 10px;
+}
+#opRoot .op-hero-trust {
+    display: flex; justify-content: center; gap: 16px; flex-wrap: wrap;
+    margin-top: 22px; position: relative; z-index: 2;
+}
+#opRoot .op-hero-trust-item {
+    display: flex; align-items: center; gap: 6px;
+    font-size: 12px; color: rgba(255,255,255,0.55);
+}
+
+/* ========== Section ========== */
+#opRoot .op-section { display: block; padding: 56px 24px; }
+#opRoot .op-section-dark {
+    background: linear-gradient(180deg, #0f3460 0%, #16213e 100%);
+    color: #fff;
+}
+#opRoot .op-section-tag {
+    display: block; text-align: center; font-size: 13px; font-weight: 800;
+    color: #e94560; letter-spacing: 0.1em; margin-bottom: 8px;
+}
+#opRoot .op-section-dark .op-section-tag { color: #ff8a9e; }
+#opRoot .op-section h2 {
+    display: block; text-align: center; font-size: 1.7em; font-weight: 800;
+    margin: 0 0 14px; line-height: 1.35; word-break: keep-all;
+    letter-spacing: -0.02em;
+}
+#opRoot .op-section-lead {
+    display: block; text-align: center; font-size: 15px;
+    color: #555; max-width: 560px; margin: 0 auto 36px;
+    word-break: keep-all; line-height: 1.7;
+}
+#opRoot .op-section-dark .op-section-lead { color: rgba(255,255,255,0.75); }
+
+/* ========== Pains ========== */
+#opRoot .op-pains { display: grid; gap: 12px; max-width: 560px; margin: 0 auto; }
+#opRoot .op-pain {
+    display: flex; align-items: flex-start; gap: 12px;
+    background: #fff5f5; border: 1px solid #fecaca;
+    border-radius: 14px; padding: 16px 18px;
+}
+#opRoot .op-pain-ico {
+    flex-shrink: 0; width: 30px; height: 30px; border-radius: 50%;
+    background: #e94560; color: #fff !important;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 16px; font-weight: 800;
+}
+#opRoot .op-pain-body { display: block; }
+#opRoot .op-pain-body strong { display: block; font-size: 15px; font-weight: 700; color: #1a1a2e; margin-bottom: 3px; }
+#opRoot .op-pain-body span { display: block; font-size: 13px; color: #555; line-height: 1.55; }
+
+/* ========== Demo (interactive) ========== */
+#opRoot .op-demo-wrap {
+    max-width: 520px; margin: 0 auto;
+    background: #0a0a1a; border-radius: 18px;
+    padding: 8px;
+    box-shadow: 0 20px 60px rgba(0,0,0,0.35), 0 0 0 1px rgba(255,255,255,0.08);
+}
+#opRoot .op-demo-bar {
+    display: flex; align-items: center; gap: 6px;
+    padding: 8px 12px; border-bottom: 1px solid rgba(255,255,255,0.06);
+}
+#opRoot .op-demo-bar i {
+    width: 10px; height: 10px; border-radius: 50%; display: block;
+}
+#opRoot .op-demo-bar i:nth-child(1) { background: #ff5f56; }
+#opRoot .op-demo-bar i:nth-child(2) { background: #ffbd2e; }
+#opRoot .op-demo-bar i:nth-child(3) { background: #27c93f; }
+#opRoot .op-demo-bar span { margin-left: 10px; font-size: 11px; color: rgba(255,255,255,0.4); font-family: monospace; }
+#opRoot .op-demo-screen {
+    background: #16213e; border-radius: 12px; padding: 18px 16px;
+    color: #fff; min-height: 380px;
+}
+#opRoot .op-demo-screen-title {
+    display: flex; justify-content: space-between; align-items: center;
+    font-size: 13px; color: rgba(255,255,255,0.55); margin-bottom: 14px;
+    padding-bottom: 12px; border-bottom: 1px solid rgba(255,255,255,0.08);
+}
+#opRoot .op-demo-screen-title strong { color: #fff; font-weight: 700; font-size: 15px; }
+#opRoot .op-demo-screen-title em { font-style: normal; color: #4fc3f7; font-weight: 700; }
+
+#opRoot .op-topic {
+    background: rgba(255,255,255,0.04); border: 1px solid rgba(255,255,255,0.08);
+    border-radius: 10px; margin-bottom: 8px; overflow: hidden;
+    transition: border-color 0.2s;
+}
+#opRoot .op-topic.opened { border-color: rgba(233,69,96,0.4); }
+#opRoot .op-topic-head {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 14px 16px; user-select: none; -webkit-user-select: none;
+}
+#opRoot .op-topic-head:hover { background: rgba(255,255,255,0.03); }
+#opRoot .op-topic-title {
+    display: flex; align-items: center; gap: 10px;
+    font-size: 15px; font-weight: 700; color: #fff;
+}
+#opRoot .op-topic-arrow {
+    color: #e94560; font-size: 12px; transition: transform 0.25s;
+}
+#opRoot .op-topic.opened .op-topic-arrow { transform: rotate(90deg); }
+#opRoot .op-topic-count {
+    background: rgba(255,255,255,0.08); color: rgba(255,255,255,0.7);
+    font-size: 11px; padding: 3px 10px; border-radius: 50px; font-weight: 600;
+}
+#opRoot .op-topic-free {
+    background: rgba(76,175,80,0.2); color: #81c784; font-size: 10px;
+    padding: 3px 8px; border-radius: 50px; font-weight: 700; margin-left: 6px;
+}
+#opRoot .op-topic-lock { color: rgba(255,255,255,0.4); font-size: 14px; }
+#opRoot .op-topic-body { display: none; padding: 0 12px 12px; }
+#opRoot .op-topic.opened .op-topic-body { display: block; }
+
+#opRoot .op-sub {
+    background: rgba(0,0,0,0.25); border-radius: 8px;
+    margin: 6px 0; overflow: hidden;
+}
+#opRoot .op-sub-head {
+    display: flex; align-items: center; gap: 10px;
+    padding: 10px 14px; user-select: none; -webkit-user-select: none;
+}
+#opRoot .op-sub-head:hover { background: rgba(255,255,255,0.04); }
+#opRoot .op-sub-dot {
+    width: 10px; height: 10px; border-radius: 50%; flex-shrink: 0;
+    border: 2px solid rgba(255,255,255,0.4); transition: all 0.2s;
+}
+#opRoot .op-sub.understood .op-sub-dot {
+    background: #4caf50; border-color: #4caf50; box-shadow: 0 0 10px rgba(76,175,80,0.5);
+}
+#opRoot .op-sub-title { font-size: 13.5px; color: rgba(255,255,255,0.9); flex: 1; }
+#opRoot .op-sub.understood .op-sub-title { color: #81c784; }
+#opRoot .op-sub-body {
+    display: none; padding: 10px 14px 14px 36px;
+    color: rgba(255,255,255,0.78); font-size: 13px; line-height: 1.65;
+    border-top: 1px solid rgba(255,255,255,0.05);
+    background: rgba(0,0,0,0.15);
+}
+#opRoot .op-sub.opened .op-sub-body { display: block; }
+#opRoot .op-sub-body p { display: block; margin: 0 0 8px; }
+#opRoot .op-sub-body code {
+    display: inline-block; background: rgba(79,195,247,0.12); color: #81d4fa;
+    padding: 1px 6px; border-radius: 4px; font-family: 'Courier New', monospace;
+    font-size: 12.5px;
+}
+
+#opRoot .op-demo-hint {
+    display: block; text-align: center; margin-top: 16px;
+    font-size: 12px; color: rgba(255,255,255,0.45);
+}
+#opRoot .op-demo-hint b { color: #ffb347; font-weight: 700; }
+
+/* ========== Values 3-Up ========== */
+#opRoot .op-values {
+    display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+    gap: 16px; max-width: 720px; margin: 0 auto;
+}
+#opRoot .op-value {
+    background: #fff; border: 1px solid #e5e7eb; border-radius: 16px;
+    padding: 24px 20px; text-align: center;
+    transition: transform 0.2s, box-shadow 0.2s;
+}
+#opRoot .op-value:hover { transform: translateY(-3px); box-shadow: 0 12px 30px rgba(0,0,0,0.08); }
+#opRoot .op-value-ico {
+    display: block; font-size: 36px; margin-bottom: 12px;
+}
+#opRoot .op-value-title {
+    display: block; font-size: 16px; font-weight: 800; color: #1a1a2e; margin-bottom: 8px;
+}
+#opRoot .op-value-desc {
+    display: block; font-size: 13px; color: #555; line-height: 1.6;
+    word-break: keep-all;
+}
+
+/* ========== Free CTA ribbon ========== */
+#opRoot .op-free-cta {
+    margin: 0 16px; padding: 32px 24px; text-align: center;
+    background: linear-gradient(135deg, #e94560, #533483);
+    border-radius: 20px; color: #fff;
+    box-shadow: 0 12px 40px rgba(83,52,131,0.3);
+}
+#opRoot .op-free-cta h3 {
+    display: block; font-size: 1.4em; font-weight: 800; margin: 0 0 8px;
+    color: #fff; word-break: keep-all;
+}
+#opRoot .op-free-cta p {
+    display: block; margin: 0 0 18px; font-size: 14px;
+    color: rgba(255,255,255,0.85); word-break: keep-all;
+}
+#opRoot .op-free-cta a {
+    display: inline-block; background: #fff; color: #e94560 !important;
+    font-size: 15px; font-weight: 800; padding: 12px 28px; border-radius: 50px;
+}
+
+/* ========== Pricing ========== */
+#opRoot .op-price-card {
+    max-width: 420px; margin: 0 auto;
+    background: linear-gradient(135deg, #1a1a2e, #16213e);
+    border: 2px solid rgba(233,69,96,0.4); border-radius: 22px;
+    padding: 30px 26px; text-align: center;
+    box-shadow: 0 20px 60px rgba(0,0,0,0.35);
+    position: relative;
+}
+#opRoot .op-price-tag {
+    position: absolute; top: -14px; left: 50%; transform: translateX(-50%);
+    background: linear-gradient(135deg, #e94560, #ff6b6b);
+    color: #fff; font-size: 11px; font-weight: 800;
+    padding: 5px 14px; border-radius: 50px;
+    letter-spacing: 0.05em;
+}
+#opRoot .op-price-label {
+    display: block; font-size: 14px; color: rgba(255,255,255,0.6);
+    margin-bottom: 10px;
+}
+#opRoot .op-price-num {
+    display: block; font-size: 2.6em; font-weight: 900;
+    color: #fff; line-height: 1; margin-bottom: 6px;
+    letter-spacing: -0.03em;
+}
+#opRoot .op-price-num em {
+    font-style: normal; font-size: 0.45em; font-weight: 600;
+    color: rgba(255,255,255,0.6); margin-left: 4px;
+}
+#opRoot .op-price-from {
+    display: block; font-size: 12px; color: rgba(255,255,255,0.5); margin-bottom: 20px;
+}
+#opRoot .op-price-feats {
+    display: block; text-align: left;
+    background: rgba(0,0,0,0.25); border-radius: 12px;
+    padding: 16px 20px; margin-bottom: 22px;
+}
+#opRoot .op-price-feat {
+    display: flex; align-items: center; gap: 10px;
+    font-size: 13.5px; color: rgba(255,255,255,0.85);
+    padding: 6px 0;
+}
+#opRoot .op-price-feat::before {
+    content: '✓'; color: #4caf50; font-weight: 800; flex-shrink: 0;
+}
+#opRoot .op-price-cta {
+    display: inline-block; background: linear-gradient(135deg, #e94560, #ff6b6b);
+    color: #fff !important; font-size: 15px; font-weight: 800;
+    padding: 14px 36px; border-radius: 50px;
+    box-shadow: 0 8px 24px rgba(233,69,96,0.4);
+}
+#opRoot .op-price-foot {
+    display: block; font-size: 11px; color: rgba(255,255,255,0.4);
+    margin-top: 12px;
+}
+
+/* ========== Referral ========== */
+#opRoot .op-referral {
+    max-width: 600px; margin: 0 auto;
+    background: linear-gradient(135deg, #fff8e1 0%, #ffecb3 100%);
+    border: 2px dashed #ffb347; border-radius: 20px;
+    padding: 28px 24px; text-align: center;
+}
+#opRoot .op-referral-ico { display: block; font-size: 44px; margin-bottom: 10px; }
+#opRoot .op-referral h3 {
+    display: block; font-size: 1.3em; font-weight: 800;
+    color: #5d4037; margin: 0 0 10px; word-break: keep-all;
+}
+#opRoot .op-referral p {
+    display: block; font-size: 14px; color: #6d4c41;
+    margin: 0 0 18px; line-height: 1.7; word-break: keep-all;
+}
+#opRoot .op-referral-steps {
+    display: grid; gap: 10px; max-width: 420px; margin: 0 auto;
+    text-align: left;
+}
+#opRoot .op-referral-step {
+    display: flex; align-items: center; gap: 12px;
+    background: rgba(255,255,255,0.7); border-radius: 12px;
+    padding: 10px 14px;
+}
+#opRoot .op-referral-step b {
+    flex-shrink: 0; width: 26px; height: 26px; border-radius: 50%;
+    background: #e94560; color: #fff;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 13px; font-weight: 800;
+}
+#opRoot .op-referral-step span { font-size: 13.5px; color: #4e342e; }
+#opRoot .op-referral-step span strong { color: #d84315; font-weight: 800; }
+
+/* ========== FAQ ========== */
+#opRoot .op-faq { max-width: 600px; margin: 0 auto; }
+#opRoot .op-faq-item {
+    border-bottom: 1px solid #e5e7eb;
+}
+#opRoot .op-faq-q {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 18px 4px; cursor: pointer;
+    font-size: 15px; font-weight: 700; color: #1a1a2e;
+    user-select: none; -webkit-user-select: none;
+}
+#opRoot .op-faq-q::before {
+    content: 'Q'; color: #e94560; font-weight: 900; margin-right: 12px;
+    font-size: 17px;
+}
+#opRoot .op-faq-q-text { flex: 1; word-break: keep-all; }
+#opRoot .op-faq-toggle {
+    color: #999; font-size: 18px; font-weight: 300;
+    transition: transform 0.2s;
+}
+#opRoot .op-faq-item.open .op-faq-toggle { transform: rotate(45deg); color: #e94560; }
+#opRoot .op-faq-a {
+    display: none; padding: 0 4px 18px 30px;
+    font-size: 14px; color: #555; line-height: 1.7;
+    word-break: keep-all;
+}
+#opRoot .op-faq-item.open .op-faq-a { display: block; }
+
+/* ========== Final CTA ========== */
+#opRoot .op-final {
+    text-align: center; padding: 56px 24px;
+    background: linear-gradient(135deg, #0a0a1a 0%, #1a1a2e 100%);
+    color: #fff;
+}
+#opRoot .op-final h2 {
+    display: block; font-size: 1.8em; font-weight: 900;
+    margin: 0 0 14px; line-height: 1.3; color: #fff;
+    word-break: keep-all;
+}
+#opRoot .op-final h2 em {
+    font-style: normal;
+    background: linear-gradient(90deg, #ff6b6b, #ffb347);
+    -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+}
+#opRoot .op-final p {
+    display: block; font-size: 15px; color: rgba(255,255,255,0.75);
+    margin: 0 auto 24px; max-width: 480px; word-break: keep-all;
+}
+
+/* ========== Mobile ========== */
+@media (max-width: 600px) {
+    #opRoot .op-hero { padding: 44px 20px; }
+    #opRoot .op-hero h1 { font-size: 1.75em; }
+    #opRoot .op-section { padding: 44px 20px; }
+    #opRoot .op-section h2 { font-size: 1.4em; }
+    #opRoot .op-final h2 { font-size: 1.5em; }
+    #opRoot .op-price-num { font-size: 2.2em; }
+    #opRoot .op-sticky-text { font-size: 12px; }
+    #opRoot .op-sticky-cta { font-size: 13px; padding: 10px 18px; }
+}
+</style>
+
+<!-- ========== HERO ========== -->
+<section class="op-hero">
+    <span class="op-hero-badge">⚡ 원페이지 학습법</span>
+    <h1>이 <em>한 페이지</em>가 곧<br>당신의 시험 범위입니다</h1>
+    <p class="op-hero-sub">두꺼운 책·긴 인강·산만한 PDF의 핵심을<br>한 페이지에 <strong style="color:#ffb347">초압축</strong>해 담았습니다.</p>
+    <div class="op-hero-promise">👆 클릭하면 펼쳐지고, 꾹 누르면 진도가 저장됩니다</div>
+    <br>
+    <a href="#demo" class="op-cta-primary">먼저 작동 보기 ▼</a>
+    <span class="op-cta-sub">가입 없이 30초 만에 체험</span>
+    <div class="op-hero-trust">
+        <div class="op-hero-trust-item"><span>📱</span> 모든 기기</div>
+        <div class="op-hero-trust-item"><span>🔄</span> 실시간 업데이트</div>
+        <div class="op-hero-trust-item"><span>💸</span> 자동결제 없음</div>
+    </div>
+</section>
+
+<!-- ========== PAINS ========== -->
+<section class="op-section">
+    <span class="op-section-tag">왜 새로운 방법이 필요한가</span>
+    <h2>지금까지의 정리노트는<br>한계가 명확했습니다</h2>
+    <p class="op-section-lead">PDF·교재·인강 모두 "양"은 많은데 "핵심"은 흩어져 있죠.</p>
+    <div class="op-pains">
+        <div class="op-pain">
+            <div class="op-pain-ico">✕</div>
+            <div class="op-pain-body">
+                <strong>PDF는 산 순간이 마지막</strong>
+                <span>업데이트가 없고, 한 번 풀리면 그걸로 끝. 비밀번호도 우회됩니다.</span>
+            </div>
+        </div>
+        <div class="op-pain">
+            <div class="op-pain-ico">✕</div>
+            <div class="op-pain-body">
+                <strong>교재는 두꺼워서 핵심을 못 찾음</strong>
+                <span>시험 전날, 어디서 뭘 봐야 할지 헤매는 시간이 가장 아깝습니다.</span>
+            </div>
+        </div>
+        <div class="op-pain">
+            <div class="op-pain-ico">✕</div>
+            <div class="op-pain-body">
+                <strong>인강은 시간이 부족함</strong>
+                <span>한 강 듣는 데만 한 시간. 복습은 더 어렵죠.</span>
+            </div>
+        </div>
+        <div class="op-pain">
+            <div class="op-pain-ico">✕</div>
+            <div class="op-pain-body">
+                <strong>빌린 정리노트는 친구마다 다름</strong>
+                <span>누구의 정리가 정답인지, 무엇이 빠졌는지 검증할 길이 없습니다.</span>
+            </div>
+        </div>
+    </div>
+</section>
+
+<!-- ========== DEMO ========== -->
+<section class="op-section op-section-dark" id="demo">
+    <span class="op-section-tag">실제 작동 화면</span>
+    <h2>한 페이지 안에<br>단원 <em style="color:#ffb347;font-style:normal">전체</em>가 들어 있습니다</h2>
+    <p class="op-section-lead">👇 직접 눌러보세요. 클릭으로 펼쳐지는 3단계 구조.</p>
+
+    <div class="op-demo-wrap">
+        <div class="op-demo-bar"><i></i><i></i><i></i><span>onepage.app — 미분 챕터</span></div>
+        <div class="op-demo-screen">
+            <div class="op-demo-screen-title">
+                <strong>📐 미분</strong>
+                <em>D-12 · 010-1234-****</em>
+            </div>
+
+            <!-- 대목차 1: 미분의 기본 (무료) -->
+            <div class="op-topic" data-topic="1">
+                <div class="op-topic-head">
+                    <div class="op-topic-title">
+                        <span class="op-topic-arrow">▶</span>
+                        <span>미분의 기본</span>
+                        <span class="op-topic-free">✨ 무료</span>
+                    </div>
+                    <span class="op-topic-count">2</span>
+                </div>
+                <div class="op-topic-body">
+                    <div class="op-sub" data-sub="1-1">
+                        <div class="op-sub-head">
+                            <div class="op-sub-dot"></div>
+                            <div class="op-sub-title">미분계수의 정의</div>
+                        </div>
+                        <div class="op-sub-body">
+                            <p>함수 <code>f(x)</code>의 <code>x=a</code>에서의 <strong style="color:#ffb347">순간변화율</strong>을 미분계수라 한다.</p>
+                            <p><code>f'(a) = lim h→0 [f(a+h) − f(a)] / h</code></p>
+                            <p>기하학적으로는 <code>(a, f(a))</code>에서의 접선의 기울기.</p>
+                        </div>
+                    </div>
+                    <div class="op-sub" data-sub="1-2">
+                        <div class="op-sub-head">
+                            <div class="op-sub-dot"></div>
+                            <div class="op-sub-title">도함수</div>
+                        </div>
+                        <div class="op-sub-body">
+                            <p>미분계수를 모든 <code>x</code>에 대해 일반화한 함수.</p>
+                            <p><code>f'(x) = lim h→0 [f(x+h) − f(x)] / h</code></p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 대목차 2: 미분법 공식 (유료) -->
+            <div class="op-topic" data-topic="2">
+                <div class="op-topic-head">
+                    <div class="op-topic-title">
+                        <span class="op-topic-arrow">▶</span>
+                        <span>미분법 공식</span>
+                    </div>
+                    <span class="op-topic-count">3</span>
+                </div>
+                <div class="op-topic-body">
+                    <div class="op-sub" data-sub="2-1">
+                        <div class="op-sub-head">
+                            <div class="op-sub-dot"></div>
+                            <div class="op-sub-title">합성함수의 미분</div>
+                        </div>
+                        <div class="op-sub-body">
+                            <p><code>(f∘g)'(x) = f'(g(x)) · g'(x)</code></p>
+                            <p>안의 함수를 살려두고 미분 → 안 함수도 한 번 더 미분 (체인룰).</p>
+                        </div>
+                    </div>
+                    <div class="op-sub" data-sub="2-2">
+                        <div class="op-sub-head">
+                            <div class="op-sub-dot"></div>
+                            <div class="op-sub-title">곱의 미분</div>
+                        </div>
+                        <div class="op-sub-body">
+                            <p><code>(fg)' = f'g + fg'</code></p>
+                        </div>
+                    </div>
+                    <div class="op-sub" data-sub="2-3">
+                        <div class="op-sub-head">
+                            <div class="op-sub-dot"></div>
+                            <div class="op-sub-title">몫의 미분</div>
+                        </div>
+                        <div class="op-sub-body">
+                            <p><code>(f/g)' = (f'g − fg') / g²</code></p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 대목차 3: 응용 (유료, 잠금) -->
+            <div class="op-topic" data-topic="3">
+                <div class="op-topic-head">
+                    <div class="op-topic-title">
+                        <span class="op-topic-arrow">▶</span>
+                        <span>미분의 응용</span>
+                        <span class="op-topic-lock">🔒</span>
+                    </div>
+                    <span class="op-topic-count">5</span>
+                </div>
+            </div>
+        </div>
+        <div class="op-demo-hint">👆 대목차 클릭 → 소목차 클릭. <b>꾹 누르면</b> 이해 완료 ●로 표시</div>
+    </div>
+</section>
+
+<!-- ========== VALUES ========== -->
+<section class="op-section">
+    <span class="op-section-tag">핵심 가치</span>
+    <h2>왜 원페이지인가</h2>
+    <p class="op-section-lead">한 페이지·실시간·진도까지 — 세 가지가 동시에.</p>
+    <div class="op-values">
+        <div class="op-value">
+            <span class="op-value-ico">📖</span>
+            <span class="op-value-title">한 페이지 = 한 단원</span>
+            <span class="op-value-desc">대목차·소목차·내용 3단계를 펼침으로 한 화면에. 어디부터 봐야 할지 헤맬 일 없음.</span>
+        </div>
+        <div class="op-value">
+            <span class="op-value-ico">🔄</span>
+            <span class="op-value-title">강사가 고치는 즉시 반영</span>
+            <span class="op-value-desc">PDF처럼 옛날 버전을 들고 있을 일 없습니다. 다음 클릭부터 바로 최신.</span>
+        </div>
+        <div class="op-value">
+            <span class="op-value-ico">✓</span>
+            <span class="op-value-title">이해 진도 자동 저장</span>
+            <span class="op-value-desc">소목차를 <strong>꾹 누르면</strong> 이해 완료 ●. 다음 접속에도, 다른 기기에서도 그대로.</span>
+        </div>
+    </div>
+</section>
+
+<!-- ========== FREE PREVIEW CTA ========== -->
+<section class="op-section">
+    <div class="op-free-cta">
+        <h3>✨ 가입 없이 무료로 둘러보세요</h3>
+        <p>각 챕터의 핵심 대목차는 누구나 무료로 열람 가능합니다.</p>
+        <a href="https://vipup.site/onepage" target="_top">무료 챕터 보러가기 →</a>
+    </div>
+</section>
+
+<!-- ========== PRICING ========== -->
+<section class="op-section op-section-dark">
+    <span class="op-section-tag">가격</span>
+    <h2>원하는 챕터만<br>골라서 구독합니다</h2>
+    <p class="op-section-lead">모든 챕터를 강요하지 않습니다. 지금 필요한 단원만 골라 결제하세요.</p>
+
+    <div class="op-price-card">
+        <span class="op-price-tag">월 구독</span>
+        <span class="op-price-label">챕터당</span>
+        <span class="op-price-num">3,000<em>원/월~</em></span>
+        <span class="op-price-from">* 챕터별로 가격이 다를 수 있습니다</span>
+        <div class="op-price-feats">
+            <div class="op-price-feat">선택한 챕터의 모든 대목차·소목차·내용</div>
+            <div class="op-price-feat">매주 업데이트 즉시 반영</div>
+            <div class="op-price-feat">이해 진도 자동 저장 · 기기 간 동기화</div>
+            <div class="op-price-feat">결제일 기준 30일 — 자동결제 없음</div>
+        </div>
+        <a href="https://vipup.site/onepage" target="_top" class="op-price-cta">지금 시작하기 →</a>
+        <span class="op-price-foot">페이앱 결제 · 매월 본인이 직접 갱신</span>
+    </div>
+</section>
+
+<!-- ========== REFERRAL ========== -->
+<section class="op-section">
+    <span class="op-section-tag">함께 공부할수록 저렴</span>
+    <h2>친구 3명 추천하면<br>챕터 1개월 무료</h2>
+    <div class="op-referral">
+        <span class="op-referral-ico">👥</span>
+        <h3>둘 다 1,000P 적립</h3>
+        <p>내 추천 링크로 가입하고 결제한 친구 1명당<br>나도 1,000P, 친구도 1,000P.</p>
+        <div class="op-referral-steps">
+            <div class="op-referral-step">
+                <b>1</b><span>앱에서 <strong>내 추천 링크 복사</strong></span>
+            </div>
+            <div class="op-referral-step">
+                <b>2</b><span>친구에게 문자로 보내기</span>
+            </div>
+            <div class="op-referral-step">
+                <b>3</b><span>친구가 가입 + 결제 → <strong>둘 다 1,000P</strong></span>
+            </div>
+            <div class="op-referral-step">
+                <b>★</b><span>3,000P 모이면 <strong>챕터 1개월 자동 연장</strong></span>
+            </div>
+        </div>
+    </div>
+</section>
+
+<!-- ========== FAQ ========== -->
+<section class="op-section">
+    <span class="op-section-tag">자주 묻는 질문</span>
+    <h2>궁금한 점</h2>
+    <div class="op-faq">
+        <div class="op-faq-item">
+            <div class="op-faq-q"><span class="op-faq-q-text">결제하면 언제까지 볼 수 있나요?</span><span class="op-faq-toggle">+</span></div>
+            <div class="op-faq-a">결제일로부터 <strong>30일</strong> 동안 해당 챕터 전체를 볼 수 있습니다. 30일 후에는 자동으로 무료 사용자가 되어, 그 챕터의 무료 대목차만 보입니다. 자동결제로 빠져나가는 돈은 없습니다.</div>
+        </div>
+        <div class="op-faq-item">
+            <div class="op-faq-q"><span class="op-faq-q-text">한 번에 모든 챕터를 결제해야 하나요?</span><span class="op-faq-toggle">+</span></div>
+            <div class="op-faq-a">아니요. <strong>챕터마다 따로 결제</strong>합니다. 지금 시험 범위만 결제하고, 나중에 필요한 챕터를 추가로 결제하세요.</div>
+        </div>
+        <div class="op-faq-item">
+            <div class="op-faq-q"><span class="op-faq-q-text">자동 결제가 되나요?</span><span class="op-faq-toggle">+</span></div>
+            <div class="op-faq-a">자동결제는 <strong>하지 않습니다</strong>. 만료 직전 안내 메시지가 한 번 가고, 결제는 본인이 직접 합니다. 학생 입장에서 가계 부담 예측이 명확합니다.</div>
+        </div>
+        <div class="op-faq-item">
+            <div class="op-faq-q"><span class="op-faq-q-text">환불은 어떻게 되나요?</span><span class="op-faq-toggle">+</span></div>
+            <div class="op-faq-a">결제 후 7일 이내, 콘텐츠를 거의 열람하지 않은 경우 전액 환불 가능합니다. 그 이후에는 잔여일에 비례한 부분 환불을 검토합니다. 문의는 [고객센터]로 부탁드립니다.</div>
+        </div>
+        <div class="op-faq-item">
+            <div class="op-faq-q"><span class="op-faq-q-text">어떤 기기에서 볼 수 있나요?</span><span class="op-faq-toggle">+</span></div>
+            <div class="op-faq-a">PC·태블릿·스마트폰 — <strong>인터넷이 되는 모든 기기</strong>에서 봅니다. 설치 없이 웹 브라우저(크롬·사파리·삼성인터넷 등)만 있으면 됩니다.</div>
+        </div>
+        <div class="op-faq-item">
+            <div class="op-faq-q"><span class="op-faq-q-text">콘텐츠는 얼마나 자주 업데이트되나요?</span><span class="op-faq-toggle">+</span></div>
+            <div class="op-faq-a">강사가 고치는 즉시, 그 다음 클릭부터 모든 구독자에게 최신 내용이 보입니다. PDF처럼 옛 버전을 들고 있을 일이 없습니다.</div>
+        </div>
+        <div class="op-faq-item">
+            <div class="op-faq-q"><span class="op-faq-q-text">콘텐츠를 캡쳐해서 친구에게 보내면요?</span><span class="op-faq-toggle">+</span></div>
+            <div class="op-faq-a">모든 페이지에 <strong>본인 전화번호 워터마크</strong>가 깔립니다. 캡쳐를 보내도 누가 유출했는지 즉시 특정됩니다. 또한 화면 텍스트는 복사·인쇄가 차단됩니다.</div>
+        </div>
+    </div>
+</section>
+
+<!-- ========== FINAL CTA ========== -->
+<section class="op-final">
+    <h2>이 <em>한 페이지</em>가<br>당신의 시험을 결정합니다</h2>
+    <p>가입 없이 무료 챕터부터 둘러보세요. 마음에 들면 그때 결제하셔도 됩니다.</p>
+    <a href="https://vipup.site/onepage" target="_top" class="op-cta-primary">지금 시작하기 →</a>
+</section>
+
+<!-- ========== STICKY BOTTOM ========== -->
+<div class="op-sticky">
+    <div class="op-sticky-text">
+        <em>챕터당 월 3,000원~</em>
+        <small>자동결제 없음 · 친구 3명 추천 시 1개월 무료</small>
+    </div>
+    <a href="https://vipup.site/onepage" target="_top" class="op-sticky-cta">시작하기 →</a>
+</div>
+
+<script>
+(function () {
+    var root = document.getElementById('opRoot');
+    if (!root) return;
+
+    // ── 추천 코드 캡쳐 (?ref=CODE → localStorage) ──
+    try {
+        var u = new URL(window.location.href);
+        var ref = u.searchParams.get('ref');
+        if (ref) {
+            localStorage.setItem('op_referral_code', ref);
+        }
+    } catch (e) {}
+
+    // ── 대목차 펼침/접힘 ──
+    root.querySelectorAll('.op-topic').forEach(function (t) {
+        var head = t.querySelector('.op-topic-head');
+        var locked = t.querySelector('.op-topic-lock');
+        if (!head) return;
+        head.addEventListener('click', function () {
+            if (locked) {
+                // 잠긴 대목차는 결제 페이지로 (랜딩 데모에선 안내만)
+                alert('이 대목차는 구독 후 볼 수 있습니다.');
+                return;
+            }
+            t.classList.toggle('opened');
+        });
+    });
+
+    // ── 소목차 펼침/접힘 + 꾹누르기 = 이해 표시 ──
+    root.querySelectorAll('.op-sub').forEach(function (s) {
+        var head = s.querySelector('.op-sub-head');
+        if (!head) return;
+
+        var pressTimer = null;
+        var longPressed = false;
+
+        function startPress() {
+            longPressed = false;
+            pressTimer = setTimeout(function () {
+                longPressed = true;
+                s.classList.toggle('understood');
+                // 햅틱 (가능한 경우)
+                if (navigator.vibrate) try { navigator.vibrate(15); } catch (e) {}
+            }, 600);
+        }
+        function cancelPress() {
+            if (pressTimer) { clearTimeout(pressTimer); pressTimer = null; }
+        }
+
+        head.addEventListener('mousedown', startPress);
+        head.addEventListener('touchstart', startPress, { passive: true });
+        head.addEventListener('mouseup', cancelPress);
+        head.addEventListener('mouseleave', cancelPress);
+        head.addEventListener('touchend', cancelPress);
+        head.addEventListener('touchcancel', cancelPress);
+
+        head.addEventListener('click', function (e) {
+            if (longPressed) { e.preventDefault(); return; }
+            s.classList.toggle('opened');
+        });
+    });
+
+    // ── FAQ ──
+    root.querySelectorAll('.op-faq-item').forEach(function (it) {
+        var q = it.querySelector('.op-faq-q');
+        if (!q) return;
+        q.addEventListener('click', function () {
+            it.classList.toggle('open');
+        });
+    });
+
+    // ── #demo 부드러운 스크롤 ──
+    root.querySelectorAll('a[href="#demo"]').forEach(function (a) {
+        a.addEventListener('click', function (e) {
+            e.preventDefault();
+            var demo = root.querySelector('#demo');
+            if (demo && demo.scrollIntoView) demo.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        });
+    });
+})();
+</script>
+</div>

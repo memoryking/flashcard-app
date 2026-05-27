@@ -1,0 +1,24 @@
+name = "onepage-api"
+main = "worker.js"
+compatibility_date = "2024-01-01"
+
+# ─────────────────────────────────────────────────────────────
+# 배포 전 다음 4개 Secret을 설정해야 합니다 (기존 stats-worker와
+# 같은 값을 그대로 재사용 가능 — 동일 nocodebackend·동일 Airtable base):
+#
+#   wrangler secret put NCB_SECRET_KEY    ← nocodebackend Bearer 토큰
+#   wrangler secret put AIRTABLE_TOKEN    ← Airtable PAT
+#   wrangler secret put AIRTABLE_BASE     ← Airtable Base ID
+#   wrangler secret put JWT_SECRET        ← JWT 서명 키 (랜덤 32바이트)
+#
+# 하드코딩된 값 (worker.js):
+#   NCB_INSTANCE  = 55910_flashcard_app
+#   AT_TABLE_USER = OnepageUsers
+#   AT_TABLE_ACCESS = OnepageChapterAccess
+#   AT_TABLE_PAYMENTS = OnepagePayments
+#   AT_TABLE_POINTTX = OnepagePointTx
+#
+# 배포:
+#   cd onepage-worker
+#   wrangler deploy
+# ─────────────────────────────────────────────────────────────
