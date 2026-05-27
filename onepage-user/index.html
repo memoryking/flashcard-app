@@ -151,8 +151,12 @@ a { color: #4fc3f7; text-decoration: none; }
 .home-meta .point-chip {
   display: inline-flex; align-items: center; gap: 4px;
   background: rgba(255,193,7,0.15); border: 1px solid rgba(255,193,7,0.3);
-  padding: 3px 10px; border-radius: 50px; color: #ffd54f; font-weight: 600;
+  padding: 5px 14px; border-radius: 50px; color: #ffd54f; font-weight: 700;
+  cursor: pointer; font-size: 13px; transition: background 0.15s;
+  -webkit-tap-highlight-color: rgba(255,193,7,0.3);
 }
+.home-meta .point-chip:hover { background: rgba(255,193,7,0.25); }
+.home-meta .point-chip:active { transform: scale(0.97); }
 .home-actions {
   display: flex; gap: 8px; margin-top: 14px; flex-wrap: wrap;
 }
@@ -189,6 +193,13 @@ a { color: #4fc3f7; text-decoration: none; }
   position: relative; overflow: hidden;
   -webkit-tap-highlight-color: rgba(233,69,96,0.15);
   touch-action: manipulation;
+}
+.chapter-card .ch-corner-badge {
+  position: absolute; top: 8px; right: 10px;
+  background: rgba(76,175,80,0.25); color: #81c784;
+  padding: 3px 9px; border-radius: 50px;
+  font-size: 10px; font-weight: 800; letter-spacing: 0.02em;
+  border: 1px solid rgba(76,175,80,0.3);
 }
 .chapter-card:hover { transform: translateY(-3px); border-color: rgba(233,69,96,0.4); }
 .chapter-card.expired { opacity: 0.7; }
@@ -526,8 +537,8 @@ a { color: #4fc3f7; text-decoration: none; }
   <div class="home-top">
     <div class="home-greeting" id="homeGreeting">안녕하세요</div>
     <div class="home-meta">
-      <span class="point-chip">💰 <span id="homePoint">0</span>P</span>
-      <span id="homePointHint" style="font-size:11px;color:rgba(255,255,255,0.4);">— 3,000P 모이면 챕터 1개월 무료</span>
+      <button class="point-chip" onclick="openPointModal()">💰 <span id="homePoint">0</span>P · 사용</button>
+      <span id="homePointHint" style="font-size:11px;color:rgba(255,255,255,0.4);">3,000P = 챕터 1개월</span>
     </div>
   </div>
   <div class="home-content" id="chapterCards"></div>
@@ -895,12 +906,18 @@ function renderChapterCard(c) {
   const access = state.chapterAccess[c.id];
   const dLeft = access ? daysLeft(access.expires_at) : null;
   const isAllFree = Number(c.is_all_free) === 1;
-  const isActive = isTeacher || isAllFree || (dLeft != null && dLeft > 0);
+  const isPaidActive = !isTeacher && !isAllFree && dLeft != null && dLeft > 0;
+  const isActive = isTeacher || isAllFree || isPaidActive;
 
-  let statusBadge, statusClass;
+  // 우측 상단 코너 배지 — 유료 활성 챕터의 남은 기간
+  let cornerBadge = '';
+  if (isPaidActive) cornerBadge = `<span class="ch-corner-badge">D-${dLeft}</span>`;
+
+  // 카드 본문의 인라인 상태 (D-N은 코너에 있으니 생략)
+  let statusBadge = '', statusClass = '';
   if (isTeacher) { statusBadge = '🛠 관리자'; statusClass = 'free'; }
   else if (isAllFree) { statusBadge = '✨ 무료'; statusClass = 'free'; }
-  else if (dLeft != null && dLeft > 0) { statusBadge = `D-${dLeft}`; statusClass = 'active'; }
+  else if (isPaidActive) { statusBadge = ''; }
   else if (access) { statusBadge = '만료됨'; statusClass = 'expired'; }
   else { statusBadge = '미구매'; statusClass = 'never'; }
 
@@ -919,10 +936,11 @@ function renderChapterCard(c) {
 
   return `
     <div class="chapter-card ${access && !isActive && !isTeacher ? 'expired' : ''}" onclick="${isActive ? `enterChapter(${c.id})` : `openPayModal(${c.id})`}">
+      ${cornerBadge}
       <div class="ch-icon">${escapeHtml(c.icon || '📘')}</div>
       <div class="ch-title">${escapeHtml(c.title)}</div>
       <div class="ch-desc">${escapeHtml(c.description || '')}</div>
-      <span class="ch-status ${statusClass}">${statusBadge}</span>
+      ${statusBadge ? `<span class="ch-status ${statusClass}">${statusBadge}</span>` : ''}
       <div class="ch-actions">${actions}</div>
     </div>
   `;
@@ -1335,6 +1353,86 @@ async function confirmRedeem(chapterId) {
 }
 
 // ============================================================
+// 포인트 사용 모달 — 내 포인트 + 구매 가능 챕터 목록
+// ============================================================
+function openPointModal() {
+  if (state.user && state.user.role === 'teacher') {
+    toast('관리자는 모든 챕터 무제한 열람 — 포인트 사용 불필요');
+    return;
+  }
+  const canRedeem = state.point >= REDEEM_COST;
+  // 무료 챕터 제외, 모든 챕터 (이미 활성이어도 연장 가능)
+  const purchasable = state.chapters.filter(c => Number(c.is_all_free) !== 1);
+
+  let rows;
+  if (!purchasable.length) {
+    rows = '<div class="empty-state">현재 구매 가능한 챕터가 없습니다.</div>';
+  } else {
+    rows = purchasable.map(c => {
+      const access = state.chapterAccess[c.id];
+      const dLeft = access ? daysLeft(access.expires_at) : null;
+      const isActive = dLeft != null && dLeft > 0;
+      const afterDays = isActive ? dLeft + 30 : 30;
+      const statusHtml = isActive
+        ? `<span style="color:#81c784">현재 D-${dLeft} → 구매 후 D-${afterDays}</span>`
+        : (access
+            ? `<span style="color:#ffb74d">만료됨 → 구매 후 D-30</span>`
+            : `<span style="color:rgba(255,255,255,0.5)">미구매 → 구매 후 D-30</span>`);
+      return `
+        <div class="pay-row">
+          <div class="ico">${escapeHtml(c.icon || '📘')}</div>
+          <div class="body">
+            <strong>${escapeHtml(c.subject || '')} · ${escapeHtml(c.title)}</strong>
+            <small>${statusHtml}</small>
+          </div>
+          <button onclick="redeemFromPointModal(${c.id})" ${canRedeem ? '' : 'disabled'}>
+            ${REDEEM_COST}P 사용
+          </button>
+        </div>
+      `;
+    }).join('');
+  }
+
+  showModal({
+    title: '포인트로 학습 기간 연장',
+    klass: 'pay-modal',
+    body: `
+      <div style="text-align:center;margin-bottom:18px;padding:14px;background:rgba(255,193,7,0.08);border-radius:12px;">
+        <div style="font-size:11px;color:rgba(255,255,255,0.55);">내 보유 포인트</div>
+        <div style="font-size:32px;font-weight:900;color:#ffd54f;margin-top:2px;">💰 ${state.point.toLocaleString()}P</div>
+        <div style="font-size:11px;color:rgba(255,255,255,0.5);margin-top:4px;">3,000P → 챕터 1개월 (잔여 기간에 +30일)</div>
+      </div>
+      ${!canRedeem ? '<div style="text-align:center;font-size:12px;color:#fca5a5;margin-bottom:14px;padding:8px;background:rgba(239,68,68,0.1);border-radius:8px;">⚠️ 3,000P 이상 필요 — 친구 3명 추천하면 채워집니다</div>' : ''}
+      ${rows}
+      <div style="margin-top:14px;padding:10px;background:rgba(76,175,80,0.08);border-radius:8px;font-size:11px;color:#a5d6a7;text-align:center;">
+        💡 친구가 가입+결제 시 둘 다 +1,000P · 3명이면 챕터 1개월 무료
+      </div>
+    `,
+    foot: `<button onclick="closeModal()">닫기</button>`
+  });
+}
+
+// 포인트 모달 안에서 구매 — 확인 후 redeem, 성공 시 모달 새로고침
+async function redeemFromPointModal(chapterId) {
+  const c = state.chapters.find(x => x.id === chapterId);
+  if (!confirm(`"${c.title}" 챕터를 ${REDEEM_COST.toLocaleString()}P 사용해 30일 연장합니다.\n진행할까요?`)) return;
+  showLoading(true);
+  try {
+    const r = await api('POST', '/access/redeem', { chapter_id: chapterId });
+    state.point = Number(r.new_point) || 0;
+    state.chapterAccess[chapterId] = { expires_at: r.expires_at, source: 'point_redeem' };
+    closeModal();
+    toast(`${REDEEM_COST.toLocaleString()}P 사용 — "${c.title}" 30일 연장됨`);
+    renderHome();
+    // 잔여 포인트가 충분하면 모달 재오픈 (연속 구매 편의)
+    if (state.point >= REDEEM_COST) {
+      setTimeout(() => openPointModal(), 300);
+    }
+  } catch (e) { toast(e.message, true); }
+  finally { showLoading(false); }
+}
+
+// ============================================================
 // 추천 모달
 // ============================================================
 function openReferralModal() {
@@ -1465,6 +1563,8 @@ window.pressStart = pressStart;
 window.pressEnd = pressEnd;
 window.subClick = subClick;
 window.openReferralModal = openReferralModal;
+window.openPointModal = openPointModal;
+window.redeemFromPointModal = redeemFromPointModal;
 window.copyReferralLink = copyReferralLink;
 window.openPayModal = openPayModal;
 window.goPayment = goPayment;
