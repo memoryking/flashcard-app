@@ -69,6 +69,10 @@ function json(data, status = 200, request) {
 function kstNow() { return new Date(Date.now() + 9 * 3600 * 1000); }
 function kstDateStr(d = kstNow()) { return d.toISOString().split('T')[0]; }
 function kstISOString(d = kstNow()) { return d.toISOString(); }
+// MySQL DATETIME 형식 (YYYY-MM-DD HH:MM:SS) — nocodebackend가 이것만 받음
+function kstDateTime(d = kstNow()) {
+  return d.toISOString().slice(0, 19).replace('T', ' ');
+}
 function addDays(iso, days) {
   const d = new Date(iso);
   d.setUTCDate(d.getUTCDate() + days);
@@ -178,10 +182,20 @@ const ncbH = (env) => ({
 });
 
 async function ncbCreate(env, table, data) {
-  const r = await fetch(ncbUrl(`/create/${table}`), {
+  const res = await fetch(ncbUrl(`/create/${table}`), {
     method: 'POST', headers: ncbH(env), body: JSON.stringify(data),
   });
-  return r.json();
+  const text = await res.text();
+  let body = null;
+  try { body = JSON.parse(text); } catch {}
+  console.log(`[NCB CREATE ${table}] ${res.status} body=${text.slice(0,300)} sent=${JSON.stringify(data).slice(0,200)}`);
+  if (!res.ok || !body || (!body.id && body.status !== 'success' && body.status !== undefined)) {
+    const err = new Error(`nocodebackend create failed: ${res.status} ${text}`);
+    err.status = res.status;
+    err.body = body;
+    throw err;
+  }
+  return body;
 }
 async function ncbRead(env, table, filters = '') {
   const r = await fetch(ncbUrl(`/read/${table}`, filters), { headers: ncbH(env) });
@@ -454,7 +468,7 @@ async function handleCreateChapter(request, env, user) {
     description: String(b.description || ''),
     monthly_price: Number(b.monthly_price) || 3000,
     is_all_free: b.is_all_free ? 1 : 0,
-    updated_at: kstISOString(),
+    updated_at: kstDateTime(),
   };
   if (!data.subject || !data.title) return json({ error: 'subject, title 필수' }, 400, request);
   const r = await ncbCreate(env, 'op_chapters', data);
@@ -471,7 +485,7 @@ async function handleUpdateChapter(request, env, user, id) {
   if (b.description !== undefined) patch.description = String(b.description);
   if (b.monthly_price !== undefined) patch.monthly_price = Number(b.monthly_price) || 3000;
   if (b.is_all_free !== undefined) patch.is_all_free = b.is_all_free ? 1 : 0;
-  patch.updated_at = kstISOString();
+  patch.updated_at = kstDateTime();
   const r = await ncbUpdate(env, 'op_chapters', id, patch);
   return json({ ok: true, result: r }, 200, request);
 }
@@ -506,7 +520,7 @@ async function handleCreateTopic(request, env) {
     title: String(b.title || '').trim(),
     sort_order: Number(b.sort_order) || 0,
     is_free: b.is_free ? 1 : 0,
-    updated_at: kstISOString(),
+    updated_at: kstDateTime(),
   };
   if (!data.chapter_id || !data.title) return json({ error: 'chapter_id, title 필수' }, 400, request);
   const r = await ncbCreate(env, 'op_topics', data);
@@ -520,7 +534,7 @@ async function handleUpdateTopic(request, env, id) {
   if (b.sort_order !== undefined) patch.sort_order = Number(b.sort_order) || 0;
   if (b.is_free !== undefined) patch.is_free = b.is_free ? 1 : 0;
   if (b.chapter_id !== undefined) patch.chapter_id = Number(b.chapter_id);
-  patch.updated_at = kstISOString();
+  patch.updated_at = kstDateTime();
   await ncbUpdate(env, 'op_topics', id, patch);
   return json({ ok: true }, 200, request);
 }
@@ -548,7 +562,7 @@ async function handleCreateSubtopic(request, env) {
     topic_id: Number(b.topic_id),
     title: String(b.title || '').trim(),
     sort_order: Number(b.sort_order) || 0,
-    updated_at: kstISOString(),
+    updated_at: kstDateTime(),
   };
   if (!data.topic_id || !data.title) return json({ error: 'topic_id, title 필수' }, 400, request);
   const r = await ncbCreate(env, 'op_subtopics', data);
@@ -561,7 +575,7 @@ async function handleUpdateSubtopic(request, env, id) {
   if (b.title !== undefined) patch.title = String(b.title).trim();
   if (b.sort_order !== undefined) patch.sort_order = Number(b.sort_order) || 0;
   if (b.topic_id !== undefined) patch.topic_id = Number(b.topic_id);
-  patch.updated_at = kstISOString();
+  patch.updated_at = kstDateTime();
   await ncbUpdate(env, 'op_subtopics', id, patch);
   return json({ ok: true }, 200, request);
 }
@@ -611,7 +625,7 @@ async function handleCreateItem(request, env) {
     image_b64: kind === 'image' ? String(b.image_b64 || '') : '',
     caption: String(b.caption || ''),
     sort_order: Number(b.sort_order) || 0,
-    updated_at: kstISOString(),
+    updated_at: kstDateTime(),
   };
   if (!data.subtopic_id) return json({ error: 'subtopic_id 필수' }, 400, request);
   const r = await ncbCreate(env, 'op_items', data);
@@ -626,7 +640,7 @@ async function handleUpdateItem(request, env, id) {
   if (b.image_b64 !== undefined) patch.image_b64 = String(b.image_b64 || '');
   if (b.caption !== undefined) patch.caption = String(b.caption || '');
   if (b.sort_order !== undefined) patch.sort_order = Number(b.sort_order) || 0;
-  patch.updated_at = kstISOString();
+  patch.updated_at = kstDateTime();
   await ncbUpdate(env, 'op_items', id, patch);
   return json({ ok: true }, 200, request);
 }
@@ -716,7 +730,7 @@ async function handleBulkImport(request, env, chapterId) {
         title: row.topic,
         sort_order: tOrd++,
         is_free: 0,
-        updated_at: kstISOString(),
+        updated_at: kstDateTime(),
       });
       topicId = r.id;
       topicMap.set(row.topic, topicId);
@@ -731,7 +745,7 @@ async function handleBulkImport(request, env, chapterId) {
         topic_id: Number(topicId),
         title: row.sub,
         sort_order: subMap.size + 1,
-        updated_at: kstISOString(),
+        updated_at: kstDateTime(),
       });
       subId = r.id;
       subMap.set(subKey, subId);
@@ -746,7 +760,7 @@ async function handleBulkImport(request, env, chapterId) {
       image_b64: '',
       caption: '',
       sort_order: createdI + 1,
-      updated_at: kstISOString(),
+      updated_at: kstDateTime(),
     });
     createdI++;
   }
@@ -783,7 +797,7 @@ async function handleUnderstoodToggle(request, env) {
     await ncbCreate(env, 'op_understood', {
       user_phone: auth.phone,
       subtopic_id: subId,
-      marked_at: kstISOString(),
+      marked_at: kstDateTime(),
     });
     return json({ understood: true }, 200, request);
   }
@@ -811,7 +825,7 @@ async function handleStatsPing(request, env) {
   if (!auth) return json({ ok: false }, 200, request); // 비로그인은 조용히 무시
   const phone = auth.phone;
   const today = kstDateStr();
-  const now = kstISOString();
+  const now = kstDateTime();
 
   const r = await ncbRead(env, 'op_pings',
     `user_phone=${encodeURIComponent(phone)}&limit=1`);
