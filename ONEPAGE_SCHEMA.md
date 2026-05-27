@@ -196,7 +196,7 @@ Type 드롭다운에 보이는 옵션: `INT`, `BIGINT`, `VARCHAR(255)`, `DROPDOW
 | `subtopic_id` | INT | ✅ | **FK → op_subtopics.id (CASCADE)** | — | INT (Run SQL의 id에 맞춤) |
 | `kind` | VARCHAR(255) | ✅ | — | — | `'text'` 또는 `'image'` |
 | `text` | TEXT | — | — | — | text 블록 본문 (마크다운). image면 빈값 |
-| `image_b64` | **JSON** | — | — | — | image 블록의 data URL. **JSON 선택 → 저장 시 LONGTEXT로 표시됨** |
+| `image_b64` | **LONGTEXT** | — | — | — | image 블록의 data URL. **JSON 타입이 base64 문자열을 거부하므로 LONGTEXT 사용**. UI에 LONGTEXT 옵션이 없으면 일단 JSON으로 만든 뒤 `ALTER TABLE op_items MODIFY image_b64 LONGTEXT NULL;` |
 | `caption` | VARCHAR(255) | — | — | — | 이미지 캡션 |
 | `order` | INT | ✅ | — | `0` | 같은 소목차 안 순서 |
 | `updated_at` | DATETIME | — | — | — | |

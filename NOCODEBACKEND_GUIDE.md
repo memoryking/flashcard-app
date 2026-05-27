@@ -245,6 +245,22 @@ nocodebackend UI 버그: 컬럼명을 클릭해 열리는 "Rename column" 다이
 ALTER TABLE op_topics MODIFY chapter_id INT NOT NULL;
 ```
 
+### Q. ★ `JSON` 타입에 문자열을 저장하려 했더니 500 "Error creating record."
+
+nocodebackend의 JSON 컬럼은 일반 텍스트 문자열을 거부할 수 있다 (특히 `data:image/...;base64,...` 같은 긴 데이터 URL). MySQL JSON 타입은 엄격한 JSON 검증을 적용해서 빈 문자열 `""`이나 일부 문자열 형태를 거부.
+
+**해결**: JSON 대신 **LONGTEXT**로 컬럼 타입 변경. UI에 LONGTEXT 옵션이 없으니 Run SQL:
+```sql
+ALTER TABLE my_table MODIFY my_col LONGTEXT NULL;
+```
+
+LONGTEXT는 어떤 문자열이든 받아주므로 base64·임의 텍스트 보관에 적합. 큰 데이터(>64KB)도 OK.
+
+| 컬럼 타입 | 받는 값 | 거부하는 값 |
+|---|---|---|
+| `JSON` | `{...}`, `[...]`, `null`, `42` | 빈 문자열 `""`, 일부 일반 문자열 |
+| `LONGTEXT` | 어떤 문자열이든 (≤4GB) | 없음 |
+
 ### Q. ★ Run SQL로 만든 테이블의 id 타입이 내가 명시한 것과 다른데?
 
 **중요한 발견**: nocodebackend의 Run SQL은 `id` 컬럼 정의를 **무시하고 `int(11)`로 강제로** 만듭니다. UI로 만들면 `bigint(20) unsigned`로 만들어집니다.
@@ -348,7 +364,7 @@ CREATE TABLE IF NOT EXISTS `op_items` (
   `subtopic_id` INT NOT NULL,
   `kind` VARCHAR(255) NOT NULL,
   `text` TEXT NULL,
-  `image_b64` JSON NULL,
+  `image_b64` LONGTEXT NULL,
   `caption` VARCHAR(255) NULL,
   `sort_order` INT NOT NULL DEFAULT 0,
   `updated_at` DATETIME NULL,
@@ -421,7 +437,7 @@ CREATE TABLE IF NOT EXISTS `op_pings` (
 | subtopic_id | INT | ✅ | | **→ op_subtopics.id, CASCADE** | |
 | kind | VARCHAR(255) | ✅ | | | |
 | text | TEXT | | | | |
-| image_b64 | **JSON** | | | | |
+| image_b64 | **LONGTEXT** | | | | JSON은 base64 거부 → LONGTEXT 사용 |
 | caption | VARCHAR(255) | | | | |
 | sort_order | INT | ✅ | | | `0` |
 | updated_at | DATETIME | | | | |
