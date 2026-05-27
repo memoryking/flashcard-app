@@ -598,12 +598,14 @@ async function handleListItems(request, env) {
   const gate = await getSubtopicGate(env, subId);
   if (!gate) return json({ error: 'subtopic_not_found' }, 404, request);
 
-  // 게이트: 자유면 통과 / 아니면 구독 필요
+  // 게이트: 자유면 통과 / 아니면 구독 필요 (선생님은 항상 통과)
   if (!gate.isFree) {
     if (!auth) return json({ error: 'login_required', chapter_id: gate.chapterId }, 401, request);
-    const active = await getActiveChapterIds(env, auth.phone);
-    if (!active.has(Number(gate.chapterId))) {
-      return json({ error: 'subscription_required', chapter_id: gate.chapterId }, 402, request);
+    if (auth.role !== 'teacher') {
+      const active = await getActiveChapterIds(env, auth.phone);
+      if (!active.has(Number(gate.chapterId))) {
+        return json({ error: 'subscription_required', chapter_id: gate.chapterId }, 402, request);
+      }
     }
   }
 
