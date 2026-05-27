@@ -187,6 +187,8 @@ a { color: #4fc3f7; text-decoration: none; }
   border: 1px solid #2a2a4e; border-radius: 14px;
   padding: 16px; cursor: pointer; transition: all 0.2s;
   position: relative; overflow: hidden;
+  -webkit-tap-highlight-color: rgba(233,69,96,0.15);
+  touch-action: manipulation;
 }
 .chapter-card:hover { transform: translateY(-3px); border-color: rgba(233,69,96,0.4); }
 .chapter-card.expired { opacity: 0.7; }
@@ -249,7 +251,9 @@ a { color: #4fc3f7; text-decoration: none; }
 .topic-head {
   display: flex; align-items: center; gap: 10px;
   padding: 14px 16px; cursor: pointer;
+  -webkit-tap-highlight-color: rgba(233,69,96,0.15);
 }
+.topic-head > * { pointer-events: none; }
 .topic-head:hover { background: rgba(255,255,255,0.02); }
 .topic-arrow {
   color: #e94560; font-size: 12px; width: 12px; text-align: center;
@@ -298,7 +302,10 @@ a { color: #4fc3f7; text-decoration: none; }
 .subtopic-head {
   display: flex; align-items: center; gap: 10px;
   padding: 12px 14px; cursor: pointer;
+  -webkit-tap-highlight-color: rgba(233,69,96,0.15);
+  touch-action: manipulation;
 }
+.subtopic-head > * { pointer-events: none; }
 .subtopic-head:hover { background: rgba(255,255,255,0.03); }
 .subtopic-dot {
   width: 12px; height: 12px; border-radius: 50%;
@@ -1076,12 +1083,13 @@ function renderSubtopic(s) {
   return `
     <div class="${cls}" data-sub="${s.id}">
       <div class="subtopic-head"
-           onmousedown="longPressStart(event,${s.id})"
-           ontouchstart="longPressStart(event,${s.id})"
-           onmouseup="longPressEnd(event,${s.id})"
-           onmouseleave="longPressCancel()"
-           ontouchend="longPressEnd(event,${s.id})"
-           ontouchcancel="longPressCancel()">
+           onclick="subClick(event,${s.id})"
+           onmousedown="pressStart(${s.id})"
+           onmouseup="pressEnd()"
+           onmouseleave="pressEnd()"
+           ontouchstart="pressStart(${s.id})"
+           ontouchend="pressEnd()"
+           ontouchcancel="pressEnd()">
         <div class="subtopic-dot"></div>
         <div class="subtopic-arrow">▶</div>
         <div class="subtopic-title">${escapeHtml(s.title)}</div>
@@ -1121,26 +1129,26 @@ function collapseAll() {
   window.scrollTo({ top: 0, behavior: 'smooth' });
 }
 
+// 펼침은 click이 담당, long-press(600ms)는 이해 토글
+// → 모바일/데스크탑 모두 안정적 (이전 longPressEnd가 모바일에서 안 먹는 문제 해결)
 let _pressTimer = null;
-let _pressDone = false;
-function longPressStart(e, subId) {
-  _pressDone = false;
-  _pressTimer = setTimeout(async () => {
-    _pressDone = true;
+let _longFired = false;
+function pressStart(subId) {
+  _longFired = false;
+  _pressTimer = setTimeout(() => {
+    _longFired = true;
     if (navigator.vibrate) try { navigator.vibrate(20); } catch {}
-    await toggleUnderstood(subId);
+    toggleUnderstood(subId);
   }, 600);
 }
-function longPressEnd(e, subId) {
+function pressEnd() {
   if (_pressTimer) { clearTimeout(_pressTimer); _pressTimer = null; }
-  if (_pressDone) { _pressDone = false; return; }
-  // 클릭 = 토글 펼침
+}
+function subClick(e, subId) {
+  if (_longFired) { _longFired = false; e.preventDefault(); return; }
   if (state.expanded.subtopic.has(subId)) state.expanded.subtopic.delete(subId);
   else state.expanded.subtopic.add(subId);
   renderTree(state.currentChapter.id);
-}
-function longPressCancel() {
-  if (_pressTimer) { clearTimeout(_pressTimer); _pressTimer = null; }
 }
 
 async function toggleUnderstood(subId) {
@@ -1366,9 +1374,9 @@ window.enterChapter = enterChapter;
 window.goHome = goHome;
 window.toggleTopic = toggleTopic;
 window.collapseAll = collapseAll;
-window.longPressStart = longPressStart;
-window.longPressEnd = longPressEnd;
-window.longPressCancel = longPressCancel;
+window.pressStart = pressStart;
+window.pressEnd = pressEnd;
+window.subClick = subClick;
 window.openReferralModal = openReferralModal;
 window.copyReferralLink = copyReferralLink;
 window.openPayModal = openPayModal;
