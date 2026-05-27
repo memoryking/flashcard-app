@@ -187,10 +187,11 @@ a { color: #4fc3f7; text-decoration: none; }
 }
 .topic.opened > .topic-body { display: block; }
 
-/* 소목차 */
+/* 소목차 = 보라 톤 (제목·미리보기 영역) */
 .subtopic {
-  background: rgba(0,0,0,0.25); border-radius: 6px;
-  margin-top: 6px; overflow: hidden;
+  background: linear-gradient(180deg, rgba(83,52,131,0.18) 0%, rgba(83,52,131,0.10) 100%);
+  border: 1px solid rgba(179,157,219,0.22);
+  border-radius: 8px; margin-top: 8px; overflow: hidden;
 }
 .subtopic-head {
   display: flex; align-items: center; gap: 10px;
@@ -204,9 +205,11 @@ a { color: #4fc3f7; text-decoration: none; }
 .subtopic.opened .subtopic-arrow { transform: rotate(90deg); }
 .subtopic-title { flex: 1; font-size: 13px; color: rgba(255,255,255,0.9); min-width: 0; }
 .subtopic-actions { display: flex; gap: 4px; }
+/* 본문 = 어두운 다른 톤 (소목차와 명확히 분리) */
 .subtopic-body {
-  display: none; padding: 4px 12px 10px 28px;
-  border-top: 1px solid rgba(255,255,255,0.04);
+  display: none; padding: 12px 14px 12px 28px;
+  background: #0a0a1a;
+  border-top: 1px solid rgba(179,157,219,0.2);
 }
 .subtopic.opened > .subtopic-body { display: block; }
 .subtopic-preview {
@@ -220,12 +223,15 @@ a { color: #4fc3f7; text-decoration: none; }
   font-size: 11px; color: rgba(255,255,255,0.5); margin-top: 6px;
 }
 
-/* 아이템 */
+/* 아이템 = 본문 안의 개별 내용 — 좌측 시안색 라인으로 강조 */
 .item {
-  background: rgba(0,0,0,0.3); border: 1px solid rgba(255,255,255,0.05);
-  border-radius: 6px; padding: 10px 12px; margin-top: 6px;
+  background: rgba(255,255,255,0.04);
+  border: 1px solid rgba(255,255,255,0.05);
+  border-left: 3px solid rgba(79,195,247,0.5);
+  border-radius: 6px; padding: 10px 12px; margin-top: 8px;
   display: flex; gap: 10px; align-items: flex-start;
 }
+.item:first-child { margin-top: 0; }
 .item-icon { color: rgba(255,255,255,0.4); font-size: 11px; flex-shrink: 0; padding-top: 2px; }
 .item-body { flex: 1; min-width: 0; }
 .item-body .item-text {

@@ -304,12 +304,18 @@ a { color: #4fc3f7; text-decoration: none; }
   padding: 9px 22px; font-size: 13px; font-weight: 700; border-radius: 50px;
 }
 
+/* 소목차 = 보라 톤 (제목·미리보기 영역) */
 .subtopic {
-  background: rgba(0,0,0,0.2); border-radius: 8px;
-  margin-top: 8px; overflow: hidden;
-  border: 1px solid transparent; transition: all 0.2s;
+  background: linear-gradient(180deg, rgba(83,52,131,0.18) 0%, rgba(83,52,131,0.10) 100%);
+  border: 1px solid rgba(179,157,219,0.25);
+  border-radius: 10px;
+  margin-top: 10px; overflow: hidden;
+  transition: all 0.2s;
 }
-.subtopic.understood { border-color: rgba(76,175,80,0.3); }
+.subtopic.understood {
+  border-color: rgba(76,175,80,0.45);
+  background: linear-gradient(180deg, rgba(76,175,80,0.14) 0%, rgba(76,175,80,0.06) 100%);
+}
 .subtopic-head {
   display: flex; align-items: center; gap: 10px;
   padding: 12px 14px; cursor: pointer;
@@ -339,7 +345,12 @@ a { color: #4fc3f7; text-decoration: none; }
 .subtopic-hint {
   font-size: 10px; color: rgba(255,255,255,0.35);
 }
-.subtopic-body { display: none; padding: 4px 14px 14px 38px; }
+/* 본문 = 어두운 다른 톤 (소목차와 명확히 분리) */
+.subtopic-body {
+  display: none; padding: 14px 16px 14px 38px;
+  background: #0a0a1a;
+  border-top: 1px solid rgba(179,157,219,0.2);
+}
 .subtopic.opened > .subtopic-body { display: block; }
 .subtopic-preview {
   padding: 8px 14px 12px 38px; cursor: pointer;
@@ -355,10 +366,14 @@ a { color: #4fc3f7; text-decoration: none; }
   margin-top: 6px; pointer-events: none;
 }
 
+/* 아이템 카드 = 본문 안의 개별 내용 — 좌측 시안색 라인으로 강조 */
 .item {
-  background: rgba(0,0,0,0.25); border-radius: 8px;
-  padding: 12px 14px; margin-top: 8px;
+  background: rgba(255,255,255,0.04);
+  border-radius: 8px; padding: 12px 14px;
+  margin-top: 10px;
+  border-left: 3px solid rgba(79,195,247,0.5);
 }
+.item:first-child { margin-top: 0; }
 .item .item-text {
   font-size: 14px; color: rgba(255,255,255,0.92);
   white-space: pre-wrap; word-break: break-word; line-height: 1.7;
