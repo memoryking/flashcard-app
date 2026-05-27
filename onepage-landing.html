@@ -157,8 +157,8 @@
     font-size: 16px; font-weight: 800;
 }
 #opRoot .op-pain-body { display: block; }
-#opRoot .op-pain-body strong { display: block; font-size: 15px; font-weight: 700; color: #1a1a2e; margin-bottom: 3px; }
-#opRoot .op-pain-body span { display: block; font-size: 13px; color: #555; line-height: 1.55; }
+#opRoot .op-pain-body strong { display: block; font-size: 16px; font-weight: 700; color: #1a1a2e; margin-bottom: 4px; }
+#opRoot .op-pain-body span { display: block; font-size: 14px; color: #555; line-height: 1.6; }
 
 /* ========== Demo (interactive) ========== */
 #opRoot .op-demo-wrap {
@@ -221,29 +221,36 @@
 #opRoot .op-topic-body { display: none; padding: 0 12px 12px; }
 #opRoot .op-topic.opened .op-topic-body { display: block; }
 
+/* 소목차 = 보라 톤 (학생 앱과 동일) */
 #opRoot .op-sub {
-    background: rgba(0,0,0,0.25); border-radius: 8px;
-    margin: 6px 0; overflow: hidden;
+    background: linear-gradient(180deg, rgba(83,52,131,0.28) 0%, rgba(83,52,131,0.15) 100%);
+    border: 1px solid rgba(179,157,219,0.3);
+    border-radius: 8px; margin: 8px 0; overflow: hidden;
 }
 #opRoot .op-sub-head {
     display: flex; align-items: center; gap: 10px;
-    padding: 10px 14px; user-select: none; -webkit-user-select: none;
+    padding: 11px 14px; user-select: none; -webkit-user-select: none;
 }
 #opRoot .op-sub-head:hover { background: rgba(255,255,255,0.04); }
 #opRoot .op-sub-dot {
-    width: 10px; height: 10px; border-radius: 50%; flex-shrink: 0;
-    border: 2px solid rgba(255,255,255,0.4); transition: all 0.2s;
+    width: 11px; height: 11px; border-radius: 50%; flex-shrink: 0;
+    border: 2px solid rgba(255,255,255,0.5); transition: all 0.2s;
+}
+#opRoot .op-sub.understood {
+    background: linear-gradient(180deg, rgba(76,175,80,0.2) 0%, rgba(76,175,80,0.08) 100%);
+    border-color: rgba(76,175,80,0.45);
 }
 #opRoot .op-sub.understood .op-sub-dot {
     background: #4caf50; border-color: #4caf50; box-shadow: 0 0 10px rgba(76,175,80,0.5);
 }
-#opRoot .op-sub-title { font-size: 13.5px; color: rgba(255,255,255,0.9); flex: 1; }
-#opRoot .op-sub.understood .op-sub-title { color: #81c784; }
+#opRoot .op-sub-title { font-size: 14px; color: rgba(255,255,255,0.95); flex: 1; font-weight: 600; }
+#opRoot .op-sub.understood .op-sub-title { color: #a5d6a7; }
+/* 본문 = 어두운 톤 (소목차와 명확히 분리) */
 #opRoot .op-sub-body {
-    display: none; padding: 10px 14px 14px 36px;
-    color: rgba(255,255,255,0.78); font-size: 13px; line-height: 1.65;
-    border-top: 1px solid rgba(255,255,255,0.05);
-    background: rgba(0,0,0,0.15);
+    display: none; padding: 14px 14px 14px 36px;
+    color: rgba(255,255,255,0.88); font-size: 13.5px; line-height: 1.75;
+    background: #0a0a1a;
+    border-top: 1px solid rgba(179,157,219,0.25);
 }
 #opRoot .op-sub.opened .op-sub-body { display: block; }
 #opRoot .op-sub-body p { display: block; margin: 0 0 8px; }
@@ -258,6 +265,91 @@
     font-size: 12px; color: rgba(255,255,255,0.45);
 }
 #opRoot .op-demo-hint b { color: #ffb347; font-weight: 700; }
+
+/* ========== How-To 3 steps ========== */
+#opRoot .op-howto {
+    display: grid; gap: 16px; max-width: 720px; margin: 0 auto;
+    grid-template-columns: 1fr;
+}
+#opRoot .op-step {
+    display: flex; gap: 18px; align-items: flex-start;
+    background: #fff; border: 1px solid #e5e7eb;
+    border-radius: 16px; padding: 22px 22px;
+    box-shadow: 0 6px 20px rgba(0,0,0,0.04);
+}
+#opRoot .op-step-num {
+    flex-shrink: 0; width: 44px; height: 44px; border-radius: 50%;
+    background: linear-gradient(135deg, #e94560, #ff6b6b);
+    color: #fff; display: flex; align-items: center; justify-content: center;
+    font-size: 20px; font-weight: 900;
+}
+#opRoot .op-step-body { flex: 1; min-width: 0; }
+#opRoot .op-step-body h4 {
+    display: block; font-size: 17px; font-weight: 800;
+    color: #1a1a2e; margin: 0 0 6px; word-break: keep-all;
+}
+#opRoot .op-step-body p {
+    display: block; font-size: 14px; color: #555; line-height: 1.65;
+    margin: 0 0 10px; word-break: keep-all;
+}
+#opRoot .op-step-body p:last-child { margin-bottom: 0; }
+#opRoot .op-step-tip {
+    display: block; background: rgba(79,195,247,0.08);
+    border-left: 3px solid #4fc3f7; padding: 8px 12px;
+    border-radius: 0 6px 6px 0; font-size: 13px; color: #1a1a2e;
+}
+#opRoot .op-step-tip b { font-weight: 700; color: #0277bd; }
+
+/* ========== Point system (detailed) ========== */
+#opRoot .op-points {
+    max-width: 720px; margin: 0 auto;
+    background: linear-gradient(135deg, #fffde7 0%, #fff8e1 100%);
+    border: 1px solid #ffe082; border-radius: 18px;
+    padding: 28px 24px;
+}
+#opRoot .op-points-head {
+    display: flex; align-items: center; gap: 14px; justify-content: center;
+    margin-bottom: 18px; flex-wrap: wrap;
+}
+#opRoot .op-points-coin {
+    width: 60px; height: 60px; border-radius: 50%;
+    background: linear-gradient(135deg, #ffd54f, #ffb300);
+    display: flex; align-items: center; justify-content: center;
+    font-size: 30px; box-shadow: 0 6px 20px rgba(255,179,0,0.4);
+}
+#opRoot .op-points-head h3 {
+    display: block; font-size: 22px; font-weight: 900; color: #5d4037;
+    margin: 0; word-break: keep-all;
+}
+#opRoot .op-points-grid {
+    display: grid; grid-template-columns: 1fr 1fr; gap: 14px;
+    max-width: 600px; margin: 0 auto;
+}
+#opRoot .op-point-box {
+    background: rgba(255,255,255,0.75);
+    border-radius: 12px; padding: 16px;
+}
+#opRoot .op-point-box .lbl {
+    display: block; font-size: 11px; font-weight: 800;
+    color: #d84315; letter-spacing: 0.1em; margin-bottom: 8px;
+}
+#opRoot .op-point-box h5 {
+    display: block; font-size: 16px; font-weight: 800;
+    color: #4e342e; margin: 0 0 6px;
+}
+#opRoot .op-point-box p {
+    display: block; font-size: 13px; color: #6d4c41;
+    line-height: 1.65; margin: 0; word-break: keep-all;
+}
+#opRoot .op-point-box .formula {
+    display: block; font-size: 16px; font-weight: 800; color: #d84315;
+    margin: 8px 0 4px;
+}
+#opRoot .op-point-cta {
+    display: block; text-align: center; margin-top: 20px;
+    font-size: 14px; color: #5d4037; font-weight: 600;
+}
+#opRoot .op-point-cta strong { color: #d84315; font-weight: 800; }
 
 /* ========== Values 3-Up ========== */
 #opRoot .op-values {
@@ -274,10 +366,10 @@
     display: block; font-size: 36px; margin-bottom: 12px;
 }
 #opRoot .op-value-title {
-    display: block; font-size: 16px; font-weight: 800; color: #1a1a2e; margin-bottom: 8px;
+    display: block; font-size: 17px; font-weight: 800; color: #1a1a2e; margin-bottom: 8px;
 }
 #opRoot .op-value-desc {
-    display: block; font-size: 13px; color: #555; line-height: 1.6;
+    display: block; font-size: 14px; color: #555; line-height: 1.65;
     word-break: keep-all;
 }
 
@@ -400,7 +492,7 @@
 #opRoot .op-faq-q {
     display: flex; align-items: center; justify-content: space-between;
     padding: 18px 4px; cursor: pointer;
-    font-size: 15px; font-weight: 700; color: #1a1a2e;
+    font-size: 16px; font-weight: 700; color: #1a1a2e;
     user-select: none; -webkit-user-select: none;
 }
 #opRoot .op-faq-q::before {
@@ -415,7 +507,7 @@
 #opRoot .op-faq-item.open .op-faq-toggle { transform: rotate(45deg); color: #e94560; }
 #opRoot .op-faq-a {
     display: none; padding: 0 4px 18px 30px;
-    font-size: 14px; color: #555; line-height: 1.7;
+    font-size: 15px; color: #555; line-height: 1.75;
     word-break: keep-all;
 }
 #opRoot .op-faq-item.open .op-faq-a { display: block; }
@@ -463,6 +555,15 @@
     #opRoot .op-free-cta { margin: 0 8px; padding: 26px 18px; }
     #opRoot .op-referral { padding: 24px 18px; }
     #opRoot .op-price-card { padding: 26px 20px; }
+    #opRoot .op-step { padding: 18px 16px; gap: 12px; }
+    #opRoot .op-step-num { width: 38px; height: 38px; font-size: 17px; }
+    #opRoot .op-step-body h4 { font-size: 16px; }
+    #opRoot .op-step-body p { font-size: 13.5px; }
+    #opRoot .op-points { padding: 22px 16px; }
+    #opRoot .op-points-head h3 { font-size: 19px; }
+    #opRoot .op-points-coin { width: 50px; height: 50px; font-size: 24px; }
+    #opRoot .op-points-grid { grid-template-columns: 1fr; gap: 10px; }
+    #opRoot .op-point-box { padding: 14px; }
 }
 </style>
 
@@ -625,6 +726,39 @@
     </div>
 </section>
 
+<!-- ========== 사용법 3단계 ========== -->
+<section class="op-section">
+    <span class="op-section-tag">사용법</span>
+    <h2>3단계로 끝나는 학습 흐름</h2>
+    <p class="op-section-lead">복잡한 메뉴 없이 — 클릭과 꾹누르기 두 동작이면 됩니다.</p>
+    <div class="op-howto">
+        <div class="op-step">
+            <div class="op-step-num">1</div>
+            <div class="op-step-body">
+                <h4>📚 챕터 카드 선택</h4>
+                <p>홈 화면에서 과목별로 챕터가 보입니다. <strong>무료 챕터</strong>는 가입 없이 바로, <strong>유료 챕터</strong>는 3,000원 결제 또는 보유 포인트로 구독합니다.</p>
+                <span class="op-step-tip">💡 <b>각 챕터에 무료 대목차</b>가 1~2개 있어서, 결제 전에 강사의 정리 스타일을 미리 볼 수 있어요.</span>
+            </div>
+        </div>
+        <div class="op-step">
+            <div class="op-step-num">2</div>
+            <div class="op-step-body">
+                <h4>📖 펼침으로 한 페이지 학습</h4>
+                <p>챕터 안에 <strong>대목차 → 소목차 → 본문</strong> 3단계 트리. 원하는 곳을 톡 누르면 펼쳐지고, 다시 누르면 접힙니다. 이미지가 있는 소목차는 <strong>표지 그림이 항상 보여서</strong> 한눈에 단서를 줍니다.</p>
+                <span class="op-step-tip">💡 <b>"이건 알아"</b> 싶으면 펼치지 않고 넘어가도 OK — 모르는 것만 펼쳐 보세요.</span>
+            </div>
+        </div>
+        <div class="op-step">
+            <div class="op-step-num">3</div>
+            <div class="op-step-body">
+                <h4>✓ 꾹눌러서 이해 완료 표시</h4>
+                <p>이해한 소목차를 <strong>0.6초 꾹누르면 ●로 색이 바뀝니다</strong>. 그 즉시 그 소목차는 맨 아래로 내려가고, <strong>다음에 학습할 미학습 항목이 위로 올라옵니다</strong>. 진도는 자동 저장 — 다른 기기에서도 그대로.</p>
+                <span class="op-step-tip">💡 <b>위에서부터 읽기만 하면</b> 자연스럽게 미학습부터 보게 됩니다.</span>
+            </div>
+        </div>
+    </div>
+</section>
+
 <!-- ========== VALUES ========== -->
 <section class="op-section">
     <span class="op-section-tag">핵심 가치</span>
@@ -677,6 +811,49 @@
         </div>
         <a href="https://vipup.site/onepage" target="_top" class="op-price-cta">지금 시작하기 →</a>
         <span class="op-price-foot">페이앱 결제 · 매월 본인이 직접 갱신</span>
+    </div>
+</section>
+
+<!-- ========== 포인트 상세 ========== -->
+<section class="op-section">
+    <span class="op-section-tag">결제 외에 — 포인트로도</span>
+    <h2>포인트로 학습 기간 연장</h2>
+    <p class="op-section-lead">현금 결제 외에 친구 추천으로 모은 포인트로도 챕터를 구독할 수 있습니다.</p>
+
+    <div class="op-points">
+        <div class="op-points-head">
+            <div class="op-points-coin">💰</div>
+            <h3>3,000P = 챕터 1개월</h3>
+        </div>
+        <div class="op-points-grid">
+            <div class="op-point-box">
+                <span class="lbl">적립</span>
+                <h5>친구 추천 보너스</h5>
+                <p>내 추천 링크로 가입한 친구가 첫 결제를 하면 — <strong style="color:#d84315">친구와 나 모두 +1,000P</strong></p>
+                <div class="formula">친구 1명 결제 = +1,000P</div>
+            </div>
+            <div class="op-point-box">
+                <span class="lbl">사용</span>
+                <h5>챕터별 1개월 연장</h5>
+                <p>홈에서 <strong>💰 포인트 칩 클릭</strong> → 챕터 선택 → 3,000P 차감</p>
+                <div class="formula">3,000P → +30일</div>
+            </div>
+            <div class="op-point-box">
+                <span class="lbl">유료 챕터 갱신</span>
+                <h5>잔여 기간에 +30일</h5>
+                <p>이미 활성 챕터(D-12 같은 거)에 사용하면 <strong style="color:#d84315">잔여 + 30일</strong>로 연장</p>
+                <div class="formula">D-12 → D-42</div>
+            </div>
+            <div class="op-point-box">
+                <span class="lbl">미구매 챕터 시작</span>
+                <h5>처음부터 30일</h5>
+                <p>구매한 적 없거나 만료된 챕터는 포인트 사용 시점부터 30일</p>
+                <div class="formula">→ D-30</div>
+            </div>
+        </div>
+        <div class="op-point-cta">
+            친구 3명 추천 = <strong>3,000P</strong> = <strong>챕터 1개월 무료</strong> 🎉
+        </div>
     </div>
 </section>
 
