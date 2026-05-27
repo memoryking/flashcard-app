@@ -532,6 +532,7 @@ a { color: #4fc3f7; text-decoration: none; }
     <button class="back-btn" onclick="goHome()">◀ 챕터 목록</button>
     <div class="brand" id="chBrand">미분</div>
     <div class="spacer"></div>
+    <button class="icon-btn" onclick="collapseAll()" title="대목차만 보이게 모두 접기">📂 모두 접기</button>
     <span class="icon-btn" id="chStatus">D-30</span>
   </header>
   <div class="chapter-header">
@@ -1113,6 +1114,13 @@ function toggleTopic(id) {
   renderTree(state.currentChapter.id);
 }
 
+function collapseAll() {
+  state.expanded.topic.clear();
+  state.expanded.subtopic.clear();
+  if (state.currentChapter) renderTree(state.currentChapter.id);
+  window.scrollTo({ top: 0, behavior: 'smooth' });
+}
+
 let _pressTimer = null;
 let _pressDone = false;
 function longPressStart(e, subId) {
@@ -1357,6 +1365,7 @@ window.logout = logout;
 window.enterChapter = enterChapter;
 window.goHome = goHome;
 window.toggleTopic = toggleTopic;
+window.collapseAll = collapseAll;
 window.longPressStart = longPressStart;
 window.longPressEnd = longPressEnd;
 window.longPressCancel = longPressCancel;

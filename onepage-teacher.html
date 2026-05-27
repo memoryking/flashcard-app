@@ -366,6 +366,7 @@ a { color: #4fc3f7; text-decoration: none; }
     <div class="toolbar">
       <button class="btn-primary" onclick="openChapterModal()">+ 챕터 추가</button>
       <button class="btn-secondary" onclick="reloadChapters()">↻ 새로고침</button>
+      <button class="btn-secondary" onclick="collapseAll()" title="펼친 모든 챕터·대목차·소목차 접기">📂 모두 접기</button>
     </div>
     <div id="chapterList"></div>
   </main>
@@ -719,6 +720,14 @@ function toggle(level, id) {
   const set = state.expanded[level];
   if (set.has(id)) set.delete(id); else set.add(id);
   render();
+}
+
+function collapseAll() {
+  state.expanded.chapter.clear();
+  state.expanded.topic.clear();
+  state.expanded.subtopic.clear();
+  render();
+  window.scrollTo({ top: 0, behavior: 'smooth' });
 }
 
 // ============================================================
@@ -1138,6 +1147,7 @@ window.editItemText = editItemText;
 window.editItemCaption = editItemCaption;
 window.triggerImagePick = triggerImagePick;
 window.toggle = toggle;
+window.collapseAll = collapseAll;
 window.reloadChapters = reloadChapters;
 window.closeModal = closeModal;
 
