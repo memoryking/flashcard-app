@@ -610,11 +610,24 @@ async function handleListItems(request, env) {
   }
 
   const r = await ncbRead(env, 'op_items', `subtopic_id=${subId}&limit=200`);
-  const items = (r.data || []).sort((a, b) =>
-    (Number(a.sort_order) || 0) - (Number(b.sort_order) || 0) ||
-    (Number(a.id) || 0) - (Number(b.id) || 0)
-  );
+  const items = (r.data || [])
+    .map(it => ({ ...it, image_b64: unwrapImg(it.image_b64) }))
+    .sort((a, b) =>
+      (Number(a.sort_order) || 0) - (Number(b.sort_order) || 0) ||
+      (Number(a.id) || 0) - (Number(b.id) || 0)
+    );
   return json({ items }, 200, request);
+}
+
+// nocodebackend REST API가 image_b64를 JSON-유효 값으로 검증 →
+// 평문 문자열은 거부하니 JSON.stringify로 한 번 감싸 보내고 읽을 때 unwrap
+function wrapImg(s) { return s ? JSON.stringify(String(s)) : null; }
+function unwrapImg(s) {
+  if (s == null) return '';
+  if (typeof s === 'string' && s.startsWith('"') && s.endsWith('"')) {
+    try { return JSON.parse(s); } catch {}
+  }
+  return s;
 }
 
 async function handleCreateItem(request, env) {
@@ -624,14 +637,17 @@ async function handleCreateItem(request, env) {
     subtopic_id: Number(b.subtopic_id),
     kind,
     text: kind === 'text' ? String(b.text || '') : '',
-    image_b64: kind === 'image' ? String(b.image_b64 || '') : null,
+    image_b64: kind === 'image' ? wrapImg(b.image_b64) : null,
     caption: String(b.caption || ''),
     sort_order: Number(b.sort_order) || 0,
     updated_at: kstDateTime(),
   };
   if (!data.subtopic_id) return json({ error: 'subtopic_id 필수' }, 400, request);
   const r = await ncbCreate(env, 'op_items', data);
-  return json({ ok: true, id: r.id, item: { ...data, id: r.id } }, 200, request);
+  return json({
+    ok: true, id: r.id,
+    item: { ...data, image_b64: unwrapImg(data.image_b64), id: r.id }
+  }, 200, request);
 }
 
 async function handleUpdateItem(request, env, id) {
@@ -639,7 +655,7 @@ async function handleUpdateItem(request, env, id) {
   const patch = {};
   if (b.kind !== undefined) patch.kind = b.kind === 'image' ? 'image' : 'text';
   if (b.text !== undefined) patch.text = String(b.text || '');
-  if (b.image_b64 !== undefined) patch.image_b64 = String(b.image_b64 || '');
+  if (b.image_b64 !== undefined) patch.image_b64 = wrapImg(b.image_b64);
   if (b.caption !== undefined) patch.caption = String(b.caption || '');
   if (b.sort_order !== undefined) patch.sort_order = Number(b.sort_order) || 0;
   patch.updated_at = kstDateTime();
