@@ -1070,7 +1070,15 @@ function renderTopic(t, hasAccess) {
       } else if (!subs.length) {
         body = '<div class="empty-state">소목차 없음</div>';
       } else {
-        body = subs.map(s => renderSubtopic(s)).join('');
+        // 정렬: 미학습 먼저, 학습완료(꾹눌러 ● 표시) 아래로
+        // → 항상 위에서부터 읽으면 자연스럽게 미학습부터 보임
+        const sortedSubs = [...subs].sort((a, b) => {
+          const aDone = state.understoodSet.has(Number(a.id)) ? 1 : 0;
+          const bDone = state.understoodSet.has(Number(b.id)) ? 1 : 0;
+          if (aDone !== bDone) return aDone - bDone;
+          return (Number(a.sort_order) || 0) - (Number(b.sort_order) || 0);
+        });
+        body = sortedSubs.map(s => renderSubtopic(s)).join('');
       }
     }
   }
