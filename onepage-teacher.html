@@ -209,6 +209,16 @@ a { color: #4fc3f7; text-decoration: none; }
   border-top: 1px solid rgba(255,255,255,0.04);
 }
 .subtopic.opened > .subtopic-body { display: block; }
+.subtopic-preview {
+  padding: 6px 12px 10px 28px; cursor: pointer;
+  border-top: 1px solid rgba(255,255,255,0.04);
+}
+.subtopic-preview img {
+  max-width: 100%; max-height: 180px; border-radius: 4px; display: block;
+}
+.subtopic-preview .cap {
+  font-size: 11px; color: rgba(255,255,255,0.5); margin-top: 6px;
+}
 
 /* 아이템 */
 .item {
@@ -651,23 +661,24 @@ function renderSubtopic(s) {
   const opened = state.expanded.subtopic.has(s.id);
   const cls = 'subtopic' + (opened ? ' opened' : '');
   const hasImg = !!s.image_b64;
+
+  // 항상 보이는 대표 이미지 (제목과 함께 미리보기)
+  const preview = hasImg ? `
+    <div class="subtopic-preview" onclick="toggle('subtopic',${s.id})">
+      <img src="${escapeHtml(s.image_b64)}" alt="">
+      ${s.caption ? `<div class="cap">${escapeHtml(s.caption)}</div>` : ''}
+    </div>
+  ` : '';
+
+  // 펼침 시 본문 (items만)
   let body = '';
   if (opened) {
-    // 소목차 대표 이미지 (있으면 본문 맨 위)
-    if (hasImg) {
-      body += `
-        <div style="margin:6px 0;text-align:center;background:rgba(0,0,0,0.3);border-radius:6px;padding:10px;">
-          <img src="${escapeHtml(s.image_b64)}" style="max-width:100%;max-height:280px;border-radius:4px;">
-          ${s.caption ? `<div style="font-size:11px;color:rgba(255,255,255,0.5);margin-top:6px;">${escapeHtml(s.caption)}</div>` : ''}
-        </div>
-      `;
-    }
     const items = state.itemsBySubtopic[s.id];
     if (items === undefined) {
       loadItems(s.id);
-      body += '<div class="empty-state small">로드 중…</div>';
+      body = '<div class="empty-state small">로드 중…</div>';
     } else {
-      body += `
+      body = `
         <div style="margin:6px 0;display:flex;gap:6px;flex-wrap:wrap;">
           <button class="btn-secondary btn-small" onclick="event.stopPropagation();addTextItem(${s.id})">+ 텍스트</button>
           <button class="btn-secondary btn-small" onclick="event.stopPropagation();triggerImagePick(${s.id})">+ 이미지 (파일)</button>
@@ -685,12 +696,13 @@ function renderSubtopic(s) {
     <div class="${cls}" data-subid="${s.id}">
       <div class="subtopic-head" onclick="toggle('subtopic',${s.id})">
         <div class="subtopic-arrow">▶</div>
-        <div class="subtopic-title">${escapeHtml(s.title)}${hasImg ? ' <span style="font-size:11px;color:#ffb347;">🖼️</span>' : ''}</div>
+        <div class="subtopic-title">${escapeHtml(s.title)}</div>
         <div class="subtopic-actions">
           <button class="btn-ghost btn-small" onclick="event.stopPropagation();openSubtopicModal(${s.topic_id},${s.id})">✎</button>
           <button class="btn-danger btn-small" onclick="event.stopPropagation();deleteSubtopic(${s.id})">🗑️</button>
         </div>
       </div>
+      ${preview}
       <div class="subtopic-body">${body}</div>
     </div>
   `;
