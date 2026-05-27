@@ -512,11 +512,13 @@ async function handleListTopics(request, env) {
   topics.forEach((t, i) => {
     const subs = (subsArr[i] && subsArr[i].data) || [];
     t.subtopic_count = subs.length;
-    // 클라이언트가 별도 /subtopics 호출 없이 바로 쓰도록 동봉
-    t.subtopics = subs.sort((a, b) =>
-      (Number(a.sort_order) || 0) - (Number(b.sort_order) || 0) ||
-      (Number(a.id) || 0) - (Number(b.id) || 0)
-    );
+    // 클라이언트가 별도 /subtopics 호출 없이 바로 쓰도록 동봉 + image unwrap
+    t.subtopics = subs
+      .map(s => ({ ...s, image_b64: unwrapImg(s.image_b64) }))
+      .sort((a, b) =>
+        (Number(a.sort_order) || 0) - (Number(b.sort_order) || 0) ||
+        (Number(a.id) || 0) - (Number(b.id) || 0)
+      );
   });
   return json({ topics }, 200, request);
 }
@@ -557,10 +559,12 @@ async function handleListSubtopics(request, env) {
   const topicId = url.searchParams.get('topic_id');
   if (!topicId) return json({ error: 'topic_id required' }, 400, request);
   const r = await ncbRead(env, 'op_subtopics', `topic_id=${topicId}&limit=200`);
-  const subs = (r.data || []).sort((a, b) =>
-    (Number(a.sort_order) || 0) - (Number(b.sort_order) || 0) ||
-    (Number(a.id) || 0) - (Number(b.id) || 0)
-  );
+  const subs = (r.data || [])
+    .map(s => ({ ...s, image_b64: unwrapImg(s.image_b64) }))
+    .sort((a, b) =>
+      (Number(a.sort_order) || 0) - (Number(b.sort_order) || 0) ||
+      (Number(a.id) || 0) - (Number(b.id) || 0)
+    );
   return json({ subtopics: subs }, 200, request);
 }
 
@@ -570,11 +574,16 @@ async function handleCreateSubtopic(request, env) {
     topic_id: Number(b.topic_id),
     title: String(b.title || '').trim(),
     sort_order: Number(b.sort_order) || 0,
+    image_b64: b.image_b64 ? wrapImg(b.image_b64) : null,
+    caption: String(b.caption || ''),
     updated_at: kstDateTime(),
   };
   if (!data.topic_id || !data.title) return json({ error: 'topic_id, title 필수' }, 400, request);
   const r = await ncbCreate(env, 'op_subtopics', data);
-  return json({ ok: true, id: r.id, subtopic: { ...data, id: r.id } }, 200, request);
+  return json({
+    ok: true, id: r.id,
+    subtopic: { ...data, image_b64: unwrapImg(data.image_b64), id: r.id }
+  }, 200, request);
 }
 
 async function handleUpdateSubtopic(request, env, id) {
@@ -583,6 +592,8 @@ async function handleUpdateSubtopic(request, env, id) {
   if (b.title !== undefined) patch.title = String(b.title).trim();
   if (b.sort_order !== undefined) patch.sort_order = Number(b.sort_order) || 0;
   if (b.topic_id !== undefined) patch.topic_id = Number(b.topic_id);
+  if (b.image_b64 !== undefined) patch.image_b64 = b.image_b64 ? wrapImg(b.image_b64) : null;
+  if (b.caption !== undefined) patch.caption = String(b.caption || '');
   patch.updated_at = kstDateTime();
   await ncbUpdate(env, 'op_subtopics', id, patch);
   return json({ ok: true }, 200, request);

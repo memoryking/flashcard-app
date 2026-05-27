@@ -1124,25 +1124,35 @@ function renderSubtopic(s) {
   const opened = state.expanded.subtopic.has(s.id);
   const understood = state.understoodSet.has(Number(s.id));
   const cls = 'subtopic' + (opened ? ' opened' : '') + (understood ? ' understood' : '');
+  const hasImg = !!s.image_b64;
 
   let body = '';
   if (opened) {
+    // 소목차 대표 이미지 (있으면 본문 맨 위, 우클릭/드래그 차단)
+    if (hasImg) {
+      body += `
+        <div class="item" style="text-align:center;padding:12px;">
+          <img class="item-image" src="${escapeHtml(s.image_b64)}" alt="" oncontextmenu="return false">
+          ${s.caption ? `<div class="item-caption" style="text-align:center;margin-top:8px;">${escapeHtml(s.caption)}</div>` : ''}
+        </div>
+      `;
+    }
     const items = state.itemsBySubtopic[s.id];
     if (items === undefined) {
       loadItems(s.id);
-      body = '<div class="empty-state">로딩…</div>';
+      body += hasImg ? '' : '<div class="empty-state">로딩…</div>';
     } else if (items.locked) {
-      body = `
+      body += `
         <div class="locked-banner">
           <h4>🔒 구독 후 볼 수 있습니다</h4>
           <button onclick="event.stopPropagation();openPayModal(${items.chapter_id})">구독하기 →</button>
         </div>`;
     } else if (items.error) {
-      body = `<div class="empty-state">오류: ${escapeHtml(items.error)}</div>`;
-    } else if (!items.length) {
-      body = '<div class="empty-state">아직 내용이 없습니다.</div>';
+      body += `<div class="empty-state">오류: ${escapeHtml(items.error)}</div>`;
+    } else if (!items.length && !hasImg) {
+      body += '<div class="empty-state">아직 내용이 없습니다.</div>';
     } else {
-      body = items.map(it => renderItem(it)).join('');
+      body += items.map(it => renderItem(it)).join('');
     }
   }
 

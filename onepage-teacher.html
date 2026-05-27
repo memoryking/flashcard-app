@@ -650,14 +650,24 @@ function renderTopic(t) {
 function renderSubtopic(s) {
   const opened = state.expanded.subtopic.has(s.id);
   const cls = 'subtopic' + (opened ? ' opened' : '');
+  const hasImg = !!s.image_b64;
   let body = '';
   if (opened) {
+    // 소목차 대표 이미지 (있으면 본문 맨 위)
+    if (hasImg) {
+      body += `
+        <div style="margin:6px 0;text-align:center;background:rgba(0,0,0,0.3);border-radius:6px;padding:10px;">
+          <img src="${escapeHtml(s.image_b64)}" style="max-width:100%;max-height:280px;border-radius:4px;">
+          ${s.caption ? `<div style="font-size:11px;color:rgba(255,255,255,0.5);margin-top:6px;">${escapeHtml(s.caption)}</div>` : ''}
+        </div>
+      `;
+    }
     const items = state.itemsBySubtopic[s.id];
     if (items === undefined) {
       loadItems(s.id);
-      body = '<div class="empty-state small">로드 중…</div>';
+      body += '<div class="empty-state small">로드 중…</div>';
     } else {
-      body = `
+      body += `
         <div style="margin:6px 0;display:flex;gap:6px;flex-wrap:wrap;">
           <button class="btn-secondary btn-small" onclick="event.stopPropagation();addTextItem(${s.id})">+ 텍스트</button>
           <button class="btn-secondary btn-small" onclick="event.stopPropagation();triggerImagePick(${s.id})">+ 이미지 (파일)</button>
@@ -675,7 +685,7 @@ function renderSubtopic(s) {
     <div class="${cls}" data-subid="${s.id}">
       <div class="subtopic-head" onclick="toggle('subtopic',${s.id})">
         <div class="subtopic-arrow">▶</div>
-        <div class="subtopic-title">${escapeHtml(s.title)}</div>
+        <div class="subtopic-title">${escapeHtml(s.title)}${hasImg ? ' <span style="font-size:11px;color:#ffb347;">🖼️</span>' : ''}</div>
         <div class="subtopic-actions">
           <button class="btn-ghost btn-small" onclick="event.stopPropagation();openSubtopicModal(${s.topic_id},${s.id})">✎</button>
           <button class="btn-danger btn-small" onclick="event.stopPropagation();deleteSubtopic(${s.id})">🗑️</button>
@@ -841,19 +851,42 @@ async function deleteTopic(id) {
 // ============================================================
 // 소목차 CRUD
 // ============================================================
+// 소목차 편집 모달이 보유한 임시 이미지 데이터 URL (저장 전)
+let _modalSubImage = null;
+
 function openSubtopicModal(topicId, subId) {
   const s = subId ? (state.subtopicsByTopic[topicId] || []).find(x => x.id === subId) : null;
+  _modalSubImage = s?.image_b64 || null;
+
   modal({
     title: subId ? '소목차 편집' : '소목차 추가',
     body: `
       <div class="form-row"><label>제목 *</label><input type="text" id="m_title" value="${escapeHtml(s?.title || '')}" placeholder="미분계수의 정의"></div>
       <div class="form-row"><label>표시 순서</label><input type="number" id="m_order" value="${s?.sort_order ?? 0}"></div>
+      <div class="form-row">
+        <label>대표 이미지 (선택)</label>
+        <div id="m_imgPreview" style="border:1px dashed rgba(255,255,255,0.15);border-radius:8px;padding:10px;text-align:center;background:rgba(0,0,0,0.2);min-height:80px;display:flex;align-items:center;justify-content:center;">
+          ${_modalSubImage ? `<img src="${escapeHtml(_modalSubImage)}" style="max-width:100%;max-height:160px;border-radius:4px;">` : '<span style="font-size:12px;color:rgba(255,255,255,0.4);">이미지 없음</span>'}
+        </div>
+        <div style="display:flex;gap:6px;margin-top:6px;flex-wrap:wrap;">
+          <button class="btn-secondary btn-small" type="button" onclick="pickSubImage()">${_modalSubImage ? '이미지 교체' : '+ 이미지 선택'}</button>
+          <button class="btn-secondary btn-small" type="button" onclick="pasteSubImage()" title="클립보드의 캡쳐 붙여넣기">📋 클립보드</button>
+          ${_modalSubImage ? '<button class="btn-danger btn-small" type="button" onclick="removeSubImage()">🗑️ 제거</button>' : ''}
+        </div>
+        <div class="help">이 소목차의 핵심 그림 (도형·공식·예제 캡쳐). 펼치면 맨 위에 표시됨.</div>
+      </div>
+      <div class="form-row">
+        <label>이미지 캡션 (선택)</label>
+        <input type="text" id="m_caption" value="${escapeHtml(s?.caption || '')}" placeholder="예: 미분계수의 기하학적 의미">
+      </div>
     `,
     save: async () => {
       const data = {
         topic_id: topicId,
         title: $('m_title').value.trim(),
         sort_order: Number($('m_order').value) || 0,
+        image_b64: _modalSubImage || null,
+        caption: $('m_caption').value.trim(),
       };
       if (!data.title) { toast('제목 필수', true); return false; }
       try {
@@ -866,10 +899,59 @@ function openSubtopicModal(topicId, subId) {
           if ((topics[cid] || []).some(t => t.id === topicId)) { await loadTopics(Number(cid)); break; }
         }
         toast('저장됨');
+        _modalSubImage = null;
         return true;
       } catch (e) { toast(e.message, true); return false; }
     }
   });
+}
+
+function refreshSubImagePreview() {
+  const el = $('m_imgPreview');
+  if (!el) return;
+  el.innerHTML = _modalSubImage
+    ? `<img src="${escapeHtml(_modalSubImage)}" style="max-width:100%;max-height:160px;border-radius:4px;">`
+    : '<span style="font-size:12px;color:rgba(255,255,255,0.4);">이미지 없음</span>';
+}
+
+function pickSubImage() {
+  const inp = document.createElement('input');
+  inp.type = 'file'; inp.accept = 'image/*';
+  inp.onchange = async () => {
+    const f = inp.files[0];
+    if (!f) return;
+    try {
+      _modalSubImage = await compressImage(f);
+      refreshSubImagePreview();
+      toast('이미지 선택됨 — 저장 누르면 적용');
+    } catch (e) { toast('이미지 처리 실패', true); }
+  };
+  inp.click();
+}
+
+async function pasteSubImage() {
+  try {
+    const items = await navigator.clipboard.read();
+    for (const it of items) {
+      for (const type of it.types) {
+        if (type.startsWith('image/')) {
+          const blob = await it.getType(type);
+          _modalSubImage = await compressImage(blob);
+          refreshSubImagePreview();
+          toast('클립보드에서 가져옴');
+          return;
+        }
+      }
+    }
+    toast('클립보드에 이미지가 없습니다.', true);
+  } catch (e) {
+    toast('클립보드 접근 권한이 필요합니다. Ctrl+V로 시도하세요.', true);
+  }
+}
+
+function removeSubImage() {
+  _modalSubImage = null;
+  refreshSubImagePreview();
 }
 
 async function deleteSubtopic(id) {
@@ -1146,6 +1228,9 @@ window.addTextItem = addTextItem;
 window.editItemText = editItemText;
 window.editItemCaption = editItemCaption;
 window.triggerImagePick = triggerImagePick;
+window.pickSubImage = pickSubImage;
+window.pasteSubImage = pasteSubImage;
+window.removeSubImage = removeSubImage;
 window.toggle = toggle;
 window.collapseAll = collapseAll;
 window.reloadChapters = reloadChapters;
