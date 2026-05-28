@@ -264,9 +264,10 @@ a { color: #4fc3f7; text-decoration: none; }
   margin-top: 6px; font-size: 12px; color: rgba(255,255,255,0.55);
 }
 .chapter-tree {
-  max-width: 760px; margin: 0 auto; padding: 16px 14px 80px;
-  /* 콘텐츠가 줄어들 때 브라우저 자동 스크롤 방지용 여유 공간 */
-  min-height: 200vh;
+  max-width: 760px; margin: 0 auto;
+  /* padding-bottom: 100vh — 콘텐츠가 줄어도 페이지 최대 스크롤이 변하지 않도록
+     마지막 대목차 아래에 항상 화면 1개 분의 여유 공간 (브라우저 자동 위로 스크롤 방지) */
+  padding: 16px 14px 100vh;
   overflow-anchor: none;
 }
 
