@@ -349,6 +349,66 @@ a { color: #4fc3f7; text-decoration: none; }
 .sa-btn.expand { background: rgba(255,193,7,0.16);  color: #ffd54f;  border-color: rgba(255,193,7,0.3); }
 .sa-btn.done   { background: rgba(76,175,80,0.2);   color: #81c784;  border-color: rgba(76,175,80,0.35); }
 .sa-btn.redo   { background: rgba(255,138,0,0.18);  color: #ffb74d;  border-color: rgba(255,138,0,0.3); }
+
+/* 큰 패스 버튼 — 대목차 헤더 오른쪽, 기존 너비의 약 3배 */
+.study-btn.skip-big {
+  padding: 0 22px; min-width: 96px; height: 30px;
+  border-radius: 50px;
+  background: rgba(79,195,247,0.22);
+  color: #81d4fa;
+  border: 1px solid rgba(79,195,247,0.45);
+  font-size: 13px; font-weight: 800;
+  letter-spacing: 0.02em;
+  box-shadow: 0 2px 12px rgba(79,195,247,0.15);
+}
+.study-btn.skip-big:active {
+  background: rgba(79,195,247,0.4);
+  transform: scale(0.94);
+}
+
+/* ───── 축하 폭죽 오버레이 ───── */
+.celebration {
+  position: fixed; inset: 0;
+  background: rgba(10,10,26,0.88);
+  display: flex; align-items: center; justify-content: center;
+  z-index: 9999; overflow: hidden;
+  animation: celFadeIn 0.3s ease-out;
+}
+@keyframes celFadeIn { from { opacity: 0; } to { opacity: 1; } }
+.cel-content {
+  text-align: center; position: relative; z-index: 2;
+  animation: celPop 0.7s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+}
+@keyframes celPop {
+  0%   { transform: scale(0.3); opacity: 0; }
+  100% { transform: scale(1);   opacity: 1; }
+}
+.cel-icon {
+  font-size: 88px;
+  animation: celBounce 0.9s ease-in-out infinite alternate;
+}
+@keyframes celBounce {
+  0%   { transform: scale(1)    rotate(-10deg); }
+  100% { transform: scale(1.15) rotate(10deg);  }
+}
+.cel-text {
+  font-size: 30px; font-weight: 900;
+  color: #ffd54f; margin-top: 14px;
+  text-shadow: 0 4px 24px rgba(0,0,0,0.6);
+  word-break: keep-all;
+}
+.cel-sub {
+  font-size: 14px; color: rgba(255,255,255,0.75);
+  margin-top: 8px; word-break: keep-all;
+}
+.confetti-piece {
+  position: absolute; top: -50px;
+  animation: confettiFall linear forwards;
+  pointer-events: none; z-index: 1;
+}
+@keyframes confettiFall {
+  to { transform: translateY(120vh) rotate(720deg); opacity: 0; }
+}
 .topic-head {
   display: flex; align-items: center; gap: 10px;
   padding: 14px 16px; cursor: pointer;
@@ -1259,21 +1319,15 @@ function renderTopic(t, hasAccess) {
     }
   }
 
-  // 학습 컨트롤 (펼친 상태 + 접근권 있을 때)
+  // 학습 컨트롤 — 큰 패스 버튼 1개 (펼친 상태 + 접근권 있을 때)
+  // 펼침은 소목차 직접 클릭, 완료/다시는 꾹누르기로 처리되므로 버튼은 패스만
   let studyBtns = '';
   if (opened && !locked) {
     const hasTop = topSubId != null;
-    // 현재 대상이 학습완료면 3번째 버튼이 "다시" — 누르면 미학습으로 복귀
-    const topIsDone = hasTop && state.understoodSet.has(topSubId);
-    studyBtns = `
+    studyBtns = hasTop ? `
       <div class="study-controls">
-        ${hasTop ? `<button class="study-btn skip" onclick="event.stopPropagation();studyPass(${topSubId},${t.id})" title="이번 회 패스 — 다시 보여줌">패스</button>` : ''}
-        ${hasTop ? `<button class="study-btn expand" onclick="event.stopPropagation();studyExpand(${topSubId},${t.id})" title="펼쳐서 공부">공부</button>` : ''}
-        ${hasTop ? (topIsDone
-          ? `<button class="study-btn redo" onclick="event.stopPropagation();studyDone(${topSubId},${t.id})" title="아직 잘 모름 — 미학습으로 복귀">다시</button>`
-          : `<button class="study-btn done" onclick="event.stopPropagation();studyDone(${topSubId},${t.id})" title="완전히 알아 — 학습 완료 ●">완료</button>`) : ''}
-        ${hasPassed ? `<button class="study-btn reset" onclick="event.stopPropagation();studyReset(${t.id})" title="패스한 단어 다시 처음부터">↺</button>` : ''}
-      </div>`;
+        <button class="study-btn skip-big" onclick="event.stopPropagation();studyPass(${topSubId},${t.id})" title="이번 회 패스 — 다음 단어로">⤴ 패스</button>
+      </div>` : '';
   }
 
   return `
@@ -1422,42 +1476,64 @@ function withTopicAnchor(topicId, callback) {
   requestAnimationFrame(adjust);
 }
 
-// 패스: 이번 회 안 봄 (다음 학습에도 그 자리부터 — 저장됨)
+// 패스: 이번 회 안 봄. 모두 패스되면 축하 + 자동 처음부터
 function studyPass(subId, topicId) {
+  state.passedSet.add(Number(subId));
+  state.expanded.subtopic.delete(Number(subId));
+  savePassed();
+
+  // 학습할 게 더 있는지 확인 (패스되지도, 완료되지도 않은 소목차)
+  const subs = state.subtopicsByTopic[topicId] || [];
+  const stillToStudy = subs.filter(s =>
+    !state.passedSet.has(Number(s.id)) &&
+    !state.understoodSet.has(Number(s.id))
+  );
+
+  if (stillToStudy.length === 0) {
+    celebrateAndReset(topicId);
+    return;
+  }
+
+  // 일반 패스 — 헤더 위치 고정한 채 렌더
   withTopicAnchor(topicId, () => {
-    state.passedSet.add(Number(subId));
-    state.expanded.subtopic.delete(Number(subId));
-    savePassed();
     if (state.currentChapter) renderTree(state.currentChapter.id);
   });
 }
-// 공부: 현재 학습 대상을 펼침
-function studyExpand(subId, topicId) {
-  withTopicAnchor(topicId, () => {
-    if (state.expanded.subtopic.has(Number(subId))) {
-      state.expanded.subtopic.delete(Number(subId));
-    } else {
-      state.expanded.subtopic.clear();
-      state.expanded.subtopic.add(Number(subId));
-    }
-    if (state.currentChapter) renderTree(state.currentChapter.id);
-  });
-}
-// 완료/다시: 학습 완료 ● 표시 토글 — 자동 정렬로 위치 변경
-function studyDone(subId, topicId) {
-  withTopicAnchor(topicId, () => {
-    state.expanded.subtopic.delete(Number(subId));
-    toggleUnderstood(subId);
-  });
-}
-// 처음부터: 이 토픽의 패스된 소목차들 복원 (학습완료는 그대로)
-function studyReset(topicId) {
-  withTopicAnchor(topicId, () => {
+
+// 모두 패스 시 축하 폭죽 → 패스 자동 초기화 → 처음부터 다시 시작
+function celebrateAndReset(topicId) {
+  showCelebration();
+  setTimeout(() => {
     const subs = state.subtopicsByTopic[topicId] || [];
     for (const s of subs) state.passedSet.delete(Number(s.id));
     savePassed();
     if (state.currentChapter) renderTree(state.currentChapter.id);
-  });
+  }, 2200);
+}
+
+function showCelebration() {
+  const c = document.createElement('div');
+  c.className = 'celebration';
+  c.innerHTML =
+    '<div class="cel-content">' +
+    '  <div class="cel-icon">🎉</div>' +
+    '  <div class="cel-text">모두 학습 완료!</div>' +
+    '  <div class="cel-sub">다시 처음부터 시작합니다</div>' +
+    '</div>';
+  const emojis = ['🎉','🎊','✨','⭐','💫','🌟','🎈','🥳'];
+  for (let i = 0; i < 50; i++) {
+    const piece = document.createElement('div');
+    piece.className = 'confetti-piece';
+    piece.textContent = emojis[Math.floor(Math.random() * emojis.length)];
+    piece.style.left = (Math.random() * 100) + '%';
+    piece.style.animationDelay = (Math.random() * 1.2) + 's';
+    piece.style.animationDuration = (1.6 + Math.random() * 1.4) + 's';
+    piece.style.fontSize = (18 + Math.random() * 22) + 'px';
+    c.appendChild(piece);
+  }
+  document.body.appendChild(c);
+  if (navigator.vibrate) try { navigator.vibrate([40, 60, 40, 60, 80]); } catch {}
+  setTimeout(() => c.remove(), 2700);
 }
 
 // 펼침은 click이 담당, long-press(600ms)는 이해 토글
@@ -1852,9 +1928,6 @@ window.toggleTopic = toggleTopic;
 window.collapseAll = collapseAll;
 window.refreshChapter = refreshChapter;
 window.studyPass = studyPass;
-window.studyExpand = studyExpand;
-window.studyDone = studyDone;
-window.studyReset = studyReset;
 window.pressStart = pressStart;
 window.pressEnd = pressEnd;
 window.subClick = subClick;
