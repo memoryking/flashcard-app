@@ -1121,6 +1121,10 @@ function blobToDataURL(blob) {
 // 전역 paste 핸들러 — 펼친 소목차 중 첫 번째에 넣음
 document.addEventListener('paste', async (e) => {
   if (!state.user || state.user.role !== 'teacher') return;
+  // 입력 필드(textarea·input)에 포커스가 있으면 paste 가로채지 않음
+  // → bulk 모달의 TSV 붙여넣기·소목차 모달의 캡션 등 정상 동작 보장
+  const active = document.activeElement;
+  if (active && (active.tagName === 'TEXTAREA' || active.tagName === 'INPUT')) return;
   const items = (e.clipboardData || window.clipboardData)?.items;
   if (!items) return;
   for (const it of items) {
@@ -1143,11 +1147,39 @@ document.addEventListener('paste', async (e) => {
 // ============================================================
 // 일괄 입력 (TSV)
 // ============================================================
+function updateTsvStats() {
+  const ta = $('m_tsv');
+  const stats = $('m_tsvStats');
+  if (!ta || !stats) return;
+  const v = ta.value;
+  if (!v.trim()) { stats.textContent = ''; return; }
+  const lines = v.split(/\r?\n/).filter(l => l.trim()).length;
+  const chars = v.length;
+  stats.textContent = `${lines.toLocaleString()}행 · ${chars.toLocaleString()}자`;
+}
+
 function openBulkModal(chapterId) {
   const chapter = state.chapters.find(x => x.id === chapterId);
   modal({
     title: `일괄 입력 — ${chapter.title}`,
     klass: 'tsv-modal',
+    onReady: () => {
+      const ta = $('m_tsv');
+      const file = $('m_tsvFile');
+      if (ta) { ta.oninput = updateTsvStats; ta.onpaste = () => setTimeout(updateTsvStats, 50); }
+      if (file) {
+        file.onchange = async () => {
+          const f = file.files[0];
+          if (!f) return;
+          try {
+            const text = await f.text();
+            ta.value = text;
+            updateTsvStats();
+            toast(`파일 로드됨: ${f.name}`);
+          } catch (e) { toast('파일 읽기 실패: ' + e.message, true); }
+        };
+      }
+    },
     body: `
       <div class="tsv-help">
         엑셀에서 다음 형식의 셀들을 선택해 복사 → 아래에 붙여넣기.<br>
@@ -1158,6 +1190,14 @@ function openBulkModal(chapterId) {
       <div class="form-row">
         <label>붙여넣기 (탭 구분 TSV — 가로형)</label>
         <textarea id="m_tsv" placeholder="대목차&#9;소목차&#9;내용1&#9;내용2&#9;내용3&#9;...&#10;조선 왕의 업적&#9;세종&#9;훈민정음 창제&#9;집현전 설치&#9;4군 6진 개척&#9;칠정산 편찬&#10;&#9;성종&#9;경국대전 완성&#9;홍문관 설치"></textarea>
+        <div style="margin-top:6px;display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
+          <label class="btn-secondary btn-small" style="cursor:pointer;margin:0;">
+            📂 파일에서 불러오기
+            <input type="file" id="m_tsvFile" accept=".tsv,.csv,.txt,text/*" style="display:none;">
+          </label>
+          <span style="font-size:11px;color:rgba(255,255,255,0.4);">엑셀 → 다른 이름으로 저장 → "텍스트 (탭으로 분리)(*.txt)" 또는 CSV</span>
+          <span id="m_tsvStats" style="font-size:11px;color:rgba(255,255,255,0.55);margin-left:auto;"></span>
+        </div>
       </div>
       <div class="form-row">
         <label class="check"><input type="radio" name="mode" id="m_modeA" value="append" checked> 기존 내용 뒤에 추가</label>
@@ -1213,7 +1253,7 @@ function openBulkModal(chapterId) {
 // ============================================================
 // 모달 헬퍼
 // ============================================================
-function modal({ title, body, save, saveLabel = '저장', klass = '' }) {
+function modal({ title, body, save, saveLabel = '저장', klass = '', onReady }) {
   const c = $('modalContainer');
   c.innerHTML = `
     <div class="modal-backdrop" id="curBackdrop">
@@ -1237,10 +1277,10 @@ function modal({ title, body, save, saveLabel = '저장', klass = '' }) {
     $('modalSaveBtn').disabled = false;
     if (ok) closeModal();
   };
-  // ESC 키
   setTimeout(() => {
     const firstInput = c.querySelector('input, textarea');
     if (firstInput) firstInput.focus();
+    if (typeof onReady === 'function') onReady();
   }, 50);
 }
 function closeModal() { $('modalContainer').innerHTML = ''; }
