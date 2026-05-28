@@ -185,7 +185,15 @@ Type 드롭다운에 보이는 옵션: `INT`, `BIGINT`, `VARCHAR(255)`, `DROPDOW
 | `topic_id` | INT | ✅ | **FK → op_topics.id (CASCADE)** | — | INT (Run SQL의 id에 맞춤) |
 | `title` | VARCHAR(255) | ✅ | — | — | |
 | `sort_order` | INT | ✅ | — | `0` | (예약어 `order` 회피) |
+| `image_b64` | **LONGTEXT** | — | — | — | 소목차 대표 이미지 (펼치지 않아도 표지로 보임). data URL 형식 |
+| `caption` | VARCHAR(255) | — | — | — | 이미지 캡션 (선택) |
 | `updated_at` | DATETIME | — | — | — | |
+
+> **마이그레이션**: 기존 테이블이면 다음 SQL 실행
+> ```sql
+> ALTER TABLE op_subtopics ADD COLUMN image_b64 LONGTEXT NULL;
+> ALTER TABLE op_subtopics ADD COLUMN caption VARCHAR(255) NULL;
+> ```
 
 ---
 
@@ -198,7 +206,7 @@ Type 드롭다운에 보이는 옵션: `INT`, `BIGINT`, `VARCHAR(255)`, `DROPDOW
 | `text` | TEXT | — | — | — | text 블록 본문 (마크다운). image면 빈값 |
 | `image_b64` | **LONGTEXT** | — | — | — | image 블록의 data URL. **JSON 타입이 base64 문자열을 거부하므로 LONGTEXT 사용**. UI에 LONGTEXT 옵션이 없으면 일단 JSON으로 만든 뒤 `ALTER TABLE op_items MODIFY image_b64 LONGTEXT NULL;` |
 | `caption` | VARCHAR(255) | — | — | — | 이미지 캡션 |
-| `order` | INT | ✅ | — | `0` | 같은 소목차 안 순서 |
+| `sort_order` | INT | ✅ | — | `0` | 같은 소목차 안 순서 (예약어 `order` 회피) |
 | `updated_at` | DATETIME | — | — | — | |
 
 > **이미지 크기 주의**: 클라이언트(선생님 앱)에서 최대 폭 1200px · WebP 0.85로 압축 후 base64 인코딩. 일반 50~150KB. 300KB 초과 시 경고.

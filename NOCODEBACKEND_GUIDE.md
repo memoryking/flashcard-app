@@ -480,3 +480,67 @@ CREATE TABLE IF NOT EXISTS `op_pings` (
 - nocodebackend → Airtable: 콘텐츠 양이 한정적이면 Airtable로 통합 가능. 단 rate limit(5 req/s)·필드 길이 한계 주의
 - nocodebackend → Cloudflare R2: 이미지가 늘어나면 `image_b64`를 R2 URL로 교체. 컬럼명 `image_url`로 추가하고 새 이미지부터 R2에 업로드, 기존 base64는 점진 마이그레이션
 - nocodebackend → 직접 운영 DB: 위 스키마 그대로 MySQL/PostgreSQL에 옮길 수 있음. Worker의 NCB_BASE만 교체
+
+---
+
+## 12. ★ Cloudflare Workers 서브요청 한도와 청크 처리
+
+대량 일괄 입력(수백 항목) 시 자주 만나는 함정.
+
+### 문제
+- Cloudflare Workers는 invocation당 **서브요청 한도** (Free 50 / Paid 1000)
+- 항목마다 nocodebackend로 fetch 1회 → 100개 이상이면 한도 초과 500
+- 에러 메시지: `Too many subrequests by single Worker invocation`
+
+### 해결 — 클라이언트 청크 반복 호출
+워커는 stateless로, 매 호출에 안전 한도(예: 40 subrequest) 안에서 처리:
+
+```js
+// Worker — 한 호출에서 부분 처리, next_start와 맵 반환
+async function handleBulkImport(req, env, chapterId) {
+  const { tsv, mode, start = 0, topic_map = {}, sub_map = {} } = await req.json();
+  const MAX_REQ = 40;
+  let used = 1; // chapter read
+  let i = start;
+  while (i < rows.length) {
+    if (used + 1 > MAX_REQ) break;
+    // topic·sub·item 순서대로 ncbCreate
+    i++; used++;
+  }
+  return json({
+    next_start: i,
+    done: i >= rows.length,
+    topic_map: Object.fromEntries(topicMap),
+    sub_map: Object.fromEntries(subMap),
+    base_sort: tOrd - 1,
+    total: rows.length,
+  });
+}
+
+// Client — done=true까지 반복 호출
+while (true) {
+  const r = await api('POST', `/chapters/${id}/bulk`, {
+    tsv, mode, start, topic_map, sub_map, base_sort
+  });
+  start = r.next_start;
+  topic_map = r.topic_map; sub_map = r.sub_map;
+  if (r.done) break;
+}
+```
+
+### 핵심 포인트
+- 클라이언트가 `topic_map`·`sub_map`을 다음 호출로 전달해 **중복 토픽/소목차 생성 회피**
+- 첫 호출(start=0)에서만 chapter 읽기 + replace 모드 시 삭제
+- 진행도 토스트 표시 (`245/1000 (24%)`)
+- 안전 상한 (예: 200회 반복) — 무한 루프 방지
+
+### Free 플랜에서 가능한 대량 처리량
+- 호출당 ~35 items 처리 (5는 토픽·소목차·여유)
+- 200회 반복 = **~7,000 items 처리 가능**
+- Paid 플랜이면 호출당 한도 ↑, 더 빠름
+
+### Worker 로컬 테스트
+```bash
+wrangler tail --format=pretty
+```
+다른 터미널에서 bulk 호출 → 로그 실시간 모니터링.
