@@ -69,6 +69,16 @@ a { color: #4fc3f7; text-decoration: none; }
   display: inline-flex; align-items: center; gap: 4px;
 }
 .app-header .icon-btn:hover { background: rgba(255,255,255,0.1); }
+/* 모두 접기 버튼 — 헤더 정중앙 고정 */
+.app-header .collapse-center {
+  position: absolute; left: 50%; transform: translateX(-50%);
+  padding: 5px 12px;
+  background: rgba(233,69,96,0.12); border: 1px solid rgba(233,69,96,0.3);
+  color: #ff8a9e;
+  transition: background 0.15s, transform 0.1s;
+}
+.app-header .collapse-center:hover { background: rgba(233,69,96,0.2); }
+.app-header .collapse-center:active { transform: translateX(-50%) scale(0.92); }
 
 /* ─────────────────────────────────────────────
    로그인/회원가입
@@ -635,8 +645,14 @@ a { color: #4fc3f7; text-decoration: none; }
     <button class="back-btn" onclick="goHome()">◀</button>
     <div class="brand" id="chBrand">미분</div>
     <div class="spacer"></div>
+    <button class="icon-btn collapse-center" onclick="collapseAll()" title="모두 접기">
+      <svg width="20" height="20" viewBox="0 0 16 16" fill="none" stroke="currentColor"
+           stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+        <polyline points="3 4 8 8 13 4"></polyline>
+        <polyline points="3 12 8 8 13 12"></polyline>
+      </svg>
+    </button>
     <button class="icon-btn" onclick="refreshChapter()" title="최신 콘텐츠 불러오기">↻</button>
-    <button class="icon-btn" onclick="collapseAll()" title="모두 접기">📂</button>
     <span class="icon-btn" id="chStatus">D-30</span>
   </header>
   <div class="chapter-header">
@@ -1038,6 +1054,7 @@ function renderChapterCard(c) {
 async function enterChapter(chapterId) {
   state.currentChapter = state.chapters.find(x => x.id === chapterId);
   if (!state.currentChapter) return;
+  loadPassed(chapterId);  // 저장된 패스 위치 복원 (마지막 학습 위치)
   $('homeScreen').style.display = 'none';
   $('chapterScreen').style.display = 'block';
   window.scrollTo(0, 0);
@@ -1334,10 +1351,26 @@ function collapseAll() {
 }
 
 // ───── 학습 컨트롤 — 플래시카드 스타일 ─────
-// 패스: 이번 회 안 봄 (새로고침 시 복원)
+// 패스 상태 영구 저장 (챕터 단위) — 새로고침·재진입 후에도 마지막 위치 유지
+function passKey(cid) { return 'op_passed_' + cid; }
+function savePassed() {
+  if (!state.currentChapter) return;
+  try {
+    localStorage.setItem(passKey(state.currentChapter.id), JSON.stringify([...state.passedSet]));
+  } catch {}
+}
+function loadPassed(chapterId) {
+  try {
+    const raw = localStorage.getItem(passKey(chapterId));
+    state.passedSet = new Set(raw ? JSON.parse(raw).map(Number) : []);
+  } catch { state.passedSet = new Set(); }
+}
+
+// 패스: 이번 회 안 봄 (다음 학습에도 그 자리부터 — 저장됨)
 function studyPass(subId) {
   state.passedSet.add(Number(subId));
   state.expanded.subtopic.delete(Number(subId));
+  savePassed();
   if (state.currentChapter) renderTree(state.currentChapter.id);
 }
 // 공부: 현재 학습 대상을 펼침
@@ -1359,6 +1392,7 @@ function studyDone(subId) {
 function studyReset(topicId) {
   const subs = state.subtopicsByTopic[topicId] || [];
   for (const s of subs) state.passedSet.delete(Number(s.id));
+  savePassed();
   if (state.currentChapter) renderTree(state.currentChapter.id);
 }
 
