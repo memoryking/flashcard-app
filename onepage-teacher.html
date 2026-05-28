@@ -1172,10 +1172,32 @@ function openBulkModal(chapterId) {
         if (!confirm('전체 교체는 기존 모든 대목차·소목차·내용을 삭제합니다.\n정말 진행할까요?')) return false;
       }
       showLoading(true);
+      // 청크 반복 호출 — Worker 서브요청 한도 우회
+      let topicMap = {}, subMap = {}, baseSort = 0;
+      let start = 0, totalT = 0, totalS = 0, totalI = 0, total = 0;
+      let curMode = mode;
       try {
-        const r = await api('POST', `/chapters/${chapterId}/bulk`, { tsv, mode });
-        toast(`완료: 대목차 ${r.topics_added} / 소목차 ${r.subtopics_added} / 내용 ${r.items_added}`);
-        // 캐시 무효화
+        for (let pass = 0; pass < 200; pass++) { // 안전 상한 200회
+          const r = await api('POST', `/chapters/${chapterId}/bulk`, {
+            tsv, mode: curMode, start,
+            topic_map: topicMap, sub_map: subMap, base_sort: baseSort,
+          });
+          totalT += r.t_added; totalS += r.s_added; totalI += r.i_added;
+          total = r.total;
+          if (r.next_start === start && !r.done) {
+            throw new Error('진행이 멈췄습니다. 데이터를 확인해주세요.');
+          }
+          start = r.next_start;
+          topicMap = r.topic_map; subMap = r.sub_map; baseSort = r.base_sort;
+          curMode = 'append'; // 두번째 호출부터는 삭제 다시 X
+          if (r.done) break;
+          // 진행 토스트 (오버라이트)
+          const pct = total ? Math.round(start / total * 100) : 0;
+          const t = $('toast');
+          t.textContent = `진행 중… ${start}/${total} (${pct}%)`;
+          t.className = 'show';
+        }
+        toast(`완료: 대목차 ${totalT} / 소목차 ${totalS} / 내용 ${totalI}`);
         delete state.topicsByChapter[chapterId];
         Object.keys(state.subtopicsByTopic).forEach(k => delete state.subtopicsByTopic[k]);
         Object.keys(state.itemsBySubtopic).forEach(k => delete state.itemsBySubtopic[k]);

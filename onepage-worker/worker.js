@@ -775,10 +775,19 @@ function parseTSV(text) {
   return { rows };
 }
 
+// Cloudflare Workers 서브요청 한도(Free 50 / Paid 1000) 회피를 위한 청크 처리.
+// 매 호출에 안전 한도(MAX_REQ) 만큼만 처리하고 next_start·맵을 돌려보냄.
+// 클라이언트가 done=true 될 때까지 반복 호출.
 async function handleBulkImport(request, env, chapterId) {
   const b = await request.json().catch(() => ({}));
   const mode = b.mode === 'replace' ? 'replace' : 'append';
   const text = String(b.tsv || b.text || '');
+  const start = Number(b.start) || 0;
+  const topicMap = new Map(Object.entries(b.topic_map || {}).map(([k, v]) => [k, Number(v)]));
+  const subMap = new Map(Object.entries(b.sub_map || {}).map(([k, v]) => [k, Number(v)]));
+  const baseSort = Number(b.base_sort) || 0;
+
+  const MAX_REQ = 40; // 50 - 안전 마진. 첫 호출은 read·delete도 포함되므로 더 보수적
 
   const chapter = await ncbReadById(env, 'op_chapters', chapterId);
   if (!chapter) return json({ error: 'chapter_not_found' }, 404, request);
@@ -787,33 +796,37 @@ async function handleBulkImport(request, env, chapterId) {
   if (parsed.error) return json({ error: parsed.error }, 400, request);
   if (!parsed.rows.length) return json({ error: '내용이 없습니다.' }, 400, request);
 
-  // replace 모드: 기존 토픽 모두 삭제 (CASCADE로 하위까지)
-  if (mode === 'replace') {
-    const exist = await ncbRead(env, 'op_topics', `chapter_id=${chapterId}&limit=500`);
-    for (const t of exist.data || []) {
-      await ncbDelete(env, 'op_topics', t.id);
-    }
-  }
-
-  // 기존 sort_order 최대값 (append용)
-  let topicBase = 0;
-  if (mode === 'append') {
-    const exist = await ncbRead(env, 'op_topics', `chapter_id=${chapterId}&limit=500`);
-    for (const t of exist.data || []) {
-      topicBase = Math.max(topicBase, Number(t.sort_order) || 0);
-    }
-  }
-
-  const topicMap = new Map(); // title → id
-  const subMap = new Map();   // topicId|title → id
+  let used = 1; // chapter read
+  let topicBase = baseSort;
   let createdT = 0, createdS = 0, createdI = 0;
+
+  // 첫 호출(start=0)에서만 초기 작업
+  if (start === 0) {
+    if (mode === 'replace') {
+      const exist = await ncbRead(env, 'op_topics', `chapter_id=${chapterId}&limit=500`);
+      used++;
+      for (const t of exist.data || []) {
+        if (used >= MAX_REQ) break; // 너무 많이 지워야 하면 다음 호출에서
+        await ncbDelete(env, 'op_topics', t.id);
+        used++;
+      }
+    } else {
+      // append용 — 기존 토픽의 sort_order 최대값
+      const exist = await ncbRead(env, 'op_topics', `chapter_id=${chapterId}&limit=500`);
+      used++;
+      for (const t of exist.data || []) {
+        topicBase = Math.max(topicBase, Number(t.sort_order) || 0);
+      }
+    }
+  }
   let tOrd = topicBase + 1;
 
-  // 1단계: 토픽·소목차 순차 생성 (FK 의존성 때문에 순차 필요)
-  const itemTasks = []; // 마지막에 병렬 fetch할 items
-  for (const row of parsed.rows) {
-    let topicId = topicMap.get(row.topic);
-    if (!topicId) {
+  let i = start;
+  while (i < parsed.rows.length) {
+    const row = parsed.rows[i];
+    // 토픽 생성 (필요 시)
+    if (!topicMap.has(row.topic)) {
+      if (used + 1 > MAX_REQ) break;
       const r = await ncbCreate(env, 'op_topics', {
         chapter_id: Number(chapterId),
         title: row.topic,
@@ -821,48 +834,50 @@ async function handleBulkImport(request, env, chapterId) {
         is_free: 0,
         updated_at: kstDateTime(),
       });
-      topicId = r.id;
-      topicMap.set(row.topic, topicId);
-      createdT++;
+      topicMap.set(row.topic, Number(r.id));
+      used++; createdT++;
     }
+    const topicId = topicMap.get(row.topic);
+
+    // 소목차 생성 (필요 시)
     const subKey = topicId + '|' + row.sub;
-    let subId = subMap.get(subKey);
-    if (!subId) {
+    if (!subMap.has(subKey)) {
+      if (used + 1 > MAX_REQ) break;
       const r = await ncbCreate(env, 'op_subtopics', {
         topic_id: Number(topicId),
         title: row.sub,
         sort_order: subMap.size + 1,
         updated_at: kstDateTime(),
       });
-      subId = r.id;
-      subMap.set(subKey, subId);
-      createdS++;
+      subMap.set(subKey, Number(r.id));
+      used++; createdS++;
     }
-    itemTasks.push({ subId, text: row.text });
-  }
+    const subId = subMap.get(subKey);
 
-  // 2단계: 아이템 병렬 생성 (배치 20개씩 — 너무 많은 동시 요청 방지)
-  const BATCH = 20;
-  for (let i = 0; i < itemTasks.length; i += BATCH) {
-    const slice = itemTasks.slice(i, i + BATCH);
-    await Promise.all(slice.map((t, j) => ncbCreate(env, 'op_items', {
-      subtopic_id: Number(t.subId),
+    // 내용 생성
+    if (used + 1 > MAX_REQ) break;
+    await ncbCreate(env, 'op_items', {
+      subtopic_id: Number(subId),
       kind: 'text',
-      text: t.text,
+      text: row.text,
       image_b64: null,
       caption: '',
-      sort_order: i + j + 1,
+      sort_order: i + 1,
       updated_at: kstDateTime(),
-    })));
-    createdI += slice.length;
+    });
+    used++; createdI++;
+    i++;
   }
 
   return json({
     ok: true,
-    topics_added: createdT,
-    subtopics_added: createdS,
-    items_added: createdI,
-    mode,
+    t_added: createdT, s_added: createdS, i_added: createdI,
+    next_start: i,
+    done: i >= parsed.rows.length,
+    total: parsed.rows.length,
+    base_sort: tOrd - 1,
+    topic_map: Object.fromEntries(topicMap),
+    sub_map: Object.fromEntries(subMap),
   }, 200, request);
 }
 
