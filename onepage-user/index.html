@@ -1299,6 +1299,13 @@ function renderTopic(t, hasAccess) {
       } else if (!subs.length) {
         body = '<div class="empty-state">소목차 없음</div>';
       } else {
+        // 자가 치유 — 이전 버전(↺ 버튼 있던 시절)에 모든 소목차가 패스된 채 저장된 경우,
+        // 펼치면 비어 있고 다시 시작할 수단도 없어 정지 상태가 됨. 조용히 패스 집합 초기화.
+        const allPassed = subs.every(s => state.passedSet.has(Number(s.id)));
+        if (allPassed) {
+          for (const s of subs) state.passedSet.delete(Number(s.id));
+          savePassed();
+        }
         // 패스된 건 안 보이게 필터 (이번 회 한정)
         hasPassed = subs.some(s => state.passedSet.has(Number(s.id)));
         const visible = subs.filter(s => !state.passedSet.has(Number(s.id)));
@@ -1315,9 +1322,6 @@ function renderTopic(t, hasAccess) {
                     || sortedSubs[0];
         topSubId = target ? Number(target.id) : null;
         body = sortedSubs.map(s => renderSubtopic(s, Number(s.id) === topSubId && target && !state.understoodSet.has(Number(target.id)))).join('');
-        if (!sortedSubs.length && hasPassed) {
-          body = '<div class="empty-state">모두 패스됨 — ↺ 버튼으로 다시 시작</div>';
-        }
       }
     }
   }
