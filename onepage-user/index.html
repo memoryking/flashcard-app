@@ -69,16 +69,22 @@ a { color: #4fc3f7; text-decoration: none; }
   display: inline-flex; align-items: center; gap: 4px;
 }
 .app-header .icon-btn:hover { background: rgba(255,255,255,0.1); }
-/* 모두 접기 버튼 — 헤더 정중앙 고정 */
+/* 모두 접기 버튼 — 헤더 정중앙 고정, v/^ 세로 스택 */
 .app-header .collapse-center {
   position: absolute; left: 50%; transform: translateX(-50%);
-  padding: 5px 12px;
+  padding: 6px 14px;
   background: rgba(233,69,96,0.12); border: 1px solid rgba(233,69,96,0.3);
   color: #ff8a9e;
+  display: inline-flex; flex-direction: column;
+  align-items: center; justify-content: center;
+  gap: 4px;
   transition: background 0.15s, transform 0.1s;
 }
 .app-header .collapse-center:hover { background: rgba(233,69,96,0.2); }
 .app-header .collapse-center:active { transform: translateX(-50%) scale(0.92); }
+.app-header .collapse-center .cc-row {
+  display: block; line-height: 0;
+}
 
 /* ─────────────────────────────────────────────
    로그인/회원가입
@@ -259,6 +265,9 @@ a { color: #4fc3f7; text-decoration: none; }
 }
 .chapter-tree {
   max-width: 760px; margin: 0 auto; padding: 16px 14px 80px;
+  /* 콘텐츠가 줄어들 때 브라우저 자동 스크롤 방지용 여유 공간 */
+  min-height: 200vh;
+  overflow-anchor: none;
 }
 
 .topic-card {
@@ -646,13 +655,18 @@ a { color: #4fc3f7; text-decoration: none; }
     <div class="brand" id="chBrand">미분</div>
     <div class="spacer"></div>
     <button class="icon-btn collapse-center" onclick="collapseAll()" title="모두 접기">
-      <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor"
-           stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-        <!-- 위쪽 v (아래로 모이는 꼭짓점) -->
-        <polyline points="5 5 12 11 19 5"></polyline>
-        <!-- 아래쪽 ^ (위로 모이는 꼭짓점) -->
-        <polyline points="5 19 12 13 19 19"></polyline>
-      </svg>
+      <span class="cc-row">
+        <svg width="20" height="9" viewBox="0 0 24 12" fill="none" stroke="currentColor"
+             stroke-width="2.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+          <polyline points="3 3 12 10 21 3"></polyline>
+        </svg>
+      </span>
+      <span class="cc-row">
+        <svg width="20" height="9" viewBox="0 0 24 12" fill="none" stroke="currentColor"
+             stroke-width="2.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+          <polyline points="3 9 12 2 21 9"></polyline>
+        </svg>
+      </span>
     </button>
     <button class="icon-btn" onclick="refreshChapter()" title="최신 콘텐츠 불러오기">↻</button>
     <span class="icon-btn" id="chStatus">D-30</span>
@@ -1375,14 +1389,17 @@ function withTopicAnchor(topicId, callback) {
   const headEl = document.querySelector(sel);
   const beforeY = headEl ? headEl.getBoundingClientRect().top : null;
   callback();
-  if (beforeY != null) {
+  if (beforeY == null) return;
+  // 즉시 1회 보정 + 다음 frame에 한 번 더 (브라우저 auto-scroll 대응)
+  const adjust = () => {
     const newHead = document.querySelector(sel);
-    if (newHead) {
-      const afterY = newHead.getBoundingClientRect().top;
-      const delta = afterY - beforeY;
-      if (Math.abs(delta) > 1) window.scrollBy(0, delta);
-    }
-  }
+    if (!newHead) return;
+    const afterY = newHead.getBoundingClientRect().top;
+    const delta = afterY - beforeY;
+    if (Math.abs(delta) > 1) window.scrollBy(0, delta);
+  };
+  adjust();
+  requestAnimationFrame(adjust);
 }
 
 // 패스: 이번 회 안 봄 (다음 학습에도 그 자리부터 — 저장됨)
