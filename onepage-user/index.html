@@ -1259,15 +1259,32 @@ function pressEnd() {
 }
 function subClick(e, subId) {
   if (_longFired) { _longFired = false; e.preventDefault(); return; }
+
+  // 클릭한 소목차의 화면 위치 캡쳐 (위쪽 다른 소목차가 닫혀도 자리 유지하려고)
+  const subEl = e.currentTarget && e.currentTarget.closest('.subtopic');
+  const beforeY = subEl ? subEl.getBoundingClientRect().top : null;
+
   if (state.expanded.subtopic.has(subId)) {
     // 이미 펼쳐진 거 다시 누름 = 접기
     state.expanded.subtopic.delete(subId);
   } else {
-    // 아코디언: 다른 소목차는 모두 닫고 이것만 열기 (집중력 ↑)
+    // 아코디언: 다른 소목차 모두 닫고 이것만 열기
     state.expanded.subtopic.clear();
     state.expanded.subtopic.add(subId);
   }
   renderTree(state.currentChapter.id);
+
+  // 렌더 후 같은 소목차가 화면에서 위로 이동했으면 그만큼 스크롤 보정 → 클릭 위치 고정
+  if (beforeY != null) {
+    const newEl = document.querySelector('[data-sub="' + subId + '"]');
+    if (newEl) {
+      const afterY = newEl.getBoundingClientRect().top;
+      const delta = afterY - beforeY;
+      if (Math.abs(delta) > 1) {
+        window.scrollBy(0, delta);
+      }
+    }
+  }
 }
 
 async function toggleUnderstood(subId) {
