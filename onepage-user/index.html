@@ -297,8 +297,8 @@ a { color: #4fc3f7; text-decoration: none; }
 
 /* 학습 컨트롤 — 대목차 헤더 안에 표시 (펼친 상태일 때) */
 .study-controls {
-  display: flex; gap: 4px; flex-shrink: 0;
-  margin-right: 6px;
+  display: flex; gap: 4px; flex: 1;
+  margin-left: 6px;
   pointer-events: auto;
 }
 .study-controls * { pointer-events: auto; }
@@ -350,9 +350,9 @@ a { color: #4fc3f7; text-decoration: none; }
 .sa-btn.done   { background: rgba(76,175,80,0.2);   color: #81c784;  border-color: rgba(76,175,80,0.35); }
 .sa-btn.redo   { background: rgba(255,138,0,0.18);  color: #ffb74d;  border-color: rgba(255,138,0,0.3); }
 
-/* 큰 패스 버튼 — 대목차 헤더 오른쪽, 기존 너비의 약 3배 */
+/* 큰 패스 버튼 — 대목차 헤더 오른쪽, 카운트 자리까지 확장 */
 .study-btn.skip-big {
-  padding: 0 22px; min-width: 96px; height: 30px;
+  flex: 1; padding: 0 14px; min-width: 96px; height: 30px;
   border-radius: 50px;
   background: rgba(79,195,247,0.22);
   color: #81d4fa;
@@ -426,7 +426,9 @@ a { color: #4fc3f7; text-decoration: none; }
 .topic-card.opened .topic-arrow { transform: rotate(90deg); }
 .topic-card.locked .topic-arrow { color: rgba(255,255,255,0.3); }
 .topic-title {
-  flex: 1; font-size: 15px; font-weight: 700; color: #fff;
+  font-size: 15px; font-weight: 700; color: #fff;
+  min-width: 0; flex-shrink: 1;
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
 }
 .topic-title .free-tag {
   display: inline-block; background: rgba(76,175,80,0.25); color: #81c784;
@@ -1336,8 +1338,8 @@ function renderTopic(t, hasAccess) {
       <div class="topic-head" onclick="toggleTopic(${t.id})">
         <div class="topic-arrow">▶</div>
         <div class="topic-title">${escapeHtml(t.title)}${isFree ? '<span class="free-tag">✨무료</span>' : (locked ? '<span class="lock-icon">🔒</span>' : '')}</div>
-        ${studyBtns}
         <span class="topic-count">${t.subtopic_count || 0}</span>
+        ${studyBtns}
       </div>
       <div class="topic-body">${body}</div>
     </div>
