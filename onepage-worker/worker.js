@@ -704,25 +704,56 @@ async function handleDeleteItem(request, env, id) {
 // 일괄 입력 (TSV: 대목차\t소목차\t내용)
 // ============================================================
 
+// Excel TSV: 셀에 줄바꿈이 있으면 셀 전체를 따옴표("...")로 감쌈.
+// raw 텍스트를 "줄(=한 row) 단위"로 정확히 자르는 헬퍼.
+function tsvLines(text) {
+  const out = [];
+  let buf = '';
+  let inQuote = false;
+  const s = String(text || '');
+  for (let i = 0; i < s.length; i++) {
+    const ch = s[i];
+    if (ch === '"') {
+      // 이중 따옴표("") = 이스케이프된 ", 그렇지 않으면 토글
+      if (inQuote && s[i + 1] === '"') { buf += '"'; i++; continue; }
+      inQuote = !inQuote;
+      buf += ch;
+    } else if ((ch === '\n' || ch === '\r') && !inQuote) {
+      if (ch === '\r' && s[i + 1] === '\n') i++;
+      out.push(buf); buf = '';
+    } else {
+      buf += ch;
+    }
+  }
+  if (buf.length) out.push(buf);
+  return out;
+}
+// "cell" 안의 따옴표를 벗기고, 이스케이프된 ""를 "로 복원
+function unquote(c) {
+  c = c == null ? '' : String(c);
+  if (c.length >= 2 && c[0] === '"' && c[c.length - 1] === '"') {
+    c = c.slice(1, -1).replace(/""/g, '"');
+  }
+  return c.trim();
+}
+
 function parseTSV(text) {
   // 새 포맷:
   //   대목차(A) | 소목차(B) | 내용1(C) | 내용2(D) | 내용3(E) | ...
   //   각 행은 한 소목차이고 C열부터 여러 내용 칸이 가로로 나열됨
   //   대목차 칸이 비어 있으면 이전 대목차에 계속
-  const lines = String(text || '').split(/\r?\n/);
+  const lines = tsvLines(text);
   const rows = [];
   let topicTitle = null;
 
   for (let i = 0; i < lines.length; i++) {
     const raw = lines[i];
     if (!raw.trim() && !raw.includes('\t')) continue; // 완전 빈 줄
-    const cols = raw.split('\t');
-    const a = (cols[0] || '').trim();
-    const b = (cols[1] || '').trim();
+    const cols = raw.split('\t').map(unquote);
+    const a = cols[0] || '';
+    const b = cols[1] || '';
     // C열부터 끝까지가 그 소목차의 내용 항목들
-    const items = cols.slice(2)
-      .map(c => (c || '').trim())
-      .filter(c => c.length > 0);
+    const items = cols.slice(2).filter(c => c.length > 0);
 
     // 헤더 자동 스킵
     if (i === 0 && (a === '대목차' || a === 'topic' || a === 'Topic')) continue;
@@ -775,12 +806,12 @@ async function handleBulkImport(request, env, chapterId) {
 
   const topicMap = new Map(); // title → id
   const subMap = new Map();   // topicId|title → id
-
   let createdT = 0, createdS = 0, createdI = 0;
   let tOrd = topicBase + 1;
 
+  // 1단계: 토픽·소목차 순차 생성 (FK 의존성 때문에 순차 필요)
+  const itemTasks = []; // 마지막에 병렬 fetch할 items
   for (const row of parsed.rows) {
-    // 토픽
     let topicId = topicMap.get(row.topic);
     if (!topicId) {
       const r = await ncbCreate(env, 'op_topics', {
@@ -794,8 +825,6 @@ async function handleBulkImport(request, env, chapterId) {
       topicMap.set(row.topic, topicId);
       createdT++;
     }
-
-    // 소목차
     const subKey = topicId + '|' + row.sub;
     let subId = subMap.get(subKey);
     if (!subId) {
@@ -809,18 +838,23 @@ async function handleBulkImport(request, env, chapterId) {
       subMap.set(subKey, subId);
       createdS++;
     }
+    itemTasks.push({ subId, text: row.text });
+  }
 
-    // 내용
-    await ncbCreate(env, 'op_items', {
-      subtopic_id: Number(subId),
+  // 2단계: 아이템 병렬 생성 (배치 20개씩 — 너무 많은 동시 요청 방지)
+  const BATCH = 20;
+  for (let i = 0; i < itemTasks.length; i += BATCH) {
+    const slice = itemTasks.slice(i, i + BATCH);
+    await Promise.all(slice.map((t, j) => ncbCreate(env, 'op_items', {
+      subtopic_id: Number(t.subId),
       kind: 'text',
-      text: row.text,
+      text: t.text,
       image_b64: null,
       caption: '',
-      sort_order: createdI + 1,
+      sort_order: i + j + 1,
       updated_at: kstDateTime(),
-    });
-    createdI++;
+    })));
+    createdI += slice.length;
   }
 
   return json({
