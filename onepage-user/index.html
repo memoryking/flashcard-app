@@ -1259,8 +1259,14 @@ function pressEnd() {
 }
 function subClick(e, subId) {
   if (_longFired) { _longFired = false; e.preventDefault(); return; }
-  if (state.expanded.subtopic.has(subId)) state.expanded.subtopic.delete(subId);
-  else state.expanded.subtopic.add(subId);
+  if (state.expanded.subtopic.has(subId)) {
+    // 이미 펼쳐진 거 다시 누름 = 접기
+    state.expanded.subtopic.delete(subId);
+  } else {
+    // 아코디언: 다른 소목차는 모두 닫고 이것만 열기 (집중력 ↑)
+    state.expanded.subtopic.clear();
+    state.expanded.subtopic.add(subId);
+  }
   renderTree(state.currentChapter.id);
 }
 
