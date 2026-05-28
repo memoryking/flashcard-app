@@ -1150,13 +1150,14 @@ function openBulkModal(chapterId) {
     klass: 'tsv-modal',
     body: `
       <div class="tsv-help">
-        엑셀 3열 (<code>대목차</code> · <code>소목차</code> · <code>내용</code>)을 선택해 복사 후 아래에 붙여넣기.<br>
-        대목차·소목차 칸이 비어 있으면 "이전 값에 계속"으로 처리됩니다.<br>
-        첫 행이 헤더(<code>대목차</code>)면 자동 인식해 스킵.
+        엑셀에서 다음 형식의 셀들을 선택해 복사 → 아래에 붙여넣기.<br>
+        <code>A: 대목차</code> · <code>B: 소목차</code> · <code>C~ : 내용1, 내용2, 내용3 ...</code> (한 소목차에 여러 내용 가로로)<br>
+        대목차 칸 비우면 "이전 대목차에 계속". 첫 행 헤더는 자동 스킵.<br>
+        💡 셀 사이는 자동으로 탭 — 셀 안의 공백은 콘텐츠 그대로 유지됩니다.
       </div>
       <div class="form-row">
-        <label>붙여넣기 (탭 구분 TSV)</label>
-        <textarea id="m_tsv" placeholder="대목차&#9;소목차&#9;내용&#10;미분의 기본&#9;미분계수&#9;순간변화율의 극한&#10;&#9;도함수&#9;모든 x에 대한 일반화"></textarea>
+        <label>붙여넣기 (탭 구분 TSV — 가로형)</label>
+        <textarea id="m_tsv" placeholder="대목차&#9;소목차&#9;내용1&#9;내용2&#9;내용3&#9;...&#10;조선 왕의 업적&#9;세종&#9;훈민정음 창제&#9;집현전 설치&#9;4군 6진 개척&#9;칠정산 편찬&#10;&#9;성종&#9;경국대전 완성&#9;홍문관 설치"></textarea>
       </div>
       <div class="form-row">
         <label class="check"><input type="radio" name="mode" id="m_modeA" value="append" checked> 기존 내용 뒤에 추가</label>

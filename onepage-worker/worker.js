@@ -705,34 +705,42 @@ async function handleDeleteItem(request, env, id) {
 // ============================================================
 
 function parseTSV(text) {
+  // 새 포맷:
+  //   대목차(A) | 소목차(B) | 내용1(C) | 내용2(D) | 내용3(E) | ...
+  //   각 행은 한 소목차이고 C열부터 여러 내용 칸이 가로로 나열됨
+  //   대목차 칸이 비어 있으면 이전 대목차에 계속
   const lines = String(text || '').split(/\r?\n/);
   const rows = [];
-  let topicTitle = null, subTitle = null;
+  let topicTitle = null;
 
   for (let i = 0; i < lines.length; i++) {
     const raw = lines[i];
-    if (!raw.trim() && !raw.includes('\t')) continue; // 완전 빈줄 스킵
+    if (!raw.trim() && !raw.includes('\t')) continue; // 완전 빈 줄
     const cols = raw.split('\t');
     const a = (cols[0] || '').trim();
     const b = (cols[1] || '').trim();
-    const c = (cols[2] || '').trim();
+    // C열부터 끝까지가 그 소목차의 내용 항목들
+    const items = cols.slice(2)
+      .map(c => (c || '').trim())
+      .filter(c => c.length > 0);
 
-    // 헤더 자동 인식
+    // 헤더 자동 스킵
     if (i === 0 && (a === '대목차' || a === 'topic' || a === 'Topic')) continue;
 
     // 새 대목차
-    if (a) { topicTitle = a; subTitle = null; }
-    // 새 소목차
-    if (b) { subTitle = b; }
+    if (a) topicTitle = a;
 
-    // 내용 행이 있으면 검증
-    if (c) {
-      if (!subTitle) return { error: `${i + 1}행: 소목차 없이 내용이 시작됩니다.` };
-      rows.push({ line: i + 1, topic: topicTitle, sub: subTitle, text: c });
-    } else if (b && !topicTitle) {
-      return { error: `${i + 1}행: 대목차 없이 소목차가 시작됩니다.` };
+    if (b) {
+      if (!topicTitle) return { error: `${i + 1}행: 대목차가 정해지지 않았습니다.` };
+      if (!items.length) return { error: `${i + 1}행: 소목차 '${b}'에 내용이 없습니다 (3번째 칸부터 내용 입력).` };
+      for (const text of items) {
+        rows.push({ line: i + 1, topic: topicTitle, sub: b, text });
+      }
+    } else if (items.length) {
+      return { error: `${i + 1}행: 소목차 칸이 비어 있는데 내용만 있습니다.` };
     }
   }
+
   return { rows };
 }
 
