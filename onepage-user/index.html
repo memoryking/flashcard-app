@@ -297,8 +297,8 @@ a { color: #4fc3f7; text-decoration: none; }
 
 /* 학습 컨트롤 — 대목차 헤더 안에 표시 (펼친 상태일 때) */
 .study-controls {
-  display: flex; gap: 4px; flex: 1;
-  margin-left: 6px;
+  display: flex; gap: 4px; flex-shrink: 0;
+  margin-left: auto;
   pointer-events: auto;
 }
 .study-controls * { pointer-events: auto; }
@@ -350,9 +350,9 @@ a { color: #4fc3f7; text-decoration: none; }
 .sa-btn.done   { background: rgba(76,175,80,0.2);   color: #81c784;  border-color: rgba(76,175,80,0.35); }
 .sa-btn.redo   { background: rgba(255,138,0,0.18);  color: #ffb74d;  border-color: rgba(255,138,0,0.3); }
 
-/* 큰 패스 버튼 — 대목차 헤더 오른쪽, 카운트 자리까지 확장 */
+/* 큰 패스 버튼 — 대목차 헤더 오른쪽, 항상 같은 크기로 고정 */
 .study-btn.skip-big {
-  flex: 1; padding: 0 14px; min-width: 96px; height: 30px;
+  padding: 0 22px; width: 110px; height: 30px;
   border-radius: 50px;
   background: rgba(79,195,247,0.22);
   color: #81d4fa;
@@ -360,6 +360,7 @@ a { color: #4fc3f7; text-decoration: none; }
   font-size: 13px; font-weight: 800;
   letter-spacing: 0.02em;
   box-shadow: 0 2px 12px rgba(79,195,247,0.15);
+  flex-shrink: 0;
 }
 .study-btn.skip-big:active {
   background: rgba(79,195,247,0.4);
@@ -439,6 +440,7 @@ a { color: #4fc3f7; text-decoration: none; }
 .topic-count {
   background: rgba(255,255,255,0.08); color: rgba(255,255,255,0.7);
   font-size: 10px; padding: 3px 9px; border-radius: 50px; font-weight: 600;
+  flex-shrink: 0;
 }
 .topic-body { display: none; padding: 0 14px 14px; }
 .topic-card.opened > .topic-body { display: block; }
