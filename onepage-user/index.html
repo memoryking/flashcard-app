@@ -412,7 +412,8 @@ a { color: #4fc3f7; text-decoration: none; }
 .topic-head {
   display: flex; align-items: center; gap: 10px;
   padding: 14px 16px; cursor: pointer;
-  -webkit-tap-highlight-color: rgba(233,69,96,0.15);
+  /* 패스 버튼 누를 때 헤더 전체가 핑크색으로 깜빡이는 것 방지 */
+  -webkit-tap-highlight-color: transparent;
 }
 .topic-head > * { pointer-events: none; }
 .topic-head > .study-controls,
@@ -462,7 +463,7 @@ a { color: #4fc3f7; text-decoration: none; }
   border: 1px solid rgba(179,157,219,0.25);
   border-radius: 10px;
   margin-top: 10px; overflow: hidden;
-  transition: all 0.2s;
+  /* transition 제거 — 패스 시 다음 단어 등장할 때 번쩍임 방지 */
 }
 .subtopic.understood {
   border-color: rgba(76,175,80,0.45);
@@ -471,7 +472,7 @@ a { color: #4fc3f7; text-decoration: none; }
 .subtopic-head {
   display: flex; align-items: center; gap: 10px;
   padding: 12px 14px; cursor: pointer;
-  -webkit-tap-highlight-color: rgba(233,69,96,0.15);
+  -webkit-tap-highlight-color: transparent;
   touch-action: manipulation;
 }
 .subtopic-head > * { pointer-events: none; }
@@ -1476,20 +1477,17 @@ function withTopicAnchor(topicId, callback) {
   requestAnimationFrame(adjust);
 }
 
-// 패스: 이번 회 안 봄. 모두 패스되면 축하 + 자동 처음부터
+// 패스: 이번 회 안 봄. 완료 포함 모든 소목차가 패스되어야 축하 → 자동 재시작
 function studyPass(subId, topicId) {
   state.passedSet.add(Number(subId));
   state.expanded.subtopic.delete(Number(subId));
   savePassed();
 
-  // 학습할 게 더 있는지 확인 (패스되지도, 완료되지도 않은 소목차)
+  // 보이는 소목차가 1개라도 남았는지 확인 (완료된 단어도 패스해야 사라짐)
   const subs = state.subtopicsByTopic[topicId] || [];
-  const stillToStudy = subs.filter(s =>
-    !state.passedSet.has(Number(s.id)) &&
-    !state.understoodSet.has(Number(s.id))
-  );
+  const stillVisible = subs.filter(s => !state.passedSet.has(Number(s.id)));
 
-  if (stillToStudy.length === 0) {
+  if (stillVisible.length === 0) {
     celebrateAndReset(topicId);
     return;
   }
