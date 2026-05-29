@@ -1038,6 +1038,486 @@ async function handleRedeemPoints(request, env) {
 }
 
 // ============================================================
+// 관리자 CRM
+// ============================================================
+
+const AT_PAYMENTS = 'OnepagePayments';
+
+// Airtable 페이지네이션 — 100건 초과 시 offset으로 반복 fetch
+async function atFindAllPaged(env, table, formula, hardMax = 2000) {
+  const out = [];
+  let offset;
+  for (let i = 0; i < 50 && out.length < hardMax; i++) {
+    const params = new URLSearchParams();
+    if (formula) params.set('filterByFormula', formula);
+    params.set('pageSize', '100');
+    if (offset) params.set('offset', offset);
+    const url = `${AT_BASE_URL}/${env.AIRTABLE_BASE}/${encodeURIComponent(table)}?${params.toString()}`;
+    const r = await fetch(url, { headers: atH(env) });
+    const j = await r.json();
+    const records = j.records || [];
+    out.push(...records);
+    if (!j.offset || records.length === 0) break;
+    offset = j.offset;
+  }
+  return out.slice(0, hardMax);
+}
+
+function kstYMD(iso) {
+  if (!iso) return '';
+  // KST-as-UTC ISO를 그대로 YYYY-MM-DD로 (의도된 KST 날짜)
+  return new Date(iso).toISOString().slice(0, 10);
+}
+
+async function handleAdminOverview(request, env) {
+  const [users, accesses, payments, chaptersResp] = await Promise.all([
+    atFindAllPaged(env, AT_USERS, '', 2000),
+    atFindAllPaged(env, AT_ACCESS, '', 5000),
+    atFindAllPaged(env, AT_PAYMENTS, '', 5000),
+    ncbRead(env, 'op_chapters', ''),
+  ]);
+  const chapters = chaptersResp.data || [];
+
+  const todayStr = kstDateStr();
+  const monthStr = todayStr.slice(0, 7);
+  const nowIso = kstISOString();
+  const weekIso = addDays(nowIso, 7);
+  const weekAgoIso = addDays(nowIso, -7);
+
+  let todayRevenue = 0, monthRevenue = 0, totalRevenue = 0;
+  for (const p of payments) {
+    const amt = Number(p.fields.amount) || 0;
+    const paid = p.fields.paid_at || '';
+    totalRevenue += amt;
+    if (paid) {
+      const ymd = kstYMD(paid);
+      if (ymd === todayStr) todayRevenue += amt;
+      if (ymd.startsWith(monthStr)) monthRevenue += amt;
+    }
+  }
+
+  const activePhones = new Set();
+  const expiringList = [];
+  for (const a of accesses) {
+    const exp = a.fields.expires_at;
+    if (!exp) continue;
+    if (exp > nowIso) {
+      activePhones.add(a.fields.user_phone);
+      if (exp < weekIso) {
+        expiringList.push({
+          phone: a.fields.user_phone,
+          chapter_id: Number(a.fields.chapter_id),
+          chapter_title: a.fields.chapter_title || '',
+          expires_at: exp,
+        });
+      }
+    }
+  }
+  expiringList.sort((a, b) => (a.expires_at || '').localeCompare(b.expires_at || ''));
+
+  const chapterMap = {};
+  for (const c of chapters) chapterMap[c.id] = c;
+  const chapterRev = {}, chapterSubs = {};
+  for (const p of payments) {
+    const cid = p.fields.chapter_id;
+    if (cid) chapterRev[cid] = (chapterRev[cid] || 0) + (Number(p.fields.amount) || 0);
+  }
+  for (const a of accesses) {
+    if (a.fields.expires_at > nowIso) {
+      chapterSubs[a.fields.chapter_id] = (chapterSubs[a.fields.chapter_id] || 0) + 1;
+    }
+  }
+  const topChapters = Object.keys(chapterMap).map(cid => ({
+    id: Number(cid),
+    title: chapterMap[cid].title || '',
+    subject: chapterMap[cid].subject || '',
+    revenue: chapterRev[cid] || 0,
+    active_subs: chapterSubs[cid] || 0,
+    mrr: (chapterSubs[cid] || 0) * (Number(chapterMap[cid].monthly_price) || 0),
+  })).sort((a, b) => b.mrr - a.mrr).slice(0, 10);
+
+  const recentPayments = payments
+    .slice()
+    .sort((a, b) => (b.fields.paid_at || '').localeCompare(a.fields.paid_at || ''))
+    .slice(0, 20)
+    .map(p => ({
+      phone: p.fields.user_phone || '',
+      chapter_id: Number(p.fields.chapter_id) || null,
+      chapter_title: (chapterMap[p.fields.chapter_id] && chapterMap[p.fields.chapter_id].title) || '',
+      amount: Number(p.fields.amount) || 0,
+      paid_at: p.fields.paid_at || '',
+    }));
+
+  const newSignups7d = users.filter(u => (u.createdTime || '') > weekAgoIso).length;
+
+  // 챔피언 (전환 가능성 높은 무료 사용자) — 가입했으나 결제 0
+  const paidPhones = new Set(payments.map(p => p.fields.user_phone).filter(Boolean));
+  const neverPaid = users.filter(u => u.fields.role !== 'teacher' && !paidPhones.has(u.fields.phone));
+
+  // 휴면 (마지막 결제 30일 이상 + 만료된 사람)
+  const monthAgoIso = addDays(nowIso, -30);
+  const lapsedPhones = new Set();
+  for (const a of accesses) {
+    if (a.fields.expires_at && a.fields.expires_at < nowIso && a.fields.expires_at > monthAgoIso) {
+      lapsedPhones.add(a.fields.user_phone);
+    }
+  }
+  // 휴면에서 현재 활성 제외
+  for (const p of activePhones) lapsedPhones.delete(p);
+
+  return json({
+    today_revenue: todayRevenue,
+    month_revenue: monthRevenue,
+    total_revenue: totalRevenue,
+    total_users: users.length,
+    active_subscribers: activePhones.size,
+    expiring_7d_count: expiringList.length,
+    new_signups_7d: newSignups7d,
+    never_paid_count: neverPaid.length,
+    lapsed_count: lapsedPhones.size,
+    top_chapters: topChapters,
+    recent_payments: recentPayments,
+    expiring_list: expiringList.slice(0, 30),
+  }, 200, request);
+}
+
+async function handleAdminUsers(request, env) {
+  const [users, accesses, payments, pingsResp] = await Promise.all([
+    atFindAllPaged(env, AT_USERS, '', 2000),
+    atFindAllPaged(env, AT_ACCESS, '', 5000),
+    atFindAllPaged(env, AT_PAYMENTS, '', 5000),
+    ncbRead(env, 'op_pings', 'limit=2000'),
+  ]);
+  const pings = pingsResp.data || [];
+  const nowIso = kstISOString();
+
+  const byPhone = {};
+  for (const u of users) {
+    const f = u.fields;
+    const phone = f.phone || '';
+    byPhone[phone] = {
+      rec_id: u.id,
+      name: f.name || '',
+      phone,
+      email: f.email || '',
+      role: f.role || 'student',
+      point: Number(f.point) || 0,
+      referral_code: f.referral_code || '',
+      referred_by_code: f.referred_by_code || '',
+      first_paid_at: f.first_paid_at || null,
+      joined_at: u.createdTime || null,
+      total_spent: 0,
+      payment_count: 0,
+      active_chapters: [],
+      expired_chapters: [],
+      last_payment_at: null,
+      last_ping_at: null,
+    };
+  }
+
+  for (const a of accesses) {
+    const u = byPhone[a.fields.user_phone];
+    if (!u) continue;
+    const cid = Number(a.fields.chapter_id);
+    const exp = a.fields.expires_at || '';
+    const entry = { id: cid, expires_at: exp, title: a.fields.chapter_title || '' };
+    if (exp > nowIso) u.active_chapters.push(entry);
+    else if (exp) u.expired_chapters.push(entry);
+  }
+
+  for (const p of payments) {
+    const u = byPhone[p.fields.user_phone];
+    if (!u) continue;
+    u.total_spent += Number(p.fields.amount) || 0;
+    u.payment_count += 1;
+    const paid = p.fields.paid_at || '';
+    if (paid && (!u.last_payment_at || paid > u.last_payment_at)) u.last_payment_at = paid;
+  }
+
+  for (const ping of pings) {
+    const u = byPhone[ping.user_phone];
+    if (!u) continue;
+    const t = ping.first_ping_today || '';
+    if (t && (!u.last_ping_at || t > u.last_ping_at)) u.last_ping_at = t;
+  }
+
+  const list = Object.values(byPhone);
+  list.sort((a, b) => {
+    const ax = a.last_payment_at || a.joined_at || '';
+    const bx = b.last_payment_at || b.joined_at || '';
+    return bx.localeCompare(ax);
+  });
+
+  return json({ users: list, total: list.length }, 200, request);
+}
+
+async function handleAdminUserDetail(request, env, phoneRaw) {
+  const phone = normalizePhone(decodeURIComponent(phoneRaw));
+  const userRec = await findUserByPhone(env, phone);
+  if (!userRec) return json({ error: 'user_not_found' }, 404, request);
+
+  const phoneEsc = phone.replace(/"/g, '');
+  const [accesses, payments, pointTx, understoodResp] = await Promise.all([
+    atFindAllPaged(env, AT_ACCESS, `{user_phone}="${phoneEsc}"`, 200),
+    atFindAllPaged(env, AT_PAYMENTS, `{user_phone}="${phoneEsc}"`, 500),
+    atFindAllPaged(env, AT_POINTTX, `{user_phone}="${phoneEsc}"`, 500),
+    ncbRead(env, 'op_understood', `user_phone=${encodeURIComponent(phone)}&limit=5000`),
+  ]);
+  const understood = understoodResp.data || [];
+  const f = userRec.fields;
+
+  return json({
+    user: {
+      name: f.name || '',
+      phone: f.phone || '',
+      email: f.email || '',
+      role: f.role || 'student',
+      point: Number(f.point) || 0,
+      referral_code: f.referral_code || '',
+      referred_by_code: f.referred_by_code || '',
+      first_paid_at: f.first_paid_at || null,
+      joined_at: userRec.createdTime || null,
+    },
+    chapter_access: accesses.map(a => ({
+      chapter_id: Number(a.fields.chapter_id),
+      chapter_title: a.fields.chapter_title || '',
+      expires_at: a.fields.expires_at || '',
+      source: a.fields.source || '',
+    })).sort((a, b) => (b.expires_at || '').localeCompare(a.expires_at || '')),
+    payments: payments.map(p => ({
+      amount: Number(p.fields.amount) || 0,
+      chapter_id: Number(p.fields.chapter_id) || null,
+      paid_at: p.fields.paid_at || '',
+      mul_no: p.fields.mul_no || '',
+    })).sort((a, b) => (b.paid_at || '').localeCompare(a.paid_at || '')),
+    point_tx: pointTx.map(t => ({
+      delta: Number(t.fields.delta) || 0,
+      reason: t.fields.reason || '',
+      ref_chapter_id: t.fields.ref_chapter_id || null,
+      balance_after: Number(t.fields.balance_after) || 0,
+      memo: t.fields.memo || '',
+      created_at: t.createdTime || '',
+    })).sort((a, b) => (b.created_at || '').localeCompare(a.created_at || '')),
+    understood_count: understood.length,
+    total_spent: payments.reduce((s, p) => s + (Number(p.fields.amount) || 0), 0),
+  }, 200, request);
+}
+
+async function handleAdminGrantPoints(request, env, granter) {
+  const b = await request.json().catch(() => ({}));
+  const phone = normalizePhone(String(b.phone || ''));
+  const delta = Math.trunc(Number(b.delta) || 0);
+  const reason = String(b.reason || 'admin_grant').slice(0, 60);
+  const memo = String(b.memo || '').slice(0, 200);
+
+  if (!phone) return json({ error: 'phone required' }, 400, request);
+  if (delta === 0) return json({ error: 'delta cannot be 0' }, 400, request);
+
+  const userRec = await findUserByPhone(env, phone);
+  if (!userRec) return json({ error: 'user_not_found' }, 404, request);
+
+  const currentPoint = Number(userRec.fields.point) || 0;
+  const newPoint = Math.max(0, currentPoint + delta);
+  const actualDelta = newPoint - currentPoint;
+
+  await atUpdate(env, AT_USERS, userRec.id, { point: newPoint });
+  await atCreate(env, AT_POINTTX, {
+    user_phone: phone,
+    delta: actualDelta,
+    reason,
+    balance_after: newPoint,
+    memo: `[관리자:${granter.name || granter.phone || ''}] ${memo}`.slice(0, 200),
+  });
+
+  return json({ ok: true, new_point: newPoint, applied_delta: actualDelta }, 200, request);
+}
+
+async function handleAdminWebhookSend(request, env, sender) {
+  const b = await request.json().catch(() => ({}));
+  const phones = (Array.isArray(b.phones) ? b.phones : []).map(String).map(normalizePhone).filter(Boolean);
+  if (!phones.length) return json({ error: 'phones required' }, 400, request);
+
+  const webhookUrl = String(b.webhook_url || '').trim() || env.PABBLY_WEBHOOK_URL || '';
+  if (!webhookUrl) {
+    return json({
+      error: 'webhook URL not configured. Set PABBLY_WEBHOOK_URL secret on Worker or pass webhook_url in request body.',
+    }, 400, request);
+  }
+
+  const template = String(b.template || 'custom');
+  const channel = String(b.channel || 'sms');  // 'sms' | 'email' | 'both'
+  const customMessage = String(b.custom_message || '');
+  const subject = String(b.subject || '');
+
+  // 사용자 정보 일괄 조회
+  const users = await atFindAllPaged(env, AT_USERS, '', 2000);
+  const userMap = {};
+  for (const u of users) userMap[u.fields.phone] = u.fields;
+
+  // 만료 정보가 필요한 템플릿
+  let accessByPhone = {};
+  if (['renewal', 'winback', 'expiring'].includes(template)) {
+    const accesses = await atFindAllPaged(env, AT_ACCESS, '', 5000);
+    for (const a of accesses) {
+      const p = a.fields.user_phone;
+      if (!p) continue;
+      if (!accessByPhone[p]) accessByPhone[p] = [];
+      accessByPhone[p].push({
+        chapter_id: Number(a.fields.chapter_id),
+        chapter_title: a.fields.chapter_title || '',
+        expires_at: a.fields.expires_at || '',
+      });
+    }
+  }
+
+  const results = [];
+  for (const phone of phones) {
+    const user = userMap[phone];
+    if (!user) {
+      results.push({ phone, ok: false, error: 'user_not_found' });
+      continue;
+    }
+    const payload = {
+      template,
+      channel,
+      subject,
+      sent_at: kstISOString(),
+      sent_by: sender.name || sender.phone || '',
+      name: user.name || '',
+      phone: user.phone || '',
+      email: user.email || '',
+      point: Number(user.point) || 0,
+      first_paid_at: user.first_paid_at || null,
+      referral_code: user.referral_code || '',
+      custom_message: customMessage,
+    };
+    if (accessByPhone[phone]) payload.chapter_access = accessByPhone[phone];
+
+    try {
+      const r = await fetch(webhookUrl, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
+      });
+      results.push({ phone, ok: r.ok, status: r.status });
+    } catch (e) {
+      results.push({ phone, ok: false, error: String(e && e.message || e) });
+    }
+  }
+
+  const okCount = results.filter(r => r.ok).length;
+  return json({ ok: true, sent: okCount, total: results.length, results }, 200, request);
+}
+
+async function handleAdminRevenue(request, env) {
+  const url = new URL(request.url);
+  const days = Math.min(365, Math.max(7, Number(url.searchParams.get('days')) || 30));
+  const nowIso = kstISOString();
+  const fromIso = addDays(nowIso, -days);
+
+  const [payments, chaptersResp, users] = await Promise.all([
+    atFindAllPaged(env, AT_PAYMENTS, `IS_AFTER({paid_at}, "${fromIso}")`, 5000),
+    ncbRead(env, 'op_chapters', ''),
+    atFindAllPaged(env, AT_USERS, '', 2000),
+  ]);
+  const chapters = chaptersResp.data || [];
+  const chapterMap = {};
+  for (const c of chapters) chapterMap[c.id] = c;
+  const userMap = {};
+  for (const u of users) userMap[u.fields.phone] = u.fields;
+
+  const daily = {}, byChapter = {}, byPhone = {};
+  for (const p of payments) {
+    const amt = Number(p.fields.amount) || 0;
+    const paid = p.fields.paid_at || '';
+    if (!paid) continue;
+    const ymd = kstYMD(paid);
+    daily[ymd] = (daily[ymd] || 0) + amt;
+    const cid = p.fields.chapter_id;
+    if (cid) byChapter[cid] = (byChapter[cid] || 0) + amt;
+    const ph = p.fields.user_phone;
+    if (ph) byPhone[ph] = (byPhone[ph] || 0) + amt;
+  }
+
+  const dailyArr = [];
+  for (let i = days - 1; i >= 0; i--) {
+    const d = addDays(nowIso, -i);
+    const ymd = kstYMD(d);
+    dailyArr.push({ date: ymd, amount: daily[ymd] || 0 });
+  }
+
+  const byChapterArr = Object.keys(byChapter).map(cid => ({
+    chapter_id: Number(cid),
+    title: (chapterMap[cid] && chapterMap[cid].title) || '(삭제됨)',
+    subject: (chapterMap[cid] && chapterMap[cid].subject) || '',
+    amount: byChapter[cid],
+  })).sort((a, b) => b.amount - a.amount);
+
+  const topSpenders = Object.keys(byPhone).map(ph => ({
+    phone: ph,
+    name: (userMap[ph] && userMap[ph].name) || '',
+    email: (userMap[ph] && userMap[ph].email) || '',
+    amount: byPhone[ph],
+  })).sort((a, b) => b.amount - a.amount).slice(0, 20);
+
+  return json({
+    days,
+    daily: dailyArr,
+    by_chapter: byChapterArr,
+    top_spenders: topSpenders,
+    total: dailyArr.reduce((s, d) => s + d.amount, 0),
+    payment_count: payments.length,
+  }, 200, request);
+}
+
+async function handleAdminContentStats(request, env) {
+  const [chaptersResp, topicsResp, accesses] = await Promise.all([
+    ncbRead(env, 'op_chapters', ''),
+    ncbRead(env, 'op_topics', 'limit=2000'),
+    atFindAllPaged(env, AT_ACCESS, '', 5000),
+  ]);
+  const chapters = chaptersResp.data || [];
+  const topics = topicsResp.data || [];
+  const nowIso = kstISOString();
+
+  const subsByCh = {};
+  for (const a of accesses) {
+    if (a.fields.expires_at > nowIso) {
+      subsByCh[a.fields.chapter_id] = (subsByCh[a.fields.chapter_id] || 0) + 1;
+    }
+  }
+
+  const topicsByCh = {}, freeTopicsByCh = {};
+  for (const t of topics) {
+    const cid = t.chapter_id;
+    topicsByCh[cid] = (topicsByCh[cid] || 0) + 1;
+    if (Number(t.is_free) === 1) freeTopicsByCh[cid] = (freeTopicsByCh[cid] || 0) + 1;
+  }
+
+  const stats = chapters.map(c => ({
+    id: c.id,
+    subject: c.subject || '',
+    title: c.title || '',
+    icon: c.icon || '',
+    monthly_price: Number(c.monthly_price) || 0,
+    is_all_free: Number(c.is_all_free) === 1,
+    has_pay_url: !!(c.pay_url && String(c.pay_url).trim()),
+    topic_count: topicsByCh[c.id] || 0,
+    free_topic_count: freeTopicsByCh[c.id] || 0,
+    active_subscribers: subsByCh[c.id] || 0,
+    mrr: (subsByCh[c.id] || 0) * (Number(c.monthly_price) || 0),
+  })).sort((a, b) => b.mrr - a.mrr);
+
+  return json({
+    chapters: stats,
+    total_chapters: chapters.length,
+    total_topics: topics.length,
+    total_active_subs: Object.values(subsByCh).reduce((a, b) => a + b, 0),
+    total_mrr: stats.reduce((s, c) => s + c.mrr, 0),
+  }, 200, request);
+}
+
+// ============================================================
 // 라우터
 // ============================================================
 
@@ -1139,6 +1619,19 @@ async function route(request, env) {
     const g = teacherGate(); if (g) return g;
     if (m === 'PUT') return handleUpdateItem(request, env, Number(p.id));
     if (m === 'DELETE') return handleDeleteItem(request, env, Number(p.id));
+  }
+
+  // ── 관리자 CRM ──
+  if (path.startsWith('/admin/')) {
+    const g = teacherGate(); if (g) return g;
+    if (m === 'GET' && path === '/admin/overview') return handleAdminOverview(request, env);
+    if (m === 'GET' && path === '/admin/users') return handleAdminUsers(request, env);
+    p = pathMatch(path, '/admin/user/:phone');
+    if (p && m === 'GET') return handleAdminUserDetail(request, env, p.phone);
+    if (m === 'POST' && path === '/admin/points') return handleAdminGrantPoints(request, env, auth);
+    if (m === 'POST' && path === '/admin/webhook/send') return handleAdminWebhookSend(request, env, auth);
+    if (m === 'GET' && path === '/admin/revenue') return handleAdminRevenue(request, env);
+    if (m === 'GET' && path === '/admin/content-stats') return handleAdminContentStats(request, env);
   }
 
   return json({ error: 'not_found', path, method: m }, 404, request);

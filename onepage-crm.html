@@ -1,0 +1,1341 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>OnePage CRM</title>
+<style>
+* { box-sizing: border-box; margin: 0; padding: 0; }
+html, body { height: 100%; font-family: -apple-system, BlinkMacSystemFont, 'Pretendard', 'Segoe UI', sans-serif; background: #0a0a1a; color: #e5e7eb; }
+body { line-height: 1.5; -webkit-text-size-adjust: 100%; }
+button { font: inherit; cursor: pointer; border: none; color: inherit; }
+input, textarea, select { font: inherit; outline: none; color: #fff; background: rgba(0,0,0,0.3); border: 1px solid rgba(255,255,255,0.12); border-radius: 8px; padding: 8px 12px; }
+input:focus, textarea:focus, select:focus { border-color: #e94560; }
+a { color: #4fc3f7; text-decoration: none; }
+table { border-collapse: collapse; width: 100%; }
+
+/* ── 로그인 ── */
+#loginScreen { display: flex; align-items: center; justify-content: center; min-height: 100vh; padding: 20px; }
+.login-card {
+  width: 100%; max-width: 380px;
+  background: linear-gradient(135deg, #1a1a2e, #16213e);
+  border: 1px solid #2a2a4e; border-radius: 18px;
+  padding: 30px 26px;
+  box-shadow: 0 20px 60px rgba(0,0,0,0.4);
+}
+.login-card h1 { font-size: 1.6em; font-weight: 800; text-align: center; margin-bottom: 4px; color: #fff; }
+.login-card .sub { text-align: center; font-size: 13px; color: rgba(255,255,255,0.5); margin-bottom: 22px; }
+.login-card label { display: block; font-size: 12px; color: rgba(255,255,255,0.6); margin-bottom: 4px; margin-top: 12px; }
+.login-card input { width: 100%; }
+.login-card .err { background: rgba(239,68,68,0.15); border: 1px solid rgba(239,68,68,0.4); color: #fca5a5; padding: 9px 12px; border-radius: 8px; font-size: 13px; margin-top: 14px; display: none; }
+.login-card button { width: 100%; margin-top: 18px; padding: 12px; background: linear-gradient(135deg, #e94560, #ff6b6b); color: #fff; font-weight: 700; border-radius: 8px; }
+.login-card button:disabled { opacity: 0.5; cursor: wait; }
+
+/* ── 헤더 ── */
+.app-header {
+  display: flex; align-items: center; gap: 14px; padding: 12px 20px;
+  background: rgba(10,10,26,0.94); backdrop-filter: blur(12px);
+  border-bottom: 1px solid #1f1f3a;
+  position: sticky; top: 0; z-index: 20;
+}
+.brand { font-weight: 800; font-size: 17px; color: #fff; letter-spacing: -0.02em; }
+.brand em { font-style: normal; background: linear-gradient(135deg, #ffb74d, #e94560); -webkit-background-clip: text; background-clip: text; color: transparent; }
+.brand-sub { font-size: 11px; color: rgba(255,255,255,0.45); margin-left: 8px; font-weight: 600; }
+.user-chip {
+  margin-left: auto; display: flex; align-items: center; gap: 10px;
+  font-size: 13px; color: rgba(255,255,255,0.7);
+}
+.user-chip .role { background: rgba(255,193,7,0.2); color: #ffd54f; font-size: 10px; padding: 2px 8px; border-radius: 50px; font-weight: 700; }
+.icon-btn { background: rgba(255,255,255,0.06); color: #ddd; padding: 7px 12px; border-radius: 8px; font-size: 12px; }
+.icon-btn:hover { background: rgba(255,255,255,0.12); }
+
+/* ── 탭 ── */
+.tab-bar {
+  display: flex; gap: 2px; padding: 0 20px;
+  background: rgba(10,10,26,0.9); border-bottom: 1px solid #1f1f3a;
+  position: sticky; top: 53px; z-index: 19;
+  overflow-x: auto; -webkit-overflow-scrolling: touch;
+}
+.tab-btn {
+  background: transparent; color: rgba(255,255,255,0.55);
+  padding: 13px 18px; font-size: 14px; font-weight: 600;
+  border-bottom: 2px solid transparent; white-space: nowrap;
+  transition: color 0.15s, border-color 0.15s;
+}
+.tab-btn:hover { color: #fff; }
+.tab-btn.active { color: #fff; border-bottom-color: #e94560; }
+
+/* ── 메인 ── */
+.app-main { max-width: 1400px; margin: 0 auto; padding: 22px; }
+.tab-pane { display: none; }
+.tab-pane.active { display: block; animation: fadeIn 0.2s; }
+@keyframes fadeIn { from { opacity: 0; transform: translateY(4px); } to { opacity: 1; transform: translateY(0); } }
+
+.loading { text-align: center; padding: 50px; color: rgba(255,255,255,0.5); font-size: 14px; }
+.empty-state { text-align: center; padding: 36px 20px; color: rgba(255,255,255,0.4); font-size: 13px; }
+.err-box { background: rgba(239,68,68,0.12); border: 1px solid rgba(239,68,68,0.35); color: #fca5a5; padding: 12px 16px; border-radius: 10px; margin: 16px 0; font-size: 13px; }
+
+/* ── KPI 카드 ── */
+.kpi-grid {
+  display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+  gap: 14px; margin-bottom: 28px;
+}
+.kpi-card {
+  background: linear-gradient(135deg, #161628, #1a1a2e);
+  border: 1px solid rgba(255,255,255,0.08); border-radius: 14px;
+  padding: 18px 20px; position: relative; overflow: hidden;
+}
+.kpi-card::before {
+  content: ''; position: absolute; top: 0; left: 0; right: 0; height: 3px;
+  background: linear-gradient(90deg, var(--kpi-color, #4fc3f7), transparent 60%);
+}
+.kpi-card .label { font-size: 12px; color: rgba(255,255,255,0.55); font-weight: 600; }
+.kpi-card .value {
+  font-size: 28px; font-weight: 900; color: #fff; margin-top: 6px;
+  font-variant-numeric: tabular-nums; letter-spacing: -0.02em;
+}
+.kpi-card .value .unit { font-size: 13px; color: rgba(255,255,255,0.5); margin-left: 3px; font-weight: 700; }
+.kpi-card .desc { font-size: 11px; color: rgba(255,255,255,0.4); margin-top: 6px; }
+.kpi-card.green { --kpi-color: #81c784; }
+.kpi-card.orange { --kpi-color: #ffb74d; }
+.kpi-card.blue { --kpi-color: #4fc3f7; }
+.kpi-card.purple { --kpi-color: #ce93d8; }
+.kpi-card.red { --kpi-color: #ef9a9a; }
+.kpi-card.gold { --kpi-color: #ffd54f; }
+
+/* ── 섹션 ── */
+.section {
+  background: rgba(255,255,255,0.02); border: 1px solid rgba(255,255,255,0.06);
+  border-radius: 14px; padding: 18px 20px; margin-bottom: 18px;
+}
+.section-h { display: flex; align-items: center; justify-content: space-between; margin-bottom: 12px; gap: 10px; flex-wrap: wrap; }
+.section-h h3 { font-size: 15px; font-weight: 700; color: #fff; }
+.section-h .meta { font-size: 12px; color: rgba(255,255,255,0.45); }
+
+/* ── 테이블 ── */
+.tbl-wrap { overflow-x: auto; -webkit-overflow-scrolling: touch; margin: 0 -6px; }
+.tbl {
+  width: 100%; font-size: 13px; min-width: 600px;
+}
+.tbl th, .tbl td {
+  padding: 10px 12px; text-align: left;
+  border-bottom: 1px solid rgba(255,255,255,0.05);
+  vertical-align: middle;
+}
+.tbl th {
+  font-weight: 700; font-size: 11px; color: rgba(255,255,255,0.5);
+  text-transform: uppercase; letter-spacing: 0.04em;
+  position: sticky; top: 0; background: #0a0a1a; z-index: 2;
+}
+.tbl tbody tr { cursor: pointer; transition: background 0.1s; }
+.tbl tbody tr:hover { background: rgba(255,255,255,0.03); }
+.tbl td.num, .tbl th.num { text-align: right; font-variant-numeric: tabular-nums; }
+.tbl td.muted { color: rgba(255,255,255,0.45); }
+.tbl td .pill {
+  display: inline-block; font-size: 10px; padding: 2px 7px;
+  border-radius: 50px; font-weight: 700; vertical-align: middle;
+}
+.pill.active { background: rgba(76,175,80,0.2); color: #81c784; }
+.pill.expired { background: rgba(239,68,68,0.18); color: #fca5a5; }
+.pill.free { background: rgba(79,195,247,0.18); color: #81d4fa; }
+.pill.teacher { background: rgba(255,193,7,0.2); color: #ffd54f; }
+.pill.never { background: rgba(255,255,255,0.08); color: rgba(255,255,255,0.5); }
+.pill.warn { background: rgba(255,138,0,0.2); color: #ffb74d; }
+
+/* ── 필터 바 ── */
+.filter-bar { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 14px; align-items: center; }
+.filter-bar input[type=search] { flex: 1; min-width: 200px; max-width: 380px; }
+.chip {
+  background: rgba(255,255,255,0.06); color: rgba(255,255,255,0.7);
+  padding: 6px 12px; border-radius: 50px; font-size: 12px; font-weight: 600;
+  border: 1px solid transparent; transition: all 0.15s;
+}
+.chip:hover { background: rgba(255,255,255,0.1); }
+.chip.on { background: rgba(233,69,96,0.18); color: #ff8fa3; border-color: rgba(233,69,96,0.4); }
+
+/* ── 버튼 ── */
+.btn-primary { background: linear-gradient(135deg, #e94560, #ff6b6b); color: #fff; padding: 9px 16px; border-radius: 8px; font-weight: 700; font-size: 13px; }
+.btn-primary:disabled { opacity: 0.4; cursor: not-allowed; }
+.btn-sec { background: rgba(255,255,255,0.08); color: #ddd; padding: 7px 12px; border-radius: 8px; font-size: 12px; font-weight: 600; }
+.btn-sec:hover { background: rgba(255,255,255,0.14); }
+.btn-warn { background: rgba(255,193,7,0.18); color: #ffd54f; padding: 6px 11px; border-radius: 6px; font-size: 12px; font-weight: 700; border: 1px solid rgba(255,193,7,0.3); }
+.btn-warn:hover { background: rgba(255,193,7,0.28); }
+.btn-blue { background: rgba(79,195,247,0.18); color: #81d4fa; padding: 6px 11px; border-radius: 6px; font-size: 12px; font-weight: 700; border: 1px solid rgba(79,195,247,0.3); }
+.btn-blue:hover { background: rgba(79,195,247,0.28); }
+
+/* ── 차트 (CSS bar) ── */
+.bar-chart {
+  display: flex; align-items: flex-end; gap: 2px; height: 200px;
+  padding: 0 4px; margin-top: 8px; border-bottom: 1px solid rgba(255,255,255,0.08);
+}
+.bar {
+  flex: 1; background: linear-gradient(180deg, #e94560 0%, #ff6b6b 100%);
+  border-radius: 3px 3px 0 0; min-height: 2px;
+  position: relative; transition: background 0.15s;
+  cursor: pointer;
+}
+.bar:hover { background: linear-gradient(180deg, #ffd54f 0%, #ffb74d 100%); }
+.bar.zero { background: rgba(255,255,255,0.06); }
+.bar-tooltip {
+  display: none; position: absolute; bottom: 100%; left: 50%; transform: translateX(-50%);
+  background: #16213e; color: #fff; padding: 5px 8px; border-radius: 4px;
+  font-size: 11px; white-space: nowrap; margin-bottom: 4px; z-index: 5;
+  border: 1px solid #2a2a4e;
+}
+.bar:hover .bar-tooltip { display: block; }
+.chart-axis {
+  display: flex; gap: 2px; padding: 4px 4px 0; font-size: 10px;
+  color: rgba(255,255,255,0.4); justify-content: space-between;
+}
+
+/* ── 모달 ── */
+.modal-overlay {
+  position: fixed; inset: 0; background: rgba(0,0,0,0.75);
+  display: none; align-items: flex-start; justify-content: center;
+  padding: 30px 16px; z-index: 100; overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+}
+.modal-overlay.open { display: flex; }
+.modal {
+  background: #131329; border: 1px solid #2a2a4e; border-radius: 16px;
+  width: 100%; max-width: 720px; padding: 20px 22px;
+  box-shadow: 0 24px 80px rgba(0,0,0,0.6);
+}
+.modal.wide { max-width: 980px; }
+.modal-h { display: flex; align-items: center; justify-content: space-between; margin-bottom: 14px; gap: 10px; }
+.modal-h h2 { font-size: 17px; font-weight: 800; color: #fff; }
+.modal-h .close-x {
+  background: rgba(255,255,255,0.06); border-radius: 50%;
+  width: 30px; height: 30px; font-size: 16px; color: #ddd;
+}
+.modal-foot {
+  margin-top: 18px; padding-top: 14px; border-top: 1px solid rgba(255,255,255,0.06);
+  display: flex; gap: 8px; justify-content: flex-end;
+}
+
+/* 사용자 상세 모달 */
+.detail-grid {
+  display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+  gap: 10px; margin-bottom: 18px;
+}
+.detail-cell {
+  background: rgba(255,255,255,0.04); border-radius: 10px; padding: 10px 12px;
+}
+.detail-cell .lbl { font-size: 10px; color: rgba(255,255,255,0.5); text-transform: uppercase; font-weight: 700; letter-spacing: 0.04em; }
+.detail-cell .val { font-size: 14px; color: #fff; margin-top: 3px; font-weight: 600; word-break: break-all; }
+
+.detail-sec {
+  margin-top: 16px; padding-top: 14px; border-top: 1px solid rgba(255,255,255,0.06);
+}
+.detail-sec h4 { font-size: 13px; font-weight: 700; color: #ffb74d; margin-bottom: 8px; }
+.detail-sec .scroll { max-height: 230px; overflow-y: auto; }
+
+/* 폼 */
+.form-row { margin-bottom: 12px; }
+.form-row label { display: block; font-size: 12px; color: rgba(255,255,255,0.6); margin-bottom: 4px; font-weight: 600; }
+.form-row input, .form-row select, .form-row textarea { width: 100%; }
+.form-row textarea { min-height: 80px; resize: vertical; font-family: inherit; }
+.form-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+.form-hint { font-size: 11px; color: rgba(255,255,255,0.4); margin-top: 4px; }
+
+/* 토스트 */
+.toast {
+  position: fixed; bottom: 24px; left: 50%; transform: translateX(-50%) translateY(20px);
+  background: #16213e; color: #fff; padding: 11px 18px; border-radius: 10px;
+  font-size: 13px; font-weight: 600; opacity: 0; transition: opacity 0.2s, transform 0.2s;
+  z-index: 999; border: 1px solid #2a2a4e; box-shadow: 0 8px 24px rgba(0,0,0,0.4);
+  pointer-events: none;
+}
+.toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+.toast.err { border-color: rgba(239,68,68,0.6); }
+.toast.ok { border-color: rgba(76,175,80,0.6); }
+
+/* 매출 차트 그리드 */
+.split-2 { display: grid; grid-template-columns: 2fr 1fr; gap: 14px; }
+@media (max-width: 900px) {
+  .split-2 { grid-template-columns: 1fr; }
+}
+
+/* 콘텐츠 차트 */
+.ch-card {
+  background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.06);
+  border-radius: 12px; padding: 14px 16px; margin-bottom: 10px;
+  display: grid; grid-template-columns: auto 1fr auto; gap: 14px; align-items: center;
+}
+.ch-card .ch-icon { font-size: 28px; }
+.ch-card .ch-info .ch-title { font-size: 14px; font-weight: 700; color: #fff; }
+.ch-card .ch-info .ch-meta { font-size: 11px; color: rgba(255,255,255,0.5); margin-top: 2px; }
+.ch-card .ch-info .ch-warn { font-size: 11px; color: #ffb74d; margin-top: 4px; }
+.ch-card .ch-stats { display: flex; gap: 14px; text-align: right; }
+.ch-card .ch-stats .stat { min-width: 70px; }
+.ch-card .ch-stats .stat-v { font-size: 17px; font-weight: 800; color: #fff; }
+.ch-card .ch-stats .stat-l { font-size: 10px; color: rgba(255,255,255,0.5); text-transform: uppercase; letter-spacing: 0.04em; }
+
+/* 캠페인 */
+.campaign-presets {
+  display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 8px; margin-bottom: 14px;
+}
+.preset-btn {
+  background: rgba(255,255,255,0.04); border: 1px solid rgba(255,255,255,0.1);
+  border-radius: 10px; padding: 12px 14px; text-align: left;
+  transition: all 0.15s;
+}
+.preset-btn:hover { background: rgba(255,255,255,0.08); border-color: rgba(233,69,96,0.4); }
+.preset-btn.on { background: rgba(233,69,96,0.15); border-color: rgba(233,69,96,0.5); }
+.preset-btn .ptitle { font-size: 13px; font-weight: 700; color: #fff; margin-bottom: 2px; }
+.preset-btn .pdesc { font-size: 11px; color: rgba(255,255,255,0.5); }
+.preset-btn .pcount { font-size: 10px; color: #ffb74d; margin-top: 4px; font-weight: 700; }
+
+.selected-summary {
+  background: rgba(79,195,247,0.08); border: 1px solid rgba(79,195,247,0.3);
+  border-radius: 10px; padding: 10px 14px; margin-bottom: 14px;
+  font-size: 13px; color: #81d4fa;
+}
+
+@media (max-width: 600px) {
+  .app-main { padding: 14px 10px; }
+  .section { padding: 14px 12px; }
+  .kpi-card { padding: 14px 16px; }
+  .kpi-card .value { font-size: 22px; }
+  .tab-btn { padding: 11px 14px; font-size: 13px; }
+}
+</style>
+</head>
+<body>
+
+<!-- ====== 로그인 ====== -->
+<div id="loginScreen">
+  <div class="login-card">
+    <h1>OnePage <em>CRM</em></h1>
+    <div class="sub">관리자 전용 마케팅·운영 대시보드</div>
+    <label>이메일</label>
+    <input type="email" id="loginEmail" autocomplete="username">
+    <label>비밀번호</label>
+    <input type="password" id="loginPwd" autocomplete="current-password">
+    <div class="err" id="loginErr"></div>
+    <button id="loginBtn">로그인</button>
+  </div>
+</div>
+
+<!-- ====== 앱 ====== -->
+<div id="appShell" style="display:none">
+  <header class="app-header">
+    <div class="brand">OnePage <em>CRM</em><span class="brand-sub">관리자 콘솔</span></div>
+    <div class="user-chip">
+      <span class="role">🛠 관리자</span>
+      <span id="userName"></span>
+      <button class="icon-btn" onclick="logout()">로그아웃</button>
+    </div>
+  </header>
+  <nav class="tab-bar">
+    <button class="tab-btn active" data-tab="dashboard" onclick="switchTab('dashboard')">📊 대시보드</button>
+    <button class="tab-btn" data-tab="users" onclick="switchTab('users')">👥 사용자</button>
+    <button class="tab-btn" data-tab="revenue" onclick="switchTab('revenue')">💰 매출</button>
+    <button class="tab-btn" data-tab="content" onclick="switchTab('content')">📚 콘텐츠</button>
+    <button class="tab-btn" data-tab="campaigns" onclick="switchTab('campaigns')">📤 캠페인</button>
+  </nav>
+
+  <main class="app-main">
+    <!-- 대시보드 -->
+    <section class="tab-pane active" id="tabDashboard">
+      <div id="dashboardBody"><div class="loading">불러오는 중…</div></div>
+    </section>
+
+    <!-- 사용자 -->
+    <section class="tab-pane" id="tabUsers">
+      <div class="filter-bar">
+        <input type="search" id="userSearch" placeholder="이름·전화·이메일 검색">
+        <button class="chip on" data-filter="all" onclick="setUserFilter('all')">전체</button>
+        <button class="chip" data-filter="active" onclick="setUserFilter('active')">활성 구독</button>
+        <button class="chip" data-filter="expiring" onclick="setUserFilter('expiring')">7일 내 만료</button>
+        <button class="chip" data-filter="lapsed" onclick="setUserFilter('lapsed')">휴면 (만료됨)</button>
+        <button class="chip" data-filter="never" onclick="setUserFilter('never')">미결제</button>
+        <button class="chip" data-filter="hivalue" onclick="setUserFilter('hivalue')">VIP (5만원+)</button>
+      </div>
+      <div class="selected-summary" id="userSummary" style="display:none"></div>
+      <div id="usersBody"><div class="loading">불러오는 중…</div></div>
+    </section>
+
+    <!-- 매출 -->
+    <section class="tab-pane" id="tabRevenue">
+      <div class="filter-bar">
+        <span style="font-size:13px;color:rgba(255,255,255,0.6)">기간:</span>
+        <button class="chip" data-days="7" onclick="setRevenueDays(7)">7일</button>
+        <button class="chip on" data-days="30" onclick="setRevenueDays(30)">30일</button>
+        <button class="chip" data-days="90" onclick="setRevenueDays(90)">90일</button>
+        <button class="chip" data-days="365" onclick="setRevenueDays(365)">1년</button>
+      </div>
+      <div id="revenueBody"><div class="loading">불러오는 중…</div></div>
+    </section>
+
+    <!-- 콘텐츠 -->
+    <section class="tab-pane" id="tabContent">
+      <div id="contentBody"><div class="loading">불러오는 중…</div></div>
+    </section>
+
+    <!-- 캠페인 -->
+    <section class="tab-pane" id="tabCampaigns">
+      <div id="campaignsBody"></div>
+    </section>
+  </main>
+</div>
+
+<!-- 모달 -->
+<div class="modal-overlay" id="modal" onclick="if(event.target===this)closeModal()">
+  <div class="modal" id="modalInner"></div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+const API = 'https://onepage-api.memoryking.workers.dev';
+const TOKEN_KEY = 'op_crm_token';
+const KST_OFFSET_MS = 9 * 60 * 60 * 1000;
+const KST_TZ = 'Asia/Seoul';
+
+// ============================================================
+// 상태
+// ============================================================
+const state = {
+  user: null,
+  token: localStorage.getItem(TOKEN_KEY) || '',
+  currentTab: 'dashboard',
+  // dashboard
+  overview: null,
+  // users
+  users: [],
+  userFilter: 'all',
+  userQuery: '',
+  selectedPhones: new Set(),
+  // revenue
+  revenueDays: 30,
+  revenue: null,
+  // content
+  contentStats: null,
+  // campaigns
+  campaign: { template: 'custom', phones: [], message: '', subject: '', channel: 'sms' },
+};
+
+// ============================================================
+// 유틸
+// ============================================================
+function $(id) { return document.getElementById(id); }
+function escapeHtml(s) {
+  return String(s == null ? '' : s).replace(/[&<>"']/g, c => ({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;' }[c]));
+}
+function fmtWon(n) { return (Number(n)||0).toLocaleString('ko-KR') + '원'; }
+function fmtNum(n) { return (Number(n)||0).toLocaleString('ko-KR'); }
+function fmtKst(iso, opts) {
+  if (!iso) return '—';
+  // 서버는 KST wall-clock을 UTC 표기로 저장 → 9시간 빼서 실제 UTC 복원 후 Asia/Seoul 표기
+  const realMs = new Date(iso).getTime() - KST_OFFSET_MS;
+  if (isNaN(realMs)) return '—';
+  const d = new Date(realMs);
+  return d.toLocaleString('ko-KR', Object.assign({
+    timeZone: KST_TZ,
+    year: 'numeric', month: '2-digit', day: '2-digit',
+    hour: '2-digit', minute: '2-digit',
+  }, opts || {}));
+}
+function fmtKstDate(iso) { return fmtKst(iso, { hour: undefined, minute: undefined }); }
+function daysUntil(iso) {
+  if (!iso) return null;
+  const nowKstMs = Date.now() + KST_OFFSET_MS;
+  const expMs = new Date(iso).getTime();
+  return Math.ceil((expMs - nowKstMs) / (1000 * 60 * 60 * 24));
+}
+function toast(msg, kind) {
+  const t = $('toast');
+  t.textContent = msg;
+  t.className = 'toast show' + (kind === 'err' ? ' err' : kind === 'ok' ? ' ok' : '');
+  clearTimeout(t._t);
+  t._t = setTimeout(() => t.className = 'toast', 2400);
+}
+
+async function api(method, path, body) {
+  const opts = { method, headers: {} };
+  if (state.token) opts.headers.Authorization = 'Bearer ' + state.token;
+  if (body !== undefined) {
+    opts.headers['Content-Type'] = 'application/json';
+    opts.body = JSON.stringify(body);
+  }
+  const r = await fetch(API + path, opts);
+  const j = await r.json().catch(() => ({}));
+  if (!r.ok) throw new Error(j.error || ('HTTP ' + r.status));
+  return j;
+}
+
+// ============================================================
+// 인증
+// ============================================================
+async function tryAutoLogin() {
+  if (!state.token) { showLogin(); return; }
+  try {
+    const r = await api('GET', '/auth/me');
+    if (r.user && r.user.role === 'teacher') {
+      state.user = r.user;
+      showApp();
+    } else {
+      toast('관리자(teacher) 권한이 필요합니다', 'err');
+      logout();
+    }
+  } catch (e) {
+    logout();
+  }
+}
+function showLogin() {
+  $('loginScreen').style.display = 'flex';
+  $('appShell').style.display = 'none';
+}
+function showApp() {
+  $('loginScreen').style.display = 'none';
+  $('appShell').style.display = 'block';
+  $('userName').textContent = state.user.name || state.user.email || '';
+  loadDashboard();
+}
+async function doLogin() {
+  const email = $('loginEmail').value.trim();
+  const password = $('loginPwd').value;
+  const errEl = $('loginErr');
+  errEl.style.display = 'none';
+  const btn = $('loginBtn');
+  btn.disabled = true; btn.textContent = '로그인 중…';
+  try {
+    const r = await api('POST', '/auth/login', { email, password });
+    if (!r.user || r.user.role !== 'teacher') {
+      throw new Error('관리자(teacher) 권한이 없는 계정입니다');
+    }
+    state.token = r.token; localStorage.setItem(TOKEN_KEY, r.token);
+    state.user = r.user;
+    showApp();
+  } catch (e) {
+    errEl.textContent = e.message;
+    errEl.style.display = 'block';
+  } finally {
+    btn.disabled = false; btn.textContent = '로그인';
+  }
+}
+function logout() {
+  state.token = ''; state.user = null;
+  localStorage.removeItem(TOKEN_KEY);
+  showLogin();
+}
+$('loginBtn').onclick = doLogin;
+$('loginPwd').onkeydown = e => { if (e.key === 'Enter') doLogin(); };
+
+// ============================================================
+// 탭
+// ============================================================
+function switchTab(tab) {
+  state.currentTab = tab;
+  document.querySelectorAll('.tab-btn').forEach(b => b.classList.toggle('active', b.dataset.tab === tab));
+  document.querySelectorAll('.tab-pane').forEach(p => p.classList.remove('active'));
+  $('tab' + tab[0].toUpperCase() + tab.slice(1)).classList.add('active');
+  if (tab === 'dashboard') loadDashboard();
+  else if (tab === 'users') loadUsers();
+  else if (tab === 'revenue') loadRevenue();
+  else if (tab === 'content') loadContent();
+  else if (tab === 'campaigns') renderCampaigns();
+}
+
+// ============================================================
+// 대시보드
+// ============================================================
+async function loadDashboard() {
+  $('dashboardBody').innerHTML = '<div class="loading">집계 중…</div>';
+  try {
+    const r = await api('GET', '/admin/overview');
+    state.overview = r;
+    renderDashboard();
+  } catch (e) {
+    $('dashboardBody').innerHTML = `<div class="err-box">대시보드 로드 실패: ${escapeHtml(e.message)}</div>`;
+  }
+}
+function renderDashboard() {
+  const o = state.overview; if (!o) return;
+  const kpis = `
+    <div class="kpi-grid">
+      <div class="kpi-card gold">
+        <div class="label">💰 오늘 매출</div>
+        <div class="value">${fmtNum(o.today_revenue)}<span class="unit">원</span></div>
+        <div class="desc">KST ${new Date().toLocaleDateString('ko-KR')} 기준</div>
+      </div>
+      <div class="kpi-card green">
+        <div class="label">📅 이번 달 매출</div>
+        <div class="value">${fmtNum(o.month_revenue)}<span class="unit">원</span></div>
+        <div class="desc">누적 ${fmtNum(o.total_revenue)}원</div>
+      </div>
+      <div class="kpi-card blue">
+        <div class="label">👥 활성 구독자</div>
+        <div class="value">${fmtNum(o.active_subscribers)}<span class="unit">명</span></div>
+        <div class="desc">전체 ${fmtNum(o.total_users)}명 중</div>
+      </div>
+      <div class="kpi-card orange">
+        <div class="label">⏰ 7일 내 만료</div>
+        <div class="value">${fmtNum(o.expiring_7d_count)}<span class="unit">건</span></div>
+        <div class="desc">📤 갱신 메시지 권장</div>
+      </div>
+      <div class="kpi-card purple">
+        <div class="label">✨ 신규 가입 (7일)</div>
+        <div class="value">${fmtNum(o.new_signups_7d)}<span class="unit">명</span></div>
+        <div class="desc">웰컴 캠페인 대상</div>
+      </div>
+      <div class="kpi-card red">
+        <div class="label">😴 휴면 (최근 만료)</div>
+        <div class="value">${fmtNum(o.lapsed_count)}<span class="unit">명</span></div>
+        <div class="desc">윈백 캠페인 권장</div>
+      </div>
+      <div class="kpi-card blue">
+        <div class="label">🆓 미결제 사용자</div>
+        <div class="value">${fmtNum(o.never_paid_count)}<span class="unit">명</span></div>
+        <div class="desc">전환 캠페인 대상</div>
+      </div>
+    </div>
+  `;
+
+  // 만료 임박 리스트
+  const expHtml = (o.expiring_list || []).slice(0, 12).map(e => {
+    const dLeft = daysUntil(e.expires_at);
+    return `<tr onclick="openUserDetail('${escapeHtml(e.phone)}')">
+      <td>${escapeHtml(e.phone)}</td>
+      <td>${escapeHtml(e.chapter_title || ('#' + e.chapter_id))}</td>
+      <td class="num"><span class="pill warn">D-${dLeft}</span></td>
+      <td class="muted">${fmtKstDate(e.expires_at)}</td>
+    </tr>`;
+  }).join('') || '<tr><td colspan="4" class="empty-state">7일 내 만료 예정 없음 ✨</td></tr>';
+
+  // 최근 결제
+  const payHtml = (o.recent_payments || []).map(p => `
+    <tr onclick="openUserDetail('${escapeHtml(p.phone)}')">
+      <td>${escapeHtml(p.phone)}</td>
+      <td>${escapeHtml(p.chapter_title || ('#' + p.chapter_id))}</td>
+      <td class="num" style="color:#81c784;font-weight:700">${fmtWon(p.amount)}</td>
+      <td class="muted">${fmtKst(p.paid_at)}</td>
+    </tr>
+  `).join('') || '<tr><td colspan="4" class="empty-state">결제 없음</td></tr>';
+
+  // 챕터 TOP
+  const chapterHtml = (o.top_chapters || []).map((c, i) => `
+    <tr>
+      <td>${i+1}</td>
+      <td><span style="color:rgba(255,255,255,0.5);font-size:11px">${escapeHtml(c.subject)}</span> ${escapeHtml(c.title)}</td>
+      <td class="num" style="color:#81c784;font-weight:700">${fmtWon(c.revenue)}</td>
+      <td class="num">${fmtNum(c.active_subs)}명</td>
+      <td class="num" style="color:#ffd54f;font-weight:700">${fmtWon(c.mrr)}<small style="color:rgba(255,255,255,0.4)">/월</small></td>
+    </tr>
+  `).join('') || '<tr><td colspan="5" class="empty-state">데이터 없음</td></tr>';
+
+  $('dashboardBody').innerHTML = kpis + `
+    <div class="split-2">
+      <div class="section">
+        <div class="section-h"><h3>⏰ 만료 임박 (7일 내)</h3>
+          <button class="btn-warn" onclick="campaignFromExpiring()">📤 갱신 메시지 보내기</button>
+        </div>
+        <div class="tbl-wrap"><table class="tbl">
+          <thead><tr><th>전화</th><th>챕터</th><th class="num">남은 일수</th><th>만료일</th></tr></thead>
+          <tbody>${expHtml}</tbody>
+        </table></div>
+      </div>
+      <div class="section">
+        <div class="section-h"><h3>💳 최근 결제</h3></div>
+        <div class="tbl-wrap" style="max-height:380px;overflow-y:auto"><table class="tbl">
+          <thead><tr><th>전화</th><th>챕터</th><th class="num">금액</th><th>결제 시각</th></tr></thead>
+          <tbody>${payHtml}</tbody>
+        </table></div>
+      </div>
+    </div>
+    <div class="section">
+      <div class="section-h"><h3>🏆 챕터 매출 TOP</h3>
+        <span class="meta">MRR = 활성 구독자 × 월 가격</span>
+      </div>
+      <div class="tbl-wrap"><table class="tbl">
+        <thead><tr><th>#</th><th>챕터</th><th class="num">누적 매출</th><th class="num">활성 구독</th><th class="num">예상 MRR</th></tr></thead>
+        <tbody>${chapterHtml}</tbody>
+      </table></div>
+    </div>
+  `;
+}
+
+// ============================================================
+// 사용자 탭
+// ============================================================
+async function loadUsers() {
+  if (state.users.length === 0) {
+    $('usersBody').innerHTML = '<div class="loading">집계 중…</div>';
+  }
+  try {
+    const r = await api('GET', '/admin/users');
+    state.users = r.users || [];
+    renderUsers();
+  } catch (e) {
+    $('usersBody').innerHTML = `<div class="err-box">사용자 로드 실패: ${escapeHtml(e.message)}</div>`;
+  }
+}
+function setUserFilter(f) {
+  state.userFilter = f;
+  document.querySelectorAll('#tabUsers .chip').forEach(c => c.classList.toggle('on', c.dataset.filter === f));
+  renderUsers();
+}
+function filteredUsers() {
+  const q = state.userQuery.trim().toLowerCase();
+  const now = Date.now() + KST_OFFSET_MS;
+  const weekMs = 7 * 86400 * 1000;
+  return state.users.filter(u => {
+    if (q) {
+      const blob = (u.name + u.phone + u.email).toLowerCase();
+      if (!blob.includes(q)) return false;
+    }
+    switch (state.userFilter) {
+      case 'active': return u.active_chapters.length > 0;
+      case 'expiring':
+        return u.active_chapters.some(c => {
+          const exp = new Date(c.expires_at).getTime();
+          return exp - now <= weekMs && exp > now;
+        });
+      case 'lapsed':
+        return u.active_chapters.length === 0 && u.expired_chapters.length > 0;
+      case 'never':
+        return u.role !== 'teacher' && u.payment_count === 0;
+      case 'hivalue':
+        return u.total_spent >= 50000;
+      default: return true;
+    }
+  });
+}
+function renderUsers() {
+  const list = filteredUsers();
+  const rows = list.map(u => {
+    let statusPill = '';
+    if (u.role === 'teacher') statusPill = '<span class="pill teacher">🛠 관리자</span>';
+    else if (u.active_chapters.length > 0) {
+      const earliest = u.active_chapters.reduce((m, c) => !m || c.expires_at < m ? c.expires_at : m, '');
+      const d = daysUntil(earliest);
+      statusPill = d <= 7
+        ? `<span class="pill warn">⏰ D-${d}</span>`
+        : `<span class="pill active">✓ 활성 ${u.active_chapters.length}</span>`;
+    } else if (u.expired_chapters.length > 0) {
+      statusPill = '<span class="pill expired">만료</span>';
+    } else {
+      statusPill = '<span class="pill never">미결제</span>';
+    }
+    const selected = state.selectedPhones.has(u.phone);
+    return `
+      <tr>
+        <td onclick="event.stopPropagation();toggleSelectUser('${escapeHtml(u.phone)}')" style="text-align:center">
+          <input type="checkbox" ${selected ? 'checked' : ''} onclick="toggleSelectUser('${escapeHtml(u.phone)}');event.stopPropagation()">
+        </td>
+        <td onclick="openUserDetail('${escapeHtml(u.phone)}')">${escapeHtml(u.name || '—')}</td>
+        <td onclick="openUserDetail('${escapeHtml(u.phone)}')" class="muted">${escapeHtml(u.phone)}</td>
+        <td onclick="openUserDetail('${escapeHtml(u.phone)}')">${statusPill}</td>
+        <td onclick="openUserDetail('${escapeHtml(u.phone)}')" class="num" style="color:#81c784;font-weight:700">${fmtWon(u.total_spent)}</td>
+        <td onclick="openUserDetail('${escapeHtml(u.phone)}')" class="num" style="color:#ffd54f;font-weight:600">${fmtNum(u.point)}P</td>
+        <td onclick="openUserDetail('${escapeHtml(u.phone)}')" class="muted">${u.last_ping_at || '—'}</td>
+        <td onclick="openUserDetail('${escapeHtml(u.phone)}')" class="muted">${fmtKstDate(u.joined_at)}</td>
+        <td style="white-space:nowrap">
+          <button class="btn-blue" onclick="event.stopPropagation();openGrantPoints('${escapeHtml(u.phone)}','${escapeHtml(u.name)}')">+P</button>
+          <button class="btn-warn" onclick="event.stopPropagation();campaignSinglePhone('${escapeHtml(u.phone)}')">📤</button>
+        </td>
+      </tr>
+    `;
+  }).join('') || '<tr><td colspan="9" class="empty-state">조건에 맞는 사용자 없음</td></tr>';
+
+  $('usersBody').innerHTML = `
+    <div class="section">
+      <div class="section-h">
+        <h3>👥 사용자 — ${list.length}명 표시 (전체 ${state.users.length}명)</h3>
+        <div>
+          ${state.selectedPhones.size > 0 ? `
+            <span style="color:#81d4fa;font-size:12px;margin-right:8px">${state.selectedPhones.size}명 선택</span>
+            <button class="btn-warn" onclick="campaignFromSelected()">📤 선택한 사용자에 발송</button>
+            <button class="btn-sec" onclick="clearSelection()">선택 해제</button>
+          ` : `<button class="btn-sec" onclick="selectAllFiltered()">현재 결과 모두 선택</button>`}
+        </div>
+      </div>
+      <div class="tbl-wrap"><table class="tbl">
+        <thead><tr>
+          <th style="width:30px"></th>
+          <th>이름</th><th>전화</th><th>상태</th>
+          <th class="num">누적</th><th class="num">포인트</th>
+          <th>최근 학습</th><th>가입</th><th>액션</th>
+        </tr></thead>
+        <tbody>${rows}</tbody>
+      </table></div>
+    </div>
+  `;
+}
+$('userSearch').oninput = e => { state.userQuery = e.target.value; renderUsers(); };
+function toggleSelectUser(phone) {
+  if (state.selectedPhones.has(phone)) state.selectedPhones.delete(phone);
+  else state.selectedPhones.add(phone);
+  renderUsers();
+}
+function clearSelection() {
+  state.selectedPhones.clear();
+  renderUsers();
+}
+function selectAllFiltered() {
+  for (const u of filteredUsers()) state.selectedPhones.add(u.phone);
+  renderUsers();
+}
+
+// ============================================================
+// 사용자 상세 모달
+// ============================================================
+async function openUserDetail(phone) {
+  openModal({ title: '사용자 정보 불러오는 중…', body: '<div class="loading">불러오는 중…</div>', wide: true });
+  try {
+    const r = await api('GET', '/admin/user/' + encodeURIComponent(phone));
+    renderUserDetail(r);
+  } catch (e) {
+    openModal({ title: '오류', body: `<div class="err-box">${escapeHtml(e.message)}</div>`, wide: true });
+  }
+}
+function renderUserDetail(r) {
+  const u = r.user;
+  const totalSpent = r.total_spent || 0;
+  const activeCnt = r.chapter_access.filter(c => c.expires_at > new Date().toISOString()).length;
+
+  const accessHtml = r.chapter_access.length ? r.chapter_access.map(c => {
+    const d = daysUntil(c.expires_at);
+    const active = d > 0;
+    return `<tr>
+      <td>${escapeHtml(c.chapter_title || '#' + c.chapter_id)}</td>
+      <td>${active ? `<span class="pill active">D-${d}</span>` : `<span class="pill expired">만료</span>`}</td>
+      <td class="muted">${fmtKstDate(c.expires_at)}</td>
+      <td class="muted">${escapeHtml(c.source || '—')}</td>
+    </tr>`;
+  }).join('') : '<tr><td colspan="4" class="empty-state">구독 이력 없음</td></tr>';
+
+  const payHtml = r.payments.length ? r.payments.map(p => `
+    <tr>
+      <td>${escapeHtml('#' + (p.chapter_id || '?'))}</td>
+      <td class="num" style="color:#81c784;font-weight:700">${fmtWon(p.amount)}</td>
+      <td class="muted">${fmtKst(p.paid_at)}</td>
+      <td class="muted" style="font-size:11px">${escapeHtml(p.mul_no || '')}</td>
+    </tr>
+  `).join('') : '<tr><td colspan="4" class="empty-state">결제 이력 없음</td></tr>';
+
+  const ptxHtml = r.point_tx.length ? r.point_tx.slice(0, 30).map(t => `
+    <tr>
+      <td style="color:${t.delta > 0 ? '#81c784' : '#fca5a5'};font-weight:700">${t.delta > 0 ? '+' : ''}${fmtNum(t.delta)}P</td>
+      <td>${escapeHtml(t.reason)}</td>
+      <td class="num">${fmtNum(t.balance_after)}P</td>
+      <td class="muted">${fmtKstDate(t.created_at)}</td>
+      <td class="muted" style="font-size:11px">${escapeHtml(t.memo || '')}</td>
+    </tr>
+  `).join('') : '<tr><td colspan="5" class="empty-state">포인트 이력 없음</td></tr>';
+
+  const body = `
+    <div class="detail-grid">
+      <div class="detail-cell"><div class="lbl">이름</div><div class="val">${escapeHtml(u.name)}</div></div>
+      <div class="detail-cell"><div class="lbl">전화</div><div class="val">${escapeHtml(u.phone)}</div></div>
+      <div class="detail-cell"><div class="lbl">이메일</div><div class="val">${escapeHtml(u.email)}</div></div>
+      <div class="detail-cell"><div class="lbl">가입일 (KST)</div><div class="val">${fmtKstDate(u.joined_at)}</div></div>
+      <div class="detail-cell"><div class="lbl">추천 코드</div><div class="val">${escapeHtml(u.referral_code || '—')}</div></div>
+      <div class="detail-cell"><div class="lbl">추천인 코드</div><div class="val">${escapeHtml(u.referred_by_code || '—')}</div></div>
+      <div class="detail-cell" style="background:rgba(76,175,80,0.1);border:1px solid rgba(76,175,80,0.3)">
+        <div class="lbl">💰 누적 결제</div>
+        <div class="val" style="color:#81c784">${fmtWon(totalSpent)}</div>
+      </div>
+      <div class="detail-cell" style="background:rgba(255,193,7,0.1);border:1px solid rgba(255,193,7,0.3)">
+        <div class="lbl">⭐ 보유 포인트</div>
+        <div class="val" style="color:#ffd54f">${fmtNum(u.point)}P</div>
+      </div>
+      <div class="detail-cell" style="background:rgba(79,195,247,0.1);border:1px solid rgba(79,195,247,0.3)">
+        <div class="lbl">✓ 학습완료</div>
+        <div class="val" style="color:#81d4fa">${fmtNum(r.understood_count)}개</div>
+      </div>
+      <div class="detail-cell"><div class="lbl">활성 구독</div><div class="val">${activeCnt}개</div></div>
+      <div class="detail-cell"><div class="lbl">첫 결제일</div><div class="val">${u.first_paid_at ? fmtKstDate(u.first_paid_at) : '—'}</div></div>
+      <div class="detail-cell"><div class="lbl">역할</div><div class="val">${escapeHtml(u.role)}</div></div>
+    </div>
+
+    <div style="display:flex;gap:8px;margin-bottom:14px;flex-wrap:wrap">
+      <button class="btn-primary" onclick="openGrantPoints('${escapeHtml(u.phone)}','${escapeHtml(u.name)}')">⭐ 포인트 지급</button>
+      <button class="btn-blue" onclick="campaignSinglePhone('${escapeHtml(u.phone)}')">📤 메시지 발송</button>
+    </div>
+
+    <div class="detail-sec">
+      <h4>📚 챕터 구독 (${r.chapter_access.length})</h4>
+      <div class="scroll"><table class="tbl">
+        <thead><tr><th>챕터</th><th>상태</th><th>만료</th><th>경로</th></tr></thead>
+        <tbody>${accessHtml}</tbody>
+      </table></div>
+    </div>
+
+    <div class="detail-sec">
+      <h4>💳 결제 이력 (${r.payments.length})</h4>
+      <div class="scroll"><table class="tbl">
+        <thead><tr><th>챕터</th><th class="num">금액</th><th>시각 (KST)</th><th>거래 ID</th></tr></thead>
+        <tbody>${payHtml}</tbody>
+      </table></div>
+    </div>
+
+    <div class="detail-sec">
+      <h4>⭐ 포인트 이력 (최근 30건 / ${r.point_tx.length})</h4>
+      <div class="scroll"><table class="tbl">
+        <thead><tr><th>증감</th><th>사유</th><th class="num">잔액</th><th>시각 (KST)</th><th>메모</th></tr></thead>
+        <tbody>${ptxHtml}</tbody>
+      </table></div>
+    </div>
+  `;
+  openModal({ title: `${u.name} 님`, body, wide: true });
+}
+
+// ============================================================
+// 포인트 지급 모달
+// ============================================================
+function openGrantPoints(phone, name) {
+  const body = `
+    <p style="font-size:13px;color:rgba(255,255,255,0.6);margin-bottom:14px">
+      ${escapeHtml(name)} 님 (${escapeHtml(phone)})에게 포인트를 지급하거나 차감합니다.
+    </p>
+    <div class="form-2">
+      <div class="form-row">
+        <label>증감 (양수=지급, 음수=차감)</label>
+        <input type="number" id="grantDelta" placeholder="1000" step="100">
+      </div>
+      <div class="form-row">
+        <label>사유</label>
+        <select id="grantReason">
+          <option value="admin_bonus">관리자 보너스</option>
+          <option value="event_reward">이벤트 보상</option>
+          <option value="apology">사과 포인트</option>
+          <option value="refund">환불 대체</option>
+          <option value="custom">기타</option>
+        </select>
+      </div>
+    </div>
+    <div class="form-row">
+      <label>메모 (선택)</label>
+      <input type="text" id="grantMemo" placeholder="ex) 12월 신년 이벤트">
+    </div>
+    <div class="form-hint">⚠️ 3,000P = 챕터 1개월 연장</div>
+  `;
+  openModal({
+    title: '⭐ 포인트 지급/차감',
+    body,
+    foot: `
+      <button class="btn-sec" onclick="closeModal()">취소</button>
+      <button class="btn-primary" onclick="submitGrant('${escapeHtml(phone)}')">적용</button>
+    `,
+  });
+  setTimeout(() => $('grantDelta')?.focus(), 50);
+}
+async function submitGrant(phone) {
+  const delta = Number($('grantDelta').value);
+  const reason = $('grantReason').value;
+  const memo = $('grantMemo').value.trim();
+  if (!delta) { toast('증감값을 입력하세요', 'err'); return; }
+  try {
+    const r = await api('POST', '/admin/points', { phone, delta, reason, memo });
+    toast(`적용됨: ${r.applied_delta > 0 ? '+' : ''}${r.applied_delta}P / 잔액 ${r.new_point}P`, 'ok');
+    closeModal();
+    state.users = []; loadUsers();
+  } catch (e) {
+    toast(e.message, 'err');
+  }
+}
+
+// ============================================================
+// 캠페인 (Pabbly 웹훅)
+// ============================================================
+const CAMPAIGN_PRESETS = [
+  { id: 'welcome', title: '🎉 웰컴 메시지', desc: '신규 가입자 환영 + 첫 챕터 추천', filter: 'new_signup' },
+  { id: 'renewal', title: '⏰ 갱신 알림', desc: '7일 내 만료 예정 사용자에게 갱신 권유', filter: 'expiring' },
+  { id: 'winback', title: '🌟 윈백', desc: '휴면 사용자에게 컴백 할인/포인트 제안', filter: 'lapsed' },
+  { id: 'convert', title: '💎 전환 유도', desc: '가입했지만 미결제인 사용자에게 무료 챕터 안내', filter: 'never' },
+  { id: 'vip', title: '👑 VIP 감사', desc: '누적 5만원 이상 사용자에게 특별 혜택', filter: 'hivalue' },
+  { id: 'custom', title: '✍️ 커스텀 메시지', desc: '내가 선택한 사용자에게 직접 메시지 발송', filter: null },
+];
+function renderCampaigns() {
+  const presets = CAMPAIGN_PRESETS.map(p => `
+    <button class="preset-btn ${state.campaign.template === p.id ? 'on' : ''}" onclick="selectPreset('${p.id}')">
+      <div class="ptitle">${p.title}</div>
+      <div class="pdesc">${escapeHtml(p.desc)}</div>
+      <div class="pcount" id="presetCnt_${p.id}"></div>
+    </button>
+  `).join('');
+
+  $('campaignsBody').innerHTML = `
+    <div class="section">
+      <div class="section-h">
+        <h3>📤 캠페인 발송 (Pabbly 웹훅)</h3>
+        <span class="meta">Pabbly가 받아서 SMS·이메일로 전달합니다</span>
+      </div>
+      <div class="campaign-presets">${presets}</div>
+
+      <div id="campaignForm" style="display:none">
+        <div class="selected-summary" id="campaignTarget"></div>
+
+        <div class="form-2">
+          <div class="form-row">
+            <label>채널</label>
+            <select id="campaignChannel">
+              <option value="sms">📱 문자 (SMS)</option>
+              <option value="email">📧 이메일</option>
+              <option value="both">📱 + 📧 둘 다</option>
+            </select>
+          </div>
+          <div class="form-row">
+            <label>이메일 제목 (이메일/둘다 선택 시)</label>
+            <input type="text" id="campaignSubject" placeholder="ex) OnePage 학습 안내">
+          </div>
+        </div>
+
+        <div class="form-row">
+          <label>메시지 본문</label>
+          <textarea id="campaignMessage" placeholder="안녕하세요 {name}님,&#10;..."></textarea>
+          <div class="form-hint">Pabbly가 {name}, {phone}, {email}, {point} 등을 치환할 수 있습니다 (Pabbly 설정에서)</div>
+        </div>
+
+        <div class="form-row">
+          <label>웹훅 URL (비어 두면 서버에 저장된 PABBLY_WEBHOOK_URL 사용)</label>
+          <input type="url" id="campaignWebhookUrl" placeholder="https://connect.pabbly.com/workflow/sendwebhookdata/...">
+          <div class="form-hint">테스트할 때만 임시로 입력. 일반 운영은 Worker secret을 권장.</div>
+        </div>
+
+        <div style="display:flex;gap:8px;justify-content:flex-end;margin-top:14px">
+          <button class="btn-sec" onclick="state.campaign.template=null;renderCampaigns()">취소</button>
+          <button class="btn-primary" onclick="submitCampaign()">📤 발송</button>
+        </div>
+      </div>
+    </div>
+
+    <div class="section" style="display:${state.campaignLog ? 'block' : 'none'}" id="campaignLogSection">
+      <div class="section-h"><h3>최근 발송 결과</h3></div>
+      <div id="campaignLogBody"></div>
+    </div>
+  `;
+
+  updatePresetCounts();
+}
+async function updatePresetCounts() {
+  if (state.users.length === 0) {
+    try { const r = await api('GET', '/admin/users'); state.users = r.users || []; }
+    catch (e) { return; }
+  }
+  const now = Date.now() + KST_OFFSET_MS;
+  const weekMs = 7 * 86400 * 1000;
+  const counts = {
+    welcome: state.users.filter(u => u.role !== 'teacher' && u.joined_at && (Date.now() - new Date(u.joined_at).getTime()) < 7*86400*1000).length,
+    renewal: state.users.filter(u => u.active_chapters.some(c => {
+      const e = new Date(c.expires_at).getTime();
+      return e - now <= weekMs && e > now;
+    })).length,
+    winback: state.users.filter(u => u.active_chapters.length === 0 && u.expired_chapters.length > 0).length,
+    convert: state.users.filter(u => u.role !== 'teacher' && u.payment_count === 0).length,
+    vip: state.users.filter(u => u.total_spent >= 50000).length,
+    custom: state.selectedPhones.size,
+  };
+  for (const k of Object.keys(counts)) {
+    const el = $('presetCnt_' + k);
+    if (el) el.textContent = counts[k] > 0 ? `→ ${counts[k]}명 대상` : '대상 없음';
+  }
+}
+function selectPreset(id) {
+  state.campaign.template = id;
+  renderCampaigns();
+  const preset = CAMPAIGN_PRESETS.find(p => p.id === id);
+  const targets = computeCampaignTargets(preset);
+  $('campaignForm').style.display = 'block';
+  $('campaignTarget').innerHTML = `
+    <strong>${preset.title}</strong> — ${targets.length}명에게 발송 예정
+    ${targets.length > 0 ? `<div style="margin-top:6px;font-size:11px;color:rgba(255,255,255,0.5)">
+      ${targets.slice(0, 8).map(u => escapeHtml(u.name || u.phone)).join(', ')}${targets.length > 8 ? ` 외 ${targets.length-8}명` : ''}
+    </div>` : ''}
+  `;
+  state.campaign.phones = targets.map(u => u.phone);
+  // 기본 채널: 전화 있으면 sms, 없으면 email
+  const sample = targets[0];
+  if (sample) {
+    $('campaignChannel').value = sample.phone ? 'sms' : 'email';
+  }
+}
+function computeCampaignTargets(preset) {
+  if (!preset || !preset.filter) {
+    return state.users.filter(u => state.selectedPhones.has(u.phone));
+  }
+  const now = Date.now() + KST_OFFSET_MS;
+  const weekMs = 7 * 86400 * 1000;
+  switch (preset.filter) {
+    case 'new_signup':
+      return state.users.filter(u => u.role !== 'teacher' && u.joined_at && (Date.now() - new Date(u.joined_at).getTime()) < 7*86400*1000);
+    case 'expiring':
+      return state.users.filter(u => u.active_chapters.some(c => {
+        const e = new Date(c.expires_at).getTime();
+        return e - now <= weekMs && e > now;
+      }));
+    case 'lapsed':
+      return state.users.filter(u => u.active_chapters.length === 0 && u.expired_chapters.length > 0);
+    case 'never':
+      return state.users.filter(u => u.role !== 'teacher' && u.payment_count === 0);
+    case 'hivalue':
+      return state.users.filter(u => u.total_spent >= 50000);
+    default: return [];
+  }
+}
+async function submitCampaign() {
+  const c = state.campaign;
+  if (!c.phones.length) { toast('대상 사용자가 없습니다', 'err'); return; }
+  c.message = $('campaignMessage').value.trim();
+  c.subject = $('campaignSubject').value.trim();
+  c.channel = $('campaignChannel').value;
+  const webhookUrl = $('campaignWebhookUrl').value.trim();
+  if (!c.message) { toast('메시지 본문이 비어 있습니다', 'err'); return; }
+  if (!confirm(`${c.phones.length}명에게 발송합니다. 진행할까요?`)) return;
+  try {
+    const r = await api('POST', '/admin/webhook/send', {
+      phones: c.phones,
+      template: c.template,
+      channel: c.channel,
+      custom_message: c.message,
+      subject: c.subject,
+      webhook_url: webhookUrl || undefined,
+    });
+    state.campaignLog = r;
+    toast(`발송 완료: 성공 ${r.sent} / 전체 ${r.total}`, 'ok');
+    renderCampaigns();
+    renderCampaignLog(r);
+  } catch (e) {
+    toast(e.message, 'err');
+  }
+}
+function renderCampaignLog(r) {
+  const sec = $('campaignLogSection');
+  sec.style.display = 'block';
+  const okCount = r.sent;
+  const failCount = r.total - okCount;
+  const rows = r.results.map(x => `
+    <tr>
+      <td>${escapeHtml(x.phone)}</td>
+      <td>${x.ok ? '<span class="pill active">✓ 성공</span>' : `<span class="pill expired">✗ ${escapeHtml(x.error || ('HTTP ' + x.status))}</span>`}</td>
+    </tr>
+  `).join('');
+  $('campaignLogBody').innerHTML = `
+    <p style="font-size:13px;margin-bottom:10px">
+      성공 <strong style="color:#81c784">${okCount}</strong> · 실패 <strong style="color:#fca5a5">${failCount}</strong>
+    </p>
+    <div class="tbl-wrap" style="max-height:280px;overflow-y:auto"><table class="tbl">
+      <thead><tr><th>전화</th><th>결과</th></tr></thead>
+      <tbody>${rows}</tbody>
+    </table></div>
+  `;
+}
+function campaignSinglePhone(phone) {
+  state.selectedPhones.clear();
+  state.selectedPhones.add(phone);
+  state.campaign.template = 'custom';
+  switchTab('campaigns');
+}
+function campaignFromSelected() {
+  state.campaign.template = 'custom';
+  switchTab('campaigns');
+}
+function campaignFromExpiring() {
+  state.campaign.template = 'renewal';
+  switchTab('campaigns');
+}
+
+// ============================================================
+// 매출 탭
+// ============================================================
+function setRevenueDays(d) {
+  state.revenueDays = d;
+  document.querySelectorAll('#tabRevenue .chip').forEach(c => c.classList.toggle('on', Number(c.dataset.days) === d));
+  loadRevenue();
+}
+async function loadRevenue() {
+  $('revenueBody').innerHTML = '<div class="loading">집계 중…</div>';
+  try {
+    const r = await api('GET', '/admin/revenue?days=' + state.revenueDays);
+    state.revenue = r;
+    renderRevenue();
+  } catch (e) {
+    $('revenueBody').innerHTML = `<div class="err-box">매출 로드 실패: ${escapeHtml(e.message)}</div>`;
+  }
+}
+function renderRevenue() {
+  const r = state.revenue; if (!r) return;
+  const max = Math.max(1, ...r.daily.map(d => d.amount));
+  const bars = r.daily.map(d => {
+    const h = Math.round((d.amount / max) * 100);
+    return `<div class="bar ${d.amount === 0 ? 'zero' : ''}" style="height:${h}%">
+      <div class="bar-tooltip">${d.date}<br>${fmtWon(d.amount)}</div>
+    </div>`;
+  }).join('');
+  // X축: 첫·중간·마지막 날짜만
+  const firstD = r.daily[0]?.date || '';
+  const lastD = r.daily[r.daily.length - 1]?.date || '';
+  const midD = r.daily[Math.floor(r.daily.length / 2)]?.date || '';
+
+  const chapHtml = r.by_chapter.length ? r.by_chapter.map(c => `
+    <tr>
+      <td><span style="color:rgba(255,255,255,0.5);font-size:11px">${escapeHtml(c.subject)}</span> ${escapeHtml(c.title)}</td>
+      <td class="num" style="color:#81c784;font-weight:700">${fmtWon(c.amount)}</td>
+    </tr>
+  `).join('') : '<tr><td colspan="2" class="empty-state">결제 없음</td></tr>';
+
+  const spenderHtml = r.top_spenders.length ? r.top_spenders.map((s, i) => `
+    <tr onclick="openUserDetail('${escapeHtml(s.phone)}')">
+      <td>${i+1}</td>
+      <td>${escapeHtml(s.name || '—')}</td>
+      <td class="muted">${escapeHtml(s.phone)}</td>
+      <td class="num" style="color:#ffd54f;font-weight:700">${fmtWon(s.amount)}</td>
+    </tr>
+  `).join('') : '<tr><td colspan="4" class="empty-state">결제 없음</td></tr>';
+
+  $('revenueBody').innerHTML = `
+    <div class="kpi-grid">
+      <div class="kpi-card gold">
+        <div class="label">${r.days}일 누적 매출</div>
+        <div class="value">${fmtNum(r.total)}<span class="unit">원</span></div>
+        <div class="desc">${r.payment_count}건 결제</div>
+      </div>
+      <div class="kpi-card green">
+        <div class="label">일평균</div>
+        <div class="value">${fmtNum(Math.round(r.total / r.days))}<span class="unit">원</span></div>
+        <div class="desc">하루 평균 결제 ${(r.payment_count / r.days).toFixed(1)}건</div>
+      </div>
+    </div>
+
+    <div class="section">
+      <div class="section-h"><h3>📈 일별 매출 (KST)</h3></div>
+      <div class="bar-chart">${bars}</div>
+      <div class="chart-axis">
+        <span>${firstD}</span>
+        <span>${midD}</span>
+        <span>${lastD}</span>
+      </div>
+    </div>
+
+    <div class="split-2">
+      <div class="section">
+        <div class="section-h"><h3>🏆 챕터별 매출</h3></div>
+        <div class="tbl-wrap"><table class="tbl">
+          <thead><tr><th>챕터</th><th class="num">매출</th></tr></thead>
+          <tbody>${chapHtml}</tbody>
+        </table></div>
+      </div>
+      <div class="section">
+        <div class="section-h"><h3>👑 TOP 결제자</h3></div>
+        <div class="tbl-wrap"><table class="tbl">
+          <thead><tr><th>#</th><th>이름</th><th>전화</th><th class="num">금액</th></tr></thead>
+          <tbody>${spenderHtml}</tbody>
+        </table></div>
+      </div>
+    </div>
+  `;
+}
+
+// ============================================================
+// 콘텐츠 탭
+// ============================================================
+async function loadContent() {
+  $('contentBody').innerHTML = '<div class="loading">집계 중…</div>';
+  try {
+    const r = await api('GET', '/admin/content-stats');
+    state.contentStats = r;
+    renderContent();
+  } catch (e) {
+    $('contentBody').innerHTML = `<div class="err-box">콘텐츠 통계 로드 실패: ${escapeHtml(e.message)}</div>`;
+  }
+}
+function renderContent() {
+  const r = state.contentStats; if (!r) return;
+  const cards = r.chapters.length ? r.chapters.map(c => {
+    const warn = !c.has_pay_url && !c.is_all_free
+      ? '<div class="ch-warn">⚠️ 결제 링크(pay_url) 미설정 — 결제 버튼이 비활성화됨</div>' : '';
+    const freeBadge = c.is_all_free
+      ? '<span class="pill free">✨ 전체 무료</span>'
+      : `<span class="pill" style="background:rgba(255,193,7,0.18);color:#ffd54f">${fmtWon(c.monthly_price)}/월</span>`;
+    return `<div class="ch-card">
+      <div class="ch-icon">${escapeHtml(c.icon || '📘')}</div>
+      <div class="ch-info">
+        <div class="ch-title">${escapeHtml(c.subject)} · ${escapeHtml(c.title)} ${freeBadge}</div>
+        <div class="ch-meta">대목차 ${c.topic_count}개 · 무료 미리보기 ${c.free_topic_count}개</div>
+        ${warn}
+      </div>
+      <div class="ch-stats">
+        <div class="stat">
+          <div class="stat-v" style="color:#81d4fa">${fmtNum(c.active_subscribers)}</div>
+          <div class="stat-l">활성 구독</div>
+        </div>
+        <div class="stat">
+          <div class="stat-v" style="color:#ffd54f">${fmtNum(c.mrr)}</div>
+          <div class="stat-l">예상 MRR</div>
+        </div>
+      </div>
+    </div>`;
+  }).join('') : '<div class="empty-state">챕터 없음</div>';
+
+  $('contentBody').innerHTML = `
+    <div class="kpi-grid">
+      <div class="kpi-card blue">
+        <div class="label">전체 챕터</div>
+        <div class="value">${fmtNum(r.total_chapters)}<span class="unit">개</span></div>
+      </div>
+      <div class="kpi-card purple">
+        <div class="label">전체 대목차</div>
+        <div class="value">${fmtNum(r.total_topics)}<span class="unit">개</span></div>
+      </div>
+      <div class="kpi-card green">
+        <div class="label">활성 구독 (전체)</div>
+        <div class="value">${fmtNum(r.total_active_subs)}<span class="unit">건</span></div>
+      </div>
+      <div class="kpi-card gold">
+        <div class="label">예상 MRR (월매출)</div>
+        <div class="value">${fmtNum(r.total_mrr)}<span class="unit">원</span></div>
+        <div class="desc">연 환산 ${fmtNum(r.total_mrr * 12)}원</div>
+      </div>
+    </div>
+
+    <div class="section">
+      <div class="section-h"><h3>📚 챕터별 통계 (MRR 내림차순)</h3>
+        <a href="onepage-teacher.html" target="_blank" class="btn-sec">콘텐츠 편집기 열기 →</a>
+      </div>
+      ${cards}
+    </div>
+  `;
+}
+
+// ============================================================
+// 모달
+// ============================================================
+function openModal({ title, body, foot, wide }) {
+  const m = $('modalInner');
+  m.classList.toggle('wide', !!wide);
+  m.innerHTML = `
+    <div class="modal-h"><h2>${escapeHtml(title)}</h2>
+      <button class="close-x" onclick="closeModal()">✕</button>
+    </div>
+    <div>${body}</div>
+    ${foot ? `<div class="modal-foot">${foot}</div>` : ''}
+  `;
+  $('modal').classList.add('open');
+}
+function closeModal() { $('modal').classList.remove('open'); }
+window.closeModal = closeModal;
+window.openUserDetail = openUserDetail;
+window.openGrantPoints = openGrantPoints;
+window.submitGrant = submitGrant;
+window.selectPreset = selectPreset;
+window.submitCampaign = submitCampaign;
+window.campaignSinglePhone = campaignSinglePhone;
+window.campaignFromSelected = campaignFromSelected;
+window.campaignFromExpiring = campaignFromExpiring;
+window.setUserFilter = setUserFilter;
+window.toggleSelectUser = toggleSelectUser;
+window.clearSelection = clearSelection;
+window.selectAllFiltered = selectAllFiltered;
+window.setRevenueDays = setRevenueDays;
+window.switchTab = switchTab;
+window.logout = logout;
+
+// ============================================================
+// 시작
+// ============================================================
+tryAutoLogin();
+</script>
+</body>
+</html>
