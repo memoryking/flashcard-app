@@ -781,6 +781,9 @@ const TOKEN_KEY = 'op_user_token';
 const REF_KEY = 'op_ref_code';
 const LANDING_URL = 'https://vipup.site/onepage';   // 결제 안내 페이지
 const REDEEM_COST = 3000;
+// 모든 시간은 KST(한국 표준시) 기준. 서버는 expires_at 등을 KST wall-clock으로 저장.
+const KST_OFFSET_MS = 9 * 60 * 60 * 1000;
+const KST_TZ = 'Asia/Seoul';
 
 // ============================================================
 // 상태
@@ -848,10 +851,29 @@ function formatPhone(p) {
 }
 function daysLeft(iso) {
   if (!iso) return null;
-  const now = new Date();
-  const exp = new Date(iso);
-  const diff = Math.ceil((exp - now) / (1000 * 60 * 60 * 24));
+  // 서버의 expires_at은 KST wall-clock을 UTC 표기로 저장한 값.
+  // 클라이언트의 '지금'도 같은 KST 프레임으로 옮겨 비교해야 D-N이 정확함.
+  const nowKstMs = Date.now() + KST_OFFSET_MS;
+  const expMs = new Date(iso).getTime();
+  const diff = Math.ceil((expMs - nowKstMs) / (1000 * 60 * 60 * 24));
   return diff;
+}
+
+// 서버가 보낸 KST-as-UTC ISO 문자열을 사람이 읽는 한국 시간 표기로 변환
+function fmtKst(iso, opts) {
+  if (!iso) return '';
+  // KST-as-UTC: 문자열 그대로 Date로 파싱하면 9시간 뒤 UTC로 해석되므로
+  // 9시간 빼서 실제 의도된 시점(KST wall-clock)으로 되돌린 뒤 Asia/Seoul로 포맷.
+  const realUtcMs = new Date(iso).getTime() - KST_OFFSET_MS;
+  const d = new Date(realUtcMs);
+  return d.toLocaleString('ko-KR', Object.assign({
+    timeZone: KST_TZ,
+    year: 'numeric', month: '2-digit', day: '2-digit',
+    hour: '2-digit', minute: '2-digit',
+  }, opts || {}));
+}
+function fmtKstDate(iso) {
+  return fmtKst(iso, { hour: undefined, minute: undefined });
 }
 // JSON 컬럼에서 base64가 문자열 따옴표로 한번 더 감싸여 올 수 있는 경우 처리
 function unwrapImage(b) {
@@ -1113,9 +1135,12 @@ function renderChapterCard(c) {
   const isPaidActive = !isTeacher && !isAllFree && dLeft != null && dLeft > 0;
   const isActive = isTeacher || isAllFree || isPaidActive;
 
-  // 우측 상단 코너 배지 — 유료 활성 챕터의 남은 기간
+  // 우측 상단 코너 배지 — 유료 활성 챕터의 남은 기간 (만료 KST 시각 tooltip)
   let cornerBadge = '';
-  if (isPaidActive) cornerBadge = `<span class="ch-corner-badge">D-${dLeft}</span>`;
+  if (isPaidActive) {
+    const expTip = `만료: ${fmtKst(access.expires_at)} (KST)`;
+    cornerBadge = `<span class="ch-corner-badge" title="${escapeHtml(expTip)}">D-${dLeft}</span>`;
+  }
 
   // 카드 본문의 인라인 상태 (D-N은 코너에 있으니 생략)
   let statusBadge = '', statusClass = '';
@@ -1185,7 +1210,7 @@ async function enterChapter(chapterId) {
     : (isAllFree
         ? '<span style="color:#81c784">전체 무료 공개</span>'
         : (dLeft != null && dLeft > 0
-            ? `남은 기간 ${dLeft}일`
+            ? `남은 기간 ${dLeft}일 <span style="color:rgba(255,255,255,0.5);font-size:12px;">(만료: ${fmtKstDate(access.expires_at)} KST)</span>`
             : `<button class="icon-btn" onclick="openPayModal(${chapterId})">구독으로 전체 보기 →</button>`));
 
   $('chapterTree').innerHTML = '<div class="empty-state">로딩 중…</div>';
@@ -1671,8 +1696,8 @@ function openPayModal(chapterId) {
   const access = state.chapterAccess[chapterId];
   const dLeft = access ? daysLeft(access.expires_at) : null;
   const statusMsg = (dLeft != null && dLeft > 0)
-    ? `현재 D-${dLeft}일. 결제하면 만료일이 30일 더 연장됩니다.`
-    : '결제하면 30일 동안 이 챕터의 모든 내용을 봅니다.';
+    ? `현재 D-${dLeft}일 (만료: ${fmtKstDate(access.expires_at)} KST). 결제하면 만료일이 30일 더 연장됩니다.`
+    : '결제하면 30일 동안 이 챕터의 모든 내용을 봅니다. (한국 시간 기준)';
 
   showModal({
     title: c.title + ' 구독',
