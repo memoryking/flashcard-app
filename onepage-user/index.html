@@ -1129,13 +1129,17 @@ function renderChapterCard(c) {
   const canRedeem = state.point >= REDEEM_COST;
 
   // 미구매 챕터도 카드 클릭으로 진입 → 무료 대목차는 열람, 유료 대목차는 🔒
+  const hasPayUrl = !!(c.pay_url && String(c.pay_url).trim());
   let actions;
   if (isActive) {
     actions = `<button class="primary" onclick="event.stopPropagation();enterChapter(${c.id})">열기 →</button>`;
   } else {
+    const payBtn = hasPayUrl
+      ? `<button onclick="event.stopPropagation();openPayModal(${c.id})">${price.toLocaleString()}원 결제</button>`
+      : `<button disabled title="결제 링크 미설정">${price.toLocaleString()}원 결제</button>`;
     actions = `
       <button onclick="event.stopPropagation();enterChapter(${c.id})">무료 보기 →</button>
-      <button onclick="event.stopPropagation();openPayModal(${c.id})">${price.toLocaleString()}원 결제</button>
+      ${payBtn}
       <button onclick="event.stopPropagation();confirmRedeem(${c.id})" ${canRedeem ? '' : 'disabled'}>${REDEEM_COST}P 사용</button>
     `;
   }
@@ -1663,6 +1667,7 @@ function openPayModal(chapterId) {
   if (!c) return;
   const price = Number(c.monthly_price) || 3000;
   const canRedeem = state.point >= REDEEM_COST;
+  const hasPayUrl = !!(c.pay_url && String(c.pay_url).trim());
   const access = state.chapterAccess[chapterId];
   const dLeft = access ? daysLeft(access.expires_at) : null;
   const statusMsg = (dLeft != null && dLeft > 0)
@@ -1678,9 +1683,9 @@ function openPayModal(chapterId) {
         <div class="ico">💳</div>
         <div class="body">
           <strong>${price.toLocaleString()}원으로 결제</strong>
-          <small>페이앱 결제 페이지로 이동</small>
+          <small>${hasPayUrl ? '페이앱 결제 페이지로 이동' : '결제 링크 미설정 — 포인트로 구매하세요'}</small>
         </div>
-        <button onclick="goPayment(${chapterId})">결제 →</button>
+        <button onclick="goPayment(${chapterId})" ${hasPayUrl ? '' : 'disabled'}>결제 →</button>
       </div>
       <div class="pay-row">
         <div class="ico">💰</div>
@@ -1699,10 +1704,15 @@ function openPayModal(chapterId) {
 }
 
 function goPayment(chapterId) {
+  const c = state.chapters.find(x => x.id === chapterId);
+  const payUrl = c && c.pay_url ? String(c.pay_url).trim() : '';
+  if (!payUrl) {
+    toast('이 챕터는 아직 결제 링크가 설정되지 않았습니다', true);
+    return;
+  }
   closeModal();
-  // 결제 페이지로 이동 (랜딩페이지 + 챕터·사용자 정보 prefill)
-  const url = `${LANDING_URL}?chapter=${chapterId}&phone=${encodeURIComponent(state.user.phone)}&email=${encodeURIComponent(state.user.email)}`;
-  window.open(url, '_blank');
+  // 페이앱 결제 페이지로 직접 이동 — 결제 정보는 페이앱 webhook → Airtable Automation으로 처리
+  window.open(payUrl, '_blank');
   toast('결제 후 잠시 후 갱신됩니다. (Pull-to-refresh 또는 새로고침)');
 }
 

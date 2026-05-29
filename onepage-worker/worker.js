@@ -468,6 +468,7 @@ async function handleCreateChapter(request, env, user) {
     description: String(b.description || ''),
     monthly_price: Number(b.monthly_price) || 3000,
     is_all_free: b.is_all_free ? 1 : 0,
+    pay_url: String(b.pay_url || '').trim(),
     updated_at: kstDateTime(),
   };
   if (!data.subject || !data.title) return json({ error: 'subject, title 필수' }, 400, request);
@@ -485,6 +486,7 @@ async function handleUpdateChapter(request, env, user, id) {
   if (b.description !== undefined) patch.description = String(b.description);
   if (b.monthly_price !== undefined) patch.monthly_price = Number(b.monthly_price) || 3000;
   if (b.is_all_free !== undefined) patch.is_all_free = b.is_all_free ? 1 : 0;
+  if (b.pay_url !== undefined) patch.pay_url = String(b.pay_url).trim();
   patch.updated_at = kstDateTime();
   const r = await ncbUpdate(env, 'op_chapters', id, patch);
   return json({ ok: true, result: r }, 200, request);

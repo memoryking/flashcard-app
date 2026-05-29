@@ -776,6 +776,7 @@ function openChapterModal(id) {
         <div><label>월 가격 (원)</label><input type="number" id="m_price" value="${c?.monthly_price ?? 3000}" min="0" step="500"></div>
         <div><label>표시 순서</label><input type="number" id="m_order" value="${c?.sort_order ?? 0}"></div>
       </div>
+      <div class="form-row"><label>페이앱 결제 링크</label><input type="url" id="m_payUrl" value="${escapeHtml(c?.pay_url || '')}" placeholder="https://qr.payapp.kr/..."></div>
       <div class="form-row"><label class="check"><input type="checkbox" id="m_freeAll" ${c?.is_all_free ? 'checked' : ''}> 챕터 전체 무료 (구독 없이 모든 내용 공개)</label></div>
     `,
     save: async () => {
@@ -787,6 +788,7 @@ function openChapterModal(id) {
         monthly_price: Number($('m_price').value) || 3000,
         sort_order: Number($('m_order').value) || 0,
         is_all_free: $('m_freeAll').checked,
+        pay_url: $('m_payUrl').value.trim(),
       };
       if (!data.subject || !data.title) { toast('과목·제목 필수', true); return false; }
       try {
