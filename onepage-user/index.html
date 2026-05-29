@@ -1128,18 +1128,20 @@ function renderChapterCard(c) {
   const price = Number(c.monthly_price) || 3000;
   const canRedeem = state.point >= REDEEM_COST;
 
+  // 미구매 챕터도 카드 클릭으로 진입 → 무료 대목차는 열람, 유료 대목차는 🔒
   let actions;
   if (isActive) {
     actions = `<button class="primary" onclick="event.stopPropagation();enterChapter(${c.id})">열기 →</button>`;
   } else {
     actions = `
+      <button onclick="event.stopPropagation();enterChapter(${c.id})">무료 보기 →</button>
       <button onclick="event.stopPropagation();openPayModal(${c.id})">${price.toLocaleString()}원 결제</button>
       <button onclick="event.stopPropagation();confirmRedeem(${c.id})" ${canRedeem ? '' : 'disabled'}>${REDEEM_COST}P 사용</button>
     `;
   }
 
   return `
-    <div class="chapter-card ${access && !isActive && !isTeacher ? 'expired' : ''}" onclick="${isActive ? `enterChapter(${c.id})` : `openPayModal(${c.id})`}">
+    <div class="chapter-card ${access && !isActive && !isTeacher ? 'expired' : ''}" onclick="enterChapter(${c.id})">
       ${cornerBadge}
       <div class="ch-icon">${escapeHtml(c.icon || '📘')}</div>
       <div class="ch-title">${escapeHtml(c.title)}</div>
