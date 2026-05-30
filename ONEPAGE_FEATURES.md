@@ -4,7 +4,7 @@
 
 ## 목차
 1. [시스템 개요](#1-시스템-개요)
-2. [3가지 앱 + 백엔드](#2-3가지-앱--백엔드)
+2. [4가지 앱 + 백엔드](#2-4가지-앱--백엔드)
 3. [계층 구조](#3-계층-구조)
 4. [결제 모델 (챕터별)](#4-결제-모델-챕터별)
 5. [포인트 시스템](#5-포인트-시스템)
@@ -17,9 +17,13 @@
 12. [이미지 처리](#12-이미지-처리)
 13. [보안 — 워터마크·캡쳐 차단](#13-보안--워터마크캡쳐-차단)
 14. [라이브 학습자 카운트](#14-라이브-학습자-카운트)
-15. [데이터 모델](#15-데이터-모델)
-16. [Worker 엔드포인트](#16-worker-엔드포인트)
-17. [Cloudflare Workers 청크 처리](#17-cloudflare-workers-청크-처리)
+15. [관리자 CRM 대시보드](#15-관리자-crm-대시보드)
+16. [마케팅 어트리뷰션 + QR 생성기 (UTM)](#16-마케팅-어트리뷰션--qr-생성기-utm)
+17. [캐페인 발송 (Pabbly 웹훅)](#17-캐페인-발송-pabbly-웹훅)
+18. [KST 시간 처리](#18-kst-시간-처리)
+19. [데이터 모델](#19-데이터-모델)
+20. [Worker 엔드포인트](#20-worker-엔드포인트)
+21. [Cloudflare Workers 청크 처리](#21-cloudflare-workers-청크-처리)
 
 ---
 
@@ -31,33 +35,37 @@
 |---|---|
 | 학생 앱 | 챕터 카드 → 트리 학습 → 플래시카드 모드 |
 | 선생님 앱 | 트리 CRUD + Ctrl+V 이미지 + TSV 일괄 입력 |
-| 랜딩페이지 | 마케팅, 인터랙티브 데모, 결제 진입 |
+| **CRM** | 관리자 — 사용자/매출/콘텐츠/캐페인 + UTM 어트리뷰션 + QR 생성기 |
+| 랜딩페이지 | 마케팅, 인터랙티브 데모, 결제 진입 (GitHub Pages → 아임웹 iframe) |
 | Worker (API) | 인증·게이트·콘텐츠 CRUD·결제 외 모든 처리 |
 
 ---
 
-## 2. 3가지 앱 + 백엔드
+## 2. 4가지 앱 + 백엔드
 
 ```
-┌─────────────────────────────────────────────────┐
-│  학생: https://onepage-study.vercel.app          │   ← Vercel 또는 GitHub Pages
-│  선생님: github.io/.../onepage-teacher.html      │
-│  랜딩: vipup.site (아임웹 임베드)                  │
-└──────────────────┬──────────────────────────────┘
-                   │
-                   ▼
-        onepage-api.memoryking.workers.dev
-                   │
-        ┌──────────┴──────────┐
-        ▼                     ▼
-    Airtable             nocodebackend
-   (사람·돈)            (콘텐츠 5개 테이블)
+┌──────────────────────────────────────────────────────────────┐
+│  학생:   https://onepage-study.vercel.app                     │   ← Vercel
+│  선생님: github.io/flashcard-app/onepage-teacher.html         │   ← GitHub Pages
+│  CRM:    onepage-crm-*.vercel.app                             │   ← Vercel (teacher 전용)
+│  랜딩:   vipup.site/onepage-study (아임웹 페이지에 iframe)      │
+│          ↳ iframe src = github.io/flashcard-app/onepage-landing.html
+└─────────────────────────┬────────────────────────────────────┘
+                          │
+                          ▼
+              onepage-api.memoryking.workers.dev
+                          │
+                ┌─────────┴─────────┐
+                ▼                   ▼
+            Airtable             nocodebackend
+           (사람·돈)            (콘텐츠 6개 테이블)
 ```
 
-- **Airtable**: 사용자·결제·포인트 (4 테이블)
+- **Airtable**: 사용자·결제·포인트·캐페인 (5 테이블)
 - **nocodebackend**: 챕터·콘텐츠·진도 (6 테이블)
 - **PayApp**: 결제 (사용자님 자체 webhook → Airtable)
 - **Airtable Automations**: 추천 보너스 자동 지급
+- **Pabbly Connect**: CRM이 보낸 캐페인 페이로드 → SMS/이메일 발송기 분기
 
 ---
 
@@ -83,6 +91,17 @@
 - 만료 후 자동으로 무료 사용자 (그 챕터의 무료 대목차만)
 
 저장: Airtable `OnepageChapterAccess` (user×chapter 행마다 expires_at)
+
+### 챕터별 페이앱 결제 링크 (`pay_url`)
+- 각 챕터마다 자체 페이앱 결제 URL을 `op_chapters.pay_url`에 저장
+- 학생 앱 "결제" 버튼 클릭 → 그 챕터의 `pay_url`로 직접 이동 (파라미터 없음)
+- 빈 값이면 결제 버튼이 비활성화됨 (포인트 사용은 가능)
+- 선생님 앱 챕터 편집 모달에 입력 칸 있음
+
+### 미구매 챕터도 진입 가능 — 무료 대목차 미리보기
+- 챕터 카드 본문 클릭 → 트리 진입 (구매 안 했어도)
+- `is_free=1`인 대목차만 열람 가능, 나머지는 🔒 표시
+- 결제 유도 동선 자연스럽게 — "둘러보기 → 마음에 들면 결제"
 
 > 결제 → Airtable 저장은 사용자님 자체 webhook으로 처리.
 > Worker는 `expires_at`을 읽기만 함.
@@ -371,18 +390,201 @@ document.addEventListener('keydown', e => {
 
 ---
 
-## 15. 데이터 모델
+## 15. 관리자 CRM 대시보드
 
-### Airtable (사람·돈)
-- **OnepageUsers**: name, phone, email, password_hash, role, referral_code, referred_by_code, point, first_paid_at
+[onepage-crm/index.html](onepage-crm/index.html) — `role=teacher` 전용 통합 운영 콘솔. 5개 탭으로 사용자·매출·콘텐츠·캐페인·마케팅을 한 화면에서 관리.
+
+### 📊 대시보드 탭
+- KPI 카드 7장: 오늘 매출 · 이달 매출 · 활성 구독자 · 7일 내 만료 · 신규 가입 · 휴면 · 미결제
+- 만료 임박 리스트 (D-7 이내) → 클릭하면 갱신 캐페인 바로 발송
+- 최근 결제 20건 + 챕터 매출 TOP 10 (MRR 포함)
+
+### 👥 사용자 탭
+- 검색 (이름/전화/이메일) + 6개 세그먼트 필터:
+  - 전체 / 활성 구독 / 7일 내 만료 / 휴면 / 미결제 / VIP(누적 5만원+)
+- 표 컬럼: 이름·전화·상태·누적 결제·포인트·최근 학습·가입일·액션
+- 체크박스 선택 → 일괄 캐페인 발송
+- 행 클릭 → 사용자 상세 모달 (구독·결제·포인트 이력 + UTM 유입 경로)
+- **포인트 지급/차감** — 사유 + 메모 (자동 PointTx 기록 + 관리자 이름 각인)
+
+### 💰 매출 탭
+- 기간 선택: 7일 / 30일 / 90일 / 1년
+- 일별 매출 막대 차트 (CSS, 호버 툴팁)
+- 챕터별 매출 + TOP 결제자 20명
+
+### 📚 콘텐츠 탭
+- 챕터별 구독자 수 · 예상 MRR · 연 환산
+- `pay_url` 미설정 챕터 ⚠️ 경고 (결제 버튼이 비활성화되는 챕터 식별)
+- 콘텐츠 편집기(선생님 앱) 바로가기
+
+### 📤 캐페인 탭
+[17. 캐페인 발송](#17-캐페인-발송-pabbly-웹훅) 참조.
+
+### 🎯 마케팅 추적 탭
+[16. 마케팅 어트리뷰션](#16-마케팅-어트리뷰션--qr-생성기-utm) 참조.
+
+### 인증
+- 동일 `/auth/login` 사용 (학생 앱과 같은 계정)
+- 로그인 후 `role !== 'teacher'`면 즉시 거부
+- 모든 `/admin/*` 엔드포인트는 teacher gate 통과해야 함
+
+---
+
+## 16. 마케팅 어트리뷰션 + QR 생성기 (UTM)
+
+가입자의 **유입 경로**를 자동 추적해 어떤 캐페인·디자인이 매출로 이어지는지 측정.
+
+### URL 구조 (Google Analytics 호환 UTM)
+```
+https://vipup.site/onepage-study?utm_source=flyer&utm_medium=qr&utm_campaign=school-A&utm_content=design-B
+                                  └─소스─┘     └─매체─┘  └──캐페인──┘    └─디자인/콘텐츠─┘
+```
+
+| 파라미터 | 의미 | 예시 |
+|---|---|---|
+| `utm_source` | 광고 매체 종류 | `flyer`, `youtube`, `instagram`, `kakao`, `blog` |
+| `utm_medium` | 어떻게 노출 | `qr`, `video`, `bio`, `banner`, `email` |
+| `utm_campaign` | 캐페인 그룹 키 | `school-A`, `spring2026`, `launch-week` |
+| `utm_content` | A/B 디자인 변형 | `design-A`, `design-B`, `cta-red` |
+| `utm_term` | 키워드 (선택) | `winter-special` |
+
+### 흐름 (랜딩 → 학생 앱 → CRM)
+```
+1. 전단지 QR 스캔 → vipup.site/onepage-study?utm_source=...
+2. 랜딩페이지(iframe)가 utm을 localStorage 'op_utm'에 저장 (30일)
+3. "시작하기" 클릭 → 학생 앱(다른 origin)에 URL 파라미터로 전달
+4. 학생 앱이 utm을 자체 localStorage에 저장 (30일, cross-origin 우회)
+5. 가입 시 /auth/signup 본문에 utm 객체 첨부
+6. Worker가 Airtable OnepageUsers 새 행에 utm_* 필드 7개 영구 저장
+7. CRM 어트리뷰션 탭이 가입자×결제 join → 캐페인별 성과 집계
+```
+
+### 30일 유지·재방문 attribution
+- localStorage TTL = 30일 → QR 스캔 후 1주일 뒤 가입해도 attribution 유지
+- 가입 완료 후 localStorage 자동 삭제 (다음 UTM 진입에 영향 없도록)
+- 첫 진입의 UTM만 저장 (이후 utm 없이 재방문해도 덮어쓰지 않음)
+
+### CRM "🎯 마케팅 추적" 탭
+3단계 드릴다운으로 성과 분석:
+1. **소스별** — `utm_source` 단위 (flyer / youtube / instagram 비교)
+2. **소스 + 매체별** — `utm_source / utm_medium`
+3. **캐페인 + 디자인별** — 가장 자세 (A/B 디자인 비교에 사용)
+
+각 행에 표시: 가입 수 · 결제 수 · 전환율 · 매출 · ARPU(가입자당 매출).
+**전환율이 전체 평균보다 높으면 초록색**, 낮으면 빨간색 → 한눈에 승자 식별.
+
+### QR 코드 생성기 + URL 빌더
+- 입력 칸 5개 (source/medium/campaign/content/term) — 입력 즉시 추적 URL과 QR 갱신
+- 8개 프리셋 (전단지 A·B·C / 유튜브 / 인스타 / 카카오 / 블로그)
+- 📥 PNG 다운로드 (600px, 고해상도, 인쇄용)
+- 🖨 인쇄 — 새 창에 QR + 라벨 + URL
+- 📋 URL 복사
+- 라이브러리: 입력값과 메모를 **Airtable `OnepageCampaigns`에 영구 저장** → 모든 기기·관리자 공유
+- 클라이언트 라이브러리: [`qrcode-generator@1.4.4`](https://cdn.jsdelivr.net/npm/qrcode-generator@1.4.4/qrcode.min.js)
+
+### 실전 시나리오
+- **전단지 A/B/C 테스트**: 학교 정문에서 3가지 디자인 → 1~2주 뒤 CRM에서 전환율 비교 → 승자 채택
+- **유튜브 영상별 성과**: 영상마다 다른 캐페인 ID → 어느 콘텐츠가 더 효과적인지 데이터로 확인
+- **랜딩 카피 A/B**: 같은 광고 예산 50/50 → ARPU 높은 카피 채택
+
+---
+
+## 17. 캐페인 발송 (Pabbly 웹훅)
+
+CRM에서 선택한 사용자 그룹에 SMS·이메일을 자동 발송. Worker는 [Pabbly Connect](https://www.pabbly.com/connect/) 웹훅으로 페이로드만 보내고, Pabbly가 SMS 게이트웨이(Aligo·Twilio)와 이메일 발송기(Gmail·SendGrid)로 분기.
+
+### 흐름
+```
+CRM에서 사용자 선택 + 메시지 작성
+   ↓
+POST /admin/webhook/send { phones[], template, channel, custom_message, subject }
+   ↓
+Worker가 사용자 정보(name/email/point/access 등) 보강
+   ↓
+한 명씩 Pabbly 웹훅에 POST (env.PABBLY_WEBHOOK_URL 또는 요청 body의 webhook_url)
+   ↓
+Pabbly 워크플로우가 channel 필드 보고 SMS/이메일 분기 → 외부 발송
+   ↓
+CRM에 성공/실패 결과 리스트 반환
+```
+
+### 6개 프리셋 (자동 세그먼트)
+| 프리셋 | 대상 자동 계산 | 권장 메시지 |
+|---|---|---|
+| 🎉 웰컴 | 가입 7일 이내 | 환영 + 첫 챕터 추천 |
+| ⏰ 갱신 알림 | 활성 구독 D-7 이내 | "곧 만료됩니다 — 갱신하세요" |
+| 🌟 윈백 | 만료 후 미결제 | "오랜만 — 할인 코드 드려요" |
+| 💎 전환 유도 | 가입했지만 결제 0 | "무료 챕터 먼저 체험" |
+| 👑 VIP 감사 | 누적 5만원+ | 특별 혜택 |
+| ✍️ 커스텀 | 직접 체크박스 선택한 사용자 | 자유 메시지 |
+
+### Pabbly 페이로드 구조
+```json
+{
+  "template": "renewal",
+  "channel": "sms",          // 'sms' | 'email' | 'both'
+  "subject": "",             // 이메일 제목
+  "sent_at": "2026-05-30T...",
+  "sent_by": "관리자 이름",
+  "name": "홍길동",
+  "phone": "01012345678",
+  "email": "hong@example.com",
+  "point": 4500,
+  "first_paid_at": "2026-04-01T...",
+  "referral_code": "ABC12",
+  "custom_message": "사용자가 CRM에서 입력한 메시지",
+  "chapter_access": [
+    { "chapter_id": 1, "chapter_title": "...", "expires_at": "..." }
+  ]
+}
+```
+
+### Worker 환경 변수
+```bash
+wrangler secret put PABBLY_WEBHOOK_URL
+# Pabbly Connect 워크플로우 URL 붙여넣기
+```
+
+페이로드의 `channel` 필드를 Pabbly가 보고 라우팅 — 한 워크플로우에서 SMS·이메일 모두 처리.
+
+---
+
+## 18. KST 시간 처리
+
+모든 시간은 **KST(한국 표준시)** 기준.
+
+### 서버 (Worker)
+- `kstNow()` = `new Date(Date.now() + 9시간)` — KST wall-clock을 UTC 표기로 변환
+- `kstISOString()` → `"2026-05-30T12:00:00.000Z"` 같은 형식 (Z 표기는 거짓, 실제 KST 시각)
+- `kstDateTime()` → `"2026-05-30 12:00:00"` (MySQL DATETIME 호환)
+- `addDays(iso, n)` → UTC 가산 (KST-as-UTC 프레임 안에서)
+
+### 클라이언트 (학생 앱·CRM)
+- `daysLeft(iso)` — `Date.now() + 9시간`으로 보정한 후 비교 → D-N 정확
+- `fmtKst(iso)` — KST-as-UTC ISO에서 9시간 빼고 Asia/Seoul 표기로 출력
+- `fmtKstDate(iso)` — 날짜만 (시·분 생략)
+
+### 표시 예시
+- 챕터 카드: `D-30` (활성 일수)
+- 챕터 상세 헤더: `남은 기간 30일 (만료: 2026.06.29 KST)`
+- 결제 모달: `현재 D-12일 (만료: ... KST). 결제하면 만료일이 30일 더 연장됩니다.`
+- CRM 사용자 모달: 모든 시각이 ko-KR + Asia/Seoul 표기
+
+---
+
+## 19. 데이터 모델
+
+### Airtable (사람·돈·캐페인)
+- **OnepageUsers**: name, phone, email, password_hash, role, referral_code, referred_by_code, point, first_paid_at, **utm_source, utm_medium, utm_campaign, utm_content, utm_term, landing_url, referrer_url** (UTM 7개 — 가입 시 한 번만 기록)
 - **OnepageChapterAccess**: user_phone, chapter_id, expires_at, last_payment_id, source
 - **OnepagePayments**: mul_no, user_phone, chapter_id, amount, paid_at, raw (사용자님 webhook이 채움)
-- **OnepagePointTx**: user_phone, delta, reason, balance_after (감사 로그)
+- **OnepagePointTx**: user_phone, delta, reason, balance_after, memo (감사 로그 + 관리자 지급 시 `[관리자:이름]` 접두)
+- **OnepageCampaigns**: name, utm_source, utm_medium, utm_campaign, utm_content, utm_term, notes, created_by_name, created_by_phone (CRM QR 생성기의 영구 라이브러리)
 
 ### nocodebackend (콘텐츠)
-- **op_chapters**: id, subject, title, sort_order, icon, description, monthly_price, is_all_free
+- **op_chapters**: id, subject, title, sort_order, icon, description, monthly_price, is_all_free, **pay_url** (페이앱 결제 링크)
 - **op_topics**: id, chapter_id, title, sort_order, is_free
-- **op_subtopics**: id, topic_id, title, sort_order, **image_b64, caption**
+- **op_subtopics**: id, topic_id, title, sort_order, image_b64, caption
 - **op_items**: id, subtopic_id, kind, text, image_b64, caption, sort_order
 - **op_understood**: user_phone, subtopic_id, marked_at (꾹누르기 진도)
 - **op_pings**: user_phone, first_ping_today, last_ping_at (라이브 카운트)
@@ -391,23 +593,19 @@ document.addEventListener('keydown', e => {
 
 ---
 
-## 16. Worker 엔드포인트
+## 20. Worker 엔드포인트
 
+### 공개 / 학생용
 | 경로 | 메서드 | 동작 |
 |---|---|---|
-| `/auth/signup` | POST | 회원가입 (name, phone, email, pw, referral_code?) |
+| `/auth/signup` | POST | 회원가입 (+ utm 필드 7개 자동 저장) |
 | `/auth/login` | POST | 로그인 → JWT 토큰 |
 | `/auth/me` | GET | 내 정보 + 챕터 접근 맵 |
 | `/referral/info?code=` | GET | 추천 코드 유효성 (이름 마스킹) |
-| `/chapters` | GET | 챕터 목록 (subject 그룹핑 가능) |
-| `/chapters` | POST/PUT/DELETE | (teacher만) CRUD |
-| `/chapters/:id/bulk` | POST | TSV 일괄 입력 (청크 처리) |
+| `/chapters` | GET | 챕터 목록 |
 | `/topics?chapter_id=` | GET | 대목차 목록 + 동봉 subtopics |
-| `/topics` | POST/PUT/DELETE | (teacher만) |
 | `/subtopics?topic_id=` | GET | 소목차 목록 |
-| `/subtopics` | POST/PUT/DELETE | (teacher만) |
 | `/items?subtopic_id=` | GET | 내용 블록 (구독 게이트 적용) |
-| `/items` | POST/PUT/DELETE | (teacher만) |
 | `/understood` | POST | 꾹누르기 토글 |
 | `/understood?chapter_id=` | GET | 내 이해 표시 목록 |
 | `/stats/ping` | POST | 60초마다 학생이 호출 |
@@ -415,15 +613,44 @@ document.addEventListener('keydown', e => {
 | `/access` | GET | 내 챕터별 접근 상태 |
 | `/access/redeem` | POST | 3,000P → 챕터 1개월 |
 
+### 선생님용 (teacher gate)
+| 경로 | 메서드 | 동작 |
+|---|---|---|
+| `/chapters` | POST | 챕터 생성 (pay_url 포함) |
+| `/chapters/:id` | PUT/DELETE | 챕터 수정/삭제 |
+| `/chapters/:id/bulk` | POST | TSV 일괄 입력 (청크 처리) |
+| `/topics`·`/topics/:id` | POST/PUT/DELETE | 대목차 CRUD |
+| `/subtopics`·`/subtopics/:id` | POST/PUT/DELETE | 소목차 CRUD |
+| `/items`·`/items/:id` | POST/PUT/DELETE | 내용 블록 CRUD |
+
+### 관리자 CRM용 (teacher gate, `/admin/*` 네임스페이스)
+| 경로 | 메서드 | 동작 |
+|---|---|---|
+| `/admin/overview` | GET | 대시보드 KPI + 만료임박/최근결제/챕터TOP |
+| `/admin/users` | GET | 전체 사용자 + 구독·결제·포인트·최근 학습 집계 |
+| `/admin/user/:phone` | GET | 개별 사용자 전체 이력 (UTM 포함) |
+| `/admin/points` | POST | 포인트 지급/차감 (자동 PointTx 기록) |
+| `/admin/webhook/send` | POST | Pabbly 웹훅 일괄 발송 |
+| `/admin/revenue?days=30` | GET | 일별/챕터별/사용자별 매출 |
+| `/admin/content-stats` | GET | 챕터별 구독자 · MRR |
+| `/admin/attribution?days=90` | GET | UTM 어트리뷰션 (소스/매체/캐페인별 성과) |
+| `/admin/campaigns` | GET | 저장된 캐페인 라이브러리 |
+| `/admin/campaigns` | POST | 새 캐페인 저장 (이름·UTM·메모·작성자) |
+| `/admin/campaigns/:id` | PUT/DELETE | 캐페인 수정/삭제 |
+
 ### 구독 게이트 (`/items` 응답)
 - 무료 대목차 (is_free=1) → 누구나 200
 - 비구독자 → 402 + `{error: 'subscription_required', chapter_id}`
 - 비로그인 → 401
 - 선생님 (role=teacher) → 항상 통과
 
+### Airtable 페이지네이션 (`atFindAllPaged`)
+- CRM 집계 시 사용자·결제·접근권이 100건 초과해도 처리
+- `pageSize=100` + `offset`으로 반복 fetch (최대 50 페이지 / 2000건)
+
 ---
 
-## 17. Cloudflare Workers 청크 처리
+## 21. Cloudflare Workers 청크 처리
 
 ### 서브요청 한도
 Cloudflare Workers는 invocation당 서브요청 제한 (Free 50, Paid 1000).

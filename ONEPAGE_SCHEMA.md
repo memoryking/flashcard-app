@@ -1,10 +1,26 @@
 # Onepage — 테이블 스키마 정의서
 
-원페이지 학습 서비스의 백엔드 스키마. **Airtable**(사람·돈 도메인) + **nocodebackend**(콘텐츠 도메인)로 분리.
+원페이지 학습 서비스의 백엔드 스키마. **Airtable**(사람·돈·캐페인 도메인) + **nocodebackend**(콘텐츠 도메인)로 분리.
 
-- Airtable base: 기존 base 재사용, 테이블명 `Onepage*`
-- nocodebackend Instance: `55910_flashcard_app` 재사용, 테이블명 `op_*`
+- Airtable base: 기존 base 재사용, 테이블명 `Onepage*` (5개)
+- nocodebackend Instance: `55910_flashcard_app` 재사용, 테이블명 `op_*` (6개)
 - 모든 사용자 키는 **전화번호(숫자만, 예: `01012345678`)** — PayApp 결제 webhook과의 매칭 키
+
+## 테이블 일람
+
+| 영역 | 테이블 | 용도 |
+|---|---|---|
+| Airtable | `OnepageUsers` | 회원 + UTM 어트리뷰션 |
+| Airtable | `OnepageChapterAccess` | 사용자×챕터 만료일 |
+| Airtable | `OnepagePayments` | PayApp webhook 결제 원장 |
+| Airtable | `OnepagePointTx` | 포인트 변동 감사 로그 |
+| Airtable | `OnepageCampaigns` | CRM QR 라이브러리 (마케팅 자산) |
+| nocodebackend | `op_chapters` | 챕터 (+ 페이앱 결제 URL) |
+| nocodebackend | `op_topics` | 대목차 |
+| nocodebackend | `op_subtopics` | 소목차 (+ 대표 이미지) |
+| nocodebackend | `op_items` | 내용 블록 (텍스트·이미지) |
+| nocodebackend | `op_understood` | 학생 꾹누르기 진도 |
+| nocodebackend | `op_pings` | 라이브 학습자 카운트 |
 
 ---
 
@@ -12,7 +28,7 @@
 
 ### A1. `OnepageUsers`
 
-회원 마스터. 인증·포인트·추천의 단일 진실원본.
+회원 마스터. 인증·포인트·추천·**UTM 어트리뷰션**의 단일 진실원본.
 
 | 필드명 | Airtable 필드 타입 | 옵션·기본값 | 비고 |
 |---|---|---|---|
@@ -25,7 +41,16 @@
 | `referred_by_code` | **Single line text** | — | 가입 시 입력 (선택). 비어 있어도 OK |
 | `point` | **Number** → Integer (≥0) | 기본 `0` | "Allow negative" 체크 해제 |
 | `first_paid_at` | **Date** → "Include time field" 체크 | — | 첫 결제 시각 (추천 보너스 중복 방지). 빈 값 허용 |
+| **`utm_source`** | **Single line text** | — | 광고 매체 (flyer, youtube, instagram, kakao …) |
+| **`utm_medium`** | **Single line text** | — | 노출 방식 (qr, video, bio, banner …) |
+| **`utm_campaign`** | **Single line text** | — | 캐페인 그룹 (school-A, launch-week …) |
+| **`utm_content`** | **Single line text** | — | A/B 디자인 변형 (design-A, design-B …) |
+| **`utm_term`** | **Single line text** | — | 키워드 (선택) |
+| **`landing_url`** | **Long text** | — | 가입 직전 랜딩 URL 전체 (파라미터 포함) |
+| **`referrer_url`** | **Long text** | — | `document.referrer` (어디서 클릭해서 왔는지) |
 | `created_at` | **Created time** (auto) | 자동 채움 | Airtable 자동 필드 |
+
+**UTM 7개 필드**: 가입 시 한 번만 기록(불변). 비어 있어도 OK — 추천 가입이나 직접 입력 가입은 비어 있음. CRM `/admin/attribution`이 이 필드들로 캐페인별 성과 집계.
 
 **유니크 제약 (Airtable 자체 unique 제약은 없으니 Worker에서 검사)**
 - `phone` 유니크
@@ -36,6 +61,7 @@
 - `전체 회원` — 기본
 - `선생님` — role=teacher
 - `추천왕` — point 내림차순
+- `UTM 추적된 가입자` — utm_source 비어있지 않음
 
 ---
 
@@ -89,12 +115,40 @@ PayApp webhook이 채울 결제 원장. **Worker는 읽지도 쓰지도 않음**
 |---|---|---|---|
 | `user_phone` | **Single line text** | — | |
 | `delta` | **Number** → Integer (음수 허용) | — | 예: +1000, -3000. "Allow negative" 체크 ✅ |
-| `reason` | **Single select** | 옵션: `referral_referrer`, `referral_referee`, `redeem_chapter`, `manual_admin` | |
+| `reason` | **Single select** | 옵션: `referral_referrer`, `referral_referee`, `redeem_chapter`, `admin_bonus`, `event_reward`, `apology`, `refund`, `custom` | CRM 관리자 지급은 admin_bonus 외 4종 |
 | `ref_user_phone` | **Single line text** | — | 추천 보너스일 때 상대 phone |
 | `ref_chapter_id` | **Number** → Integer | — | 챕터 연장에 사용한 경우 |
 | `balance_after` | **Number** → Integer | — | 변동 후 잔액 (감사용) |
-| `memo` | **Single line text** | — | 선택 |
+| `memo` | **Single line text** | — | 선택. CRM 관리자 지급 시 `[관리자:이름] 메모` 형식으로 자동 prefix |
 | `created_at` | **Created time** (auto) | 자동 채움 | |
+
+---
+
+### A5. `OnepageCampaigns`
+
+CRM의 QR 코드 + 추적 URL 생성기 라이브러리. 관리자가 저장한 캐페인을 서버에 영구 보관 → 모든 기기·관리자 공유.
+
+| 필드명 | Airtable 필드 타입 | 옵션·기본값 | 비고 |
+|---|---|---|---|
+| `name` | **Single line text** | — | 라이브러리에 표시할 짧은 라벨 (예: "A고 봄전단지 디자인B") |
+| `utm_source` | **Single line text** | — | flyer, youtube, instagram, kakao, blog 등 |
+| `utm_medium` | **Single line text** | — | qr, video, bio, banner, email 등 |
+| `utm_campaign` | **Single line text** | — | school-A, spring2026, launch-week 등 |
+| `utm_content` | **Single line text** | — | A/B 디자인 변형 (design-A, design-B) |
+| `utm_term` | **Single line text** | — | 키워드 (선택) |
+| `notes` | **Long text** | — | "이 디자인은 ~한 식으로 배포함" 같은 메모 |
+| `created_by_name` | **Single line text** | — | 저장한 관리자 이름 (자동) |
+| `created_by_phone` | **Single line text** | — | 저장한 관리자 phone (자동) |
+| `created_at` | **Created time** (auto) | 자동 채움 | |
+
+**용도**: 같은 캐페인을 다시 만들 때 라이브러리에서 한 번 클릭 → QR 자동 재생성. 팀원 간 공유 가능 (모든 관리자가 같은 라이브러리 보기).
+
+**권장 뷰**
+- `최근 저장` — created_at 내림차순 (기본)
+- `내가 만든 것` — created_by_phone = 내 phone
+- `소스별` — utm_source로 그룹
+
+**Worker 엔드포인트**: `GET/POST /admin/campaigns`, `PUT/DELETE /admin/campaigns/:id` (teacher gate)
 
 ---
 
@@ -157,11 +211,17 @@ Type 드롭다운에 보이는 옵션: `INT`, `BIGINT`, `VARCHAR(255)`, `DROPDOW
 | `description` | TEXT | — | — | — | 카드 부제 |
 | `monthly_price` | INT | ✅ | — | `3000` | 원 단위 |
 | `is_all_free` | BOOLEAN | ✅ | — | `0` | 1이면 챕터 전체 무료 |
+| **`pay_url`** | VARCHAR(255) | — | — | — | **챕터별 페이앱 결제 URL**. 비어 있으면 학생 앱의 결제 버튼이 비활성화. 선생님 앱 챕터 편집 모달에 입력 칸 있음. |
 | `updated_at` | DATETIME | — | — | — | Worker가 갱신 |
 
 > **주의 — `order`는 MySQL 예약어**: 모든 테이블의 `sort_order` 컬럼은 처음부터 `sort_order`로 만들어야 합니다 — `order`로 만들면 REST API의 `?order=` 파라미터와 충돌. 이미 `order`로 만드셨으면:
 > ```sql
 > ALTER TABLE op_chapters CHANGE `order` `sort_order` INT NOT NULL DEFAULT 0;
+> ```
+
+> **마이그레이션 (`pay_url`)**: 기존 테이블이면
+> ```sql
+> ALTER TABLE op_chapters ADD COLUMN pay_url VARCHAR(255) NULL;
 > ```
 
 ---
@@ -321,7 +381,23 @@ Worker는 결제·추천보너스 처리에 관여하지 않습니다. 모두 Ai
 
 이 스키마대로 테이블 만들기:
 
-1. **Airtable**: 위 4개 테이블(`OnepageUsers`, `OnepageChapterAccess`, `OnepagePayments`, `OnepagePointTx`)
+1. **Airtable**: 위 5개 테이블(`OnepageUsers`, `OnepageChapterAccess`, `OnepagePayments`, `OnepagePointTx`, `OnepageCampaigns`)
 2. **nocodebackend**: 위 6개 테이블(`op_chapters`, `op_topics`, `op_subtopics`, `op_items`, `op_understood`, `op_pings`)
 3. **Airtable Automations**: C1·C2 두 개 설정
-4. 테이블 다 만들고 nocodebackend Instance ID·Airtable Base ID·Airtable Token 확인 → Worker로 진행
+4. **Worker 환경 변수**: NCB_SECRET_KEY, AIRTABLE_TOKEN, AIRTABLE_BASE, JWT_SECRET (필수) + **PABBLY_WEBHOOK_URL** (CRM 캐페인 발송용, 선택)
+5. 테이블 다 만들고 nocodebackend Instance ID·Airtable Base ID·Airtable Token 확인 → Worker로 진행
+
+---
+
+## G. 마이그레이션 SQL 요약 (기존 설치에 추가된 컬럼·테이블)
+
+**Airtable 신규 필드 (`OnepageUsers`)** — 7개:
+- `utm_source`, `utm_medium`, `utm_campaign`, `utm_content`, `utm_term` → Single line text
+- `landing_url`, `referrer_url` → Long text
+
+**Airtable 신규 테이블** — `OnepageCampaigns` (A5 참조)
+
+**nocodebackend 신규 컬럼** (`op_chapters`):
+```sql
+ALTER TABLE op_chapters ADD COLUMN pay_url VARCHAR(255) NULL;
+```
