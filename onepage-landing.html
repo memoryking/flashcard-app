@@ -964,6 +964,48 @@
         }
     } catch (e) {}
 
+    // ── UTM 어트리뷰션 캡쳐 (?utm_source=...&utm_medium=...&utm_campaign=...&utm_content=...) ──
+    // 30일간 localStorage에 보관 → 학생 앱(가입 페이지)으로 이어붙여 전달
+    try {
+        var lu = new URL(window.location.href);
+        var utm = {
+            source: lu.searchParams.get('utm_source') || '',
+            medium: lu.searchParams.get('utm_medium') || '',
+            campaign: lu.searchParams.get('utm_campaign') || '',
+            content: lu.searchParams.get('utm_content') || '',
+            term: lu.searchParams.get('utm_term') || ''
+        };
+        var hasAny = utm.source || utm.medium || utm.campaign || utm.content || utm.term;
+        if (hasAny) {
+            utm.landing_url = window.location.href.slice(0, 500);
+            utm.referrer = (document.referrer || '').slice(0, 500);
+            utm.captured_at = Date.now();
+            localStorage.setItem('op_utm', JSON.stringify(utm));
+        }
+    } catch (e) {}
+
+    // ── 시작하기 링크에 UTM 파라미터 자동 첨부 ──
+    // 학생 앱(다른 origin)에서 localStorage를 못 읽으므로 URL로 전달
+    try {
+        var utmRaw = localStorage.getItem('op_utm');
+        var refRaw = localStorage.getItem('op_referral_code');
+        var qsParts = [];
+        if (utmRaw) {
+            var utmObj = JSON.parse(utmRaw);
+            ['source','medium','campaign','content','term'].forEach(function (k) {
+                if (utmObj[k]) qsParts.push('utm_' + k + '=' + encodeURIComponent(utmObj[k]));
+            });
+        }
+        if (refRaw) qsParts.push('ref=' + encodeURIComponent(refRaw));
+        var qs = qsParts.join('&');
+        if (qs) {
+            root.querySelectorAll('a[href^="https://vipup.site/onepage"]').forEach(function (a) {
+                var h = a.getAttribute('href');
+                a.setAttribute('href', h + (h.indexOf('?') === -1 ? '?' : '&') + qs);
+            });
+        }
+    } catch (e) {}
+
     // ── 대목차 펼침/접힘 ──
     root.querySelectorAll('.op-topic').forEach(function (t) {
         var head = t.querySelector('.op-topic-head');

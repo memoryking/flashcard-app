@@ -329,6 +329,18 @@ async function handleSignup(request, env) {
   const password = String(body.password || '');
   const referralCode = body.referral_code ? String(body.referral_code).toUpperCase().trim() : null;
 
+  // UTM 어트리뷰션 — 가입 시 한 번만 기록 (이후 불변)
+  const utm = body.utm || {};
+  const utmFields = {
+    utm_source: String(utm.source || '').slice(0, 80),
+    utm_medium: String(utm.medium || '').slice(0, 80),
+    utm_campaign: String(utm.campaign || '').slice(0, 120),
+    utm_content: String(utm.content || '').slice(0, 120),
+    utm_term: String(utm.term || '').slice(0, 120),
+    landing_url: String(utm.landing_url || '').slice(0, 500),
+    referrer_url: String(utm.referrer || '').slice(0, 500),
+  };
+
   if (!name) return json({ error: '이름을 입력하세요.' }, 400, request);
   if (!isValidPhone(phone)) return json({ error: '전화번호 형식이 올바르지 않습니다.' }, 400, request);
   if (!isValidEmail(email)) return json({ error: '이메일 형식이 올바르지 않습니다.' }, 400, request);
@@ -362,6 +374,7 @@ async function handleSignup(request, env) {
     referral_code: myCode,
     referred_by_code: referralCode || '',
     point: 0,
+    ...utmFields,
   });
   if (created.error || !created.id) {
     return json({ error: '가입 처리 실패: ' + (created.error?.message || 'unknown') }, 500, request);
@@ -1277,6 +1290,13 @@ async function handleAdminUserDetail(request, env, phoneRaw) {
       referred_by_code: f.referred_by_code || '',
       first_paid_at: f.first_paid_at || null,
       joined_at: userRec.createdTime || null,
+      utm_source: f.utm_source || '',
+      utm_medium: f.utm_medium || '',
+      utm_campaign: f.utm_campaign || '',
+      utm_content: f.utm_content || '',
+      utm_term: f.utm_term || '',
+      landing_url: f.landing_url || '',
+      referrer_url: f.referrer_url || '',
     },
     chapter_access: accesses.map(a => ({
       chapter_id: Number(a.fields.chapter_id),
@@ -1470,6 +1490,115 @@ async function handleAdminRevenue(request, env) {
   }, 200, request);
 }
 
+async function handleAdminAttribution(request, env) {
+  const url = new URL(request.url);
+  const days = Math.min(365, Math.max(7, Number(url.searchParams.get('days')) || 90));
+  const nowIso = kstISOString();
+  const fromIso = addDays(nowIso, -days);
+
+  const [users, payments] = await Promise.all([
+    atFindAllPaged(env, AT_USERS, '', 2000),
+    atFindAllPaged(env, AT_PAYMENTS, '', 5000),
+  ]);
+
+  // 결제 사용자별 집계
+  const paidByPhone = {};
+  for (const p of payments) {
+    const ph = p.fields.user_phone;
+    if (!ph) continue;
+    paidByPhone[ph] = (paidByPhone[ph] || 0) + (Number(p.fields.amount) || 0);
+  }
+
+  // 사용자 필터: 가입 기간 내 + 기본은 utm 있는 사용자
+  const inRange = users.filter(u => {
+    const j = u.createdTime || '';
+    return j >= fromIso && j <= nowIso;
+  });
+
+  // 가입자별 기본 정보
+  const summary = {
+    total_signups: inRange.length,
+    paid_signups: 0,
+    total_revenue: 0,
+    by_source: {},
+    by_medium: {},
+    by_campaign: {},   // key: "source|campaign|content"
+  };
+
+  for (const u of inRange) {
+    const f = u.fields;
+    const source = f.utm_source || '(직접)';
+    const medium = f.utm_medium || '(없음)';
+    const campaign = f.utm_campaign || '(없음)';
+    const content = f.utm_content || '(없음)';
+    const phone = f.phone || '';
+    const spent = paidByPhone[phone] || 0;
+    const paid = spent > 0 ? 1 : 0;
+
+    if (paid) {
+      summary.paid_signups += 1;
+      summary.total_revenue += spent;
+    }
+
+    // by_source
+    if (!summary.by_source[source]) summary.by_source[source] = { signups: 0, paid: 0, revenue: 0 };
+    summary.by_source[source].signups += 1;
+    summary.by_source[source].paid += paid;
+    summary.by_source[source].revenue += spent;
+
+    // by_medium
+    const mKey = `${source} / ${medium}`;
+    if (!summary.by_medium[mKey]) summary.by_medium[mKey] = { source, medium, signups: 0, paid: 0, revenue: 0 };
+    summary.by_medium[mKey].signups += 1;
+    summary.by_medium[mKey].paid += paid;
+    summary.by_medium[mKey].revenue += spent;
+
+    // by_campaign (가장 세부)
+    const cKey = `${source} / ${medium} / ${campaign} / ${content}`;
+    if (!summary.by_campaign[cKey]) summary.by_campaign[cKey] = {
+      source, medium, campaign, content,
+      signups: 0, paid: 0, revenue: 0,
+      sample_users: [],
+    };
+    const c = summary.by_campaign[cKey];
+    c.signups += 1;
+    c.paid += paid;
+    c.revenue += spent;
+    if (c.sample_users.length < 3) c.sample_users.push({ name: f.name || '', phone, joined_at: u.createdTime });
+  }
+
+  // 객체 → 배열로 변환 + 정렬
+  const bySource = Object.keys(summary.by_source).map(k => ({
+    source: k,
+    ...summary.by_source[k],
+    conversion_rate: summary.by_source[k].signups ? summary.by_source[k].paid / summary.by_source[k].signups : 0,
+    arpu: summary.by_source[k].signups ? Math.round(summary.by_source[k].revenue / summary.by_source[k].signups) : 0,
+  })).sort((a, b) => b.revenue - a.revenue || b.signups - a.signups);
+
+  const byMedium = Object.values(summary.by_medium).map(r => ({
+    ...r,
+    conversion_rate: r.signups ? r.paid / r.signups : 0,
+    arpu: r.signups ? Math.round(r.revenue / r.signups) : 0,
+  })).sort((a, b) => b.revenue - a.revenue || b.signups - a.signups);
+
+  const byCampaign = Object.values(summary.by_campaign).map(r => ({
+    ...r,
+    conversion_rate: r.signups ? r.paid / r.signups : 0,
+    arpu: r.signups ? Math.round(r.revenue / r.signups) : 0,
+  })).sort((a, b) => b.revenue - a.revenue || b.signups - a.signups);
+
+  return json({
+    days,
+    total_signups: summary.total_signups,
+    paid_signups: summary.paid_signups,
+    total_revenue: summary.total_revenue,
+    overall_conversion: summary.total_signups ? summary.paid_signups / summary.total_signups : 0,
+    by_source: bySource,
+    by_medium: byMedium,
+    by_campaign: byCampaign,
+  }, 200, request);
+}
+
 async function handleAdminContentStats(request, env) {
   const [chaptersResp, topicsResp, accesses] = await Promise.all([
     ncbRead(env, 'op_chapters', ''),
@@ -1632,6 +1761,7 @@ async function route(request, env) {
     if (m === 'POST' && path === '/admin/webhook/send') return handleAdminWebhookSend(request, env, auth);
     if (m === 'GET' && path === '/admin/revenue') return handleAdminRevenue(request, env);
     if (m === 'GET' && path === '/admin/content-stats') return handleAdminContentStats(request, env);
+    if (m === 'GET' && path === '/admin/attribution') return handleAdminAttribution(request, env);
   }
 
   return json({ error: 'not_found', path, method: m }, 404, request);

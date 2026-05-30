@@ -299,6 +299,37 @@ table { border-collapse: collapse; width: 100%; }
   .kpi-card .value { font-size: 22px; }
   .tab-btn { padding: 11px 14px; font-size: 13px; }
 }
+
+/* QR 빌더 */
+.qr-builder { display: grid; grid-template-columns: 1fr auto; gap: 18px; align-items: start; }
+@media (max-width: 760px) { .qr-builder { grid-template-columns: 1fr; } }
+.qr-preview {
+  width: 280px; padding: 18px; background: #fff; border-radius: 14px;
+  display: flex; flex-direction: column; align-items: center; gap: 10px;
+}
+.qr-preview canvas, .qr-preview img { width: 240px; height: 240px; image-rendering: pixelated; }
+.qr-preview .qr-label { font-size: 13px; font-weight: 700; color: #111; text-align: center; word-break: keep-all; }
+.qr-preview .qr-sub { font-size: 10px; color: #666; }
+.qr-actions { display: flex; gap: 6px; margin-top: 4px; }
+.qr-actions button {
+  background: #16213e; color: #fff; padding: 6px 12px; border-radius: 6px;
+  font-size: 12px; font-weight: 700;
+}
+.url-display {
+  background: rgba(0,0,0,0.3); border: 1px solid rgba(255,255,255,0.1);
+  border-radius: 8px; padding: 10px 12px; font-family: monospace;
+  font-size: 12px; color: #81d4fa; word-break: break-all; margin-top: 6px;
+}
+.attr-presets {
+  display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+  gap: 6px; margin-bottom: 12px;
+}
+.attr-presets button {
+  background: rgba(255,255,255,0.06); color: #ddd;
+  padding: 8px 10px; border-radius: 8px; font-size: 12px; font-weight: 600;
+  border: 1px solid rgba(255,255,255,0.1); text-align: left;
+}
+.attr-presets button:hover { background: rgba(255,255,255,0.12); border-color: rgba(233,69,96,0.4); }
 </style>
 </head>
 <body>
@@ -333,6 +364,7 @@ table { border-collapse: collapse; width: 100%; }
     <button class="tab-btn" data-tab="revenue" onclick="switchTab('revenue')">💰 매출</button>
     <button class="tab-btn" data-tab="content" onclick="switchTab('content')">📚 콘텐츠</button>
     <button class="tab-btn" data-tab="campaigns" onclick="switchTab('campaigns')">📤 캠페인</button>
+    <button class="tab-btn" data-tab="attribution" onclick="switchTab('attribution')">🎯 마케팅 추적</button>
   </nav>
 
   <main class="app-main">
@@ -377,6 +409,11 @@ table { border-collapse: collapse; width: 100%; }
     <section class="tab-pane" id="tabCampaigns">
       <div id="campaignsBody"></div>
     </section>
+
+    <!-- 마케팅 어트리뷰션 -->
+    <section class="tab-pane" id="tabAttribution">
+      <div id="attributionBody"></div>
+    </section>
   </main>
 </div>
 
@@ -387,11 +424,15 @@ table { border-collapse: collapse; width: 100%; }
 
 <div class="toast" id="toast"></div>
 
+<!-- QR 코드 생성 라이브러리 (CDN, 동기식) -->
+<script src="https://cdn.jsdelivr.net/npm/qrcode-generator@1.4.4/qrcode.min.js"></script>
+
 <script>
 const API = 'https://onepage-api.memoryking.workers.dev';
 const TOKEN_KEY = 'op_crm_token';
 const KST_OFFSET_MS = 9 * 60 * 60 * 1000;
 const KST_TZ = 'Asia/Seoul';
+const LANDING_BASE_URL = 'https://vipup.site/onepage-study';   // QR이 가리키는 랜딩 URL
 
 // ============================================================
 // 상태
@@ -414,6 +455,10 @@ const state = {
   contentStats: null,
   // campaigns
   campaign: { template: 'custom', phones: [], message: '', subject: '', channel: 'sms' },
+  // attribution
+  attribution: null,
+  attrDays: 90,
+  qrBuilder: { source: 'flyer', medium: 'qr', campaign: '', content: '', term: '' },
 };
 
 // ============================================================
@@ -536,6 +581,7 @@ function switchTab(tab) {
   else if (tab === 'revenue') loadRevenue();
   else if (tab === 'content') loadContent();
   else if (tab === 'campaigns') renderCampaigns();
+  else if (tab === 'attribution') loadAttribution();
 }
 
 // ============================================================
@@ -848,6 +894,20 @@ function renderUserDetail(r) {
       <div class="detail-cell"><div class="lbl">활성 구독</div><div class="val">${activeCnt}개</div></div>
       <div class="detail-cell"><div class="lbl">첫 결제일</div><div class="val">${u.first_paid_at ? fmtKstDate(u.first_paid_at) : '—'}</div></div>
       <div class="detail-cell"><div class="lbl">역할</div><div class="val">${escapeHtml(u.role)}</div></div>
+    </div>
+
+    <div class="detail-sec">
+      <h4>🎯 유입 경로 (UTM)</h4>
+      ${(u.utm_source || u.utm_campaign || u.referrer_url) ? `
+        <div class="detail-grid">
+          <div class="detail-cell"><div class="lbl">소스</div><div class="val">${escapeHtml(u.utm_source || '—')}</div></div>
+          <div class="detail-cell"><div class="lbl">매체</div><div class="val">${escapeHtml(u.utm_medium || '—')}</div></div>
+          <div class="detail-cell"><div class="lbl">캐페인</div><div class="val">${escapeHtml(u.utm_campaign || '—')}</div></div>
+          <div class="detail-cell"><div class="lbl">디자인·콘텐츠</div><div class="val">${escapeHtml(u.utm_content || '—')}</div></div>
+          <div class="detail-cell" style="grid-column:span 2"><div class="lbl">랜딩 URL</div><div class="val" style="font-size:11px;font-family:monospace">${escapeHtml(u.landing_url || '—')}</div></div>
+          <div class="detail-cell" style="grid-column:span 2"><div class="lbl">유입 출처 (referrer)</div><div class="val" style="font-size:11px;font-family:monospace">${escapeHtml(u.referrer_url || '—')}</div></div>
+        </div>
+      ` : '<div class="empty-state" style="padding:14px">UTM 추적 정보 없음 (직접 입력 또는 추천)</div>'}
     </div>
 
     <div style="display:flex;gap:8px;margin-bottom:14px;flex-wrap:wrap">
@@ -1331,6 +1391,373 @@ window.selectAllFiltered = selectAllFiltered;
 window.setRevenueDays = setRevenueDays;
 window.switchTab = switchTab;
 window.logout = logout;
+
+// ============================================================
+// 마케팅 어트리뷰션 — UTM 분석 + QR 코드 생성기
+// ============================================================
+const ATTR_PRESETS = [
+  // 전단지
+  { source: 'flyer', medium: 'qr', campaign: 'school-A', content: 'design-A', label: '전단지 — A학교 · 디자인A' },
+  { source: 'flyer', medium: 'qr', campaign: 'school-A', content: 'design-B', label: '전단지 — A학교 · 디자인B' },
+  { source: 'flyer', medium: 'qr', campaign: 'school-A', content: 'design-C', label: '전단지 — A학교 · 디자인C' },
+  // 유튜브
+  { source: 'youtube', medium: 'video', campaign: 'tutorial-A', content: 'description', label: '유튜브 — 콘텐츠A · 설명란' },
+  { source: 'youtube', medium: 'video', campaign: 'tutorial-B', content: 'pinned-comment', label: '유튜브 — 콘텐츠B · 고정댓글' },
+  // 카카오·인스타
+  { source: 'instagram', medium: 'bio', campaign: 'launch', content: 'profile-link', label: '인스타 — 프로필 링크' },
+  { source: 'kakao', medium: 'channel', campaign: 'launch', content: 'main-banner', label: '카카오 채널 — 메인 배너' },
+  { source: 'blog', medium: 'post', campaign: '', content: '', label: '블로그 포스트' },
+];
+
+async function loadAttribution() {
+  $('attributionBody').innerHTML = '<div class="loading">집계 중…</div>';
+  try {
+    const r = await api('GET', '/admin/attribution?days=' + state.attrDays);
+    state.attribution = r;
+    renderAttribution();
+  } catch (e) {
+    $('attributionBody').innerHTML = `<div class="err-box">어트리뷰션 로드 실패: ${escapeHtml(e.message)}</div>`;
+  }
+}
+function setAttrDays(d) {
+  state.attrDays = d;
+  document.querySelectorAll('#tabAttribution .filter-bar .chip').forEach(c => c.classList.toggle('on', Number(c.dataset.days) === d));
+  loadAttribution();
+}
+function renderAttribution() {
+  const r = state.attribution; if (!r) return;
+  const convPct = (Number(r.overall_conversion) * 100).toFixed(1);
+
+  const sourceRows = r.by_source.length ? r.by_source.map(s => `
+    <tr>
+      <td><strong>${escapeHtml(s.source)}</strong></td>
+      <td class="num">${fmtNum(s.signups)}</td>
+      <td class="num">${fmtNum(s.paid)}</td>
+      <td class="num" style="color:${s.conversion_rate > r.overall_conversion ? '#81c784' : '#fca5a5'};font-weight:700">${(s.conversion_rate*100).toFixed(1)}%</td>
+      <td class="num" style="color:#ffd54f;font-weight:700">${fmtWon(s.revenue)}</td>
+      <td class="num">${fmtWon(s.arpu)}</td>
+    </tr>
+  `).join('') : '<tr><td colspan="6" class="empty-state">데이터 없음</td></tr>';
+
+  const mediumRows = r.by_medium.length ? r.by_medium.map(m => `
+    <tr>
+      <td><strong>${escapeHtml(m.source)}</strong> · ${escapeHtml(m.medium)}</td>
+      <td class="num">${fmtNum(m.signups)}</td>
+      <td class="num">${fmtNum(m.paid)}</td>
+      <td class="num" style="color:${m.conversion_rate >= r.overall_conversion ? '#81c784' : '#fca5a5'};font-weight:700">${(m.conversion_rate*100).toFixed(1)}%</td>
+      <td class="num" style="color:#ffd54f;font-weight:700">${fmtWon(m.revenue)}</td>
+    </tr>
+  `).join('') : '<tr><td colspan="5" class="empty-state">데이터 없음</td></tr>';
+
+  const campaignRows = r.by_campaign.length ? r.by_campaign.slice(0, 50).map(c => `
+    <tr>
+      <td>
+        <div style="font-weight:700;color:#fff">${escapeHtml(c.campaign || '—')}</div>
+        <div style="font-size:11px;color:rgba(255,255,255,0.5)">${escapeHtml(c.source)} · ${escapeHtml(c.medium)}${c.content !== '(없음)' ? ' · ' + escapeHtml(c.content) : ''}</div>
+      </td>
+      <td class="num">${fmtNum(c.signups)}</td>
+      <td class="num">${fmtNum(c.paid)}</td>
+      <td class="num" style="color:${c.conversion_rate >= r.overall_conversion ? '#81c784' : '#fca5a5'};font-weight:700">${(c.conversion_rate*100).toFixed(1)}%</td>
+      <td class="num" style="color:#ffd54f;font-weight:700">${fmtWon(c.revenue)}</td>
+      <td class="num">${fmtWon(c.arpu)}</td>
+      <td>
+        <button class="btn-sec" onclick="rebuildUrlForCampaign('${escapeHtml(c.source)}','${escapeHtml(c.medium)}','${escapeHtml(c.campaign)}','${escapeHtml(c.content)}')">📱 QR 재생성</button>
+      </td>
+    </tr>
+  `).join('') : '<tr><td colspan="7" class="empty-state">UTM 데이터 없음 — QR 코드로 캐페인 시작하세요</td></tr>';
+
+  const presets = ATTR_PRESETS.map((p, i) => `
+    <button onclick="applyAttrPreset(${i})">${escapeHtml(p.label)}</button>
+  `).join('');
+
+  $('attributionBody').innerHTML = `
+    <div class="filter-bar">
+      <span style="font-size:13px;color:rgba(255,255,255,0.6)">기간:</span>
+      <button class="chip" data-days="30" onclick="setAttrDays(30)">30일</button>
+      <button class="chip ${state.attrDays===90?'on':''}" data-days="90" onclick="setAttrDays(90)">90일</button>
+      <button class="chip ${state.attrDays===180?'on':''}" data-days="180" onclick="setAttrDays(180)">180일</button>
+      <button class="chip ${state.attrDays===365?'on':''}" data-days="365" onclick="setAttrDays(365)">1년</button>
+    </div>
+
+    <div class="kpi-grid">
+      <div class="kpi-card blue">
+        <div class="label">기간 가입자</div>
+        <div class="value">${fmtNum(r.total_signups)}<span class="unit">명</span></div>
+        <div class="desc">최근 ${r.days}일</div>
+      </div>
+      <div class="kpi-card green">
+        <div class="label">유료 전환</div>
+        <div class="value">${fmtNum(r.paid_signups)}<span class="unit">명</span></div>
+        <div class="desc">전환율 ${convPct}%</div>
+      </div>
+      <div class="kpi-card gold">
+        <div class="label">기간 매출</div>
+        <div class="value">${fmtNum(r.total_revenue)}<span class="unit">원</span></div>
+        <div class="desc">기간 가입자가 만든 매출</div>
+      </div>
+    </div>
+
+    <div class="section">
+      <div class="section-h">
+        <h3>🎨 QR 코드 + 추적 URL 생성기</h3>
+        <span class="meta">전단지·유튜브·SNS에 뿌리기 전에 만들어 쓰세요</span>
+      </div>
+
+      <p style="font-size:13px;color:rgba(255,255,255,0.65);margin-bottom:12px">
+        프리셋을 클릭해 빠르게 시작하거나, 아래에서 직접 입력하세요. 입력값이 바뀌면 QR과 URL이 즉시 갱신됩니다.
+      </p>
+
+      <div class="attr-presets">${presets}</div>
+
+      <div class="qr-builder">
+        <div>
+          <div class="form-2">
+            <div class="form-row">
+              <label>소스 (utm_source)</label>
+              <input type="text" id="qr_source" placeholder="flyer · youtube · instagram · kakao · blog">
+              <div class="form-hint">광고 매체 종류</div>
+            </div>
+            <div class="form-row">
+              <label>매체 (utm_medium)</label>
+              <input type="text" id="qr_medium" placeholder="qr · video · bio · email · banner">
+              <div class="form-hint">어떻게 노출되었는지</div>
+            </div>
+          </div>
+          <div class="form-row">
+            <label>캐페인 (utm_campaign)</label>
+            <input type="text" id="qr_campaign" placeholder="ex) school-A · spring2026 · launch-week">
+            <div class="form-hint">캐페인 이름 — 같은 이름은 한 그룹으로 집계됩니다</div>
+          </div>
+          <div class="form-row">
+            <label>버전·디자인 (utm_content) — A/B 테스트용</label>
+            <input type="text" id="qr_content" placeholder="ex) design-A · headline-B · cta-red">
+            <div class="form-hint">같은 캐페인 안에서 변형을 구분</div>
+          </div>
+          <div class="form-row">
+            <label>추가 키워드 (utm_term) — 선택</label>
+            <input type="text" id="qr_term" placeholder="ex) winter-special">
+          </div>
+          <div class="form-row">
+            <label>최종 추적 URL</label>
+            <div class="url-display" id="qrUrl">${escapeHtml(LANDING_BASE_URL)}</div>
+            <div style="display:flex;gap:6px;margin-top:6px">
+              <button class="btn-sec" onclick="copyQrUrl()">📋 URL 복사</button>
+              <button class="btn-sec" onclick="openQrUrl()">🌐 새 탭에서 열기</button>
+            </div>
+          </div>
+        </div>
+
+        <div>
+          <div class="qr-preview" id="qrPreviewBox">
+            <div id="qrCanvas"></div>
+            <div class="qr-label" id="qrLabel">QR을 만들려면 옆 칸을 채우세요</div>
+            <div class="qr-sub" id="qrSub">${escapeHtml(LANDING_BASE_URL)}</div>
+          </div>
+          <div class="qr-actions">
+            <button onclick="downloadQrPng()">📥 PNG 저장</button>
+            <button onclick="printQrCode()">🖨 인쇄</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="section">
+      <div class="section-h"><h3>🏆 소스별 성과</h3><span class="meta">어디서 가입자가 가장 많이 오나</span></div>
+      <div class="tbl-wrap"><table class="tbl">
+        <thead><tr>
+          <th>소스 (utm_source)</th>
+          <th class="num">가입</th>
+          <th class="num">결제</th>
+          <th class="num">전환율</th>
+          <th class="num">매출</th>
+          <th class="num">가입자당 매출 (ARPU)</th>
+        </tr></thead>
+        <tbody>${sourceRows}</tbody>
+      </table></div>
+    </div>
+
+    <div class="section">
+      <div class="section-h"><h3>📍 소스 + 매체별 성과</h3></div>
+      <div class="tbl-wrap"><table class="tbl">
+        <thead><tr>
+          <th>소스 · 매체</th>
+          <th class="num">가입</th>
+          <th class="num">결제</th>
+          <th class="num">전환율</th>
+          <th class="num">매출</th>
+        </tr></thead>
+        <tbody>${mediumRows}</tbody>
+      </table></div>
+    </div>
+
+    <div class="section">
+      <div class="section-h"><h3>🎨 캐페인 · 디자인별 성과 (가장 자세)</h3>
+        <span class="meta">A/B 디자인 중 어느 게 더 좋은지</span>
+      </div>
+      <div class="tbl-wrap"><table class="tbl">
+        <thead><tr>
+          <th>캐페인 · 디자인</th>
+          <th class="num">가입</th>
+          <th class="num">결제</th>
+          <th class="num">전환율</th>
+          <th class="num">매출</th>
+          <th class="num">ARPU</th>
+          <th></th>
+        </tr></thead>
+        <tbody>${campaignRows}</tbody>
+      </table></div>
+    </div>
+  `;
+
+  // 입력 칸 채우고 QR 그리기
+  $('qr_source').value = state.qrBuilder.source;
+  $('qr_medium').value = state.qrBuilder.medium;
+  $('qr_campaign').value = state.qrBuilder.campaign;
+  $('qr_content').value = state.qrBuilder.content;
+  $('qr_term').value = state.qrBuilder.term;
+  ['qr_source','qr_medium','qr_campaign','qr_content','qr_term'].forEach(id => {
+    $(id).oninput = updateQr;
+  });
+  updateQr();
+}
+
+function buildTrackingUrl() {
+  const params = new URLSearchParams();
+  ['source','medium','campaign','content','term'].forEach(k => {
+    const v = $('qr_' + k)?.value.trim();
+    if (v) params.set('utm_' + k, v);
+  });
+  const qs = params.toString();
+  return LANDING_BASE_URL + (qs ? '?' + qs : '');
+}
+function updateQr() {
+  const url = buildTrackingUrl();
+  $('qrUrl').textContent = url;
+  $('qrSub').textContent = url.length > 60 ? url.slice(0, 57) + '…' : url;
+  const campaign = $('qr_campaign')?.value.trim();
+  const content = $('qr_content')?.value.trim();
+  $('qrLabel').textContent = campaign ? (campaign + (content ? ' · ' + content : '')) : '캐페인을 입력하세요';
+
+  state.qrBuilder = {
+    source: $('qr_source').value.trim(),
+    medium: $('qr_medium').value.trim(),
+    campaign: $('qr_campaign').value.trim(),
+    content: $('qr_content').value.trim(),
+    term: $('qr_term').value.trim(),
+  };
+
+  drawQr(url);
+}
+function drawQr(url) {
+  const target = $('qrCanvas');
+  if (!target || typeof qrcode === 'undefined') return;
+  // typeNumber=0 → 자동 최소 버전, 'M' = 15% 오류 정정
+  const qr = qrcode(0, 'M');
+  qr.addData(url);
+  qr.make();
+  // 5px = 한 모듈 크기 → 작은 QR은 220px 정도
+  target.innerHTML = qr.createImgTag(5, 8);  // imgTag(cellSize, margin)
+  const img = target.querySelector('img');
+  if (img) { img.style.width = '240px'; img.style.height = '240px'; img.id = 'qrImg'; }
+}
+function applyAttrPreset(idx) {
+  const p = ATTR_PRESETS[idx];
+  state.qrBuilder = { source: p.source, medium: p.medium, campaign: p.campaign, content: p.content, term: '' };
+  $('qr_source').value = p.source;
+  $('qr_medium').value = p.medium;
+  $('qr_campaign').value = p.campaign;
+  $('qr_content').value = p.content;
+  $('qr_term').value = '';
+  updateQr();
+  $('qrCanvas').scrollIntoView({ behavior: 'smooth', block: 'center' });
+}
+function rebuildUrlForCampaign(source, medium, campaign, content) {
+  // 표의 (없음) 같은 placeholder는 비우기
+  function clean(s) { return s === '(없음)' || s === '(직접)' ? '' : s; }
+  state.qrBuilder = {
+    source: clean(source), medium: clean(medium),
+    campaign: clean(campaign), content: clean(content), term: '',
+  };
+  switchTab('attribution');
+  setTimeout(() => {
+    if ($('qr_source')) {
+      $('qr_source').value = state.qrBuilder.source;
+      $('qr_medium').value = state.qrBuilder.medium;
+      $('qr_campaign').value = state.qrBuilder.campaign;
+      $('qr_content').value = state.qrBuilder.content;
+      $('qr_term').value = '';
+      updateQr();
+      $('qrCanvas').scrollIntoView({ behavior: 'smooth', block: 'center' });
+    }
+  }, 150);
+}
+function copyQrUrl() {
+  const url = buildTrackingUrl();
+  navigator.clipboard.writeText(url).then(
+    () => toast('URL이 클립보드에 복사되었습니다', 'ok'),
+    () => toast('복사 실패 — URL 박스를 직접 선택하세요', 'err')
+  );
+}
+function openQrUrl() {
+  window.open(buildTrackingUrl(), '_blank');
+}
+function downloadQrPng() {
+  const img = document.getElementById('qrImg');
+  if (!img) { toast('QR이 아직 만들어지지 않았습니다', 'err'); return; }
+  // SVG 또는 data URL 이미지를 PNG로 변환 → 다운로드
+  const canvas = document.createElement('canvas');
+  const size = 600;   // 고해상도 (인쇄용)
+  canvas.width = canvas.height = size;
+  const ctx = canvas.getContext('2d');
+  ctx.fillStyle = '#fff';
+  ctx.fillRect(0, 0, size, size);
+  const tmp = new Image();
+  tmp.onload = () => {
+    // 가운데 정렬, 여백 포함
+    ctx.imageSmoothingEnabled = false;
+    ctx.drawImage(tmp, 0, 0, size, size);
+    const url = canvas.toDataURL('image/png');
+    const a = document.createElement('a');
+    const camp = (state.qrBuilder.campaign || 'qr').replace(/[^\w-]/g, '_');
+    const cont = state.qrBuilder.content ? '-' + state.qrBuilder.content.replace(/[^\w-]/g, '_') : '';
+    a.download = `qr-${camp}${cont}.png`;
+    a.href = url;
+    a.click();
+    toast('QR PNG 다운로드 완료', 'ok');
+  };
+  tmp.onerror = () => toast('PNG 변환 실패', 'err');
+  tmp.src = img.src;
+}
+function printQrCode() {
+  const url = buildTrackingUrl();
+  const img = document.getElementById('qrImg');
+  if (!img) { toast('QR이 아직 만들어지지 않았습니다', 'err'); return; }
+  const label = $('qrLabel').textContent || '';
+  const win = window.open('', '_blank');
+  win.document.write(`
+    <!DOCTYPE html><html><head><title>QR — ${label}</title>
+    <style>
+      body { font-family: sans-serif; text-align: center; padding: 40px; }
+      img { width: 300px; height: 300px; image-rendering: pixelated; }
+      h1 { font-size: 22px; margin-top: 18px; }
+      p { color: #555; font-size: 13px; word-break: break-all; }
+    </style></head><body>
+    <img src="${img.src}">
+    <h1>${escapeHtml(label)}</h1>
+    <p>${escapeHtml(url)}</p>
+    </body></html>
+  `);
+  win.document.close();
+  setTimeout(() => win.print(), 500);
+}
+
+window.setAttrDays = setAttrDays;
+window.applyAttrPreset = applyAttrPreset;
+window.rebuildUrlForCampaign = rebuildUrlForCampaign;
+window.copyQrUrl = copyQrUrl;
+window.openQrUrl = openQrUrl;
+window.downloadQrPng = downloadQrPng;
+window.printQrCode = printQrCode;
 
 // ============================================================
 // 시작

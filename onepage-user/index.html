@@ -779,6 +779,8 @@ a { color: #4fc3f7; text-decoration: none; }
 const API = 'https://onepage-api.memoryking.workers.dev';
 const TOKEN_KEY = 'op_user_token';
 const REF_KEY = 'op_ref_code';
+const UTM_KEY = 'op_utm';
+const UTM_TTL_MS = 30 * 24 * 3600 * 1000;   // 30일 유지 (재방문 시까지 어트리뷰션 유지)
 const LANDING_URL = 'https://vipup.site/onepage';   // 결제 안내 페이지
 const REDEEM_COST = 3000;
 // 모든 시간은 KST(한국 표준시) 기준. 서버는 expires_at 등을 KST wall-clock으로 저장.
@@ -969,9 +971,12 @@ async function doSignup() {
   try {
     const body = { name, phone, email, password };
     if (ref) body.referral_code = ref;
+    const utm = loadUtm();
+    if (utm) body.utm = utm;
     const r = await api('POST', '/auth/signup', body);
     localStorage.setItem(TOKEN_KEY, r.token);
     localStorage.removeItem(REF_KEY);
+    localStorage.removeItem(UTM_KEY);
     state.user = r.user;
     state.point = 0;
     await loadMeAndEnter();
@@ -981,6 +986,41 @@ async function doSignup() {
   } finally {
     $('signupBtn').disabled = false;
   }
+}
+
+// ============================================================
+// UTM 어트리뷰션 — URL → localStorage (30일 유지)
+// ============================================================
+function captureUtmFromUrl() {
+  try {
+    const u = new URL(window.location.href);
+    const utm = {
+      source: u.searchParams.get('utm_source') || '',
+      medium: u.searchParams.get('utm_medium') || '',
+      campaign: u.searchParams.get('utm_campaign') || '',
+      content: u.searchParams.get('utm_content') || '',
+      term: u.searchParams.get('utm_term') || '',
+      landing_url: window.location.href.slice(0, 500),
+      referrer: (document.referrer || '').slice(0, 500),
+      captured_at: Date.now(),
+    };
+    // 어트리뷰션 정보가 하나라도 있을 때만 저장
+    if (utm.source || utm.medium || utm.campaign || utm.content || utm.term) {
+      localStorage.setItem(UTM_KEY, JSON.stringify(utm));
+    }
+  } catch {}
+}
+function loadUtm() {
+  try {
+    const raw = localStorage.getItem(UTM_KEY);
+    if (!raw) return null;
+    const utm = JSON.parse(raw);
+    if (utm.captured_at && Date.now() - utm.captured_at > UTM_TTL_MS) {
+      localStorage.removeItem(UTM_KEY);
+      return null;
+    }
+    return utm;
+  } catch { return null; }
 }
 
 function showAuthErr(form, msg) {
@@ -1032,6 +1072,8 @@ async function tryAutoLogin() {
     const ref = u.searchParams.get('ref');
     if (ref) localStorage.setItem(REF_KEY, ref);
   } catch {}
+  // UTM 어트리뷰션 캡쳐 (가입 시 함께 전송)
+  captureUtmFromUrl();
   const saved = localStorage.getItem(REF_KEY);
   if (saved && !localStorage.getItem(TOKEN_KEY)) {
     switchTab('signup');
