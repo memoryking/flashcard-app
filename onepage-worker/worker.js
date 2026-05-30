@@ -258,6 +258,11 @@ async function atUpdate(env, table, recordId, fields) {
   });
   return r.json();
 }
+async function atDelete(env, table, recordId) {
+  const url = `${AT_BASE_URL}/${env.AIRTABLE_BASE}/${encodeURIComponent(table)}/${recordId}`;
+  const r = await fetch(url, { method: 'DELETE', headers: atH(env) });
+  return r.json();
+}
 
 // ── User 조회 ────────────────────────────────────────────────
 async function findUserByEmail(env, email) {
@@ -1055,6 +1060,7 @@ async function handleRedeemPoints(request, env) {
 // ============================================================
 
 const AT_PAYMENTS = 'OnepagePayments';
+const AT_CAMPAIGNS = 'OnepageCampaigns';
 
 // Airtable 페이지네이션 — 100건 초과 시 offset으로 반복 fetch
 async function atFindAllPaged(env, table, formula, hardMax = 2000) {
@@ -1599,6 +1605,71 @@ async function handleAdminAttribution(request, env) {
   }, 200, request);
 }
 
+// ── 저장된 캐페인 (UTM 라이브러리) — 서버 영구 저장 ──
+async function handleListCampaigns(request, env) {
+  const records = await atFindAllPaged(env, AT_CAMPAIGNS, '', 1000);
+  const list = records.map(r => ({
+    id: r.id,
+    name: r.fields.name || '',
+    source: r.fields.utm_source || '',
+    medium: r.fields.utm_medium || '',
+    campaign: r.fields.utm_campaign || '',
+    content: r.fields.utm_content || '',
+    term: r.fields.utm_term || '',
+    notes: r.fields.notes || '',
+    created_by_name: r.fields.created_by_name || '',
+    created_by_phone: r.fields.created_by_phone || '',
+    created_at: r.createdTime || '',
+  })).sort((a, b) => (b.created_at || '').localeCompare(a.created_at || ''));
+  return json({ campaigns: list }, 200, request);
+}
+
+async function handleCreateCampaign(request, env, creator) {
+  const b = await request.json().catch(() => ({}));
+  const name = String(b.name || '').trim().slice(0, 200);
+  if (!name) return json({ error: '캐페인 이름이 필요합니다' }, 400, request);
+  const data = {
+    name,
+    utm_source: String(b.source || '').slice(0, 80),
+    utm_medium: String(b.medium || '').slice(0, 80),
+    utm_campaign: String(b.campaign || '').slice(0, 120),
+    utm_content: String(b.content || '').slice(0, 120),
+    utm_term: String(b.term || '').slice(0, 120),
+    notes: String(b.notes || '').slice(0, 1000),
+    created_by_name: creator.name || '',
+    created_by_phone: creator.phone || '',
+  };
+  const r = await atCreate(env, AT_CAMPAIGNS, data);
+  if (r.error || !r.id) {
+    return json({ error: '저장 실패: ' + (r.error?.message || 'unknown') }, 500, request);
+  }
+  return json({
+    ok: true,
+    campaign: { id: r.id, ...data, created_at: r.createdTime || new Date().toISOString() },
+  }, 200, request);
+}
+
+async function handleUpdateCampaign(request, env, id) {
+  const b = await request.json().catch(() => ({}));
+  const patch = {};
+  if (b.name !== undefined) patch.name = String(b.name).trim().slice(0, 200);
+  if (b.source !== undefined) patch.utm_source = String(b.source).slice(0, 80);
+  if (b.medium !== undefined) patch.utm_medium = String(b.medium).slice(0, 80);
+  if (b.campaign !== undefined) patch.utm_campaign = String(b.campaign).slice(0, 120);
+  if (b.content !== undefined) patch.utm_content = String(b.content).slice(0, 120);
+  if (b.term !== undefined) patch.utm_term = String(b.term).slice(0, 120);
+  if (b.notes !== undefined) patch.notes = String(b.notes).slice(0, 1000);
+  const r = await atUpdate(env, AT_CAMPAIGNS, id, patch);
+  if (r.error) return json({ error: r.error.message || 'update_failed' }, 500, request);
+  return json({ ok: true }, 200, request);
+}
+
+async function handleDeleteCampaign(request, env, id) {
+  const r = await atDelete(env, AT_CAMPAIGNS, id);
+  if (r.error) return json({ error: r.error.message || 'delete_failed' }, 500, request);
+  return json({ ok: true }, 200, request);
+}
+
 async function handleAdminContentStats(request, env) {
   const [chaptersResp, topicsResp, accesses] = await Promise.all([
     ncbRead(env, 'op_chapters', ''),
@@ -1762,6 +1833,14 @@ async function route(request, env) {
     if (m === 'GET' && path === '/admin/revenue') return handleAdminRevenue(request, env);
     if (m === 'GET' && path === '/admin/content-stats') return handleAdminContentStats(request, env);
     if (m === 'GET' && path === '/admin/attribution') return handleAdminAttribution(request, env);
+    // 저장된 캐페인 (UTM 라이브러리)
+    if (m === 'GET' && path === '/admin/campaigns') return handleListCampaigns(request, env);
+    if (m === 'POST' && path === '/admin/campaigns') return handleCreateCampaign(request, env, auth);
+    p = pathMatch(path, '/admin/campaigns/:id');
+    if (p) {
+      if (m === 'PUT') return handleUpdateCampaign(request, env, p.id);
+      if (m === 'DELETE') return handleDeleteCampaign(request, env, p.id);
+    }
   }
 
   return json({ error: 'not_found', path, method: m }, 404, request);

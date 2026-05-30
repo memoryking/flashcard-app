@@ -496,7 +496,8 @@ const state = {
   attribution: null,
   attrDays: 90,
   qrBuilder: { source: 'flyer', medium: 'qr', campaign: '', content: '', term: '' },
-  savedCampaigns: JSON.parse(localStorage.getItem('op_crm_saved_campaigns') || '[]'),
+  savedCampaigns: [],   // 서버에서 로드 (Airtable OnepageCampaigns)
+  savedLoaded: false,
 };
 
 // ============================================================
@@ -1450,8 +1451,14 @@ const ATTR_PRESETS = [
 async function loadAttribution() {
   $('attributionBody').innerHTML = '<div class="loading">집계 중…</div>';
   try {
-    const r = await api('GET', '/admin/attribution?days=' + state.attrDays);
-    state.attribution = r;
+    const [attr, camps] = await Promise.all([
+      api('GET', '/admin/attribution?days=' + state.attrDays),
+      api('GET', '/admin/campaigns').catch(e => ({ campaigns: [], _err: e.message })),
+    ]);
+    state.attribution = attr;
+    state.savedCampaigns = camps.campaigns || [];
+    state.savedLoaded = true;
+    if (camps._err) toast('캐페인 목록 로드 실패: ' + camps._err, 'err');
     renderAttribution();
   } catch (e) {
     $('attributionBody').innerHTML = `<div class="err-box">어트리뷰션 로드 실패: ${escapeHtml(e.message)}</div>`;
@@ -1662,19 +1669,20 @@ function renderAttribution() {
   updateQr();
 }
 
-// ── 저장된 캐페인 라이브러리 ──
+// ── 저장된 캐페인 라이브러리 (서버 — Airtable OnepageCampaigns) ──
 function renderSavedCampaignsLibrary() {
   const list = state.savedCampaigns;
   const grid = list.length ? `
     <div class="saved-grid">
-      ${list.map((c, i) => `
-        <div class="saved-item" onclick="loadSavedCampaign(${i})">
-          <button class="del" title="삭제" onclick="event.stopPropagation();deleteSavedCampaign(${i})">✕</button>
+      ${list.map(c => `
+        <div class="saved-item" onclick="loadSavedCampaign('${escapeHtml(c.id)}')">
+          <button class="del" title="삭제" onclick="event.stopPropagation();deleteSavedCampaign('${escapeHtml(c.id)}')">✕</button>
           <div class="name">${escapeHtml(c.name)}</div>
           <div class="tags">
             <span>${escapeHtml(c.source || '—')}</span> / ${escapeHtml(c.medium || '—')} / ${escapeHtml(c.campaign || '—')}${c.content ? ' / ' + escapeHtml(c.content) : ''}
           </div>
-          <div class="saved-when">${escapeHtml(c.saved_at_label || '')}</div>
+          ${c.notes ? `<div class="saved-when" style="color:rgba(255,193,7,0.7);font-style:italic">📝 ${escapeHtml(c.notes.slice(0,60))}${c.notes.length>60?'…':''}</div>` : ''}
+          <div class="saved-when">${escapeHtml(c.created_by_name || '—')} · ${fmtKstDate(c.created_at)}</div>
         </div>
       `).join('')}
     </div>
@@ -1682,10 +1690,10 @@ function renderSavedCampaignsLibrary() {
   return `
     <div class="saved-campaigns">
       <h4>
-        <span>💾 저장된 캐페인 (${list.length})</span>
+        <span>💾 저장된 캐페인 (${list.length}) <span style="font-size:10px;color:rgba(255,255,255,0.4);font-weight:600;margin-left:4px">서버 저장 — 모든 기기 동기화</span></span>
         <span class="actions">
-          ${list.length > 0 ? `<button onclick="exportSavedCampaigns()">📤 JSON 내보내기</button>` : ''}
-          <button onclick="importSavedCampaigns()">📥 JSON 가져오기</button>
+          <button onclick="loadAttribution()" title="서버에서 새로고침">🔄 새로고침</button>
+          ${list.length > 0 ? `<button onclick="exportSavedCampaigns()">📤 JSON 백업</button>` : ''}
         </span>
       </h4>
       ${grid}
@@ -1693,43 +1701,45 @@ function renderSavedCampaignsLibrary() {
   `;
 }
 
-function saveCampaign() {
+async function saveCampaign() {
   const b = state.qrBuilder;
   if (!b.source && !b.medium && !b.campaign) {
     toast('소스 · 매체 · 캐페인 중 하나는 입력하세요', 'err');
     return;
   }
-  // 기본 이름 = "campaign · content" 또는 "source · campaign"
   const suggested = (b.campaign || b.source) + (b.content ? ' · ' + b.content : '');
   const name = prompt('이 캐페인의 이름을 정해주세요 (라이브러리에서 알아볼 수 있는 짧은 라벨)', suggested);
   if (name === null) return;
-  const trimmed = name.trim() || suggested;
+  const trimmed = (name.trim() || suggested);
 
-  // 같은 utm 조합이 이미 있으면 덮어쓸지 확인
-  const dupIdx = state.savedCampaigns.findIndex(c =>
+  // 같은 UTM 조합 중복 검사
+  const dup = state.savedCampaigns.find(c =>
     c.source === b.source && c.medium === b.medium &&
-    c.campaign === b.campaign && c.content === b.content && c.term === b.term
+    c.campaign === b.campaign && c.content === b.content && (c.term || '') === (b.term || '')
   );
-  const entry = {
-    name: trimmed,
-    source: b.source, medium: b.medium,
-    campaign: b.campaign, content: b.content, term: b.term,
-    saved_at: Date.now(),
-    saved_at_label: fmtKstDate(new Date().toISOString()),
-  };
-  if (dupIdx >= 0) {
-    if (!confirm('같은 UTM 조합이 이미 저장되어 있습니다. 덮어쓸까요?')) return;
-    state.savedCampaigns[dupIdx] = entry;
-  } else {
-    state.savedCampaigns.unshift(entry);
+  if (dup) {
+    if (!confirm(`같은 UTM 조합 "${dup.name}"이 이미 서버에 있습니다.\n새 이름으로 추가 저장할까요?\n(취소하면 저장 안 함)`)) return;
   }
-  persistSavedCampaigns();
-  renderAttribution();
-  toast(`"${trimmed}" 저장됨`, 'ok');
+
+  const notes = prompt('메모 (선택 — 어디에 어떻게 배포했는지 기록해두면 좋아요)', '') || '';
+
+  try {
+    const r = await api('POST', '/admin/campaigns', {
+      name: trimmed,
+      source: b.source, medium: b.medium,
+      campaign: b.campaign, content: b.content, term: b.term,
+      notes,
+    });
+    if (r.campaign) state.savedCampaigns.unshift(r.campaign);
+    renderAttribution();
+    toast(`"${trimmed}" 서버에 저장됨`, 'ok');
+  } catch (e) {
+    toast('저장 실패: ' + e.message, 'err');
+  }
 }
 
-function loadSavedCampaign(idx) {
-  const c = state.savedCampaigns[idx];
+function loadSavedCampaign(id) {
+  const c = state.savedCampaigns.find(x => x.id === id);
   if (!c) return;
   state.qrBuilder = {
     source: c.source || '', medium: c.medium || '',
@@ -1745,18 +1755,18 @@ function loadSavedCampaign(idx) {
   toast(`"${c.name}" 불러옴`, 'ok');
 }
 
-function deleteSavedCampaign(idx) {
-  const c = state.savedCampaigns[idx];
+async function deleteSavedCampaign(id) {
+  const c = state.savedCampaigns.find(x => x.id === id);
   if (!c) return;
-  if (!confirm(`"${c.name}" 삭제할까요?`)) return;
-  state.savedCampaigns.splice(idx, 1);
-  persistSavedCampaigns();
-  renderAttribution();
-  toast('삭제됨', 'ok');
-}
-
-function persistSavedCampaigns() {
-  localStorage.setItem('op_crm_saved_campaigns', JSON.stringify(state.savedCampaigns));
+  if (!confirm(`"${c.name}" 을(를) 서버에서 영구 삭제할까요?\n(다른 기기에서도 사라집니다)`)) return;
+  try {
+    await api('DELETE', '/admin/campaigns/' + encodeURIComponent(id));
+    state.savedCampaigns = state.savedCampaigns.filter(x => x.id !== id);
+    renderAttribution();
+    toast('삭제됨', 'ok');
+  } catch (e) {
+    toast('삭제 실패: ' + e.message, 'err');
+  }
 }
 
 function exportSavedCampaigns() {
@@ -1768,38 +1778,7 @@ function exportSavedCampaigns() {
   a.download = `onepage-campaigns-${new Date().toISOString().slice(0,10)}.json`;
   a.click();
   URL.revokeObjectURL(url);
-  toast('JSON 파일로 내보냄', 'ok');
-}
-
-function importSavedCampaigns() {
-  const input = document.createElement('input');
-  input.type = 'file';
-  input.accept = 'application/json,.json';
-  input.onchange = e => {
-    const file = e.target.files[0];
-    if (!file) return;
-    const reader = new FileReader();
-    reader.onload = () => {
-      try {
-        const arr = JSON.parse(reader.result);
-        if (!Array.isArray(arr)) throw new Error('JSON 형식이 잘못되었습니다');
-        // 병합 — 같은 utm 조합은 새 것으로 덮어씀
-        const dedup = new Map();
-        for (const c of [...state.savedCampaigns, ...arr]) {
-          const k = `${c.source}|${c.medium}|${c.campaign}|${c.content}|${c.term}`;
-          dedup.set(k, c);
-        }
-        state.savedCampaigns = Array.from(dedup.values());
-        persistSavedCampaigns();
-        renderAttribution();
-        toast(`${arr.length}개 항목 병합 완료 (전체 ${state.savedCampaigns.length}개)`, 'ok');
-      } catch (err) {
-        toast('가져오기 실패: ' + err.message, 'err');
-      }
-    };
-    reader.readAsText(file);
-  };
-  input.click();
+  toast('JSON 백업 다운로드 완료', 'ok');
 }
 
 function buildTrackingUrl() {
@@ -1943,7 +1922,7 @@ window.saveCampaign = saveCampaign;
 window.loadSavedCampaign = loadSavedCampaign;
 window.deleteSavedCampaign = deleteSavedCampaign;
 window.exportSavedCampaigns = exportSavedCampaigns;
-window.importSavedCampaigns = importSavedCampaigns;
+window.loadAttribution = loadAttribution;
 
 // ============================================================
 // 시작
