@@ -18,6 +18,8 @@
 <style>
 /* ========== Scoping reset (iframe·임베드 안전) ========== */
 #opRoot, #opRoot * { all: initial; box-sizing: border-box; font-family: inherit; color: inherit; line-height: inherit; }
+/* all:initial이 <style>·<script>·<head>의 기본 display:none을 inline으로 덮어 코드가 노출되는 문제 — 명시적으로 숨김 */
+#opRoot style, #opRoot script, #opRoot meta, #opRoot link, #opRoot title { display: none !important; }
 #opRoot {
     display: block !important;
     font-family: -apple-system, BlinkMacSystemFont, 'Pretendard', 'Segoe UI', Tahoma, sans-serif !important;
