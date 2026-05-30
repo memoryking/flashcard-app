@@ -330,6 +330,43 @@ table { border-collapse: collapse; width: 100%; }
   border: 1px solid rgba(255,255,255,0.1); text-align: left;
 }
 .attr-presets button:hover { background: rgba(255,255,255,0.12); border-color: rgba(233,69,96,0.4); }
+
+/* 저장된 캐페인 라이브러리 */
+.saved-campaigns {
+  background: rgba(255,193,7,0.05); border: 1px solid rgba(255,193,7,0.2);
+  border-radius: 12px; padding: 14px 16px; margin-bottom: 14px;
+}
+.saved-campaigns h4 {
+  font-size: 13px; color: #ffd54f; font-weight: 700;
+  margin-bottom: 10px; display: flex; align-items: center; gap: 6px;
+  justify-content: space-between;
+}
+.saved-campaigns h4 .actions { display: flex; gap: 6px; }
+.saved-campaigns h4 .actions button {
+  background: rgba(255,255,255,0.08); color: #ddd; font-size: 11px;
+  padding: 4px 8px; border-radius: 5px; font-weight: 600;
+}
+.saved-grid {
+  display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+  gap: 8px;
+}
+.saved-item {
+  background: rgba(0,0,0,0.25); border: 1px solid rgba(255,255,255,0.08);
+  border-radius: 10px; padding: 10px 12px; position: relative;
+  cursor: pointer; transition: all 0.15s;
+}
+.saved-item:hover { border-color: rgba(255,193,7,0.5); background: rgba(255,193,7,0.06); }
+.saved-item .name { font-size: 13px; font-weight: 700; color: #fff; margin-bottom: 3px; padding-right: 22px; }
+.saved-item .tags { font-size: 10px; color: rgba(255,255,255,0.55); }
+.saved-item .tags span { color: #81d4fa; }
+.saved-item .saved-when { font-size: 10px; color: rgba(255,255,255,0.35); margin-top: 4px; }
+.saved-item .del {
+  position: absolute; top: 6px; right: 6px;
+  background: rgba(239,68,68,0.15); color: #fca5a5;
+  width: 20px; height: 20px; border-radius: 50%;
+  font-size: 11px; line-height: 1; padding: 0;
+}
+.saved-item .del:hover { background: rgba(239,68,68,0.35); }
 </style>
 </head>
 <body>
@@ -459,6 +496,7 @@ const state = {
   attribution: null,
   attrDays: 90,
   qrBuilder: { source: 'flyer', medium: 'qr', campaign: '', content: '', term: '' },
+  savedCampaigns: JSON.parse(localStorage.getItem('op_crm_saved_campaigns') || '[]'),
 };
 
 // ============================================================
@@ -1509,6 +1547,8 @@ function renderAttribution() {
 
       <div class="attr-presets">${presets}</div>
 
+      ${renderSavedCampaignsLibrary()}
+
       <div class="qr-builder">
         <div>
           <div class="form-2">
@@ -1540,7 +1580,8 @@ function renderAttribution() {
           <div class="form-row">
             <label>최종 추적 URL</label>
             <div class="url-display" id="qrUrl">${escapeHtml(LANDING_BASE_URL)}</div>
-            <div style="display:flex;gap:6px;margin-top:6px">
+            <div style="display:flex;gap:6px;margin-top:6px;flex-wrap:wrap">
+              <button class="btn-primary" onclick="saveCampaign()">💾 캐페인 저장</button>
               <button class="btn-sec" onclick="copyQrUrl()">📋 URL 복사</button>
               <button class="btn-sec" onclick="openQrUrl()">🌐 새 탭에서 열기</button>
             </div>
@@ -1619,6 +1660,146 @@ function renderAttribution() {
     $(id).oninput = updateQr;
   });
   updateQr();
+}
+
+// ── 저장된 캐페인 라이브러리 ──
+function renderSavedCampaignsLibrary() {
+  const list = state.savedCampaigns;
+  const grid = list.length ? `
+    <div class="saved-grid">
+      ${list.map((c, i) => `
+        <div class="saved-item" onclick="loadSavedCampaign(${i})">
+          <button class="del" title="삭제" onclick="event.stopPropagation();deleteSavedCampaign(${i})">✕</button>
+          <div class="name">${escapeHtml(c.name)}</div>
+          <div class="tags">
+            <span>${escapeHtml(c.source || '—')}</span> / ${escapeHtml(c.medium || '—')} / ${escapeHtml(c.campaign || '—')}${c.content ? ' / ' + escapeHtml(c.content) : ''}
+          </div>
+          <div class="saved-when">${escapeHtml(c.saved_at_label || '')}</div>
+        </div>
+      `).join('')}
+    </div>
+  ` : '<div style="font-size:12px;color:rgba(255,255,255,0.4);padding:8px 0">아직 저장된 캐페인이 없습니다. 입력 칸 채운 뒤 💾 저장을 누르세요.</div>';
+  return `
+    <div class="saved-campaigns">
+      <h4>
+        <span>💾 저장된 캐페인 (${list.length})</span>
+        <span class="actions">
+          ${list.length > 0 ? `<button onclick="exportSavedCampaigns()">📤 JSON 내보내기</button>` : ''}
+          <button onclick="importSavedCampaigns()">📥 JSON 가져오기</button>
+        </span>
+      </h4>
+      ${grid}
+    </div>
+  `;
+}
+
+function saveCampaign() {
+  const b = state.qrBuilder;
+  if (!b.source && !b.medium && !b.campaign) {
+    toast('소스 · 매체 · 캐페인 중 하나는 입력하세요', 'err');
+    return;
+  }
+  // 기본 이름 = "campaign · content" 또는 "source · campaign"
+  const suggested = (b.campaign || b.source) + (b.content ? ' · ' + b.content : '');
+  const name = prompt('이 캐페인의 이름을 정해주세요 (라이브러리에서 알아볼 수 있는 짧은 라벨)', suggested);
+  if (name === null) return;
+  const trimmed = name.trim() || suggested;
+
+  // 같은 utm 조합이 이미 있으면 덮어쓸지 확인
+  const dupIdx = state.savedCampaigns.findIndex(c =>
+    c.source === b.source && c.medium === b.medium &&
+    c.campaign === b.campaign && c.content === b.content && c.term === b.term
+  );
+  const entry = {
+    name: trimmed,
+    source: b.source, medium: b.medium,
+    campaign: b.campaign, content: b.content, term: b.term,
+    saved_at: Date.now(),
+    saved_at_label: fmtKstDate(new Date().toISOString()),
+  };
+  if (dupIdx >= 0) {
+    if (!confirm('같은 UTM 조합이 이미 저장되어 있습니다. 덮어쓸까요?')) return;
+    state.savedCampaigns[dupIdx] = entry;
+  } else {
+    state.savedCampaigns.unshift(entry);
+  }
+  persistSavedCampaigns();
+  renderAttribution();
+  toast(`"${trimmed}" 저장됨`, 'ok');
+}
+
+function loadSavedCampaign(idx) {
+  const c = state.savedCampaigns[idx];
+  if (!c) return;
+  state.qrBuilder = {
+    source: c.source || '', medium: c.medium || '',
+    campaign: c.campaign || '', content: c.content || '', term: c.term || '',
+  };
+  $('qr_source').value = state.qrBuilder.source;
+  $('qr_medium').value = state.qrBuilder.medium;
+  $('qr_campaign').value = state.qrBuilder.campaign;
+  $('qr_content').value = state.qrBuilder.content;
+  $('qr_term').value = state.qrBuilder.term;
+  updateQr();
+  $('qrCanvas').scrollIntoView({ behavior: 'smooth', block: 'center' });
+  toast(`"${c.name}" 불러옴`, 'ok');
+}
+
+function deleteSavedCampaign(idx) {
+  const c = state.savedCampaigns[idx];
+  if (!c) return;
+  if (!confirm(`"${c.name}" 삭제할까요?`)) return;
+  state.savedCampaigns.splice(idx, 1);
+  persistSavedCampaigns();
+  renderAttribution();
+  toast('삭제됨', 'ok');
+}
+
+function persistSavedCampaigns() {
+  localStorage.setItem('op_crm_saved_campaigns', JSON.stringify(state.savedCampaigns));
+}
+
+function exportSavedCampaigns() {
+  const data = JSON.stringify(state.savedCampaigns, null, 2);
+  const blob = new Blob([data], { type: 'application/json' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = `onepage-campaigns-${new Date().toISOString().slice(0,10)}.json`;
+  a.click();
+  URL.revokeObjectURL(url);
+  toast('JSON 파일로 내보냄', 'ok');
+}
+
+function importSavedCampaigns() {
+  const input = document.createElement('input');
+  input.type = 'file';
+  input.accept = 'application/json,.json';
+  input.onchange = e => {
+    const file = e.target.files[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = () => {
+      try {
+        const arr = JSON.parse(reader.result);
+        if (!Array.isArray(arr)) throw new Error('JSON 형식이 잘못되었습니다');
+        // 병합 — 같은 utm 조합은 새 것으로 덮어씀
+        const dedup = new Map();
+        for (const c of [...state.savedCampaigns, ...arr]) {
+          const k = `${c.source}|${c.medium}|${c.campaign}|${c.content}|${c.term}`;
+          dedup.set(k, c);
+        }
+        state.savedCampaigns = Array.from(dedup.values());
+        persistSavedCampaigns();
+        renderAttribution();
+        toast(`${arr.length}개 항목 병합 완료 (전체 ${state.savedCampaigns.length}개)`, 'ok');
+      } catch (err) {
+        toast('가져오기 실패: ' + err.message, 'err');
+      }
+    };
+    reader.readAsText(file);
+  };
+  input.click();
 }
 
 function buildTrackingUrl() {
@@ -1758,6 +1939,11 @@ window.copyQrUrl = copyQrUrl;
 window.openQrUrl = openQrUrl;
 window.downloadQrPng = downloadQrPng;
 window.printQrCode = printQrCode;
+window.saveCampaign = saveCampaign;
+window.loadSavedCampaign = loadSavedCampaign;
+window.deleteSavedCampaign = deleteSavedCampaign;
+window.exportSavedCampaigns = exportSavedCampaigns;
+window.importSavedCampaigns = importSavedCampaigns;
 
 // ============================================================
 // 시작
