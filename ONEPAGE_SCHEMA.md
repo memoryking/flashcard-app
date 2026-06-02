@@ -15,6 +15,8 @@
 | Airtable | `OnepagePayments` | PayApp webhook 결제 원장 |
 | Airtable | `OnepagePointTx` | 포인트 변동 감사 로그 |
 | Airtable | `OnepageCampaigns` | CRM QR 라이브러리 (마케팅 자산) |
+| Airtable | `UnknownPayments` | Pabbly 결제 라우터 폴백 — 상품명 미매칭 |
+| Airtable | `FailedPayments` | Pabbly 결제 라우터 안전망 — Airtable 쓰기 실패 |
 | nocodebackend | `op_chapters` | 챕터 (+ 페이앱 결제 URL) |
 | nocodebackend | `op_topics` | 대목차 |
 | nocodebackend | `op_subtopics` | 소목차 (+ 대표 이미지) |
@@ -91,19 +93,27 @@
 
 ### A3. `OnepagePayments`
 
-PayApp webhook이 채울 결제 원장. **Worker는 읽지도 쓰지도 않음** — 사용자님 webhook 흐름이 단독 관리.
+PayApp 결제 원장. **Pabbly Connect 결제 라우터**가 채움. **Worker는 읽지도 쓰지도 않음**.
 
 | 필드명 | Airtable 필드 타입 | 옵션·기본값 | 비고 |
 |---|---|---|---|
-| `mul_no` | **Single line text** | — | PayApp 결제번호. **유니크 (멱등 키)** — 같은 mul_no면 무시 |
-| `user_phone` | **Single line text** | — | 결제자 휴대폰 (정규화) |
-| `user_email` | **Email** | — | 선택 |
-| `chapter_id` | **Number** → Integer | — | 결제 대상 챕터 id |
-| `chapter_title` | **Single line text** | — | |
-| `amount` | **Currency** (KRW, ₩, 소수점 0자리) | — | 결제 금액 (원) |
-| `paid_at` | **Date** → Include time | — | 결제 완료 시각 |
-| `raw` | **Long text** | — | PayApp webhook 원본 JSON 문자열 (감사/디버깅) |
+| `mul_no` | **Single line text** | — | PayApp 결제번호. **멱등성 키** — Pabbly가 같은 mul_no 중복 차단 |
+| `user_phone` | **Single line text** | — | 결제자 휴대폰 (숫자만, recvphone/buyer_phone에서 추출) |
+| `user_email` | **Email** | — | buyer_email |
+| `chapter_id` | **Number** → Integer | — | Pabbly가 Worker `/chapters` 조회 후 goodname → title 매칭 |
+| `chapter_title` | **Single line text** | — | 매칭된 챕터 제목 (디버깅·가독성용 사본) |
+| `amount` | **Currency** (KRW, ₩, 소수점 0자리) | — | price → amount |
+| `paid_at` | **Date** → Include time | — | KST 시각 (Pabbly가 변환) |
+| `raw` | **Long text** | — | PayApp 원본 페이로드 JSON 문자열 (감사/디버깅) |
 | `status` | **Single select** | 옵션: `paid`, `refunded`, `failed` · 기본 `paid` | |
+
+**Pabbly가 보장하는 것**:
+- 같은 `mul_no` 중복 차단 (페이앱 3~5회 재전송 안전)
+- pay_state ≠ "4"인 알림 무시
+- 챕터 매칭 실패 시 `UnknownPayments`로 우회
+- Airtable 쓰기 실패 시 `FailedPayments`로 우회
+
+**여기 행이 추가되면 Automation C1이 자동 발사** → ChapterAccess +30일.
 
 ---
 
@@ -149,6 +159,62 @@ CRM의 QR 코드 + 추적 URL 생성기 라이브러리. 관리자가 저장한 
 - `소스별` — utm_source로 그룹
 
 **Worker 엔드포인트**: `GET/POST /admin/campaigns`, `PUT/DELETE /admin/campaigns/:id` (teacher gate)
+
+---
+
+### A6. `UnknownPayments`
+
+Pabbly 결제 라우터의 **폴백 1** — 상품명(`goodname`)이 어떤 챕터와도 매칭 안 될 때 여기로 우회.
+
+> ⚠️ **운영 시 정상 상태는 0행에 가까움**. 행이 늘면 상품명 vs chapter.title 불일치 점검 필요.
+
+| 필드명 | Airtable 필드 타입 | 옵션·기본값 | 비고 |
+|---|---|---|---|
+| `mul_no` | **Single line text** | — | PayApp 거래번호 (멱등성 키) |
+| `goodname` | **Single line text** | — | 매핑 실패한 상품명 — 신규 상품/오타/다른 사업 결제 등 |
+| `phone` | **Single line text** | — | 결제자 (recvphone/buyer_phone) |
+| `email` | **Email** | — | buyer_email |
+| `amount` | **Currency** (KRW, ₩, 소수점 0자리) | — | price |
+| `raw` | **Long text** | — | 페이앱 원본 페이로드 JSON |
+| `received_at` | **Created time** (auto) | 자동 채움 | Airtable 시스템 필드 (수동 입력 불가) |
+| `notes` | **Long text** | 기본 `"Unknown product — needs manual classification"` | Pabbly가 자동 세팅 |
+| `resolved` | **Checkbox** | — | 수동 분류 완료 표시 |
+
+**운영 작업 흐름**:
+1. 매주 미해결(`resolved` 미체크) 행 검토
+2. 상품명이 챕터 제목과 맞으면 → 챕터 제목 수정 또는 Pabbly 라우터 매칭 로직에 키워드 추가
+3. 다른 사업 결제면 → 해당 사업의 Airtable base로 수동 이관
+4. 처리 후 `resolved` 체크
+
+---
+
+### A7. `FailedPayments`
+
+Pabbly 결제 라우터의 **폴백 2 (안전망)** — Airtable 쓰기가 어떤 이유로든 실패할 때 여기로 우회.
+
+> 🚨 **운영 시 정상 상태는 0행**. 행이 늘면 Airtable 토큰·권한·네트워크·필드명 등 시스템 장애.
+
+| 필드명 | Airtable 필드 타입 | 옵션·기본값 | 비고 |
+|---|---|---|---|
+| `mul_no` | **Single line text** | — | PayApp 거래번호 |
+| `goodname` | **Single line text** | — | 상품명 |
+| `phone` | **Single line text** | — | 결제자 |
+| `email` | **Email** | — | |
+| `amount` | **Currency** (KRW, ₩, 소수점 0자리) | — | |
+| `raw` | **Long text** | — | 페이앱 원본 페이로드 (수동 재처리용) |
+| `error_message` | **Long text** | — | Airtable 또는 라우터 에러 메시지 (예: `"Airtable error 404: NOT_FOUND"`) |
+| `retry_count` | **Number** → Integer | 기본 `0` | 수동 재실행 횟수 |
+| `created_at` | **Created time** (auto) | 자동 채움 | 실패 시각 |
+| `resolved` | **Checkbox** | — | 수동 재처리 완료 표시 |
+
+**복구 흐름** (행 발생 시):
+1. `error_message` 확인 → 원인 파악 (예: Airtable 토큰 만료, 필드 누락, 네트워크)
+2. 근본 원인 수정 (Pabbly Secret 갱신, 필드 추가 등)
+3. `raw` JSON을 보고 OnepagePayments에 수동으로 행 추가 (mul_no 보존)
+   → C1 Automation이 자동 발사되어 ChapterAccess 갱신
+4. `retry_count`를 1 증가시키고 `resolved` 체크
+
+**Pabbly 항상 200 OK 응답 보장**: 이 테이블에 행이 추가됐어도 페이앱에는 정상 응답 → retry-storm 없음.
 
 ---
 
@@ -301,26 +367,102 @@ Type 드롭다운에 보이는 옵션: `INT`, `BIGINT`, `VARCHAR(255)`, `DROPDOW
 
 Worker는 결제·추천보너스 처리에 관여하지 않습니다. 모두 Airtable Automation에서.
 
-### C1. 결제 → ChapterAccess upsert
+### C1. 결제 → ChapterAccess +30일 (Run a script 단일 액션)
 
+**Conditional logic 분기 대신 Script 하나로 통일** — 가독성·디버깅·재사용성 모두 우수.
+
+**Trigger**:
+- Type: `When a record is created`
+- Table: `OnepagePayments`
+- (선택) Condition: `status = paid`
+
+**Action — Run a script**:
+
+**Input variables** (4개, 트리거 필드에서 매핑):
+| Script 변수명 | 트리거 필드 |
+|---|---|
+| `user_phone` | OnepagePayments.user_phone |
+| `chapter_id` | OnepagePayments.chapter_id |
+| `chapter_title` | OnepagePayments.chapter_title |
+| `mul_no` | OnepagePayments.mul_no |
+
+**Script 코드**:
+
+```javascript
+const config = input.config();
+const userPhone    = String(config.user_phone || "").trim();
+const chapterId    = Number(config.chapter_id);
+const chapterTitle = String(config.chapter_title || "").trim();
+const mulNo        = String(config.mul_no || "").trim();
+const ADD_DAYS = 30;
+
+if (!userPhone || !chapterId) {
+    console.log(`⚠️ 필수 입력 누락 — user_phone='${userPhone}', chapter_id='${chapterId}'`);
+    return;
+}
+
+const table = base.getTable("OnepageChapterAccess");
+const query = await table.selectRecordsAsync({
+    fields: ["user_phone", "chapter_id", "chapter_title", "expires_at"],
+});
+
+const existing = query.records.find(r =>
+    String(r.getCellValue("user_phone")) === userPhone &&
+    Number(r.getCellValue("chapter_id")) === chapterId
+);
+
+// 활성(미래)이면 기존 만료일부터, 만료/신규면 NOW부터 +30일
+const now = new Date();
+let baseDate = now;
+if (existing) {
+    const current = existing.getCellValue("expires_at");
+    if (current) {
+        const currentDate = new Date(current);
+        if (currentDate > now) baseDate = currentDate;
+    }
+}
+
+const newExpires = new Date(baseDate);
+newExpires.setUTCDate(newExpires.getUTCDate() + ADD_DAYS);
+const newExpiresIso = newExpires.toISOString();
+
+if (existing) {
+    await table.updateRecordAsync(existing.id, {
+        "chapter_title": chapterTitle,
+        "expires_at": newExpiresIso,
+        "last_payment_id": mulNo,
+        "source": { name: "purchase" },
+    });
+    console.log(`✓ 갱신: ${userPhone} × #${chapterId} (${chapterTitle})`);
+    console.log(`   만료일 → ${newExpiresIso.slice(0, 10)}`);
+} else {
+    const newId = await table.createRecordAsync({
+        "user_phone": userPhone,
+        "chapter_id": chapterId,
+        "chapter_title": chapterTitle,
+        "expires_at": newExpiresIso,
+        "last_payment_id": mulNo,
+        "source": { name: "purchase" },
+    });
+    console.log(`+ 신규: ${userPhone} × #${chapterId} (${chapterTitle})`);
+    console.log(`   만료일 → ${newExpiresIso.slice(0, 10)}`);
+    console.log(`   record ID: ${newId}`);
+}
 ```
-[트리거]   When record created in OnepagePayments (status = paid)
-[조건]    payment.status = 'paid'
-[액션 1]   Find records in OnepageChapterAccess
-          where user_phone = {payment.user_phone}
-            and chapter_id = {payment.chapter_id}
-[액션 2]   IF 결과 있음:
-            Update: expires_at = MAX(NOW(), 기존 expires_at) + 30일
-                    last_payment_id = {payment.mul_no}
-                    source = 'purchase'
-                    updated_at = NOW()
-          ELSE:
-            Create: user_phone, chapter_id, chapter_title,
-                    expires_at = NOW() + 30일
-                    last_payment_id = {payment.mul_no}
-                    source = 'purchase'
-                    created_at = NOW(), updated_at = NOW()
-```
+
+**시나리오별 결과**:
+
+| 학생 상황 | 기존 expires_at | 동작 |
+|---|---|---|
+| 첫 결제 | (행 없음) | CREATE → NOW + 30일 |
+| 활성 중 재결제 (D-12) | 12일 후 | UPDATE → 기존 + 30일 = D-42 (누적) |
+| 만료 후 재결제 | 30일 전 (만료) | UPDATE → NOW + 30일 (재시작) |
+
+**API 주의** (Scripting Extension vs Automation Script):
+- ✅ Automation `Run a script`: `console.log()` 사용
+- ❌ Scripting Extension: `output.text()` 사용 (자동화에선 작동 X)
+
+**Single select 필드**: 값 전달 시 객체 형태 — `{ name: "purchase" }`. 문자열 직접 전달 X.
 
 ### C2. 결제 → 첫 결제이면 추천 보너스 양쪽 +1000P
 
@@ -395,9 +537,36 @@ Worker는 결제·추천보너스 처리에 관여하지 않습니다. 모두 Ai
 - `utm_source`, `utm_medium`, `utm_campaign`, `utm_content`, `utm_term` → Single line text
 - `landing_url`, `referrer_url` → Long text
 
-**Airtable 신규 테이블** — `OnepageCampaigns` (A5 참조)
+**Airtable 신규 테이블**:
+- `OnepageCampaigns` (A5 참조) — CRM QR 라이브러리
+- `UnknownPayments` (A6 참조) — Pabbly 라우터 폴백 (상품 미매핑)
+- `FailedPayments` (A7 참조) — Pabbly 라우터 안전망 (Airtable 쓰기 실패)
 
 **nocodebackend 신규 컬럼** (`op_chapters`):
 ```sql
 ALTER TABLE op_chapters ADD COLUMN pay_url VARCHAR(255) NULL;
 ```
+
+---
+
+## H. Pabbly Connect 워크플로우 (사용자님이 설정)
+
+CRM·결제 처리에 사용. 두 개의 별도 워크플로우.
+
+### H1. 마케팅 캐페인 발송 워크플로우
+- **트리거 URL**: Worker secret `PABBLY_WEBHOOK_URL`에 저장
+- **흐름**: CRM → Worker `/admin/webhook/send` → 이 워크플로우 → AI(GPT-4o-mini)로 개인화 메시지 생성 → Solapi(SMS) + Gmail SMTP 라우팅
+- **시크릿**: SOLAPI_API_KEY, SOLAPI_API_SECRET, Gmail OAuth, OPENAI_API_KEY
+
+### H2. 결제 라우터 워크플로우
+- **트리거 URL**: 페이앱 콘솔의 모든 결제 링크 피드백 URL에 등록 (단일 URL)
+- **흐름**: 페이앱 → 이 워크플로우 (5단계) → OnepagePayments / UnknownPayments / FailedPayments 분기
+- **5단계**:
+  1. Parse Webhook (form-urlencoded → JSON, 필터)
+  2. Idempotency Check (mul_no 중복 차단)
+  3. Route & Save Payment (Worker `/chapters` 조회 + 분기 저장)
+  4. Return 200 OK (항상)
+- **시크릿**: AIRTABLE_TOKEN, AIRTABLE_BASE
+- **운영 점검**: 매일 FailedPayments 0행 확인, 매주 UnknownPayments 검토
+
+자세한 흐름·트러블슈팅: [ONEPAGE_FEATURES.md § 5 결제 자동화 파이프라인](ONEPAGE_FEATURES.md#5-결제-자동화-파이프라인-payapp--pabbly--airtable)

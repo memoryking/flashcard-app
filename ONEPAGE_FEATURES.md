@@ -7,23 +7,24 @@
 2. [4가지 앱 + 백엔드](#2-4가지-앱--백엔드)
 3. [계층 구조](#3-계층-구조)
 4. [결제 모델 (챕터별)](#4-결제-모델-챕터별)
-5. [포인트 시스템](#5-포인트-시스템)
-6. [추천 시스템](#6-추천-시스템)
-7. [학습 인터페이스 — 플래시카드 모드](#7-학습-인터페이스--플래시카드-모드)
-8. [콘텐츠 정렬 규칙](#8-콘텐츠-정렬-규칙)
-9. [위치 고정 — 학습 중 스크롤 안 밀림](#9-위치-고정--학습-중-스크롤-안-밀림)
-10. [선생님 — 콘텐츠 관리](#10-선생님--콘텐츠-관리)
-11. [일괄 입력 (TSV)](#11-일괄-입력-tsv)
-12. [이미지 처리](#12-이미지-처리)
-13. [보안 — 워터마크·캡쳐 차단](#13-보안--워터마크캡쳐-차단)
-14. [라이브 학습자 카운트](#14-라이브-학습자-카운트)
-15. [관리자 CRM 대시보드](#15-관리자-crm-대시보드)
-16. [마케팅 어트리뷰션 + QR 생성기 (UTM)](#16-마케팅-어트리뷰션--qr-생성기-utm)
-17. [캐페인 발송 (Pabbly 웹훅)](#17-캐페인-발송-pabbly-웹훅)
-18. [KST 시간 처리](#18-kst-시간-처리)
-19. [데이터 모델](#19-데이터-모델)
-20. [Worker 엔드포인트](#20-worker-엔드포인트)
-21. [Cloudflare Workers 청크 처리](#21-cloudflare-workers-청크-처리)
+5. [결제 자동화 파이프라인 (PayApp → Pabbly → Airtable)](#5-결제-자동화-파이프라인-payapp--pabbly--airtable)
+6. [포인트 시스템](#6-포인트-시스템)
+7. [추천 시스템](#7-추천-시스템)
+8. [학습 인터페이스 — 플래시카드 모드](#8-학습-인터페이스--플래시카드-모드)
+9. [콘텐츠 정렬 규칙](#9-콘텐츠-정렬-규칙)
+10. [위치 고정 — 학습 중 스크롤 안 밀림](#10-위치-고정--학습-중-스크롤-안-밀림)
+11. [선생님 — 콘텐츠 관리](#11-선생님--콘텐츠-관리)
+12. [일괄 입력 (TSV)](#12-일괄-입력-tsv)
+13. [이미지 처리](#13-이미지-처리)
+14. [보안 — 워터마크·캡쳐 차단](#14-보안--워터마크캡쳐-차단)
+15. [라이브 학습자 카운트](#15-라이브-학습자-카운트)
+16. [관리자 CRM 대시보드](#16-관리자-crm-대시보드)
+17. [마케팅 어트리뷰션 + QR 생성기 (UTM)](#17-마케팅-어트리뷰션--qr-생성기-utm)
+18. [캐페인 발송 (Pabbly 웹훅)](#18-캐페인-발송-pabbly-웹훅)
+19. [KST 시간 처리](#19-kst-시간-처리)
+20. [데이터 모델](#20-데이터-모델)
+21. [Worker 엔드포인트](#21-worker-엔드포인트)
+22. [Cloudflare Workers 청크 처리](#22-cloudflare-workers-청크-처리)
 
 ---
 
@@ -103,12 +104,217 @@
 - `is_free=1`인 대목차만 열람 가능, 나머지는 🔒 표시
 - 결제 유도 동선 자연스럽게 — "둘러보기 → 마음에 들면 결제"
 
-> 결제 → Airtable 저장은 사용자님 자체 webhook으로 처리.
-> Worker는 `expires_at`을 읽기만 함.
+> 결제 → 학습기간 연장은 **Pabbly Connect 라우터 + Airtable Automation C1**이 자동 처리.
+> Worker는 `OnepageChapterAccess.expires_at`을 **읽기만** 함.
+> 자세한 흐름은 § 5 [결제 자동화 파이프라인](#5-결제-자동화-파이프라인-payapp--pabbly--airtable) 참조.
 
 ---
 
-## 5. 포인트 시스템
+## 5. 결제 자동화 파이프라인 (PayApp → Pabbly → Airtable)
+
+학생 결제 한 번 → 약 1분 안에 학습기간 자동 30일 연장. 모든 단계가 자동화되어 있고 운영자는 평소에 손대지 않습니다.
+
+### 전체 흐름
+
+```
+학생 앱 (Vercel)
+   │ ① 결제 버튼 → chapter.pay_url 새 탭 오픈
+   ▼
+페이앱 결제 페이지
+   │ ② 카드/카카오페이/계좌이체 결제 완료
+   ▼
+페이앱 → Pabbly 웹훅 POST (3~5회 retry로 도착 보장)
+   │ Content-Type: application/x-www-form-urlencoded
+   │ payload: mul_no, recvphone, buyer_email, price, goodname, pay_state, ...
+   ▼
+Pabbly Connect 결제 라우터 워크플로우 (5 단계)
+   ① Parse Webhook        — form-urlencoded → JSON, KST 시각, pay_state ≠ 4 필터
+   ② Idempotency Check    — OnepagePayments에서 mul_no 검색, 중복이면 즉시 종료
+   ③ Route & Save Payment — 챕터 매핑 + 3개 테이블 중 1곳에 저장
+        ├ 정상 매칭 → OnepagePayments
+        ├ 상품명 미매칭 → UnknownPayments (수동 검토)
+        └ Airtable 에러 → FailedPayments (수동 재처리)
+   ④ Return 200 OK        — 항상 200 응답 (페이앱 retry-storm 방지)
+   │
+   ▼ OnepagePayments에 신규 행 생성
+   │
+   ▼ Airtable Automation C1 자동 트리거 (5~60초 지연)
+Airtable Run a script (C1)
+   │ 1. user_phone × chapter_id로 OnepageChapterAccess 검색
+   │ 2. 기준일 결정: 활성(미래)이면 기존 expires_at, 만료/신규면 NOW
+   │ 3. 기준일 + 30일 = 새 expires_at
+   │ 4. upsert (기존 행 갱신 또는 신규 행 생성)
+   ▼
+학생이 학생 앱 새로고침
+   │ GET /auth/me → Worker가 ChapterAccess 조회
+   ▼
+챕터 카드에 D-30 활성 표시 ✅
+```
+
+**총 소요 시간**: 페이앱 결제 완료 시점 + 1분 이내
+
+### Pabbly Connect 결제 라우터 — 5 단계 상세
+
+#### Step 1 — Parse Webhook (코드 단계)
+페이앱이 form-urlencoded로 보내는 필드들을 일반 변수명으로 매핑:
+
+| PayApp 필드명 | 내부 변수 | 비고 |
+|---|---|---|
+| `recvphone` (또는 `buyer_phone`) | `phone` | 숫자만 추출 |
+| `buyer_email` | `email` | 소문자·trim |
+| `price` | `amount` | 정수 |
+| `mul_no` | `mulNo` | 멱등성 키 (그대로 보존) |
+| `goodname` | `goodname` | 챕터 매칭 키 |
+| `pay_state` | (필터) | `"4"`만 통과 — 그 외는 즉시 종료 |
+
+**fallback 지원**: 테스트용 단순명(`phone`/`email`/`amount`)도 같이 받음 — 운영·디버깅 모두 호환.
+
+#### Step 2 — Idempotency Check
+페이앱은 같은 결제를 **3~5회 재전송**하므로 멱등성 처리 필수:
+
+```javascript
+// Airtable OnepagePayments에서 mul_no로 검색
+filterByFormula = {mul_no} = "{{mulNo}}"
+
+if (found.length > 0) {
+    return { result: "duplicate_skipped" };   // 즉시 Step 4로
+}
+```
+
+→ 중복 webhook이 와도 OnepagePayments에 행이 추가되지 않음 → C1도 발사되지 않음 → 30일이 60·90일로 잘못 누적되는 사고 차단.
+
+#### Step 3 — Route & Save Payment
+
+**a) 챕터 매핑** — Worker `/chapters` 호출 후 `goodname === chapter.title` 또는 contains 매칭:
+
+```
+goodname="수열 극한 미분 적분" → chapter_id=3
+```
+
+**b) 3개 경로 분기**:
+
+| 경로 | 조건 | 대상 테이블 |
+|---|---|---|
+| ✅ 정상 | 챕터 매칭 + Airtable 쓰기 성공 | `OnepagePayments` |
+| ⚠️ Unknown | 챕터 매칭 실패 (오타·신규 상품·다른 사업 결제) | `UnknownPayments` |
+| ❌ Failed | Airtable API 에러 (네트워크·권한·필드명) | `FailedPayments` |
+
+→ **어떤 경우에도 데이터 손실 없음**. 운영자는 Unknown/Failed 행만 가끔 점검.
+
+#### Step 4 — Return 200 OK
+페이앱에게 항상 200 응답:
+```json
+{
+  "ok": true,
+  "mul_no": "20260601-A1B2C3D4",
+  "result": "created" | "duplicate_skipped" | "unknown_product" | "failed" | "ignored_non_payment"
+}
+```
+
+페이앱은 200을 받으면 retry 중단.
+
+### Airtable Automation C1 — Payment → ChapterAccess +30일
+
+**트리거**: OnepagePayments에 신규 행 생성 (`status = paid` 조건)
+
+**액션**: `Run a script` (단일 액션)
+
+**Input variables** (4개):
+| Script 변수명 | 트리거 필드 |
+|---|---|
+| `user_phone` | OnepagePayments.user_phone |
+| `chapter_id` | OnepagePayments.chapter_id |
+| `chapter_title` | OnepagePayments.chapter_title |
+| `mul_no` | OnepagePayments.mul_no |
+
+**Script 핵심 로직**:
+```javascript
+const ADD_DAYS = 30;
+
+// 1. 기존 행 검색
+const existing = query.records.find(r =>
+    r.user_phone === userPhone && r.chapter_id === chapterId
+);
+
+// 2. 기준일 결정 (활성이면 누적, 만료/신규면 NOW)
+const now = new Date();
+let baseDate = now;
+if (existing) {
+    const current = existing.getCellValue("expires_at");
+    if (current) {
+        const currentDate = new Date(current);
+        if (currentDate > now) baseDate = currentDate;
+    }
+}
+
+// 3. +30일
+const newExpires = new Date(baseDate);
+newExpires.setUTCDate(newExpires.getUTCDate() + ADD_DAYS);
+
+// 4. upsert
+if (existing) {
+    await table.updateRecordAsync(existing.id, { expires_at, last_payment_id, source });
+} else {
+    await table.createRecordAsync({ user_phone, chapter_id, chapter_title, expires_at, ... });
+}
+```
+
+**시나리오별 결과**:
+
+| 학생 상황 | 기존 expires_at | 새 expires_at |
+|---|---|---|
+| 첫 결제 (신규) | (행 없음) | 오늘 + 30일 |
+| 활성 중 재결제 (D-12) | 12일 후 | 12일 후 + 30일 = D-42 (누적) |
+| 만료 후 재결제 | 30일 전 (만료) | 오늘 + 30일 (재시작) |
+| 같은 결제 retry | — | 트리거 안 됨 (Pabbly에서 멱등성 차단) |
+
+### Pabbly 라우터 멱등성·재전송 검증 시나리오
+
+운영 들어가기 전 검증해야 할 6가지 케이스:
+
+| 테스트 | 페이로드 | 기대 결과 |
+|---|---|---|
+| A. 정상 결제 | `goodname=수열...`, `pay_state=4` | OnepagePayments +1, result="created" |
+| B. 멱등성 | A를 한 번 더 발사 | result="duplicate_skipped", 행 추가 없음 |
+| C. 알 수 없는 상품 | `goodname=라면` | UnknownPayments +1, result="unknown_product" |
+| D. 결제 미완료 | `pay_state=2` | 무시, 모든 테이블 변화 없음 |
+| E. PayApp 실전 필드명 | `recvphone`/`buyer_email`/`price` | A와 동일 결과, 필드 정상 매핑 |
+| F. 강제 Airtable 실패 | (테스트 시 base ID 변형) | FailedPayments +1, result="failed" |
+
+### 트러블슈팅 매트릭스 — "결제했는데 안 열려요"
+
+| OnepagePayments | OnepageChapterAccess | 원인 | 조치 |
+|---|---|---|---|
+| 행 없음 | — | 페이앱 webhook 미도달 | Pabbly 워크플로우 로그 확인 + 페이앱 콘솔의 webhook 전송 이력 확인 |
+| 행 있음 (UnknownPayments) | — | 상품명 매핑 실패 | goodname vs chapter.title 비교 + 챕터 제목 수정 또는 매핑 키워드 추가 |
+| 행 있음 (FailedPayments) | — | Airtable 일시 장애 | error_message 확인 + 수동 재처리 (OnepagePayments에 재투입) |
+| 행 있음 (OnepagePayments) | 행 없음 | C1 미작동 | Automation 토글 ON 확인 + 실행 로그에서 에러 확인 |
+| 행 있음 | 행 있는데 expires_at 비어있음 | C1 Script 에러 | Script 로그 확인 + Input variables 매핑 확인 |
+| 모두 정상 | 모두 정상 | 학생 새로고침 안 함 | Pull-to-refresh 안내 |
+
+### 페이앱 등록 — 단일 피드백 URL
+
+모든 챕터(및 다른 사업까지) 결제 링크에 **같은 Pabbly 웹훅 URL** 등록:
+```
+https://functions.pabbly.com/api/orgs/.../functions/.../invoke
+```
+
+- 페이앱 콘솔 → 결제 링크(상품)별 또는 공통 설정 → **피드백 URL** 입력
+- Pabbly 라우터가 `goodname`으로 자동 분기 → OnePage 챕터 / 헬스 상품 / 알 수 없음
+- 새 상품·새 사업 추가 시에도 페이앱 설정 변경 불필요 — Pabbly 라우터에 분기 한 줄만 추가
+
+### 운영 시 정기 점검
+
+| 주기 | 점검 항목 |
+|---|---|
+| 매일 | FailedPayments 행 수가 0인지 |
+| 매주 | UnknownPayments 검토 → 새 상품이면 매핑 키워드 추가 |
+| 매월 | 결제 건수(OnepagePayments) vs 활성 ChapterAccess 일치 |
+| 분기 | Pabbly 워크플로우 실행 통계 (총 호출/성공/실패) |
+
+---
+
+## 6. 포인트 시스템
 
 ### 환율
 **3,000P = 챕터 1개월 연장**
@@ -137,7 +343,7 @@ newExpires = addDays(base, 30);
 
 ---
 
-## 6. 추천 시스템
+## 7. 추천 시스템
 
 ### 추천 코드
 - 회원가입 시 Worker가 **6자리 base36 랜덤** 생성 (`MathUsers.referral_code`)
@@ -164,7 +370,7 @@ https://vipup.site/onepage?ref=ABC123
 
 ---
 
-## 7. 학습 인터페이스 — 플래시카드 모드
+## 8. 학습 인터페이스 — 플래시카드 모드
 
 학생 앱의 **핵심 학습 흐름**. 스크롤 없이 단어를 연속으로 학습.
 
@@ -216,7 +422,7 @@ https://vipup.site/onepage?ref=ABC123
 
 ---
 
-## 8. 콘텐츠 정렬 규칙
+## 9. 콘텐츠 정렬 규칙
 
 소목차는 다음 순서로 자동 정렬:
 
@@ -230,7 +436,7 @@ https://vipup.site/onepage?ref=ABC123
 
 ---
 
-## 9. 위치 고정 — 학습 중 스크롤 안 밀림
+## 10. 위치 고정 — 학습 중 스크롤 안 밀림
 
 학습 액션 시 화면이 흔들리지 않도록 두 단계 방어:
 
@@ -265,7 +471,7 @@ function withTopicAnchor(topicId, callback) {
 
 ---
 
-## 10. 선생님 — 콘텐츠 관리
+## 11. 선생님 — 콘텐츠 관리
 
 ### 트리 CRUD
 - 챕터 → 대목차 → 소목차 → 내용 블록 (4단계)
@@ -287,7 +493,7 @@ function withTopicAnchor(topicId, callback) {
 
 ---
 
-## 11. 일괄 입력 (TSV)
+## 12. 일괄 입력 (TSV)
 
 엑셀 → 복사 → 붙여넣기 한 번에 콘텐츠 대량 입력.
 
@@ -318,7 +524,7 @@ A: 대목차       B: 소목차    C~ : 내용1, 내용2, 내용3 ...
 
 ---
 
-## 12. 이미지 처리
+## 13. 이미지 처리
 
 ### 클라이언트 압축
 - 선생님 앱에서 이미지 paste/upload 시:
@@ -348,7 +554,7 @@ function unwrapImg(s) { ... }
 
 ---
 
-## 13. 보안 — 워터마크·캡쳐 차단
+## 14. 보안 — 워터마크·캡쳐 차단
 
 ### 전화번호 워터마크
 - 학생 화면 전체에 **대각선 반복** SVG 패턴
@@ -377,7 +583,7 @@ document.addEventListener('keydown', e => {
 
 ---
 
-## 14. 라이브 학습자 카운트
+## 15. 라이브 학습자 카운트
 
 ### 헤더에 "🟢 N명 학습 중" 표시
 - 60초마다 `POST /stats/ping` 호출 (학생 앱)
@@ -390,7 +596,7 @@ document.addEventListener('keydown', e => {
 
 ---
 
-## 15. 관리자 CRM 대시보드
+## 16. 관리자 CRM 대시보드
 
 [onepage-crm/index.html](onepage-crm/index.html) — `role=teacher` 전용 통합 운영 콘솔. 5개 탭으로 사용자·매출·콘텐츠·캐페인·마케팅을 한 화면에서 관리.
 
@@ -430,7 +636,7 @@ document.addEventListener('keydown', e => {
 
 ---
 
-## 16. 마케팅 어트리뷰션 + QR 생성기 (UTM)
+## 17. 마케팅 어트리뷰션 + QR 생성기 (UTM)
 
 가입자의 **유입 경로**를 자동 추적해 어떤 캐페인·디자인이 매출로 이어지는지 측정.
 
@@ -489,7 +695,7 @@ https://vipup.site/onepage-study?utm_source=flyer&utm_medium=qr&utm_campaign=sch
 
 ---
 
-## 17. 캐페인 발송 (Pabbly 웹훅)
+## 18. 캐페인 발송 (Pabbly 웹훅)
 
 CRM에서 선택한 사용자 그룹에 SMS·이메일을 자동 발송. Worker는 [Pabbly Connect](https://www.pabbly.com/connect/) 웹훅으로 페이로드만 보내고, Pabbly가 SMS 게이트웨이(Aligo·Twilio)와 이메일 발송기(Gmail·SendGrid)로 분기.
 
@@ -549,7 +755,7 @@ wrangler secret put PABBLY_WEBHOOK_URL
 
 ---
 
-## 18. KST 시간 처리
+## 19. KST 시간 처리
 
 모든 시간은 **KST(한국 표준시)** 기준.
 
@@ -572,14 +778,16 @@ wrangler secret put PABBLY_WEBHOOK_URL
 
 ---
 
-## 19. 데이터 모델
+## 20. 데이터 모델
 
-### Airtable (사람·돈·캐페인)
+### Airtable (사람·돈·캐페인·결제 폴백)
 - **OnepageUsers**: name, phone, email, password_hash, role, referral_code, referred_by_code, point, first_paid_at, **utm_source, utm_medium, utm_campaign, utm_content, utm_term, landing_url, referrer_url** (UTM 7개 — 가입 시 한 번만 기록)
-- **OnepageChapterAccess**: user_phone, chapter_id, expires_at, last_payment_id, source
-- **OnepagePayments**: mul_no, user_phone, chapter_id, amount, paid_at, raw (사용자님 webhook이 채움)
+- **OnepageChapterAccess**: user_phone, chapter_id, chapter_title, expires_at, last_payment_id, source — Pabbly 라우터 + C1 Automation이 갱신
+- **OnepagePayments**: mul_no, user_phone, user_email, chapter_id, chapter_title, amount, paid_at, raw, status — Pabbly 결제 라우터가 채움 (Worker는 읽기 X, 쓰기 X)
 - **OnepagePointTx**: user_phone, delta, reason, balance_after, memo (감사 로그 + 관리자 지급 시 `[관리자:이름]` 접두)
 - **OnepageCampaigns**: name, utm_source, utm_medium, utm_campaign, utm_content, utm_term, notes, created_by_name, created_by_phone (CRM QR 생성기의 영구 라이브러리)
+- **UnknownPayments**: mul_no, goodname, phone, email, amount, raw, received_at (Created time auto), notes, resolved — Pabbly 라우터의 폴백 (상품 매핑 실패 시)
+- **FailedPayments**: mul_no, goodname, phone, email, amount, raw, error_message, retry_count, created_at (Created time auto), resolved — Pabbly 라우터의 안전망 (Airtable 쓰기 실패 시)
 
 ### nocodebackend (콘텐츠)
 - **op_chapters**: id, subject, title, sort_order, icon, description, monthly_price, is_all_free, **pay_url** (페이앱 결제 링크)
@@ -593,7 +801,7 @@ wrangler secret put PABBLY_WEBHOOK_URL
 
 ---
 
-## 20. Worker 엔드포인트
+## 21. Worker 엔드포인트
 
 ### 공개 / 학생용
 | 경로 | 메서드 | 동작 |
@@ -650,7 +858,7 @@ wrangler secret put PABBLY_WEBHOOK_URL
 
 ---
 
-## 21. Cloudflare Workers 청크 처리
+## 22. Cloudflare Workers 청크 처리
 
 ### 서브요청 한도
 Cloudflare Workers는 invocation당 서브요청 제한 (Free 50, Paid 1000).
