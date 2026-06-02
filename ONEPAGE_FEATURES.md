@@ -110,42 +110,54 @@
 
 ---
 
-## 5. 결제 자동화 파이프라인 (PayApp → Pabbly → Airtable)
+## 5. 결제 자동화 파이프라인 (Worker REST + Airtable)
 
-학생 결제 한 번 → 약 1분 안에 학습기간 자동 30일 연장. 모든 단계가 자동화되어 있고 운영자는 평소에 손대지 않습니다.
+학생 결제 한 번 → 약 1분 안에 학습기간 자동 30일 연장. 페이앱 콘솔에 상품을 미리 등록할 필요 없이 **Worker가 결제 시점에 동적으로** 세션 생성.
 
-### 전체 흐름
+### 전체 흐름 (현재 — Worker 기반)
 
 ```
 학생 앱 (Vercel)
-   │ ① 결제 버튼 → chapter.pay_url 새 탭 오픈
+   │ ① 결제 버튼 → POST /payment/request { chapter_id }
    ▼
-페이앱 결제 페이지
+Cloudflare Worker — 결제 세션 생성
+   │ a. JWT 인증 검증 (학생 phone 추출)
+   │ b. nocodebackend op_chapters에서 chapter 조회 (title, price)
+   │ c. PayApp REST API 호출 (api.payapp.kr/oapi/apiLoad.html)
+   │    cmd=payrequest, userid, goodname, price, recvphone,
+   │    feedbackurl=worker/payapp/webhook,
+   │    var1=chapter_id (⭐ 매칭 키), var2=user_phone,
+   │    checkretry=y, skip_cstpage=y
+   │ d. PayApp 응답: { mul_no, payurl } (동적 생성)
+   ▼
+Worker → 학생 앱에 { payurl } 반환
+   ▼
+학생: window.open(payurl) → 페이앱 결제 페이지
    │ ② 카드/카카오페이/계좌이체 결제 완료
    ▼
-페이앱 → Pabbly 웹훅 POST (3~5회 retry로 도착 보장)
-   │ Content-Type: application/x-www-form-urlencoded
-   │ payload: mul_no, recvphone, buyer_email, price, goodname, pay_state, ...
+PayApp → Worker /payapp/webhook (POST form-urlencoded)
+   │ payload: mul_no, var1=3, var2=01098..., pay_state=4, price, ...
    ▼
-Pabbly Connect 결제 라우터 워크플로우 (5 단계)
-   ① Parse Webhook        — form-urlencoded → JSON, KST 시각, pay_state ≠ 4 필터
-   ② Idempotency Check    — OnepagePayments에서 mul_no 검색, 중복이면 즉시 종료
-   ③ Route & Save Payment — 챕터 매핑 + 3개 테이블 중 1곳에 저장
-        ├ 정상 매칭 → OnepagePayments
-        ├ 상품명 미매칭 → UnknownPayments (수동 검토)
-        └ Airtable 에러 → FailedPayments (수동 재처리)
-   ④ Return 200 OK        — 항상 200 응답 (페이앱 retry-storm 방지)
+Worker /payapp/webhook 처리
+   ① 보안 검증 — userid/linkkey/linkval 일치 확인
+   ② pay_state=4 외엔 SUCCESS만 (요청취소·승인취소·결제대기 무시)
+   ③ 멱등성 검사 — 3 테이블(OnepagePayments/UnknownPayments/FailedPayments)에서 mul_no 검색
+       중복 발견 → 즉시 SUCCESS
+   ④ var1 → chapter_id 직접 (goodname 매칭 불필요!)
+   ⑤ nocodebackend에서 chapter.title로 chapter_title 보강
+   ⑥ Airtable OnepagePayments INSERT
+   ⑦ HTTP 200 + body "SUCCESS" 응답 (PayApp retry-storm 방지)
    │
    ▼ OnepagePayments에 신규 행 생성
    │
    ▼ Airtable Automation C1 자동 트리거 (5~60초 지연)
 Airtable Run a script (C1)
    │ 1. user_phone × chapter_id로 OnepageChapterAccess 검색
-   │ 2. 기준일 결정: 활성(미래)이면 기존 expires_at, 만료/신규면 NOW
+   │ 2. 기준일 결정: 활성이면 기존 expires_at, 만료/신규면 NOW
    │ 3. 기준일 + 30일 = 새 expires_at
    │ 4. upsert (기존 행 갱신 또는 신규 행 생성)
    ▼
-학생이 학생 앱 새로고침
+학생 앱 새로고침
    │ GET /auth/me → Worker가 ChapterAccess 조회
    ▼
 챕터 카드에 D-30 활성 표시 ✅
@@ -153,65 +165,78 @@ Airtable Run a script (C1)
 
 **총 소요 시간**: 페이앱 결제 완료 시점 + 1분 이내
 
-### Pabbly Connect 결제 라우터 — 5 단계 상세
+### 이전 아키텍처 (deprecated — Pabbly 라우터)
 
-#### Step 1 — Parse Webhook (코드 단계)
-페이앱이 form-urlencoded로 보내는 필드들을 일반 변수명으로 매핑:
+**v1 (옛 방식)**: 페이앱 콘솔에 상품 미리 등록 → 정적 QR(`https://qr.payapp.kr/...`)을 `pay_url`에 저장 → 페이앱 공통 webhook URL을 Pabbly Connect로 → Pabbly 5단계 라우터 → goodname 키워드 매칭 → Airtable.
 
-| PayApp 필드명 | 내부 변수 | 비고 |
+**v2로 마이그레이션 이유**:
+- PayApp이 요구하는 `SUCCESS` 텍스트 응답을 Pabbly가 못 함 → 매번 10회 retry 발생
+- goodname 키워드 매칭 실패 위험
+- Pabbly에 Airtable PAT 평문 노출 위험
+- 새 챕터마다 페이앱 콘솔에서 결제 링크 미리 만들어야 했음
+
+**v2 (현재 — Worker REST)** 의 장점:
+- ✅ `SUCCESS` 정확 응답 — retry 0회
+- ✅ `var1=chapter_id` 직접 전달 — 매칭 실패 0%
+- ✅ PAT 노출 없음 (Worker secret으로만 사용)
+- ✅ 페이앱 콘솔 사전 등록 불필요 — 챕터 추가 시 선생님 앱에서 제목·가격만
+- ✅ 멀티-base — 결제 요청 시 `feedbackurl` 동적 지정 (헬스 base 등 자유롭게 추가)
+
+### Worker 엔드포인트 2개 (v2 핵심)
+
+#### `POST /payment/request` — 결제 세션 생성 (학생 앱 호출)
+
+학생이 결제 버튼 클릭 시 학생 앱에서 호출. JWT 인증 필요.
+
+**요청**: `{ chapter_id: 3 }`
+
+**Worker 동작**:
+1. JWT에서 학생 phone 추출
+2. nocodebackend `op_chapters`에서 챕터 조회 (title, monthly_price)
+3. PayApp REST API 호출 (`https://api.payapp.kr/oapi/apiLoad.html`):
+   ```
+   cmd=payrequest
+   userid={env.PAYAPP_USERID}
+   goodname={chapter.title}
+   price={chapter.monthly_price}
+   recvphone={user.phone}
+   feedbackurl={Worker self}/payapp/webhook   ← 동적 지정
+   var1={chapter_id}                          ← 매칭 키
+   var2={user_phone}
+   checkretry=y
+   skip_cstpage=y
+   returnurl={STUDENT_APP_ORIGIN}/?paid=1&chapter={chapter_id}
+   ```
+4. PayApp 응답 `state=1&mul_no=...&payurl=...` 파싱
+5. **응답**: `{ ok: true, payurl, mul_no }` → 학생 앱이 `window.open(payurl)`
+
+#### `POST /payapp/webhook` — 결제 완료 수신 (PayApp 호출)
+
+PayApp이 결제 완료 시 직접 호출. 공개 엔드포인트.
+
+**Worker 동작**:
+1. **보안 검증** — `userid` / `linkkey` / `linkval`이 Worker secret과 일치 확인. 불일치 시 silent SUCCESS (재시도 폭주 방지).
+2. **상태 필터** — `pay_state=4`(결제완료)만 처리. 그 외(요청취소·승인취소·결제대기) SUCCESS만.
+3. **멱등성 검사** — 3 테이블(OnepagePayments / UnknownPayments / FailedPayments)에서 `mul_no` 검색. 중복이면 즉시 SUCCESS.
+4. **데이터 추출** — `var1 → chapter_id` (직접 사용, 매칭 불필요), `var2 → user_phone`
+5. **챕터 제목 보강** — nocodebackend에서 `chapter.title` 가져와서 chapter_title 정확화
+6. **저장 분기**:
+   - `chapter_id > 0` → **OnepagePayments INSERT**
+   - `chapter_id == 0` (var1 누락) → **UnknownPayments INSERT**
+   - Airtable 에러 → **FailedPayments INSERT** (안전망)
+7. **응답** — HTTP 200 + body `"SUCCESS"` (정확한 문자열 — PayApp이 retry 안 함)
+   - 모든 저장 실패 시에만 HTTP 500 (retry 유도, Airtable 복구 후 다음 시도 성공)
+
+### 6가지 검증 시나리오 (운영 전 필수)
+
+| 테스트 | 페이로드 | 기대 결과 |
 |---|---|---|
-| `recvphone` (또는 `buyer_phone`) | `phone` | 숫자만 추출 |
-| `buyer_email` | `email` | 소문자·trim |
-| `price` | `amount` | 정수 |
-| `mul_no` | `mulNo` | 멱등성 키 (그대로 보존) |
-| `goodname` | `goodname` | 챕터 매칭 키 |
-| `pay_state` | (필터) | `"4"`만 통과 — 그 외는 즉시 종료 |
-
-**fallback 지원**: 테스트용 단순명(`phone`/`email`/`amount`)도 같이 받음 — 운영·디버깅 모두 호환.
-
-#### Step 2 — Idempotency Check
-페이앱은 같은 결제를 **3~5회 재전송**하므로 멱등성 처리 필수:
-
-```javascript
-// Airtable OnepagePayments에서 mul_no로 검색
-filterByFormula = {mul_no} = "{{mulNo}}"
-
-if (found.length > 0) {
-    return { result: "duplicate_skipped" };   // 즉시 Step 4로
-}
-```
-
-→ 중복 webhook이 와도 OnepagePayments에 행이 추가되지 않음 → C1도 발사되지 않음 → 30일이 60·90일로 잘못 누적되는 사고 차단.
-
-#### Step 3 — Route & Save Payment
-
-**a) 챕터 매핑** — Worker `/chapters` 호출 후 `goodname === chapter.title` 또는 contains 매칭:
-
-```
-goodname="수열 극한 미분 적분" → chapter_id=3
-```
-
-**b) 3개 경로 분기**:
-
-| 경로 | 조건 | 대상 테이블 |
-|---|---|---|
-| ✅ 정상 | 챕터 매칭 + Airtable 쓰기 성공 | `OnepagePayments` |
-| ⚠️ Unknown | 챕터 매칭 실패 (오타·신규 상품·다른 사업 결제) | `UnknownPayments` |
-| ❌ Failed | Airtable API 에러 (네트워크·권한·필드명) | `FailedPayments` |
-
-→ **어떤 경우에도 데이터 손실 없음**. 운영자는 Unknown/Failed 행만 가끔 점검.
-
-#### Step 4 — Return 200 OK
-페이앱에게 항상 200 응답:
-```json
-{
-  "ok": true,
-  "mul_no": "20260601-A1B2C3D4",
-  "result": "created" | "duplicate_skipped" | "unknown_product" | "failed" | "ignored_non_payment"
-}
-```
-
-페이앱은 200을 받으면 retry 중단.
+| A. 정상 결제 | `pay_state=4`, `var1=3` | OnepagePayments +1 (chapter_id=3), `SUCCESS` |
+| B. 멱등성 | A를 한 번 더 발사 | 행 추가 없음, `SUCCESS` |
+| C. var1 누락 | `pay_state=4`, `var1=` | UnknownPayments +1, `SUCCESS` |
+| D. 결제 미완료 | `pay_state=2` | 변화 없음, `SUCCESS` |
+| E. userid 불일치 | `userid=fake` | 변화 없음, `SUCCESS` (보안 silent skip) |
+| F. Airtable 완전 다운 | (테스트 시뮬레이션) | HTTP 500, PayApp retry → 복구 후 다음 시도 성공 |
 
 ### Airtable Automation C1 — Payment → ChapterAccess +30일
 
@@ -285,32 +310,45 @@ if (existing) {
 
 | OnepagePayments | OnepageChapterAccess | 원인 | 조치 |
 |---|---|---|---|
-| 행 없음 | — | 페이앱 webhook 미도달 | Pabbly 워크플로우 로그 확인 + 페이앱 콘솔의 webhook 전송 이력 확인 |
-| 행 있음 (UnknownPayments) | — | 상품명 매핑 실패 | goodname vs chapter.title 비교 + 챕터 제목 수정 또는 매핑 키워드 추가 |
-| 행 있음 (FailedPayments) | — | Airtable 일시 장애 | error_message 확인 + 수동 재처리 (OnepagePayments에 재투입) |
-| 행 있음 (OnepagePayments) | 행 없음 | C1 미작동 | Automation 토글 ON 확인 + 실행 로그에서 에러 확인 |
-| 행 있음 | 행 있는데 expires_at 비어있음 | C1 Script 에러 | Script 로그 확인 + Input variables 매핑 확인 |
+| 행 없음 | — | Worker webhook 미도달 | `wrangler tail`로 실시간 로그 확인 + 페이앱 콘솔의 결제내역 확인 |
+| 행 있음 (UnknownPayments) | — | `var1=chapter_id` 누락 | Worker `/payment/request`가 var1을 정확히 보내는지 확인 |
+| 행 있음 (FailedPayments) | — | Airtable 일시 장애 | `error_message` 확인 + 수동 재처리 (OnepagePayments에 재투입) |
+| 행 있음 (OnepagePayments) | 행 없음 | C1 Automation 미작동 | Automation 토글 ON 확인 + Run history 에서 에러 확인 |
+| 행 있음 | 행 있는데 expires_at 비어있음 | C1 Script 에러 | Run history 로그 + Input variables 매핑 확인 |
 | 모두 정상 | 모두 정상 | 학생 새로고침 안 함 | Pull-to-refresh 안내 |
 
-### 페이앱 등록 — 단일 피드백 URL
+### 페이앱 콘솔 설정
 
-모든 챕터(및 다른 사업까지) 결제 링크에 **같은 Pabbly 웹훅 URL** 등록:
-```
-https://functions.pabbly.com/api/orgs/.../functions/.../invoke
+- **상품 등록**: 불필요 (Worker가 매번 동적으로 결제 세션 생성)
+- **공통 통보 URL**: 비워둠 (개별 `feedbackurl`이 결제 요청 시 동적 지정됨)
+- **연동 KEY/VALUE**: 설정 → 연동정보에서 확인 → Worker secret `PAYAPP_LINKKEY` / `PAYAPP_LINKVAL`에 등록
+
+### Worker Secrets
+
+```bash
+cd onepage-worker
+npx wrangler secret put PAYAPP_USERID    # 페이앱 판매자 아이디
+npx wrangler secret put PAYAPP_LINKKEY   # 연동 KEY
+npx wrangler secret put PAYAPP_LINKVAL   # 연동 VALUE
 ```
 
-- 페이앱 콘솔 → 결제 링크(상품)별 또는 공통 설정 → **피드백 URL** 입력
-- Pabbly 라우터가 `goodname`으로 자동 분기 → OnePage 챕터 / 헬스 상품 / 알 수 없음
-- 새 상품·새 사업 추가 시에도 페이앱 설정 변경 불필요 — Pabbly 라우터에 분기 한 줄만 추가
+### 멀티-base 확장 (헬스 등 다른 사업 추가 시)
+
+같은 페이앱 계정에서 여러 base를 운영하려면:
+1. 각 base별로 Worker 인스턴스 또는 엔드포인트 분리
+2. 학생 앱(또는 헬스 앱)이 결제 요청 시 자기 Worker URL을 호출
+3. 각 Worker가 자기 base의 OnepagePayments에 저장
+4. PayApp `feedbackurl`이 결제 요청 시 동적 지정되므로 자연스럽게 분기
+
+페이앱 콘솔의 공통 통보 URL은 여전히 비워둠 — 개별 URL이 항상 우선.
 
 ### 운영 시 정기 점검
 
 | 주기 | 점검 항목 |
 |---|---|
 | 매일 | FailedPayments 행 수가 0인지 |
-| 매주 | UnknownPayments 검토 → 새 상품이면 매핑 키워드 추가 |
-| 매월 | 결제 건수(OnepagePayments) vs 활성 ChapterAccess 일치 |
-| 분기 | Pabbly 워크플로우 실행 통계 (총 호출/성공/실패) |
+| 매주 | UnknownPayments 검토 (var1 누락된 결제) |
+| 매월 | 결제 건수(OnepagePayments) vs 활성 ChapterAccess 일치 + 페이앱 콘솔 정산 금액 일치 |
 
 ---
 
@@ -820,6 +858,8 @@ wrangler secret put PABBLY_WEBHOOK_URL
 | `/stats/learners-now` | GET | 오늘 학습자 수 |
 | `/access` | GET | 내 챕터별 접근 상태 |
 | `/access/redeem` | POST | 3,000P → 챕터 1개월 |
+| **`/payment/request`** | **POST** | **학생: 챕터 결제 세션 생성 → PayApp payurl 반환 (var1=chapter_id)** |
+| **`/payapp/webhook`** | **POST** | **PayApp: 결제 완료 알림 수신 → OnepagePayments INSERT → `SUCCESS` 응답** |
 
 ### 선생님용 (teacher gate)
 | 경로 | 메서드 | 동작 |

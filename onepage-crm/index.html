@@ -1343,8 +1343,8 @@ async function loadContent() {
 function renderContent() {
   const r = state.contentStats; if (!r) return;
   const cards = r.chapters.length ? r.chapters.map(c => {
-    const warn = !c.has_pay_url && !c.is_all_free
-      ? '<div class="ch-warn">⚠️ 결제 링크(pay_url) 미설정 — 결제 버튼이 비활성화됨</div>' : '';
+    // pay_url 경고는 deprecated — Worker가 결제 시 동적 생성하므로 사전 등록 불필요
+    const warn = '';
     const freeBadge = c.is_all_free
       ? '<span class="pill free">✨ 전체 무료</span>'
       : `<span class="pill" style="background:rgba(255,193,7,0.18);color:#ffd54f">${fmtWon(c.monthly_price)}/월</span>`;

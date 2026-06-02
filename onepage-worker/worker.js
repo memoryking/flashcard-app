@@ -35,11 +35,16 @@ const AT_BASE_URL = 'https://api.airtable.com/v0';
 const AT_USERS = 'OnepageUsers';
 const AT_ACCESS = 'OnepageChapterAccess';
 const AT_POINTTX = 'OnepagePointTx';
+const AT_UNKNOWN = 'UnknownPayments';
+const AT_FAILED = 'FailedPayments';
 
 const REFERRAL_BONUS = 1000;
 const REDEEM_COST = 3000;
 const REDEEM_DAYS = 30;
 const PING_WINDOW_MIN = 5;
+
+const PAYAPP_API_URL = 'https://api.payapp.kr/oapi/apiLoad.html';
+const STUDENT_APP_ORIGIN = 'https://onepage-study.vercel.app';
 
 // ── CORS ──────────────────────────────────────────────────────
 function isAllowedOrigin(origin) {
@@ -1718,6 +1723,214 @@ async function handleAdminContentStats(request, env) {
 }
 
 // ============================================================
+// PayApp 결제 (동적 세션 생성 + webhook 수신)
+// ============================================================
+
+// PayApp이 요구하는 정확한 응답 — HTTP 200 + body 'SUCCESS'
+function payAppOk() {
+  return new Response('SUCCESS', {
+    status: 200,
+    headers: { 'Content-Type': 'text/plain; charset=utf-8' },
+  });
+}
+
+// PayApp이 비-SUCCESS로 해석 → 최대 10회 retry (Airtable 다운 등 일시적 장애 시)
+function payAppRetry(reason) {
+  return new Response(String(reason || 'INTERNAL_ERROR'), {
+    status: 500,
+    headers: { 'Content-Type': 'text/plain; charset=utf-8' },
+  });
+}
+
+// form-urlencoded body 파싱
+function parseFormUrlEncoded(text) {
+  const out = {};
+  if (!text) return out;
+  for (const pair of text.split('&')) {
+    const eq = pair.indexOf('=');
+    if (eq < 0) continue;
+    const k = decodeURIComponent(pair.slice(0, eq));
+    const v = decodeURIComponent(pair.slice(eq + 1).replace(/\+/g, ' '));
+    out[k] = v;
+  }
+  return out;
+}
+
+// 학생 앱 → Worker: 챕터 결제 세션 생성
+async function handlePaymentRequest(request, env) {
+  const auth = await verifyAuth(request, env);
+  if (!auth) return json({ error: 'unauthenticated' }, 401, request);
+  if (!env.PAYAPP_USERID) return json({ error: 'payapp_not_configured' }, 500, request);
+
+  const b = await request.json().catch(() => ({}));
+  const chapterId = Number(b.chapter_id);
+  if (!chapterId) return json({ error: 'chapter_id required' }, 400, request);
+
+  // 챕터 조회
+  const chapter = await ncbReadById(env, 'op_chapters', chapterId);
+  if (!chapter) return json({ error: 'chapter_not_found' }, 404, request);
+  if (Number(chapter.is_all_free) === 1) {
+    return json({ error: 'chapter_is_free' }, 400, request);
+  }
+
+  const price = Number(chapter.monthly_price) || 3000;
+  const title = String(chapter.title || '').slice(0, 100);
+  const userPhone = normalizePhone(auth.phone || '');
+
+  // Worker 자신의 webhook 엔드포인트 (이 요청과 같은 origin)
+  const workerOrigin = new URL(request.url).origin;
+  const feedbackUrl = workerOrigin + '/payapp/webhook';
+  const returnUrl = STUDENT_APP_ORIGIN + '/?paid=1&chapter=' + chapterId;
+
+  // PayApp REST API 호출
+  const params = new URLSearchParams({
+    cmd: 'payrequest',
+    userid: env.PAYAPP_USERID,
+    goodname: title,
+    price: String(price),
+    recvphone: userPhone,
+    feedbackurl: feedbackUrl,
+    var1: String(chapterId),
+    var2: userPhone,
+    smsuse: 'n',
+    checkretry: 'y',
+    skip_cstpage: 'y',
+    returnurl: returnUrl,
+  });
+
+  let r;
+  try {
+    r = await fetch(PAYAPP_API_URL, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+      body: params.toString(),
+    });
+  } catch (e) {
+    return json({ error: 'payapp_unreachable', message: String(e && e.message || e) }, 502, request);
+  }
+
+  const text = await r.text();
+  const result = parseFormUrlEncoded(text);
+
+  if (result.state !== '1') {
+    return json({
+      error: 'payapp_request_failed',
+      errno: result.errno || '',
+      message: result.errorMessage || 'unknown',
+    }, 500, request);
+  }
+
+  return json({
+    ok: true,
+    payurl: result.payurl || '',
+    mul_no: result.mul_no || '',
+  }, 200, request);
+}
+
+// PayApp → Worker: 결제 완료 webhook
+async function handlePayAppWebhook(request, env) {
+  const text = await request.text();
+  const fields = parseFormUrlEncoded(text);
+
+  // 1. 보안 검증 — 모르는 호출자는 silent SUCCESS (재시도 폭주 방지)
+  if (env.PAYAPP_USERID && fields.userid && fields.userid !== env.PAYAPP_USERID) {
+    return payAppOk();
+  }
+  if (env.PAYAPP_LINKKEY && fields.linkkey && fields.linkkey !== env.PAYAPP_LINKKEY) {
+    return payAppOk();
+  }
+  if (env.PAYAPP_LINKVAL && fields.linkval && fields.linkval !== env.PAYAPP_LINKVAL) {
+    return payAppOk();
+  }
+
+  // 2. pay_state=4(결제완료)만 처리, 그 외는 SUCCESS만
+  if (fields.pay_state !== '4') return payAppOk();
+
+  const mul_no = String(fields.mul_no || '').trim();
+  if (!mul_no) return payAppOk();
+
+  const phone = String(fields.var2 || fields.recvphone || '').replace(/\D/g, '');
+  const email = String(fields.buyer_email || '').toLowerCase().trim();
+  const amount = parseInt(fields.price, 10) || 0;
+  const goodname = String(fields.goodname || '').trim();
+  const chapter_id = parseInt(fields.var1, 10) || 0;
+  const raw_json = JSON.stringify(fields);
+
+  // 3. 멱등성 검사 — 3 테이블 모두
+  const mulNoEsc = mul_no.replace(/"/g, '');
+  try {
+    for (const t of [AT_PAYMENTS, AT_UNKNOWN, AT_FAILED]) {
+      const dup = await atFindOne(env, t, `{mul_no}="${mulNoEsc}"`);
+      if (dup) return payAppOk();
+    }
+  } catch (e) {
+    // 멱등성 검사 자체가 실패 → Airtable 다운 → retry 유도
+    return payAppRetry('LOOKUP_FAILED');
+  }
+
+  // 4. 챕터 제목 보강 (var1이 있으면 nocodebackend에서 정확한 제목 가져오기)
+  let chapter_title = goodname;
+  if (chapter_id > 0) {
+    try {
+      const ch = await ncbReadById(env, 'op_chapters', chapter_id);
+      if (ch && ch.title) chapter_title = ch.title;
+    } catch (e) {}
+  }
+
+  const paid_at = kstDateTime();
+
+  // 5. 저장 — chapter_id 있으면 OnepagePayments, 없으면 UnknownPayments
+  try {
+    if (chapter_id > 0) {
+      const created = await atCreate(env, AT_PAYMENTS, {
+        mul_no,
+        user_phone: phone,
+        user_email: email,
+        chapter_id,
+        chapter_title,
+        amount,
+        paid_at,
+        status: 'paid',
+        raw: raw_json,
+      });
+      if (created && created.error) throw new Error(created.error.message || 'create_failed');
+    } else {
+      const created = await atCreate(env, AT_UNKNOWN, {
+        mul_no,
+        goodname,
+        phone,
+        email,
+        amount,
+        raw: raw_json,
+        notes: 'var1 missing — chapter_id not provided in payment request',
+      });
+      if (created && created.error) throw new Error(created.error.message || 'create_failed');
+    }
+    return payAppOk();
+  } catch (err) {
+    // 6. 안전망 — FailedPayments에 기록
+    try {
+      const failed = await atCreate(env, AT_FAILED, {
+        mul_no,
+        goodname,
+        phone,
+        email,
+        amount,
+        raw: raw_json,
+        error_message: String(err && err.message || err).slice(0, 500),
+      });
+      if (failed && failed.error) {
+        // 안전망까지 실패 → retry 유도
+        return payAppRetry('AIRTABLE_DOWN');
+      }
+      return payAppOk();
+    } catch (e2) {
+      return payAppRetry('AIRTABLE_DOWN');
+    }
+  }
+}
+
+// ============================================================
 // 라우터
 // ============================================================
 
@@ -1747,6 +1960,9 @@ async function route(request, env) {
   if (m === 'GET' && path === '/stats/learners-now') return handleLearnersNow(request, env);
   if (m === 'POST' && path === '/stats/ping') return handleStatsPing(request, env);
 
+  // ── PayApp webhook (공개, 페이앱 서버가 직접 호출) ──
+  if (m === 'POST' && path === '/payapp/webhook') return handlePayAppWebhook(request, env);
+
   // ── 콘텐츠 읽기 (게이트는 items에만) ──
   if (m === 'GET' && path === '/chapters') return handleListChapters(request, env);
   if (m === 'GET' && path === '/topics') return handleListTopics(request, env);
@@ -1758,6 +1974,7 @@ async function route(request, env) {
   if (m === 'POST' && path === '/understood') return handleUnderstoodToggle(request, env);
   if (m === 'GET' && path === '/access') return handleMyAccess(request, env);
   if (m === 'POST' && path === '/access/redeem') return handleRedeemPoints(request, env);
+  if (m === 'POST' && path === '/payment/request') return handlePaymentRequest(request, env);
 
   // ── 선생님 (role check) ──
   const auth = await verifyAuth(request, env);

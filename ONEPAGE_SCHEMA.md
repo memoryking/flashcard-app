@@ -277,7 +277,7 @@ Type 드롭다운에 보이는 옵션: `INT`, `BIGINT`, `VARCHAR(255)`, `DROPDOW
 | `description` | TEXT | — | — | — | 카드 부제 |
 | `monthly_price` | INT | ✅ | — | `3000` | 원 단위 |
 | `is_all_free` | BOOLEAN | ✅ | — | `0` | 1이면 챕터 전체 무료 |
-| **`pay_url`** | VARCHAR(255) | — | — | — | **챕터별 페이앱 결제 URL**. 비어 있으면 학생 앱의 결제 버튼이 비활성화. 선생님 앱 챕터 편집 모달에 입력 칸 있음. |
+| `pay_url` | VARCHAR(255) | — | — | — | **(deprecated v2)** 옛 정적 QR 링크 저장용. v2 (Worker REST)부터 사용 안 함 — Worker가 결제 시 동적으로 PayApp 세션 생성. 컬럼은 fallback·마이그레이션 안전을 위해 보존. |
 | `updated_at` | DATETIME | — | — | — | Worker가 갱신 |
 
 > **주의 — `order`는 MySQL 예약어**: 모든 테이블의 `sort_order` 컬럼은 처음부터 `sort_order`로 만들어야 합니다 — `order`로 만들면 REST API의 `?order=` 파라미터와 충돌. 이미 `order`로 만드셨으면:
@@ -549,24 +549,41 @@ ALTER TABLE op_chapters ADD COLUMN pay_url VARCHAR(255) NULL;
 
 ---
 
-## H. Pabbly Connect 워크플로우 (사용자님이 설정)
+## H. Pabbly Connect 워크플로우 (마케팅 발송용)
 
-CRM·결제 처리에 사용. 두 개의 별도 워크플로우.
+v2부터 결제 처리는 **Worker로 이전**. Pabbly는 **마케팅 발송**에만 사용.
 
-### H1. 마케팅 캐페인 발송 워크플로우
+### H1. 마케팅 캐페인 발송 워크플로우 (현재 사용 중)
 - **트리거 URL**: Worker secret `PABBLY_WEBHOOK_URL`에 저장
 - **흐름**: CRM → Worker `/admin/webhook/send` → 이 워크플로우 → AI(GPT-4o-mini)로 개인화 메시지 생성 → Solapi(SMS) + Gmail SMTP 라우팅
 - **시크릿**: SOLAPI_API_KEY, SOLAPI_API_SECRET, Gmail OAuth, OPENAI_API_KEY
 
-### H2. 결제 라우터 워크플로우
-- **트리거 URL**: 페이앱 콘솔의 모든 결제 링크 피드백 URL에 등록 (단일 URL)
-- **흐름**: 페이앱 → 이 워크플로우 (5단계) → OnepagePayments / UnknownPayments / FailedPayments 분기
-- **5단계**:
-  1. Parse Webhook (form-urlencoded → JSON, 필터)
-  2. Idempotency Check (mul_no 중복 차단)
-  3. Route & Save Payment (Worker `/chapters` 조회 + 분기 저장)
-  4. Return 200 OK (항상)
-- **시크릿**: AIRTABLE_TOKEN, AIRTABLE_BASE
-- **운영 점검**: 매일 FailedPayments 0행 확인, 매주 UnknownPayments 검토
+### H2. (deprecated v2) 결제 라우터 워크플로우
+v1에서 사용했던 Pabbly Connect 5단계 라우터. v2 (Worker REST)로 대체되어 **OFF 처리 권장**.
 
-자세한 흐름·트러블슈팅: [ONEPAGE_FEATURES.md § 5 결제 자동화 파이프라인](ONEPAGE_FEATURES.md#5-결제-자동화-파이프라인-payapp--pabbly--airtable)
+마이그레이션 후 정리:
+1. Pabbly 워크플로우 OFF (또는 삭제)
+2. Pabbly에 저장된 Airtable PAT **revoke** + 새 PAT 발급 (만약 마케팅 워크플로우 등에서 쓴다면 Pabbly Secret으로 재등록)
+3. 페이앱 콘솔의 공통 통보 URL **비움** (Worker가 동적 feedbackurl 사용)
+
+## I. PayApp 결제 처리 (v2 — 현재)
+
+Worker가 직접 PayApp REST API + webhook 수신을 모두 처리.
+
+### Worker 엔드포인트
+- **`POST /payment/request`** — 학생 앱이 호출, 결제 세션 생성 (var1=chapter_id, var2=user_phone 포함)
+- **`POST /payapp/webhook`** — PayApp이 결제 완료 시 호출, OnepagePayments INSERT, `SUCCESS` 응답
+
+### Worker Secrets
+```bash
+npx wrangler secret put PAYAPP_USERID    # 페이앱 판매자 아이디
+npx wrangler secret put PAYAPP_LINKKEY   # 페이앱 연동 KEY
+npx wrangler secret put PAYAPP_LINKVAL   # 페이앱 연동 VALUE
+```
+
+### PayApp 콘솔 설정
+- 상품 등록: **불필요** (Worker가 매번 동적 생성)
+- 공통 통보 URL: **비워둠**
+- 연동 KEY/VALUE: 설정 → 연동정보에서 확인 → Worker secret으로
+
+자세한 흐름·트러블슈팅: [ONEPAGE_FEATURES.md § 5 결제 자동화 파이프라인](ONEPAGE_FEATURES.md#5-결제-자동화-파이프라인-worker-rest--airtable)
