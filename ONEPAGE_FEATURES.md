@@ -651,6 +651,42 @@ document.addEventListener('keydown', e => {
 - 행 클릭 → 사용자 상세 모달 (구독·결제·포인트 이력 + UTM 유입 경로)
 - **포인트 지급/차감** — 사유 + 메모 (자동 PointTx 기록 + 관리자 이름 각인)
 
+### 👥 사용자 상세 모달 — 챕터 권한 수동 관리 (v2 신규)
+
+**📚 챕터 구독** 섹션에 두 가지 액션 추가:
+
+#### 🎁 새 챕터 권한 지급
+헤더의 "새 챕터 권한 지급" 버튼 클릭 → 모달:
+- 챕터 드롭다운에서 선택
+- 일수 입력 + 빠른 버튼 (**+7일**, **+30일**, **+90일**, **+1년**)
+- 사유 선택: 관리자 지급 / 무료 체험 / 이벤트 보상 / 사과 보상 / 환불 대체 / 기타
+- (선택) 메모 입력
+
+→ Worker `POST /admin/access/grant` 호출 → OnepageChapterAccess 행 즉시 생성/갱신
+- 활성 사용자: 기존 expires_at + N일 (누적)
+- 만료/신규: NOW + N일
+
+#### 🗑️ 권한 회수
+각 챕터 행의 🗑️ 버튼 → 확인 다이얼로그 → Worker `DELETE /admin/access/:phone/:chapter_id` → OnepageChapterAccess 행 즉시 삭제
+
+#### 식별 — `source` 컬럼으로 진짜 결제와 구분
+| `source` 값 | 의미 |
+|---|---|
+| `purchase` | 실제 결제 (Worker `/payapp/webhook`) |
+| `point_redeem` | 학생이 포인트 사용 |
+| **`admin_grant`** | **CRM에서 수동 지급** |
+
+→ 매출 통계는 `source=purchase`만 집계 → 무료 부여가 매출에 섞이지 않음.
+
+#### 활용 시나리오
+| 케이스 | 액션 |
+|---|---|
+| 친구 가입 환영 7일 무료 체험 | +7일, "free_trial" |
+| 이벤트 당첨자 30일 보상 | +30일, "event_reward" + 메모에 이벤트명 |
+| 서비스 장애 사과 7일 추가 | +7일, "apology" |
+| 환불 후 권한 회수 | 🗑️ 버튼 |
+| VIP 1년권 일시 지급 | +365일 |
+
 ### 💰 매출 탭
 - 기간 선택: 7일 / 30일 / 90일 / 1년
 - 일별 매출 막대 차트 (CSS, 호버 툴팁)
@@ -820,8 +856,8 @@ wrangler secret put PABBLY_WEBHOOK_URL
 
 ### Airtable (사람·돈·캐페인·결제 폴백)
 - **OnepageUsers**: name, phone, email, password_hash, role, referral_code, referred_by_code, point, first_paid_at, **utm_source, utm_medium, utm_campaign, utm_content, utm_term, landing_url, referrer_url** (UTM 7개 — 가입 시 한 번만 기록)
-- **OnepageChapterAccess**: user_phone, chapter_id, chapter_title, expires_at, last_payment_id, source — Pabbly 라우터 + C1 Automation이 갱신
-- **OnepagePayments**: mul_no, user_phone, user_email, chapter_id, chapter_title, amount, paid_at, raw, status — Pabbly 결제 라우터가 채움 (Worker는 읽기 X, 쓰기 X)
+- **OnepageChapterAccess**: user_phone, chapter_id, chapter_title, expires_at, last_payment_id, source — Worker(`/payapp/webhook` 또는 `/admin/access/grant`) + C1 Automation이 갱신
+- **OnepagePayments**: mul_no, user_phone, user_email, chapter_id, chapter_title, amount, paid_at, raw, status — **Worker `/payapp/webhook`이 직접 채움** (v2부터)
 - **OnepagePointTx**: user_phone, delta, reason, balance_after, memo (감사 로그 + 관리자 지급 시 `[관리자:이름]` 접두)
 - **OnepageCampaigns**: name, utm_source, utm_medium, utm_campaign, utm_content, utm_term, notes, created_by_name, created_by_phone (CRM QR 생성기의 영구 라이브러리)
 - **UnknownPayments**: mul_no, goodname, phone, email, amount, raw, received_at (Created time auto), notes, resolved — Pabbly 라우터의 폴백 (상품 매핑 실패 시)
@@ -885,6 +921,8 @@ wrangler secret put PABBLY_WEBHOOK_URL
 | `/admin/campaigns` | GET | 저장된 캐페인 라이브러리 |
 | `/admin/campaigns` | POST | 새 캐페인 저장 (이름·UTM·메모·작성자) |
 | `/admin/campaigns/:id` | PUT/DELETE | 캐페인 수정/삭제 |
+| **`/admin/access/grant`** | **POST** | **챕터 권한 수동 지급/연장** (활성이면 누적, 만료/신규면 NOW+N일) |
+| **`/admin/access/:phone/:chapter_id`** | **DELETE** | **챕터 권한 회수** (ChapterAccess 행 삭제) |
 
 ### 구독 게이트 (`/items` 응답)
 - 무료 대목차 (is_free=1) → 누구나 200

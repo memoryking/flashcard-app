@@ -77,8 +77,8 @@
 | `chapter_id` | **Number** → Integer | — | nocodebackend `op_chapters.id` |
 | `chapter_title` | **Single line text** | — | 가독성용 사본 (Airtable에서 보기 편하게) |
 | `expires_at` | **Date** → Include time | — | **게이트의 기준 컬럼** |
-| `last_payment_id` | **Single line text** | — | PayApp `mul_no` (포인트 사용 시 비어 있음) |
-| `source` | **Single select** | 옵션: `purchase`, `point_redeem` | |
+| `last_payment_id` | **Single line text** | — | PayApp `mul_no` (포인트 사용 시 비어 있음, 관리자 지급 시 `ADMIN-{name}-{timestamp36}` 형식) |
+| `source` | **Single select** | 옵션: `purchase`, `point_redeem`, **`admin_grant`** | `admin_grant`는 CRM에서 수동 지급 시 자동 세팅 — 매출 통계에서 제외됨 |
 | `created_at` | **Created time** (auto) | 자동 채움 | |
 | `updated_at` | **Last modified time** (auto) | 자동 채움 | |
 
@@ -570,20 +570,34 @@ v1에서 사용했던 Pabbly Connect 5단계 라우터. v2 (Worker REST)로 대�
 
 Worker가 직접 PayApp REST API + webhook 수신을 모두 처리.
 
-### Worker 엔드포인트
+### Worker 엔드포인트 — 결제
 - **`POST /payment/request`** — 학생 앱이 호출, 결제 세션 생성 (var1=chapter_id, var2=user_phone 포함)
 - **`POST /payapp/webhook`** — PayApp이 결제 완료 시 호출, OnepagePayments INSERT, `SUCCESS` 응답
 
+### Worker 엔드포인트 — 관리자 권한 관리 (CRM)
+- **`POST /admin/access/grant`** — 챕터 권한 수동 지급/연장
+  - Body: `{ user_phone, chapter_id, days, reason?, memo? }`
+  - 활성 사용자: 기존 expires_at + N일 (누적)
+  - 만료/신규: NOW + N일
+  - `source` 자동 `"admin_grant"`로 세팅
+  - `last_payment_id`: `ADMIN-{관리자이름}-{timestamp36}` 형식
+- **`DELETE /admin/access/:phone/:chapter_id`** — 챕터 권한 회수
+  - OnepageChapterAccess 행 즉시 삭제
+
 ### Worker Secrets
 ```bash
-npx wrangler secret put PAYAPP_USERID    # 페이앱 판매자 아이디
-npx wrangler secret put PAYAPP_LINKKEY   # 페이앱 연동 KEY
-npx wrangler secret put PAYAPP_LINKVAL   # 페이앱 연동 VALUE
+npx wrangler secret put PAYAPP_USERID    # 페이앱 판매자 아이디 (필수)
+npx wrangler secret put PAYAPP_LINKKEY   # 페이앱 연동 KEY (선택)
+npx wrangler secret put PAYAPP_LINKVAL   # 페이앱 연동 VALUE (선택)
 ```
+
+> ⚠️ `PAYAPP_LINKKEY`/`PAYAPP_LINKVAL`은 페이앱 콘솔의 정확한 값과 일치해야 함. 잘못된 값 등록 시 webhook이 silent skip될 수 있음 → 현재 코드는 불일치 시 경고 로그만 남기고 처리 진행 (silent skip 방지).
 
 ### PayApp 콘솔 설정
 - 상품 등록: **불필요** (Worker가 매번 동적 생성)
-- 공통 통보 URL: **비워둠**
+- 공통 통보 URL: **비워둠** (개별 `feedbackurl`이 결제 시점에 동적 지정됨)
 - 연동 KEY/VALUE: 설정 → 연동정보에서 확인 → Worker secret으로
 
-자세한 흐름·트러블슈팅: [ONEPAGE_FEATURES.md § 5 결제 자동화 파이프라인](ONEPAGE_FEATURES.md#5-결제-자동화-파이프라인-worker-rest--airtable)
+자세한 흐름·트러블슈팅:
+- [ONEPAGE_FEATURES.md § 5 결제 자동화 파이프라인](ONEPAGE_FEATURES.md#5-결제-자동화-파이프라인-worker-rest--airtable)
+- **[PAYMENT_INTEGRATION_GUIDE.md](PAYMENT_INTEGRATION_GUIDE.md)** — 새 앱(memoryking-user.html 등)에 결제 시스템 통합 시 시행착오 없이 작업할 수 있는 종합 가이드
