@@ -15,8 +15,9 @@
 | Airtable | `OnepagePayments` | PayApp webhook 결제 원장 |
 | Airtable | `OnepagePointTx` | 포인트 변동 감사 로그 |
 | Airtable | `OnepageCampaigns` | CRM QR 라이브러리 (마케팅 자산) |
-| Airtable | `UnknownPayments` | Pabbly 결제 라우터 폴백 — 상품명 미매칭 |
-| Airtable | `FailedPayments` | Pabbly 결제 라우터 안전망 — Airtable 쓰기 실패 |
+| Airtable | `OnepageCampaignSends` | 캐페인 발송 로그 — 수신자 1명당 1행, 분석/전환 측정용 |
+| Airtable | `UnknownPayments` | (v1 deprecated) Pabbly 결제 라우터 폴백 — 상품명 미매칭 |
+| Airtable | `FailedPayments` | (v1 deprecated) Pabbly 결제 라우터 안전망 — Airtable 쓰기 실패 |
 | nocodebackend | `op_chapters` | 챕터 (+ 페이앱 결제 URL) |
 | nocodebackend | `op_topics` | 대목차 |
 | nocodebackend | `op_subtopics` | 소목차 (+ 대표 이미지) |
@@ -162,7 +163,36 @@ CRM의 QR 코드 + 추적 URL 생성기 라이브러리. 관리자가 저장한 
 
 ---
 
-### A6. `UnknownPayments`
+### A6. `OnepageCampaignSends`
+
+캐페인 발송 로그. CRM에서 `/admin/webhook/send` 호출 → Worker가 수신자 **1명당 1행** 영구 저장. 분석·전환 측정의 단일 진실원본.
+
+| 필드명 | Airtable 필드 타입 | 옵션·기본값 | 비고 |
+|---|---|---|---|
+| `campaign_id` | **Single line text** | — | 한 번의 `/admin/webhook/send` 호출이 생성한 UUID — 같은 발송의 모든 수신자가 공유 (`crypto.randomUUID()` 또는 fallback `cmp_{ts}_{rand}`) |
+| `template` | **Single line text** | — | `welcome` / `renewal` / `winback` / `convert` / `vip` / `custom` |
+| `channel` | **Single line text** | — | `sms` / `email` / `both` |
+| `subject` | **Single line text** | — | 이메일 제목 (SMS만이면 비어 있음) |
+| `custom_message` | **Long text** | — | 관리자가 CRM에서 입력한 본문 — Pabbly의 ChatGPT 프롬프트 인풋으로 전달 |
+| `sent_at` | **Single line text** | — | KST ISO 8601 (예: `2026-06-04T15:30:00.000Z` — Z는 표기상, 실제 KST) |
+| `sent_by` | **Single line text** | — | 발송한 관리자 이름 또는 phone (JWT 인증된 sender) |
+| `phone` | **Single line text** | — | 수신자 전화번호 (SMS/both 시 사용) |
+| `email` | **Single line text** | — | 수신자 이메일 (email/both 시 사용) |
+| `recipient_name` | **Single line text** | — | 발송 시점의 사용자 이름 스냅샷 |
+| `ok` | **Checkbox** | — | Pabbly가 200 OK 반환했는지 (true) — 실제 SOLAPI/Gmail 전송 성공이 아니라 webhook 수락만 의미 |
+| `status_code` | **Number** → Integer | — | Pabbly 응답 HTTP status |
+| `error` | **Long text** | — | 실패 시 메시지 (`user_not_found` 등) |
+
+**저장 정책**: 실패해도 `console.warn`만 찍고 발송 자체는 성공 응답. 테이블이 없거나 PAT 권한 없으면 분석 endpoint가 `{ok:false, error:'campaign_table_missing'}` 반환.
+
+**Worker 엔드포인트**:
+- `POST /admin/webhook/send` (teacher gate) — 발송 + 자동 저장 (batch 10건씩)
+- `GET /admin/campaign-sends?days=N` (teacher gate) — 발송 분석 (일별/템플릿별/채널별 + 캠페인 히스토리)
+- `GET /admin/campaign-conversion?days=N&window=M` (teacher gate) — 전환 분석 (발송 후 M일 안 결제 매칭)
+
+---
+
+### A7. `UnknownPayments`
 
 Pabbly 결제 라우터의 **폴백 1** — 상품명(`goodname`)이 어떤 챕터와도 매칭 안 될 때 여기로 우회.
 
@@ -188,9 +218,11 @@ Pabbly 결제 라우터의 **폴백 1** — 상품명(`goodname`)이 어떤 챕�
 
 ---
 
-### A7. `FailedPayments`
+### A8. `FailedPayments`
 
 Pabbly 결제 라우터의 **폴백 2 (안전망)** — Airtable 쓰기가 어떤 이유로든 실패할 때 여기로 우회.
+
+> ℹ️ v2(Worker 결제)부터는 이 테이블이 사용되지 않음. 옛 데이터 보관 + 향후 비슷한 폴백 도입 시 재활용 목적.
 
 > 🚨 **운영 시 정상 상태는 0행**. 행이 늘면 Airtable 토큰·권한·네트워크·필드명 등 시스템 장애.
 
@@ -523,7 +555,7 @@ if (existing) {
 
 이 스키마대로 테이블 만들기:
 
-1. **Airtable**: 위 5개 테이블(`OnepageUsers`, `OnepageChapterAccess`, `OnepagePayments`, `OnepagePointTx`, `OnepageCampaigns`)
+1. **Airtable**: 위 6개 테이블(`OnepageUsers`, `OnepageChapterAccess`, `OnepagePayments`, `OnepagePointTx`, `OnepageCampaigns`, `OnepageCampaignSends`)
 2. **nocodebackend**: 위 6개 테이블(`op_chapters`, `op_topics`, `op_subtopics`, `op_items`, `op_understood`, `op_pings`)
 3. **Airtable Automations**: C1·C2 두 개 설정
 4. **Worker 환경 변수**: NCB_SECRET_KEY, AIRTABLE_TOKEN, AIRTABLE_BASE, JWT_SECRET (필수) + **PABBLY_WEBHOOK_URL** (CRM 캐페인 발송용, 선택)
@@ -553,10 +585,34 @@ ALTER TABLE op_chapters ADD COLUMN pay_url VARCHAR(255) NULL;
 
 v2부터 결제 처리는 **Worker로 이전**. Pabbly는 **마케팅 발송**에만 사용.
 
-### H1. 마케팅 캐페인 발송 워크플로우 (현재 사용 중)
-- **트리거 URL**: Worker secret `PABBLY_WEBHOOK_URL`에 저장
-- **흐름**: CRM → Worker `/admin/webhook/send` → 이 워크플로우 → AI(GPT-4o-mini)로 개인화 메시지 생성 → Solapi(SMS) + Gmail SMTP 라우팅
-- **시크릿**: SOLAPI_API_KEY, SOLAPI_API_SECRET, Gmail OAuth, OPENAI_API_KEY
+### H1. 마케팅 캐페인 발송 워크플로우 (현재 사용 중 — Pabbly Connect)
+
+**플랫폼**: `connect.pabbly.com` (AgenticAI 아님 — v1의 agenticai.pabbly.com 워크플로우는 deprecated)
+**트리거 URL**: Worker secret `PABBLY_WEBHOOK_URL`에 저장
+
+**5단계 구조**:
+
+| Step | 종류 | 역할 |
+|---|---|---|
+| 1 | Webhook (Catch Webhook) | Worker `/admin/webhook/send` 페이로드 수신 |
+| 2 | OpenAI ChatGPT | `gpt-3.5-turbo` 모델, system+user messages JSON, Response Format=Text, Max Tokens 250, Sampling 0.7 → 마케팅 본문 생성 |
+| 3 | Router by Pabbly | 2갈래 분기 (Route 1 SMS / Route 2 Email) |
+| 4A | Filter (SMS) | `{{1.channel}}` Equal to `sms` OR `both` |
+| 4B | Filter (Email) | `{{1.channel}}` Equal to `email` OR `both` |
+| 5A | SOLAPI (Private) — Send Text Message | 발신번호=Solapi 등록필수, `{{1.phone}}`, 본문=`{{2.choices.0.message.content}}` |
+| 5B | Gmail — Send Email | Sender=OnePage Study, Recipient=`{{1.email}}`, Subject=`[OnePage Study] {{1.subject}}`, Content Type=HTML |
+
+**자격증명 (Pabbly Connections에 보관)**:
+- OpenAI API Key (ChatGPT용)
+- Solapi API Key + Secret + 등록 발신번호
+- Gmail OAuth (발신 계정)
+
+**제약**:
+- Gmail API: 일일 100건 — 대량 발송 시 SendGrid/Mailgun 등으로 갈아탈 것
+- SOLAPI: 발신번호 사전 등록 필수 (https://console.solapi.com/senderids)
+- SMS 본문 90바이트 초과 시 자동 LMS 전환 (단가 ↑)
+
+자세한 워크플로우 구축 절차는 [ONEPAGE_FEATURES.md § 18](ONEPAGE_FEATURES.md#18-캐페인-발송-pabbly-웹훅) 참조.
 
 ### H2. (deprecated v2) 결제 라우터 워크플로우
 v1에서 사용했던 Pabbly Connect 5단계 라우터. v2 (Worker REST)로 대체되어 **OFF 처리 권장**.
@@ -583,6 +639,18 @@ Worker가 직접 PayApp REST API + webhook 수신을 모두 처리.
   - `last_payment_id`: `ADMIN-{관리자이름}-{timestamp36}` 형식
 - **`DELETE /admin/access/:phone/:chapter_id`** — 챕터 권한 회수
   - OnepageChapterAccess 행 즉시 삭제
+
+### Worker 엔드포인트 — 캐페인 발송·분석 (CRM)
+- **`POST /admin/webhook/send`** — 캐페인 일괄 발송
+  - Body: `{ phones[], template, channel, custom_message, subject, webhook_url? }`
+  - Pabbly로 1명씩 POST + 결과를 OnepageCampaignSends에 batch 저장
+  - 응답: `{ ok, campaign_id, sent_at, sent, total, results[] }`
+- **`GET /admin/campaign-sends?days=N`** — 발송 분석
+  - 응답: `{ total_sends, success_count, success_rate, campaign_count, by_channel, by_template, by_day[], campaigns[] }` — campaigns는 campaign_id로 그룹된 어레이 (recipients 포함)
+- **`GET /admin/campaign-conversion?days=N&window=M`** — 전환 분석
+  - 발송 후 M일 안에 같은 phone이 결제했으면 전환
+  - 응답: `{ total_sends, total_conversions, conversion_rate, total_revenue, arpc, by_template, by_channel }`
+  - 한계: 다중 노출 중복 카운트 / A/B 컨트롤 그룹 없음 / 자연 결제 분리 불가 (정밀화 옵션은 ONEPAGE_FEATURES.md §18 참조)
 
 ### Worker Secrets
 ```bash
