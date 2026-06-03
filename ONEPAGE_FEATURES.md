@@ -865,6 +865,36 @@ CRM 캠페인 탭 하단의 **📊 캠페인 분석** 패널이 호출:
 - 최근 100건 캠페인 리스트 (시간·템플릿·채널·대상수·성공률·관리자)
 - **📥 CSV** 버튼으로 수신자 단위 raw export (BOM 포함 UTF-8 — Excel 한글 호환)
 
+### 전환 분석 (`GET /admin/campaign-conversion?days=30&window=7`)
+
+CRM 캠페인 탭 하단 **💰 전환 분석** 패널이 호출. 캐페인 발송 → 결제로 이어진 비율과 매출을 측정.
+
+#### 알고리즘
+- 발송 성공(`ok=true`) 건만 대상
+- 각 발송에 대해 같은 `phone` 의 `OnepagePayments.paid_at` 이 `sent_at < paid_at <= sent_at + windowDays` 범위에 있으면 **전환** 으로 카운트
+- 매출은 윈도우 안에 발생한 결제 `amount` 합계
+
+#### 응답 구조
+```json
+{
+  "ok": true,
+  "days": 30, "window_days": 7,
+  "total_sends": 120, "total_conversions": 18,
+  "conversion_rate": 15.0, "total_revenue": 54000,
+  "arpc": 3000,                          // 매출 / 전환수 (1인당 평균 객단가)
+  "by_template": { "renewal": { "sends": 40, "conv": 8, "revenue": 24000 }, ... },
+  "by_channel":  { "sms":     { "sends": 80, "conv": 12, "revenue": 36000 }, ... }
+}
+```
+
+#### 윈도우 선택 (CRM UI)
+1일 / 3일 / **7일(기본)** / 14일 / 30일 → 어떤 윈도우가 본 사업 모델에 적합한지는 데이터 누적 후 비교 권장.
+
+#### 알려진 한계 (속편의 전환 추적 정밀화 필요 시 보강)
+- **다중 노출 중복 카운트**: 한 사용자가 한 윈도우 안에 여러 캐페인을 받고 결제 1번 → 모든 캐페인에 전환 1번씩 잡힘 (다중 어트리뷰션이 필요하면 first-touch / last-touch 정책 도입)
+- **자연 발생 결제 구분 X**: 캐페인 없어도 결제했을 사용자도 전환으로 잡힘 → A/B 컨트롤 그룹 도입 시 정밀 측정 가능
+- **결제 채널이 캐페인 채널 아닐 수 있음**: 이메일 받고 다른 경로로 결제해도 채널별 ROI에 포함됨
+
 ### 설정 (Worker 환경 변수)
 ```bash
 wrangler secret put PABBLY_WEBHOOK_URL
@@ -972,6 +1002,7 @@ wrangler secret put PABBLY_WEBHOOK_URL
 | `/admin/points` | POST | 포인트 지급/차감 (자동 PointTx 기록) |
 | `/admin/webhook/send` | POST | Pabbly 웹훅 일괄 발송 + OnepageCampaignSends에 수신자별 결과 영구 저장 |
 | `/admin/campaign-sends?days=30` | GET | 캠페인 분석 — 일자/템플릿/채널별 발송량·성공률, 캠페인 히스토리 (campaign_id로 그룹) |
+| `/admin/campaign-conversion?days=30&window=7` | GET | 전환 분석 — 발송 후 `window`일 안에 결제한 수신자 집계. 템플릿별/채널별 발송수·전환수·전환율·매출·ARPC |
 | `/admin/revenue?days=30` | GET | 일별/챕터별/사용자별 매출 |
 | `/admin/content-stats` | GET | 챕터별 구독자 · MRR |
 | `/admin/attribution?days=90` | GET | UTM 어트리뷰션 (소스/매체/캐페인별 성과) |

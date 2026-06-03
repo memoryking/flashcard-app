@@ -1569,6 +1569,98 @@ async function handleAdminCampaigns(request, env) {
   }, 200, request);
 }
 
+async function handleAdminCampaignConversion(request, env) {
+  const url = new URL(request.url);
+  const days = Math.min(365, Math.max(1, Number(url.searchParams.get('days')) || 30));
+  const windowDays = Math.min(60, Math.max(1, Number(url.searchParams.get('window')) || 7));
+  const nowIso = kstISOString();
+  const fromIso = addDays(nowIso, -days);
+
+  let sends = [];
+  try {
+    sends = await atFindAllPaged(env, AT_CAMPAIGN_SENDS,
+      `IS_AFTER({sent_at}, "${fromIso}")`, 10000);
+  } catch (e) {
+    return json({
+      ok: false,
+      error: 'campaign_table_missing',
+      message: 'OnepageCampaignSends 테이블이 없습니다.',
+    }, 200, request);
+  }
+
+  // 결제는 발송 이후에 일어나므로 fromIso 이후만 조회
+  const payments = await atFindAllPaged(env, AT_PAYMENTS,
+    `IS_AFTER({paid_at}, "${fromIso}")`, 10000);
+
+  const paymentsByPhone = {};
+  for (const p of payments) {
+    const ph = p.fields.user_phone;
+    if (!ph) continue;
+    if (!paymentsByPhone[ph]) paymentsByPhone[ph] = [];
+    paymentsByPhone[ph].push({
+      paid_at: p.fields.paid_at || '',
+      amount: Number(p.fields.amount) || 0,
+      chapter_id: p.fields.chapter_id,
+    });
+  }
+  for (const ph of Object.keys(paymentsByPhone)) {
+    paymentsByPhone[ph].sort((a, b) => a.paid_at.localeCompare(b.paid_at));
+  }
+
+  const byTemplate = {};
+  const byChannel = {};
+  let totalSends = 0;
+  let totalConv = 0;
+  let totalRevenue = 0;
+
+  for (const s of sends) {
+    const f = s.fields || {};
+    if (!f.ok) continue;
+    const ph = f.phone;
+    if (!ph) continue;
+    const sentAtMs = new Date(f.sent_at).getTime();
+    if (!sentAtMs) continue;
+    const windowEndMs = sentAtMs + windowDays * 86400 * 1000;
+
+    const userPays = paymentsByPhone[ph] || [];
+    const matched = userPays.filter(p => {
+      const m = new Date(p.paid_at).getTime();
+      return m > sentAtMs && m <= windowEndMs;
+    });
+
+    totalSends++;
+    const t = f.template || 'unknown';
+    const ch = f.channel || 'unknown';
+    if (!byTemplate[t]) byTemplate[t] = { sends: 0, conv: 0, revenue: 0 };
+    if (!byChannel[ch]) byChannel[ch] = { sends: 0, conv: 0, revenue: 0 };
+    byTemplate[t].sends++;
+    byChannel[ch].sends++;
+
+    if (matched.length > 0) {
+      totalConv++;
+      byTemplate[t].conv++;
+      byChannel[ch].conv++;
+      const rev = matched.reduce((sum, p) => sum + p.amount, 0);
+      totalRevenue += rev;
+      byTemplate[t].revenue += rev;
+      byChannel[ch].revenue += rev;
+    }
+  }
+
+  return json({
+    ok: true,
+    days,
+    window_days: windowDays,
+    total_sends: totalSends,
+    total_conversions: totalConv,
+    conversion_rate: totalSends ? Math.round(totalConv / totalSends * 1000) / 10 : 0,
+    total_revenue: totalRevenue,
+    arpc: totalConv ? Math.round(totalRevenue / totalConv) : 0,
+    by_template: byTemplate,
+    by_channel: byChannel,
+  }, 200, request);
+}
+
 async function handleAdminRevenue(request, env) {
   const url = new URL(request.url);
   const days = Math.min(365, Math.max(7, Number(url.searchParams.get('days')) || 30));
@@ -2337,6 +2429,7 @@ async function route(request, env) {
     if (m === 'POST' && path === '/admin/points') return handleAdminGrantPoints(request, env, auth);
     if (m === 'POST' && path === '/admin/webhook/send') return handleAdminWebhookSend(request, env, auth);
     if (m === 'GET' && path === '/admin/campaign-sends') return handleAdminCampaigns(request, env);
+    if (m === 'GET' && path === '/admin/campaign-conversion') return handleAdminCampaignConversion(request, env);
     if (m === 'GET' && path === '/admin/revenue') return handleAdminRevenue(request, env);
     if (m === 'GET' && path === '/admin/content-stats') return handleAdminContentStats(request, env);
     if (m === 'GET' && path === '/admin/attribution') return handleAdminAttribution(request, env);

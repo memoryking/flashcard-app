@@ -495,6 +495,8 @@ const state = {
   campaign: { template: 'custom', phones: [], message: '', subject: '', channel: 'sms' },
   campaignDays: 30,
   campaignStats: null,
+  conversionWindow: 7,
+  campaignConversion: null,
   // attribution
   attribution: null,
   attrDays: 90,
@@ -1246,10 +1248,28 @@ function renderCampaigns() {
       </div>
       <div id="campaignStatsBody"><p style="color:#888">불러오는 중...</p></div>
     </div>
+
+    <div class="section">
+      <div class="section-h" style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px">
+        <h3>💰 전환 분석 <span style="font-size:11px;color:#888;font-weight:normal">캐페인 발송 후 N일 안에 결제한 사용자 비율·매출</span></h3>
+        <div style="display:flex;gap:6px;align-items:center">
+          <span style="font-size:11px;color:#aaa">윈도우</span>
+          <div id="conversionWindowChips" style="display:flex;gap:4px">
+            <button class="chip ${state.conversionWindow===1?'on':''}" data-w="1" onclick="setConversionWindow(1)">1일</button>
+            <button class="chip ${state.conversionWindow===3?'on':''}" data-w="3" onclick="setConversionWindow(3)">3일</button>
+            <button class="chip ${state.conversionWindow===7?'on':''}" data-w="7" onclick="setConversionWindow(7)">7일</button>
+            <button class="chip ${state.conversionWindow===14?'on':''}" data-w="14" onclick="setConversionWindow(14)">14일</button>
+            <button class="chip ${state.conversionWindow===30?'on':''}" data-w="30" onclick="setConversionWindow(30)">30일</button>
+          </div>
+        </div>
+      </div>
+      <div id="campaignConvBody"><p style="color:#888">불러오는 중...</p></div>
+    </div>
   `;
 
   updatePresetCounts();
   loadCampaignStats();
+  loadCampaignConversion();
 }
 async function updatePresetCounts() {
   if (state.users.length === 0) {
@@ -1380,6 +1400,7 @@ function setCampaignDays(d) {
   document.querySelectorAll('#campaignDaysChips .chip').forEach(c =>
     c.classList.toggle('on', Number(c.dataset.days) === d));
   loadCampaignStats();
+  loadCampaignConversion();
 }
 async function loadCampaignStats() {
   const body = $('campaignStatsBody');
@@ -1470,6 +1491,98 @@ function renderCampaignStats(r) {
     </div>
   `;
 }
+function setConversionWindow(w) {
+  state.conversionWindow = w;
+  document.querySelectorAll('#conversionWindowChips .chip').forEach(c =>
+    c.classList.toggle('on', Number(c.dataset.w) === w));
+  loadCampaignConversion();
+}
+async function loadCampaignConversion() {
+  const body = $('campaignConvBody');
+  if (!body) return;
+  body.innerHTML = '<p style="color:#888">불러오는 중...</p>';
+  try {
+    const r = await api('GET', `/admin/campaign-conversion?days=${state.campaignDays}&window=${state.conversionWindow}`);
+    state.campaignConversion = r;
+    renderCampaignConversion(r);
+  } catch (e) {
+    body.innerHTML = `<p style="color:#fca5a5">로드 실패: ${escapeHtml(e.message)}</p>`;
+  }
+}
+function renderCampaignConversion(r) {
+  const body = $('campaignConvBody');
+  if (!r.ok) {
+    body.innerHTML = `<p style="color:#fca5a5">⚠ ${escapeHtml(r.message || r.error)}</p>`;
+    return;
+  }
+  const channelLabel = (ch) => ch === 'email' ? '📧 이메일' : ch === 'both' ? '📱+📧 둘다' : ch === 'sms' ? '📱 SMS' : ch;
+  const rateColor = (rate) => rate >= 30 ? '#81c784' : rate >= 10 ? '#fcd34d' : '#fca5a5';
+
+  const tplRows = Object.keys(r.by_template).sort((a, b) =>
+    r.by_template[b].revenue - r.by_template[a].revenue
+  ).map(t => {
+    const x = r.by_template[t];
+    const rate = x.sends ? Math.round(x.conv / x.sends * 1000) / 10 : 0;
+    const arpc = x.conv ? Math.round(x.revenue / x.conv) : 0;
+    return `
+      <tr>
+        <td>${TEMPLATE_LABEL[t] || escapeHtml(t)}</td>
+        <td style="text-align:right">${fmtNum(x.sends)}</td>
+        <td style="text-align:right">${fmtNum(x.conv)}</td>
+        <td style="text-align:right;color:${rateColor(rate)}">${rate}%</td>
+        <td style="text-align:right">${fmtNum(x.revenue)}원</td>
+        <td style="text-align:right">${x.conv ? fmtNum(arpc) + '원' : '-'}</td>
+      </tr>
+    `;
+  }).join('');
+
+  const chRows = Object.keys(r.by_channel).sort((a, b) =>
+    r.by_channel[b].revenue - r.by_channel[a].revenue
+  ).map(c => {
+    const x = r.by_channel[c];
+    const rate = x.sends ? Math.round(x.conv / x.sends * 1000) / 10 : 0;
+    return `
+      <tr>
+        <td>${channelLabel(c)}</td>
+        <td style="text-align:right">${fmtNum(x.sends)}</td>
+        <td style="text-align:right">${fmtNum(x.conv)}</td>
+        <td style="text-align:right;color:${rateColor(rate)}">${rate}%</td>
+        <td style="text-align:right">${fmtNum(x.revenue)}원</td>
+      </tr>
+    `;
+  }).join('');
+
+  body.innerHTML = `
+    <div class="kpi-grid" style="margin-bottom:14px">
+      <div class="kpi-card blue"><div class="label">분석 대상 발송</div><div class="value">${fmtNum(r.total_sends)}<span class="unit">건</span></div></div>
+      <div class="kpi-card orange"><div class="label">전환 발송</div><div class="value">${fmtNum(r.total_conversions)}<span class="unit">건</span></div></div>
+      <div class="kpi-card green"><div class="label">전환율</div><div class="value">${r.conversion_rate}<span class="unit">%</span></div></div>
+      <div class="kpi-card"><div class="label">발생 매출</div><div class="value">${fmtNum(r.total_revenue)}<span class="unit">원</span></div></div>
+    </div>
+
+    <p style="font-size:11px;color:#888;margin-bottom:10px">
+      📋 발송 성공 ${r.total_sends}건 중 ${r.window_days}일 안에 같은 수신자가 결제한 경우를 전환으로 집계 · 1인 평균 객단가(ARPC) ${fmtNum(r.arpc)}원
+    </p>
+
+    <div style="display:grid;grid-template-columns:1fr;gap:14px">
+      <div>
+        <div style="font-size:12px;color:#aaa;margin-bottom:6px">템플릿별 ROI</div>
+        <div class="tbl-wrap"><table class="tbl" style="font-size:12px">
+          <thead><tr><th>템플릿</th><th style="text-align:right">발송</th><th style="text-align:right">전환</th><th style="text-align:right">전환율</th><th style="text-align:right">매출</th><th style="text-align:right">ARPC</th></tr></thead>
+          <tbody>${tplRows || '<tr><td colspan=6 style="color:#666">데이터 없음</td></tr>'}</tbody>
+        </table></div>
+      </div>
+      <div>
+        <div style="font-size:12px;color:#aaa;margin-bottom:6px">채널별 ROI</div>
+        <div class="tbl-wrap"><table class="tbl" style="font-size:12px">
+          <thead><tr><th>채널</th><th style="text-align:right">발송</th><th style="text-align:right">전환</th><th style="text-align:right">전환율</th><th style="text-align:right">매출</th></tr></thead>
+          <tbody>${chRows || '<tr><td colspan=5 style="color:#666">데이터 없음</td></tr>'}</tbody>
+        </table></div>
+      </div>
+    </div>
+  `;
+}
+
 function exportCampaignsCsv() {
   const r = state.campaignStats;
   if (!r || !r.campaigns) { toast('데이터 없음', 'err'); return; }
