@@ -1783,6 +1783,8 @@ async function handlePaymentRequest(request, env) {
   const returnUrl = STUDENT_APP_ORIGIN + '/?paid=1&chapter=' + chapterId;
 
   // PayApp REST API 호출
+  // skip_cstpage 제거: y 옵션은 returnurl로 POST 리다이렉트해서 Vercel 정적 호스팅 405 발생
+  // → 학생은 페이앱 매출전표(영수증) 1초 본 후 "확인" 클릭 → GET 방식으로 returnurl 이동
   const params = new URLSearchParams({
     cmd: 'payrequest',
     userid: env.PAYAPP_USERID,
@@ -1794,7 +1796,6 @@ async function handlePaymentRequest(request, env) {
     var2: userPhone,
     smsuse: 'n',
     checkretry: 'y',
-    skip_cstpage: 'y',
     returnurl: returnUrl,
   });
 
