@@ -1833,22 +1833,56 @@ async function handlePayAppWebhook(request, env) {
   const text = await request.text();
   const fields = parseFormUrlEncoded(text);
 
-  // 1. 보안 검증 — 모르는 호출자는 silent SUCCESS (재시도 폭주 방지)
+  // DEBUG — wrangler tail로 추적 (운영 안정화 후 제거 권장)
+  console.log('[payapp/webhook] body_len:', text.length);
+  console.log('[payapp/webhook] fields:', JSON.stringify({
+    userid: fields.userid || '(missing)',
+    linkkey: fields.linkkey ? '(present:' + fields.linkkey.length + 'chars)' : '(missing)',
+    linkval: fields.linkval ? '(present:' + fields.linkval.length + 'chars)' : '(missing)',
+    pay_state: fields.pay_state || '(missing)',
+    mul_no: fields.mul_no || '(missing)',
+    var1: fields.var1 || '(missing)',
+    var2: fields.var2 || '(missing)',
+    price: fields.price || '(missing)',
+    feedbacktype: fields.feedbacktype || '(missing)',
+  }));
+  console.log('[payapp/webhook] match:', JSON.stringify({
+    userid_ok: fields.userid === env.PAYAPP_USERID,
+    linkkey_ok: fields.linkkey === env.PAYAPP_LINKKEY,
+    linkval_ok: fields.linkval === env.PAYAPP_LINKVAL,
+    PAYAPP_USERID_set: !!env.PAYAPP_USERID,
+    PAYAPP_LINKKEY_set: !!env.PAYAPP_LINKKEY,
+    PAYAPP_LINKVAL_set: !!env.PAYAPP_LINKVAL,
+  }));
+
+  // 1. 보안 검증 — userid만 엄격히 검사
+  //    (linkkey/linkval은 페이앱 콘솔의 사용자 입력값이라 운영자가 잘못 등록 가능 → silent skip 사고 위험)
+  //    다른 보호 장치: mul_no 멱등성, feedbackurl 결제별 동적 지정, HTTPS
   if (env.PAYAPP_USERID && fields.userid && fields.userid !== env.PAYAPP_USERID) {
+    console.log('[payapp/webhook] SKIP: userid mismatch (got: ' + fields.userid + ')');
     return payAppOk();
   }
+  // linkkey/linkval은 일치하면 좋지만 강제 X — 로그로만 기록 (추후 시크릿 정확히 등록되면 enforce 가능)
   if (env.PAYAPP_LINKKEY && fields.linkkey && fields.linkkey !== env.PAYAPP_LINKKEY) {
-    return payAppOk();
+    console.log('[payapp/webhook] WARN: linkkey mismatch (got len:' + fields.linkkey.length + ' expected len:' + env.PAYAPP_LINKKEY.length + ')');
+    // 처리 계속 진행 (return 안 함)
   }
   if (env.PAYAPP_LINKVAL && fields.linkval && fields.linkval !== env.PAYAPP_LINKVAL) {
-    return payAppOk();
+    console.log('[payapp/webhook] WARN: linkval mismatch (got len:' + fields.linkval.length + ' expected len:' + env.PAYAPP_LINKVAL.length + ')');
+    // 처리 계속 진행 (return 안 함)
   }
 
   // 2. pay_state=4(결제완료)만 처리, 그 외는 SUCCESS만
-  if (fields.pay_state !== '4') return payAppOk();
+  if (fields.pay_state !== '4') {
+    console.log('[payapp/webhook] SKIP: pay_state=' + fields.pay_state);
+    return payAppOk();
+  }
 
   const mul_no = String(fields.mul_no || '').trim();
-  if (!mul_no) return payAppOk();
+  if (!mul_no) {
+    console.log('[payapp/webhook] SKIP: mul_no empty');
+    return payAppOk();
+  }
 
   const phone = String(fields.var2 || fields.recvphone || '').replace(/\D/g, '');
   const email = String(fields.buyer_email || '').toLowerCase().trim();
@@ -1857,14 +1891,20 @@ async function handlePayAppWebhook(request, env) {
   const chapter_id = parseInt(fields.var1, 10) || 0;
   const raw_json = JSON.stringify(fields);
 
+  console.log('[payapp/webhook] processing: mul_no=' + mul_no + ' chapter_id=' + chapter_id + ' phone=' + phone + ' amount=' + amount);
+
   // 3. 멱등성 검사 — 3 테이블 모두
   const mulNoEsc = mul_no.replace(/"/g, '');
   try {
     for (const t of [AT_PAYMENTS, AT_UNKNOWN, AT_FAILED]) {
       const dup = await atFindOne(env, t, `{mul_no}="${mulNoEsc}"`);
-      if (dup) return payAppOk();
+      if (dup) {
+        console.log('[payapp/webhook] SKIP: duplicate in ' + t);
+        return payAppOk();
+      }
     }
   } catch (e) {
+    console.log('[payapp/webhook] LOOKUP_FAILED: ' + (e && e.message || e));
     // 멱등성 검사 자체가 실패 → Airtable 다운 → retry 유도
     return payAppRetry('LOOKUP_FAILED');
   }
@@ -1894,7 +1934,11 @@ async function handlePayAppWebhook(request, env) {
         status: 'paid',
         raw: raw_json,
       });
-      if (created && created.error) throw new Error(created.error.message || 'create_failed');
+      if (created && created.error) {
+        console.log('[payapp/webhook] OnepagePayments create error: ' + JSON.stringify(created.error));
+        throw new Error(created.error.message || 'create_failed');
+      }
+      console.log('[payapp/webhook] CREATED in OnepagePayments: ' + (created && created.id || 'no-id'));
     } else {
       const created = await atCreate(env, AT_UNKNOWN, {
         mul_no,
@@ -1905,10 +1949,15 @@ async function handlePayAppWebhook(request, env) {
         raw: raw_json,
         notes: 'var1 missing — chapter_id not provided in payment request',
       });
-      if (created && created.error) throw new Error(created.error.message || 'create_failed');
+      if (created && created.error) {
+        console.log('[payapp/webhook] UnknownPayments create error: ' + JSON.stringify(created.error));
+        throw new Error(created.error.message || 'create_failed');
+      }
+      console.log('[payapp/webhook] CREATED in UnknownPayments: ' + (created && created.id || 'no-id'));
     }
     return payAppOk();
   } catch (err) {
+    console.log('[payapp/webhook] caught error, writing to FailedPayments: ' + (err && err.message || err));
     // 6. 안전망 — FailedPayments에 기록
     try {
       const failed = await atCreate(env, AT_FAILED, {
@@ -1921,11 +1970,13 @@ async function handlePayAppWebhook(request, env) {
         error_message: String(err && err.message || err).slice(0, 500),
       });
       if (failed && failed.error) {
-        // 안전망까지 실패 → retry 유도
+        console.log('[payapp/webhook] FailedPayments create error: ' + JSON.stringify(failed.error));
         return payAppRetry('AIRTABLE_DOWN');
       }
+      console.log('[payapp/webhook] CREATED in FailedPayments: ' + (failed && failed.id || 'no-id'));
       return payAppOk();
     } catch (e2) {
+      console.log('[payapp/webhook] FailedPayments also failed: ' + (e2 && e2.message || e2));
       return payAppRetry('AIRTABLE_DOWN');
     }
   }
