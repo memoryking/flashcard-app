@@ -1405,7 +1405,7 @@ async function handleAdminWebhookSend(request, env, sender) {
   for (const phone of phones) {
     const user = userMap[phone];
     if (!user) {
-      results.push({ phone, ok: false, error: 'user_not_found' });
+      results.push({ phone, email: '', channel, ok: false, error: 'user_not_found' });
       continue;
     }
     const payload = {
@@ -1430,9 +1430,9 @@ async function handleAdminWebhookSend(request, env, sender) {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(payload),
       });
-      results.push({ phone, ok: r.ok, status: r.status });
+      results.push({ phone, email: user.email || '', channel, ok: r.ok, status: r.status });
     } catch (e) {
-      results.push({ phone, ok: false, error: String(e && e.message || e) });
+      results.push({ phone, email: user.email || '', channel, ok: false, error: String(e && e.message || e) });
     }
   }
 

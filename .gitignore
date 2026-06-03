@@ -7,3 +7,8 @@ Thumbs.db
 
 # Excel 임시 잠금 파일
 ~$*
+
+.dev.vars*
+!.dev.vars.example
+.env*
+!.env.example

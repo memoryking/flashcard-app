@@ -1328,18 +1328,25 @@ function renderCampaignLog(r) {
   sec.style.display = 'block';
   const okCount = r.sent;
   const failCount = r.total - okCount;
-  const rows = r.results.map(x => `
+  const channelLabel = (ch) => ch === 'email' ? '📧 이메일' : ch === 'both' ? '📱+📧 둘다' : '📱 SMS';
+  const rows = r.results.map(x => {
+    const ch = x.channel || 'sms';
+    const showEmail = ch === 'email' || ch === 'both';
+    const showPhone = ch === 'sms' || ch === 'both';
+    return `
     <tr>
-      <td>${escapeHtml(x.phone)}</td>
+      <td>${channelLabel(ch)}</td>
+      <td>${showPhone ? escapeHtml(x.phone || '') : '<span style="color:#666">-</span>'}</td>
+      <td>${showEmail ? escapeHtml(x.email || '<span style="color:#fca5a5">(이메일 없음)</span>') : '<span style="color:#666">-</span>'}</td>
       <td>${x.ok ? '<span class="pill active">✓ 성공</span>' : `<span class="pill expired">✗ ${escapeHtml(x.error || ('HTTP ' + x.status))}</span>`}</td>
-    </tr>
-  `).join('');
+    </tr>`;
+  }).join('');
   $('campaignLogBody').innerHTML = `
     <p style="font-size:13px;margin-bottom:10px">
       성공 <strong style="color:#81c784">${okCount}</strong> · 실패 <strong style="color:#fca5a5">${failCount}</strong>
     </p>
     <div class="tbl-wrap" style="max-height:280px;overflow-y:auto"><table class="tbl">
-      <thead><tr><th>전화</th><th>결과</th></tr></thead>
+      <thead><tr><th>채널</th><th>전화</th><th>이메일</th><th>결과</th></tr></thead>
       <tbody>${rows}</tbody>
     </table></div>
   `;
