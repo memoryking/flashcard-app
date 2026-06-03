@@ -1447,7 +1447,7 @@ function renderCampaignStats(r) {
     const rate = c.total ? Math.round(c.sent / c.total * 100) : 0;
     const rateColor = rate >= 95 ? '#81c784' : rate >= 80 ? '#fcd34d' : '#fca5a5';
     return `
-      <tr>
+      <tr style="cursor:pointer" onclick="openCampaignDetail('${escapeHtml(c.campaign_id)}')" title="클릭하면 본문·수신자 상세">
         <td style="font-size:11px;color:#aaa">${escapeHtml(fmtKst(c.sent_at))}</td>
         <td>${TEMPLATE_LABEL[c.template] || escapeHtml(c.template)}</td>
         <td>${channelLabel(c.channel)}</td>
@@ -1483,7 +1483,7 @@ function renderCampaignStats(r) {
     </div>
 
     <div>
-      <div style="font-size:12px;color:#aaa;margin-bottom:6px">캠페인 목록 (최근 100건)</div>
+      <div style="font-size:12px;color:#aaa;margin-bottom:6px">캠페인 목록 (최근 100건) — 행 클릭 시 본문·수신자 상세</div>
       <div class="tbl-wrap" style="max-height:360px;overflow-y:auto"><table class="tbl">
         <thead><tr><th>시간</th><th>템플릿</th><th>채널</th><th>대상</th><th>성공률</th><th>관리자</th></tr></thead>
         <tbody>${campaignRows || '<tr><td colspan=6 style="color:#666">캠페인 없음</td></tr>'}</tbody>
@@ -1581,6 +1581,54 @@ function renderCampaignConversion(r) {
       </div>
     </div>
   `;
+}
+
+function openCampaignDetail(campaignId) {
+  const r = state.campaignStats;
+  if (!r || !r.campaigns) { toast('데이터 로드 안 됨', 'err'); return; }
+  const c = r.campaigns.find(x => x.campaign_id === campaignId);
+  if (!c) { toast('캠페인 정보 없음', 'err'); return; }
+  const channelLabel = (ch) => ch === 'email' ? '📧 이메일' : ch === 'both' ? '📱+📧 둘다' : '📱 SMS';
+  const recRows = c.recipients.map(x => {
+    const ch = c.channel;
+    const showEmail = ch === 'email' || ch === 'both';
+    const showPhone = ch === 'sms' || ch === 'both';
+    return `
+      <tr>
+        <td>${escapeHtml(x.name || '')}</td>
+        <td>${showPhone ? escapeHtml(x.phone || '') : '<span style="color:#666">-</span>'}</td>
+        <td>${showEmail ? escapeHtml(x.email || '<span style="color:#fca5a5">(없음)</span>') : '<span style="color:#666">-</span>'}</td>
+        <td>${x.ok ? '<span class="pill active">✓ 성공</span>' : `<span class="pill expired">✗ ${escapeHtml(x.error || 'HTTP ' + x.status_code)}</span>`}</td>
+      </tr>
+    `;
+  }).join('');
+  const body = `
+    <div style="display:grid;grid-template-columns:auto 1fr;gap:8px 14px;font-size:13px;margin-bottom:14px">
+      <div style="color:#888">시간</div><div>${escapeHtml(fmtKst(c.sent_at))}</div>
+      <div style="color:#888">템플릿</div><div>${TEMPLATE_LABEL[c.template] || escapeHtml(c.template)}</div>
+      <div style="color:#888">채널</div><div>${channelLabel(c.channel)}</div>
+      <div style="color:#888">관리자</div><div>${escapeHtml(c.sent_by)}</div>
+      <div style="color:#888">대상</div><div>${c.sent}/${c.total} 성공</div>
+      <div style="color:#888">campaign_id</div><div style="font-family:monospace;font-size:11px;color:#888">${escapeHtml(c.campaign_id)}</div>
+    </div>
+    ${c.subject ? `
+      <div style="margin-bottom:10px">
+        <div style="font-size:12px;color:#aaa;margin-bottom:4px">📧 이메일 제목</div>
+        <div style="padding:8px 10px;background:#0f0f0f;border:1px solid #222;border-radius:6px;font-size:13px">${escapeHtml(c.subject)}</div>
+      </div>` : ''}
+    <div style="margin-bottom:14px">
+      <div style="font-size:12px;color:#aaa;margin-bottom:4px">✍️ custom_message (관리자가 입력한 본문 / ChatGPT 프롬프트 입력)</div>
+      <div style="padding:10px;background:#0f0f0f;border:1px solid #222;border-radius:6px;font-size:13px;white-space:pre-wrap;max-height:240px;overflow-y:auto">${escapeHtml(c.custom_message || '(비어 있음)')}</div>
+    </div>
+    <div>
+      <div style="font-size:12px;color:#aaa;margin-bottom:4px">수신자 ${c.recipients.length}명</div>
+      <div class="tbl-wrap" style="max-height:280px;overflow-y:auto"><table class="tbl">
+        <thead><tr><th>이름</th><th>전화</th><th>이메일</th><th>결과</th></tr></thead>
+        <tbody>${recRows}</tbody>
+      </table></div>
+    </div>
+  `;
+  openModal({ title: '캠페인 상세', body, wide: true });
 }
 
 function exportCampaignsCsv() {
@@ -1817,6 +1865,10 @@ window.toggleSelectUser = toggleSelectUser;
 window.clearSelection = clearSelection;
 window.selectAllFiltered = selectAllFiltered;
 window.setRevenueDays = setRevenueDays;
+window.setCampaignDays = setCampaignDays;
+window.setConversionWindow = setConversionWindow;
+window.openCampaignDetail = openCampaignDetail;
+window.exportCampaignsCsv = exportCampaignsCsv;
 window.switchTab = switchTab;
 window.logout = logout;
 
