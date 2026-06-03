@@ -1675,6 +1675,114 @@ async function handleDeleteCampaign(request, env, id) {
   return json({ ok: true }, 200, request);
 }
 
+// 관리자가 사용자에게 챕터 권한 지급/연장
+async function handleAdminAccessGrant(request, env, admin) {
+  const b = await request.json().catch(() => ({}));
+  const userPhone = normalizePhone(String(b.user_phone || ''));
+  const chapterId = Number(b.chapter_id);
+  const days = b.days !== undefined && b.days !== null ? Number(b.days) : null;
+  const customExpires = b.expires_at ? String(b.expires_at).trim() : null;
+  const reason = String(b.reason || 'admin_grant').slice(0, 100);
+  const memo = String(b.memo || '').slice(0, 200);
+
+  if (!userPhone) return json({ error: 'user_phone required' }, 400, request);
+  if (!chapterId) return json({ error: 'chapter_id required' }, 400, request);
+  if (days === null && !customExpires) {
+    return json({ error: 'days or expires_at required' }, 400, request);
+  }
+
+  // 챕터 조회 (chapter_title 보강)
+  let chapter_title = '';
+  try {
+    const ch = await ncbReadById(env, 'op_chapters', chapterId);
+    if (ch && ch.title) chapter_title = ch.title;
+  } catch (e) {}
+
+  // 기존 행 검색
+  const phoneEsc = userPhone.replace(/"/g, '');
+  const existing = await atFindOne(env, AT_ACCESS,
+    `AND({user_phone}="${phoneEsc}", {chapter_id}=${chapterId})`);
+
+  // 새 expires_at 계산
+  const nowIso = kstISOString();
+  let newExpires;
+
+  if (customExpires) {
+    // 직접 지정 (YYYY-MM-DD 또는 ISO)
+    newExpires = customExpires.length === 10 ? customExpires + 'T00:00:00.000Z' : customExpires;
+  } else {
+    // N일 연장 (활성이면 기존부터, 만료/신규면 NOW부터)
+    const baseIso = existing && existing.fields.expires_at && existing.fields.expires_at > nowIso
+      ? existing.fields.expires_at
+      : nowIso;
+    newExpires = addDays(baseIso, days);
+  }
+
+  const adminLabel = admin && (admin.name || admin.phone) ? (admin.name || admin.phone) : 'admin';
+  const lastPaymentId = `ADMIN-${adminLabel}-${Date.now().toString(36)}`.slice(0, 100);
+
+  const fields = {
+    user_phone: userPhone,
+    chapter_id: chapterId,
+    chapter_title,
+    expires_at: newExpires,
+    source: 'admin_grant',
+    last_payment_id: lastPaymentId,
+  };
+
+  let result;
+  if (existing) {
+    result = await atUpdate(env, AT_ACCESS, existing.id, fields);
+  } else {
+    result = await atCreate(env, AT_ACCESS, fields);
+  }
+
+  if (result && result.error) {
+    return json({ error: 'airtable_error', message: result.error.message || 'unknown' }, 500, request);
+  }
+
+  return json({
+    ok: true,
+    action: existing ? 'updated' : 'created',
+    user_phone: userPhone,
+    chapter_id: chapterId,
+    chapter_title,
+    expires_at: newExpires,
+    reason,
+    memo,
+  }, 200, request);
+}
+
+// 관리자가 사용자의 챕터 권한 회수 (행 삭제)
+async function handleAdminAccessRevoke(request, env, admin, phone, chapterIdStr) {
+  const userPhone = normalizePhone(decodeURIComponent(phone));
+  const chapterId = Number(chapterIdStr);
+
+  if (!userPhone || !chapterId) {
+    return json({ error: 'invalid_parameters' }, 400, request);
+  }
+
+  const phoneEsc = userPhone.replace(/"/g, '');
+  const existing = await atFindOne(env, AT_ACCESS,
+    `AND({user_phone}="${phoneEsc}", {chapter_id}=${chapterId})`);
+
+  if (!existing) {
+    return json({ error: 'access_not_found' }, 404, request);
+  }
+
+  const result = await atDelete(env, AT_ACCESS, existing.id);
+  if (result && result.error) {
+    return json({ error: 'airtable_error', message: result.error.message || 'unknown' }, 500, request);
+  }
+
+  return json({
+    ok: true,
+    deleted_id: existing.id,
+    user_phone: userPhone,
+    chapter_id: chapterId,
+  }, 200, request);
+}
+
 async function handleAdminContentStats(request, env) {
   const [chaptersResp, topicsResp, accesses] = await Promise.all([
     ncbRead(env, 'op_chapters', ''),
@@ -2102,6 +2210,10 @@ async function route(request, env) {
     if (m === 'GET' && path === '/admin/revenue') return handleAdminRevenue(request, env);
     if (m === 'GET' && path === '/admin/content-stats') return handleAdminContentStats(request, env);
     if (m === 'GET' && path === '/admin/attribution') return handleAdminAttribution(request, env);
+    // 챕터 권한 수동 관리
+    if (m === 'POST' && path === '/admin/access/grant') return handleAdminAccessGrant(request, env, auth);
+    p = pathMatch(path, '/admin/access/:phone/:chapter_id');
+    if (p && m === 'DELETE') return handleAdminAccessRevoke(request, env, auth, p.phone, p.chapter_id);
     // 저장된 캐페인 (UTM 라이브러리)
     if (m === 'GET' && path === '/admin/campaigns') return handleListCampaigns(request, env);
     if (m === 'POST' && path === '/admin/campaigns') return handleCreateCampaign(request, env, auth);

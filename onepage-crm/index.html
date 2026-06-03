@@ -490,6 +490,7 @@ const state = {
   revenue: null,
   // content
   contentStats: null,
+  chapters: [],   // 권한 지급 모달의 챕터 선택용 (CRM 진입 시 미리 로드)
   // campaigns
   campaign: { template: 'custom', phones: [], message: '', subject: '', channel: 'sms' },
   // attribution
@@ -575,6 +576,8 @@ function showApp() {
   $('loginScreen').style.display = 'none';
   $('appShell').style.display = 'block';
   $('userName').textContent = state.user.name || state.user.email || '';
+  // 챕터 목록 미리 로드 (권한 지급 모달의 선택지로 사용)
+  api('GET', '/chapters').then(r => { state.chapters = r.chapters || []; }).catch(() => {});
   loadDashboard();
 }
 async function doLogin() {
@@ -888,8 +891,12 @@ function renderUserDetail(r) {
       <td>${active ? `<span class="pill active">D-${d}</span>` : `<span class="pill expired">만료</span>`}</td>
       <td class="muted">${fmtKstDate(c.expires_at)}</td>
       <td class="muted">${escapeHtml(c.source || '—')}</td>
+      <td style="white-space:nowrap">
+        <button class="btn-blue" onclick="openGrantAccess('${escapeHtml(u.phone)}', ${c.chapter_id}, '${escapeHtml(c.chapter_title || '')}')" title="기간 연장">+일</button>
+        <button class="btn-warn" onclick="revokeAccess('${escapeHtml(u.phone)}', ${c.chapter_id}, '${escapeHtml(c.chapter_title || '')}')" title="권한 회수">🗑️</button>
+      </td>
     </tr>`;
-  }).join('') : '<tr><td colspan="4" class="empty-state">구독 이력 없음</td></tr>';
+  }).join('') : '<tr><td colspan="5" class="empty-state">구독 이력 없음</td></tr>';
 
   const payHtml = r.payments.length ? r.payments.map(p => `
     <tr>
@@ -955,9 +962,12 @@ function renderUserDetail(r) {
     </div>
 
     <div class="detail-sec">
-      <h4>📚 챕터 구독 (${r.chapter_access.length})</h4>
+      <h4 style="display:flex;align-items:center;justify-content:space-between;gap:8px">
+        <span>📚 챕터 구독 (${r.chapter_access.length})</span>
+        <button class="btn-primary" style="font-size:11px;padding:5px 10px" onclick="openGrantAccess('${escapeHtml(u.phone)}', null, null)">🎁 새 챕터 권한 지급</button>
+      </h4>
       <div class="scroll"><table class="tbl">
-        <thead><tr><th>챕터</th><th>상태</th><th>만료</th><th>경로</th></tr></thead>
+        <thead><tr><th>챕터</th><th>상태</th><th>만료</th><th>경로</th><th></th></tr></thead>
         <tbody>${accessHtml}</tbody>
       </table></div>
     </div>
@@ -1031,6 +1041,119 @@ async function submitGrant(phone) {
     toast(`적용됨: ${r.applied_delta > 0 ? '+' : ''}${r.applied_delta}P / 잔액 ${r.new_point}P`, 'ok');
     closeModal();
     state.users = []; loadUsers();
+  } catch (e) {
+    toast(e.message, 'err');
+  }
+}
+
+// ============================================================
+// 챕터 권한 지급/회수 (관리자)
+// ============================================================
+function openGrantAccess(phone, currentChapterId, currentChapterTitle) {
+  // currentChapterId가 있으면 기간 연장, null이면 신규 챕터 선택
+  const isExtend = currentChapterId != null;
+  const chapters = state.chapters || [];
+
+  let chapterField;
+  if (isExtend) {
+    chapterField = `
+      <div class="form-row">
+        <label>챕터</label>
+        <div style="padding:8px 12px;background:rgba(255,255,255,0.05);border-radius:6px;color:#fff;font-weight:600">
+          ${escapeHtml(currentChapterTitle || '#' + currentChapterId)}
+        </div>
+        <input type="hidden" id="grantAccessChapterId" value="${currentChapterId}">
+      </div>
+    `;
+  } else {
+    const opts = chapters.length
+      ? chapters.map(c => `<option value="${c.id}">${escapeHtml(c.subject || '')} · ${escapeHtml(c.title || '')}</option>`).join('')
+      : '<option value="">(챕터 정보 로딩 중…)</option>';
+    chapterField = `
+      <div class="form-row">
+        <label>챕터 선택</label>
+        <select id="grantAccessChapterId">${opts}</select>
+      </div>
+    `;
+  }
+
+  const body = `
+    <p style="font-size:13px;color:rgba(255,255,255,0.6);margin-bottom:14px">
+      ${escapeHtml(phone)} 님에게 챕터 학습 권한을 지급합니다.
+      ${isExtend ? '<br>현재 만료일을 기준으로 N일 추가 연장.' : ''}
+    </p>
+    ${chapterField}
+    <div class="form-row">
+      <label>추가 일수</label>
+      <div style="display:flex;gap:6px;margin-bottom:8px;flex-wrap:wrap">
+        <button type="button" class="btn-sec" onclick="$('grantAccessDays').value=7">+7일</button>
+        <button type="button" class="btn-sec" onclick="$('grantAccessDays').value=30">+30일</button>
+        <button type="button" class="btn-sec" onclick="$('grantAccessDays').value=90">+90일</button>
+        <button type="button" class="btn-sec" onclick="$('grantAccessDays').value=365">+1년</button>
+      </div>
+      <input type="number" id="grantAccessDays" placeholder="예: 30" min="1" max="3650">
+    </div>
+    <div class="form-row">
+      <label>사유 (선택)</label>
+      <select id="grantAccessReason">
+        <option value="admin_grant">관리자 지급</option>
+        <option value="free_trial">무료 체험</option>
+        <option value="event_reward">이벤트 보상</option>
+        <option value="apology">사과 보상</option>
+        <option value="refund_replacement">환불 대체</option>
+        <option value="custom">기타</option>
+      </select>
+    </div>
+    <div class="form-row">
+      <label>메모 (선택)</label>
+      <input type="text" id="grantAccessMemo" placeholder="ex) 12월 신년 이벤트 당첨자">
+    </div>
+    <div class="form-hint">💡 활성 사용자면 기존 만료일부터 +N일, 만료/신규면 오늘부터 +N일</div>
+  `;
+  openModal({
+    title: isExtend ? '⏰ 챕터 권한 연장' : '🎁 챕터 권한 지급',
+    body,
+    foot: `
+      <button class="btn-sec" onclick="closeModal()">취소</button>
+      <button class="btn-primary" onclick="submitGrantAccess('${escapeHtml(phone)}')">지급</button>
+    `,
+  });
+  setTimeout(() => $('grantAccessDays')?.focus(), 50);
+}
+
+async function submitGrantAccess(phone) {
+  const chapterId = Number($('grantAccessChapterId').value);
+  const days = Number($('grantAccessDays').value);
+  const reason = $('grantAccessReason').value;
+  const memo = $('grantAccessMemo').value.trim();
+
+  if (!chapterId) { toast('챕터를 선택하세요', 'err'); return; }
+  if (!days || days < 1) { toast('일수를 입력하세요', 'err'); return; }
+
+  try {
+    const r = await api('POST', '/admin/access/grant', {
+      user_phone: phone,
+      chapter_id: chapterId,
+      days,
+      reason,
+      memo,
+    });
+    toast(`${r.action === 'created' ? '신규 지급' : '연장'} 완료 — 만료일 ${fmtKstDate(r.expires_at)}`, 'ok');
+    closeModal();
+    state.users = [];
+    // 사용자 상세 모달 다시 열어 즉시 반영
+    setTimeout(() => openUserDetail(phone), 300);
+  } catch (e) {
+    toast(e.message, 'err');
+  }
+}
+
+async function revokeAccess(phone, chapterId, chapterTitle) {
+  if (!confirm(`${chapterTitle || '#' + chapterId} 챕터 권한을 ${phone} 사용자에게서 회수하시겠습니까?\n(OnepageChapterAccess 행 삭제)`)) return;
+  try {
+    await api('DELETE', `/admin/access/${encodeURIComponent(phone)}/${chapterId}`);
+    toast('권한 회수됨', 'ok');
+    setTimeout(() => openUserDetail(phone), 300);
   } catch (e) {
     toast(e.message, 'err');
   }
@@ -1417,6 +1540,9 @@ function closeModal() { $('modal').classList.remove('open'); }
 window.closeModal = closeModal;
 window.openUserDetail = openUserDetail;
 window.openGrantPoints = openGrantPoints;
+window.openGrantAccess = openGrantAccess;
+window.submitGrantAccess = submitGrantAccess;
+window.revokeAccess = revokeAccess;
 window.submitGrant = submitGrant;
 window.selectPreset = selectPreset;
 window.submitCampaign = submitCampaign;
