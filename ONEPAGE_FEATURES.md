@@ -66,7 +66,7 @@
 - **nocodebackend**: 챕터·콘텐츠·진도 (6 테이블)
 - **PayApp**: 결제 (사용자님 자체 webhook → Airtable)
 - **Airtable Automations**: 추천 보너스 자동 지급
-- **Pabbly Connect**: CRM이 보낸 캐페인 페이로드 → SMS/이메일 발송기 분기
+- **Pabbly Connect**: CRM이 보낸 캐페인 페이로드 → ChatGPT 본문 생성 → SOLAPI(SMS) · Gmail(이메일) 분기 발송
 
 ---
 
@@ -104,8 +104,8 @@
 - `is_free=1`인 대목차만 열람 가능, 나머지는 🔒 표시
 - 결제 유도 동선 자연스럽게 — "둘러보기 → 마음에 들면 결제"
 
-> 결제 → 학습기간 연장은 **Pabbly Connect 라우터 + Airtable Automation C1**이 자동 처리.
-> Worker는 `OnepageChapterAccess.expires_at`을 **읽기만** 함.
+> 결제 → 학습기간 연장은 **Worker `/payapp/webhook` + Airtable Automation C1**이 자동 처리 (Pabbly 결제 라우터는 v2에서 제거됨).
+> Worker는 `OnepageChapterAccess.expires_at`을 **읽기만** 함 (쓰기는 C1 Automation).
 > 자세한 흐름은 § 5 [결제 자동화 파이프라인](#5-결제-자동화-파이프라인-payapp--pabbly--airtable) 참조.
 
 ---
@@ -771,9 +771,9 @@ https://vipup.site/onepage-study?utm_source=flyer&utm_medium=qr&utm_campaign=sch
 
 ## 18. 캐페인 발송 (Pabbly 웹훅)
 
-CRM에서 선택한 사용자 그룹에 SMS·이메일을 자동 발송. Worker는 [Pabbly Connect](https://www.pabbly.com/connect/) 웹훅으로 페이로드만 보내고, Pabbly가 SMS 게이트웨이(Aligo·Twilio)와 이메일 발송기(Gmail·SendGrid)로 분기.
+CRM에서 선택한 사용자 그룹에 SMS·이메일을 자동 발송. Worker는 [Pabbly Connect](https://connect.pabbly.com/) 웹훅으로 페이로드만 보내고, Pabbly 워크플로우가 ChatGPT로 본문을 생성한 뒤 **SOLAPI(SMS)** · **Gmail(이메일)** 로 분기 발송.
 
-### 흐름
+### 전체 흐름
 ```
 CRM에서 사용자 선택 + 메시지 작성
    ↓
@@ -781,12 +781,27 @@ POST /admin/webhook/send { phones[], template, channel, custom_message, subject 
    ↓
 Worker가 사용자 정보(name/email/point/access 등) 보강
    ↓
-한 명씩 Pabbly 웹훅에 POST (env.PABBLY_WEBHOOK_URL 또는 요청 body의 webhook_url)
+한 명씩 Pabbly 웹훅에 POST (env.PABBLY_WEBHOOK_URL 또는 요청 body.webhook_url)
    ↓
-Pabbly 워크플로우가 channel 필드 보고 SMS/이메일 분기 → 외부 발송
+Pabbly 워크플로우 5단계 실행 (아래 참조)
    ↓
-CRM에 성공/실패 결과 리스트 반환
+Worker는 Pabbly가 200 OK 반환했는지만 확인 → CRM에 결과 리스트 반환
+   ↓
+CRM "최근 발송 결과" 테이블: 채널 / 전화 / 이메일 / 결과 4컬럼 표시
 ```
+
+### Pabbly Connect 워크플로우 구조 (5단계)
+
+| Step | 종류 | 역할 |
+|---|---|---|
+| 1 | **Webhook (Catch Webhook)** | Worker 페이로드 수신 — phone/name/email/template/channel/subject/custom_message/point/referral_code/first_paid_at 등 |
+| 2 | **ChatGPT (OpenAI)** | gpt-3.5-turbo로 페이로드 변수 기반 마케팅 본문 생성. Messages는 system+user 형식, Response Format = Text, Max Tokens 250, Sampling 0.7 |
+| 3 | **Router by Pabbly** | 2갈래 분기 (Route 1 SMS / Route 2 Email) |
+| 4 | **Filter (Pabbly)** | 각 Route 시작점에서 `channel = sms OR both` (Route 1) / `channel = email OR both` (Route 2) 조건 통과만 다음 단계로 |
+| 5A | **SOLAPI (Private) — Send Text Message** | SMS 갈래: 발신번호(Solapi 등록필수) + `{{1.phone}}` + ChatGPT 본문 |
+| 5B | **Gmail — Send Email** | Email 갈래: Sender Name=OnePage Study, Recipient=`{{1.email}}`, Subject=`[OnePage Study] {{1.subject}}`, Content Type=HTML, 본문 템플릿에 ChatGPT 응답 삽입 |
+
+> `channel = both` 면 Step 4 두 Route 모두 통과 → SMS+Email 양쪽 발송. SOLAPI는 HMAC-SHA256 서명을 Private 앱이 내부 처리해서 별도 Code 노드 불필요.
 
 ### 6개 프리셋 (자동 세그먼트)
 | 프리셋 | 대상 자동 계산 | 권장 메시지 |
@@ -803,7 +818,7 @@ CRM에 성공/실패 결과 리스트 반환
 {
   "template": "renewal",
   "channel": "sms",          // 'sms' | 'email' | 'both'
-  "subject": "",             // 이메일 제목
+  "subject": "멤버십 만료 7일 전 안내",
   "sent_at": "2026-05-30T...",
   "sent_by": "관리자 이름",
   "name": "홍길동",
@@ -819,13 +834,53 @@ CRM에 성공/실패 결과 리스트 반환
 }
 ```
 
-### Worker 환경 변수
+### Worker 응답 (results 배열)
+```json
+{
+  "ok": true,
+  "campaign_id": "uuid-...",       // 같은 발송의 모든 수신자가 공유
+  "sent_at": "2026-06-03T...",
+  "sent": 2,
+  "total": 2,
+  "results": [
+    { "phone": "01012345678", "email": "hong@example.com", "name": "홍길동", "channel": "both", "ok": true, "status": 200 },
+    { "phone": "01087654321", "email": "",                  "name": "이순신", "channel": "sms",  "ok": true, "status": 200 }
+  ]
+}
+```
+CRM 결과 테이블이 `channel` 값에 따라 phone/email 컬럼 표시 분기.
+
+### 영구 저장 (분석용)
+
+발송이 끝나면 Worker가 결과를 **`OnepageCampaignSends`** Airtable에 수신자 1명당 1행씩 batch 저장 (10개씩 묶음, typecast=true).
+- 같은 발송의 모든 행은 동일한 `campaign_id` 공유 → 분석 쿼리에서 GROUP BY 가능
+- 테이블이 없거나 쓰기 실패하면 console.warn 만 찍고 **발송 자체는 성공으로 응답** (저장 실패가 발송을 막지 않음)
+
+### 분석 (`GET /admin/campaign-sends?days=30`)
+
+CRM 캠페인 탭 하단의 **📊 캠페인 분석** 패널이 호출:
+- KPI: 총 발송, 캠페인 수, 성공률, 기간
+- 템플릿별·채널별 발송량 표
+- 일별 발송량 막대그래프 (1~365일)
+- 최근 100건 캠페인 리스트 (시간·템플릿·채널·대상수·성공률·관리자)
+- **📥 CSV** 버튼으로 수신자 단위 raw export (BOM 포함 UTF-8 — Excel 한글 호환)
+
+### 설정 (Worker 환경 변수)
 ```bash
 wrangler secret put PABBLY_WEBHOOK_URL
-# Pabbly Connect 워크플로우 URL 붙여넣기
+# Pabbly Connect 워크플로우 webhook URL 붙여넣기
 ```
 
-페이로드의 `channel` 필드를 Pabbly가 보고 라우팅 — 한 워크플로우에서 SMS·이메일 모두 처리.
+### Pabbly 측 별도 자격증명 (워크플로우 안에서 보관)
+- **ChatGPT**: OpenAI API Key (Pabbly Connection으로 보관)
+- **SOLAPI (Private)**: Solapi API Key + Secret + 등록 발신번호 (https://console.solapi.com/senderids)
+- **Gmail**: Google OAuth로 발신 계정 연결 (Gmail API 일일 100건 제한)
+
+### 알려진 제약
+- Gmail API: **일일 100건 제한** — 대량 발송 시 SendGrid/Mailgun 등으로 갈아탈 것
+- SOLAPI: 발신번호 사전 등록 필수, 미등록 번호로 보내면 `4030` 에러
+- ChatGPT 응답이 90바이트(SMS 한도)를 넘으면 SOLAPI가 자동 LMS로 전환 (단가 ↑)
+- v1 옛 AgenticAI 라우터는 **deprecated** — 현재 워크플로우는 `connect.pabbly.com` (Connect)에서 운영
 
 ---
 
@@ -860,6 +915,7 @@ wrangler secret put PABBLY_WEBHOOK_URL
 - **OnepagePayments**: mul_no, user_phone, user_email, chapter_id, chapter_title, amount, paid_at, raw, status — **Worker `/payapp/webhook`이 직접 채움** (v2부터)
 - **OnepagePointTx**: user_phone, delta, reason, balance_after, memo (감사 로그 + 관리자 지급 시 `[관리자:이름]` 접두)
 - **OnepageCampaigns**: name, utm_source, utm_medium, utm_campaign, utm_content, utm_term, notes, created_by_name, created_by_phone (CRM QR 생성기의 영구 라이브러리)
+- **OnepageCampaignSends**: campaign_id, template, channel, subject, custom_message, sent_at, sent_by, phone, email, recipient_name, ok (Checkbox), status_code (Number), error — **수신자 1명당 1행** 영구 저장. 분석 탭에서 일자·템플릿·채널별 발송량/성공률·전체 캠페인 히스토리 산출에 사용
 - **UnknownPayments**: mul_no, goodname, phone, email, amount, raw, received_at (Created time auto), notes, resolved — Pabbly 라우터의 폴백 (상품 매핑 실패 시)
 - **FailedPayments**: mul_no, goodname, phone, email, amount, raw, error_message, retry_count, created_at (Created time auto), resolved — Pabbly 라우터의 안전망 (Airtable 쓰기 실패 시)
 
@@ -914,7 +970,8 @@ wrangler secret put PABBLY_WEBHOOK_URL
 | `/admin/users` | GET | 전체 사용자 + 구독·결제·포인트·최근 학습 집계 |
 | `/admin/user/:phone` | GET | 개별 사용자 전체 이력 (UTM 포함) |
 | `/admin/points` | POST | 포인트 지급/차감 (자동 PointTx 기록) |
-| `/admin/webhook/send` | POST | Pabbly 웹훅 일괄 발송 |
+| `/admin/webhook/send` | POST | Pabbly 웹훅 일괄 발송 + OnepageCampaignSends에 수신자별 결과 영구 저장 |
+| `/admin/campaign-sends?days=30` | GET | 캠페인 분석 — 일자/템플릿/채널별 발송량·성공률, 캠페인 히스토리 (campaign_id로 그룹) |
 | `/admin/revenue?days=30` | GET | 일별/챕터별/사용자별 매출 |
 | `/admin/content-stats` | GET | 챕터별 구독자 · MRR |
 | `/admin/attribution?days=90` | GET | UTM 어트리뷰션 (소스/매체/캐페인별 성과) |

@@ -37,6 +37,7 @@ const AT_ACCESS = 'OnepageChapterAccess';
 const AT_POINTTX = 'OnepagePointTx';
 const AT_UNKNOWN = 'UnknownPayments';
 const AT_FAILED = 'FailedPayments';
+const AT_CAMPAIGN_SENDS = 'OnepageCampaignSends';
 
 const REFERRAL_BONUS = 1000;
 const REDEEM_COST = 3000;
@@ -254,6 +255,22 @@ async function atCreate(env, table, fields) {
     body: JSON.stringify({ fields, typecast: true }),
   });
   return r.json();
+}
+async function atCreateBatch(env, table, recordsArray) {
+  const url = `${AT_BASE_URL}/${env.AIRTABLE_BASE}/${encodeURIComponent(table)}`;
+  const out = [];
+  for (let i = 0; i < recordsArray.length; i += 10) {
+    const batch = recordsArray.slice(i, i + 10);
+    const r = await fetch(url, {
+      method: 'POST', headers: atH(env),
+      body: JSON.stringify({
+        records: batch.map(fields => ({ fields })),
+        typecast: true,
+      }),
+    });
+    out.push(await r.json());
+  }
+  return out;
 }
 async function atUpdate(env, table, recordId, fields) {
   const url = `${AT_BASE_URL}/${env.AIRTABLE_BASE}/${encodeURIComponent(table)}/${recordId}`;
@@ -1379,6 +1396,10 @@ async function handleAdminWebhookSend(request, env, sender) {
   const channel = String(b.channel || 'sms');  // 'sms' | 'email' | 'both'
   const customMessage = String(b.custom_message || '');
   const subject = String(b.subject || '');
+  const campaignId = (typeof crypto !== 'undefined' && crypto.randomUUID)
+    ? crypto.randomUUID()
+    : `cmp_${Date.now()}_${Math.random().toString(36).slice(2, 10)}`;
+  const sentAt = kstISOString();
 
   // 사용자 정보 일괄 조회
   const users = await atFindAllPaged(env, AT_USERS, '', 2000);
@@ -1402,18 +1423,19 @@ async function handleAdminWebhookSend(request, env, sender) {
   }
 
   const results = [];
+  const senderName = sender.name || sender.phone || '';
   for (const phone of phones) {
     const user = userMap[phone];
     if (!user) {
-      results.push({ phone, email: '', channel, ok: false, error: 'user_not_found' });
+      results.push({ phone, email: '', name: '', channel, ok: false, error: 'user_not_found' });
       continue;
     }
     const payload = {
       template,
       channel,
       subject,
-      sent_at: kstISOString(),
-      sent_by: sender.name || sender.phone || '',
+      sent_at: sentAt,
+      sent_by: senderName,
       name: user.name || '',
       phone: user.phone || '',
       email: user.email || '',
@@ -1430,14 +1452,121 @@ async function handleAdminWebhookSend(request, env, sender) {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(payload),
       });
-      results.push({ phone, email: user.email || '', channel, ok: r.ok, status: r.status });
+      results.push({ phone, email: user.email || '', name: user.name || '', channel, ok: r.ok, status: r.status });
     } catch (e) {
-      results.push({ phone, email: user.email || '', channel, ok: false, error: String(e && e.message || e) });
+      results.push({ phone, email: user.email || '', name: user.name || '', channel, ok: false, error: String(e && e.message || e) });
     }
   }
 
+  // Airtable에 발송 결과 영구 저장 (실패해도 발송 자체는 성공으로 응답)
+  try {
+    const records = results.map(r => ({
+      campaign_id: campaignId,
+      template,
+      channel,
+      subject,
+      custom_message: customMessage,
+      sent_at: sentAt,
+      sent_by: senderName,
+      phone: r.phone || '',
+      email: r.email || '',
+      recipient_name: r.name || '',
+      ok: !!r.ok,
+      status_code: Number(r.status) || 0,
+      error: r.error || '',
+    }));
+    await atCreateBatch(env, AT_CAMPAIGN_SENDS, records);
+  } catch (e) {
+    console.log('WARN campaign log persist failed:', String(e && e.message || e));
+  }
+
   const okCount = results.filter(r => r.ok).length;
-  return json({ ok: true, sent: okCount, total: results.length, results }, 200, request);
+  return json({ ok: true, campaign_id: campaignId, sent_at: sentAt, sent: okCount, total: results.length, results }, 200, request);
+}
+
+async function handleAdminCampaigns(request, env) {
+  const url = new URL(request.url);
+  const days = Math.min(365, Math.max(1, Number(url.searchParams.get('days')) || 30));
+  const nowIso = kstISOString();
+  const fromIso = addDays(nowIso, -days);
+
+  let sends = [];
+  try {
+    sends = await atFindAllPaged(env, AT_CAMPAIGN_SENDS,
+      `IS_AFTER({sent_at}, "${fromIso}")`, 10000);
+  } catch (e) {
+    return json({
+      ok: false,
+      error: 'campaign_table_missing',
+      message: 'OnepageCampaignSends 테이블이 Airtable에 없거나 접근 권한이 없습니다. CRM 문서의 스키마대로 테이블을 먼저 만드세요.',
+    }, 200, request);
+  }
+
+  const byCampaign = {};
+  const byChannel = { sms: 0, email: 0, both: 0 };
+  const byTemplate = {};
+  const byDay = {};
+  let totalOk = 0;
+
+  for (const s of sends) {
+    const f = s.fields || {};
+    const id = f.campaign_id || '(no-id)';
+    if (!byCampaign[id]) {
+      byCampaign[id] = {
+        campaign_id: id,
+        template: f.template || '',
+        channel: f.channel || '',
+        subject: f.subject || '',
+        custom_message: f.custom_message || '',
+        sent_at: f.sent_at || '',
+        sent_by: f.sent_by || '',
+        total: 0,
+        sent: 0,
+        recipients: [],
+      };
+    }
+    const c = byCampaign[id];
+    c.total++;
+    if (f.ok) { c.sent++; totalOk++; }
+    c.recipients.push({
+      phone: f.phone || '',
+      email: f.email || '',
+      name: f.recipient_name || '',
+      ok: !!f.ok,
+      status_code: Number(f.status_code) || 0,
+      error: f.error || '',
+    });
+    byChannel[f.channel] = (byChannel[f.channel] || 0) + 1;
+    byTemplate[f.template] = (byTemplate[f.template] || 0) + 1;
+    if (f.sent_at) {
+      const ymd = kstYMD(f.sent_at);
+      byDay[ymd] = (byDay[ymd] || 0) + 1;
+    }
+  }
+
+  const campaigns = Object.values(byCampaign).sort((a, b) =>
+    String(b.sent_at).localeCompare(String(a.sent_at)));
+
+  const dailyArr = [];
+  for (let i = days - 1; i >= 0; i--) {
+    const d = addDays(nowIso, -i);
+    const ymd = kstYMD(d);
+    dailyArr.push({ date: ymd, count: byDay[ymd] || 0 });
+  }
+
+  const total = sends.length;
+  return json({
+    ok: true,
+    days,
+    total_sends: total,
+    success_count: totalOk,
+    success_rate: total ? Math.round(totalOk / total * 1000) / 10 : 0,
+    campaign_count: campaigns.length,
+    by_channel: byChannel,
+    by_template: byTemplate,
+    by_day: dailyArr,
+    campaigns,
+  }, 200, request);
 }
 
 async function handleAdminRevenue(request, env) {
@@ -2207,6 +2336,7 @@ async function route(request, env) {
     if (p && m === 'GET') return handleAdminUserDetail(request, env, p.phone);
     if (m === 'POST' && path === '/admin/points') return handleAdminGrantPoints(request, env, auth);
     if (m === 'POST' && path === '/admin/webhook/send') return handleAdminWebhookSend(request, env, auth);
+    if (m === 'GET' && path === '/admin/campaign-sends') return handleAdminCampaigns(request, env);
     if (m === 'GET' && path === '/admin/revenue') return handleAdminRevenue(request, env);
     if (m === 'GET' && path === '/admin/content-stats') return handleAdminContentStats(request, env);
     if (m === 'GET' && path === '/admin/attribution') return handleAdminAttribution(request, env);

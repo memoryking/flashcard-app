@@ -493,6 +493,8 @@ const state = {
   chapters: [],   // 권한 지급 모달의 챕터 선택용 (CRM 진입 시 미리 로드)
   // campaigns
   campaign: { template: 'custom', phones: [], message: '', subject: '', channel: 'sms' },
+  campaignDays: 30,
+  campaignStats: null,
   // attribution
   attribution: null,
   attrDays: 90,
@@ -1225,12 +1227,29 @@ function renderCampaigns() {
     </div>
 
     <div class="section" style="display:${state.campaignLog ? 'block' : 'none'}" id="campaignLogSection">
-      <div class="section-h"><h3>최근 발송 결과</h3></div>
+      <div class="section-h"><h3>최근 발송 결과 (이번 세션)</h3></div>
       <div id="campaignLogBody"></div>
+    </div>
+
+    <div class="section">
+      <div class="section-h" style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px">
+        <h3>📊 캠페인 분석</h3>
+        <div style="display:flex;gap:6px;align-items:center">
+          <div id="campaignDaysChips" style="display:flex;gap:4px">
+            <button class="chip ${state.campaignDays===7?'on':''}" data-days="7" onclick="setCampaignDays(7)">7일</button>
+            <button class="chip ${state.campaignDays===30?'on':''}" data-days="30" onclick="setCampaignDays(30)">30일</button>
+            <button class="chip ${state.campaignDays===90?'on':''}" data-days="90" onclick="setCampaignDays(90)">90일</button>
+            <button class="chip ${state.campaignDays===365?'on':''}" data-days="365" onclick="setCampaignDays(365)">1년</button>
+          </div>
+          <button class="btn-sec" onclick="exportCampaignsCsv()">📥 CSV</button>
+        </div>
+      </div>
+      <div id="campaignStatsBody"><p style="color:#888">불러오는 중...</p></div>
     </div>
   `;
 
   updatePresetCounts();
+  loadCampaignStats();
 }
 async function updatePresetCounts() {
   if (state.users.length === 0) {
@@ -1350,6 +1369,130 @@ function renderCampaignLog(r) {
       <tbody>${rows}</tbody>
     </table></div>
   `;
+}
+
+const TEMPLATE_LABEL = {
+  welcome: '🎉 웰컴', renewal: '⏰ 갱신', winback: '🌟 윈백',
+  convert: '💎 전환', vip: '👑 VIP', custom: '✍️ 커스텀',
+};
+function setCampaignDays(d) {
+  state.campaignDays = d;
+  document.querySelectorAll('#campaignDaysChips .chip').forEach(c =>
+    c.classList.toggle('on', Number(c.dataset.days) === d));
+  loadCampaignStats();
+}
+async function loadCampaignStats() {
+  const body = $('campaignStatsBody');
+  if (!body) return;
+  body.innerHTML = '<p style="color:#888">불러오는 중...</p>';
+  try {
+    const r = await api('GET', '/admin/campaign-sends?days=' + state.campaignDays);
+    state.campaignStats = r;
+    renderCampaignStats(r);
+  } catch (e) {
+    body.innerHTML = `<p style="color:#fca5a5">로드 실패: ${escapeHtml(e.message)}</p>`;
+  }
+}
+function renderCampaignStats(r) {
+  const body = $('campaignStatsBody');
+  if (!r.ok) {
+    body.innerHTML = `<p style="color:#fca5a5">⚠ ${escapeHtml(r.message || r.error)}</p>`;
+    return;
+  }
+  const channelLabel = (ch) => ch === 'email' ? '📧 이메일' : ch === 'both' ? '📱+📧 둘다' : '📱 SMS';
+  const maxDay = Math.max(1, ...r.by_day.map(d => d.count));
+  const dayBars = r.by_day.map(d => `
+    <div style="display:flex;align-items:center;gap:6px;font-size:11px;color:#aaa">
+      <span style="width:54px;flex-shrink:0">${d.date.slice(5)}</span>
+      <div style="flex:1;background:#222;border-radius:3px;overflow:hidden">
+        <div style="width:${d.count/maxDay*100}%;background:linear-gradient(90deg,#3b82f6,#60a5fa);height:14px"></div>
+      </div>
+      <span style="width:28px;text-align:right">${d.count}</span>
+    </div>
+  `).join('');
+
+  const tplRows = Object.keys(r.by_template).map(t => `
+    <tr>
+      <td>${TEMPLATE_LABEL[t] || t}</td>
+      <td style="text-align:right">${r.by_template[t]}</td>
+    </tr>
+  `).join('');
+
+  const chRows = Object.keys(r.by_channel).filter(c => r.by_channel[c] > 0).map(c => `
+    <tr><td>${channelLabel(c)}</td><td style="text-align:right">${r.by_channel[c]}</td></tr>
+  `).join('');
+
+  const campaignRows = r.campaigns.slice(0, 100).map(c => {
+    const rate = c.total ? Math.round(c.sent / c.total * 100) : 0;
+    const rateColor = rate >= 95 ? '#81c784' : rate >= 80 ? '#fcd34d' : '#fca5a5';
+    return `
+      <tr>
+        <td style="font-size:11px;color:#aaa">${escapeHtml(fmtKst(c.sent_at))}</td>
+        <td>${TEMPLATE_LABEL[c.template] || escapeHtml(c.template)}</td>
+        <td>${channelLabel(c.channel)}</td>
+        <td style="text-align:right">${c.total}</td>
+        <td style="text-align:right;color:${rateColor}">${c.sent}/${c.total} (${rate}%)</td>
+        <td style="font-size:11px">${escapeHtml(c.sent_by)}</td>
+      </tr>
+    `;
+  }).join('');
+
+  body.innerHTML = `
+    <div class="kpi-grid" style="margin-bottom:14px">
+      <div class="kpi-card blue"><div class="label">총 발송</div><div class="value">${fmtNum(r.total_sends)}<span class="unit">건</span></div></div>
+      <div class="kpi-card orange"><div class="label">캠페인 수</div><div class="value">${fmtNum(r.campaign_count)}<span class="unit">개</span></div></div>
+      <div class="kpi-card green"><div class="label">성공률</div><div class="value">${r.success_rate}<span class="unit">%</span></div></div>
+      <div class="kpi-card"><div class="label">기간</div><div class="value">${r.days}<span class="unit">일</span></div></div>
+    </div>
+
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-bottom:14px">
+      <div>
+        <div style="font-size:12px;color:#aaa;margin-bottom:6px">템플릿별</div>
+        <table class="tbl" style="font-size:12px"><tbody>${tplRows || '<tr><td colspan=2 style="color:#666">데이터 없음</td></tr>'}</tbody></table>
+      </div>
+      <div>
+        <div style="font-size:12px;color:#aaa;margin-bottom:6px">채널별</div>
+        <table class="tbl" style="font-size:12px"><tbody>${chRows || '<tr><td colspan=2 style="color:#666">데이터 없음</td></tr>'}</tbody></table>
+      </div>
+    </div>
+
+    <div style="margin-bottom:14px">
+      <div style="font-size:12px;color:#aaa;margin-bottom:6px">일별 발송량</div>
+      <div style="display:flex;flex-direction:column;gap:2px;max-height:200px;overflow-y:auto">${dayBars}</div>
+    </div>
+
+    <div>
+      <div style="font-size:12px;color:#aaa;margin-bottom:6px">캠페인 목록 (최근 100건)</div>
+      <div class="tbl-wrap" style="max-height:360px;overflow-y:auto"><table class="tbl">
+        <thead><tr><th>시간</th><th>템플릿</th><th>채널</th><th>대상</th><th>성공률</th><th>관리자</th></tr></thead>
+        <tbody>${campaignRows || '<tr><td colspan=6 style="color:#666">캠페인 없음</td></tr>'}</tbody>
+      </table></div>
+    </div>
+  `;
+}
+function exportCampaignsCsv() {
+  const r = state.campaignStats;
+  if (!r || !r.campaigns) { toast('데이터 없음', 'err'); return; }
+  const rows = [['시간(KST)','campaign_id','template','channel','subject','대상수','성공수','성공률(%)','관리자','phone','email','수신자명','수신ok','status','error']];
+  for (const c of r.campaigns) {
+    for (const x of c.recipients) {
+      rows.push([
+        c.sent_at, c.campaign_id, c.template, c.channel, c.subject,
+        c.total, c.sent, c.total ? Math.round(c.sent/c.total*100) : 0,
+        c.sent_by, x.phone, x.email, x.name, x.ok ? 1 : 0,
+        x.status_code, x.error,
+      ]);
+    }
+  }
+  const csv = '﻿' + rows.map(row =>
+    row.map(v => `"${String(v ?? '').replace(/"/g, '""')}"`).join(',')
+  ).join('\n');
+  const blob = new Blob([csv], { type: 'text/csv;charset=utf-8' });
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = `campaigns_${state.campaignDays}d_${new Date().toISOString().slice(0,10)}.csv`;
+  a.click();
+  URL.revokeObjectURL(a.href);
 }
 function campaignSinglePhone(phone) {
   state.selectedPhones.clear();
