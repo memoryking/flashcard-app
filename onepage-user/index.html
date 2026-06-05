@@ -113,14 +113,6 @@ a { color: #4fc3f7; text-decoration: none; }
   box-shadow: 0 0 0 2px rgba(165,214,167,0.15);
 }
 
-/* 암기 모음 헤더 (대목차 라벨) */
-.memo-group-label {
-  font-size: 11px; font-weight: 700; color: rgba(165,214,167,0.7);
-  text-transform: uppercase; letter-spacing: 0.04em;
-  padding: 14px 4px 6px;
-  border-top: 1px solid rgba(255,255,255,0.06);
-}
-.memo-group-label:first-child { border-top: none; padding-top: 4px; }
 .memo-empty {
   text-align: center; padding: 60px 20px;
   color: rgba(255,255,255,0.5);
@@ -538,6 +530,13 @@ a { color: #4fc3f7; text-decoration: none; }
   flex: 1; font-size: 14px; color: rgba(255,255,255,0.92); font-weight: 600;
 }
 .subtopic.understood .subtopic-title { color: #a5d6a7; }
+/* 암기 모음 모드: current면 주황색이 암기 초록을 이김 */
+.subtopic.understood.current { /* 배경·테두리는 .current의 !important로 이미 우선됨 */ }
+.subtopic.understood.current .subtopic-title { color: #ffb74d; }
+.subtopic.understood.current .subtopic-dot {
+  background: #ffb74d; border-color: #ffb74d;
+  box-shadow: 0 0 10px rgba(255,138,0,0.55);
+}
 .subtopic-hint {
   font-size: 10px; color: rgba(255,255,255,0.35);
 }
@@ -846,6 +845,7 @@ const state = {
   subtopicsByTopic: {},
   itemsBySubtopic: {},
   understoodSet: new Set(),
+  understoodMarkedAt: {},     // subtopic_id → marked_at (YYYY-MM-DD HH:MM:SS) — 암기 모음 정렬용
   passedSet: new Set(),       // 이번 회 패스한 소목차 (세션만 — 새로고침 시 복원)
   memorizedView: false,       // 챕터 내 암기 모음 모드 (꾹누른 소목차만 모아보기)
   expanded: { topic: new Set(), subtopic: new Set() },
@@ -1174,6 +1174,10 @@ async function loadUnderstood() {
   try {
     const r = await api('GET', '/understood');
     state.understoodSet = new Set((r.subtopic_ids || []).map(Number));
+    state.understoodMarkedAt = {};
+    for (const it of (r.items || [])) {
+      state.understoodMarkedAt[Number(it.subtopic_id)] = it.marked_at || '';
+    }
   } catch {}
 }
 
@@ -1401,18 +1405,24 @@ function renderTree(chapterId) {
   $('chapterTree').innerHTML = topics.map(t => renderTopic(t, hasAccess)).join('');
 }
 
-// 암기 모음 모드 — 챕터 전체에서 understood인 소목차를 평면 리스트로
+// 암기 모음 모드 — 챕터 전체에서 understood인 소목차를 한 리스트로 (꾹누른 시각 오름차순)
 function renderMemorizedView(chapterId, hasAccess) {
   const topics = state.topicsByChapter[chapterId] || [];
-  // (대목차순, 소목차 sort_order) 정렬 + understood만 추림
+  // 모든 understood 소목차 수집
   const items = [];
   for (const t of topics) {
     const subs = state.subtopicsByTopic[t.id] || [];
-    const sorted = [...subs].sort((a, b) => (Number(a.sort_order) || 0) - (Number(b.sort_order) || 0));
-    for (const s of sorted) {
-      if (state.understoodSet.has(Number(s.id))) items.push({ topic: t, sub: s });
+    for (const s of subs) {
+      if (state.understoodSet.has(Number(s.id))) items.push(s);
     }
   }
+  // marked_at 오름차순 (오래된 것 먼저) — 빈 값은 가장 오래된 것으로 취급
+  items.sort((a, b) => {
+    const ma = state.understoodMarkedAt[Number(a.id)] || '';
+    const mb = state.understoodMarkedAt[Number(b.id)] || '';
+    if (ma !== mb) return ma.localeCompare(mb);
+    return (Number(a.sort_order) || 0) - (Number(b.sort_order) || 0);
+  });
 
   if (items.length === 0) {
     return `
@@ -1425,7 +1435,7 @@ function renderMemorizedView(chapterId, hasAccess) {
   }
 
   // 패스되지 않은 항목만 화면에 (passedSet 공유)
-  const visible = items.filter(x => !state.passedSet.has(Number(x.sub.id)));
+  const visible = items.filter(s => !state.passedSet.has(Number(s.id)));
   if (visible.length === 0) {
     return `
       <div class="memo-empty">
@@ -1436,26 +1446,15 @@ function renderMemorizedView(chapterId, hasAccess) {
     `;
   }
 
-  // 첫 항목 = current → 큰 패스 버튼이 이걸 패스
+  // 첫 항목 = current (주황 강조) → 큰 패스 버튼이 이걸 패스
   const current = visible[0];
   const passBtn = hasAccess ? `
     <div class="memorized-pass-bar">
-      <button class="study-btn skip-big" onclick="memorizedPass(${current.sub.id})" title="이번 회 패스">⤴ 패스</button>
+      <button class="study-btn skip-big" onclick="memorizedPass(${current.id})" title="이번 회 패스">⤴ 패스</button>
     </div>
   ` : '';
 
-  // 같은 대목차끼리 묶어 라벨로 구분
-  let html = passBtn;
-  let lastTopicId = null;
-  for (let i = 0; i < visible.length; i++) {
-    const { topic, sub } = visible[i];
-    if (topic.id !== lastTopicId) {
-      html += `<div class="memo-group-label">${escapeHtml(topic.title)}</div>`;
-      lastTopicId = topic.id;
-    }
-    html += renderSubtopic(sub, i === 0);
-  }
-  return html;
+  return passBtn + visible.map((s, i) => renderSubtopic(s, i === 0)).join('');
 }
 
 function toggleMemorizedView() {
@@ -1585,10 +1584,13 @@ function renderTopic(t, hasAccess) {
 function renderSubtopic(s, isCurrent) {
   const opened = state.expanded.subtopic.has(s.id);
   const understood = state.understoodSet.has(Number(s.id));
+  // 정상 모드: understood면 current 강조 안 함 (이미 학습 완료)
+  // 암기 모음 모드: understood여도 맨 위 항목은 current로 강조 (학습 대상)
+  const showCurrent = isCurrent && (state.memorizedView || !understood);
   const cls = 'subtopic'
     + (opened ? ' opened' : '')
     + (understood ? ' understood' : '')
-    + (isCurrent && !understood ? ' current' : '');
+    + (showCurrent ? ' current' : '');
   const hasImg = !!s.image_b64;
 
   // 항상 보이는 미리보기 (제목 아래)
@@ -1820,17 +1822,31 @@ function subClick(e, subId) {
 async function toggleUnderstood(subId) {
   if (!state.user) return;
   const had = state.understoodSet.has(Number(subId));
+  const prevMarkedAt = state.understoodMarkedAt[Number(subId)];
   // 낙관적 업데이트
-  if (had) state.understoodSet.delete(Number(subId));
-  else state.understoodSet.add(Number(subId));
+  if (had) {
+    state.understoodSet.delete(Number(subId));
+    delete state.understoodMarkedAt[Number(subId)];
+  } else {
+    state.understoodSet.add(Number(subId));
+    // 클라이언트 시각 — 서버의 kstDateTime() 포맷과 호환되는 정렬키
+    const d = new Date(Date.now() + 9 * 3600 * 1000);
+    state.understoodMarkedAt[Number(subId)] =
+      d.toISOString().replace('T', ' ').slice(0, 19);
+  }
   renderTree(state.currentChapter.id);
   try {
     await api('POST', '/understood', { subtopic_id: subId });
     toast(had ? '이해 표시 해제' : '● 이해 완료');
   } catch (e) {
     // 롤백
-    if (had) state.understoodSet.add(Number(subId));
-    else state.understoodSet.delete(Number(subId));
+    if (had) {
+      state.understoodSet.add(Number(subId));
+      if (prevMarkedAt !== undefined) state.understoodMarkedAt[Number(subId)] = prevMarkedAt;
+    } else {
+      state.understoodSet.delete(Number(subId));
+      delete state.understoodMarkedAt[Number(subId)];
+    }
     renderTree(state.currentChapter.id);
     // 소목차가 이미 삭제된 경우 자동 새로고침
     if (e.status === 500 || e.status === 404) {

@@ -410,13 +410,18 @@ https://vipup.site/onepage?ref=ABC123
 
 ### 암기 모음 모드 (챕터 내 ●)
 
-챕터 헤더 우측 **● 암기** 버튼 → 챕터 전체에서 꾹눌러 암기 표시한(`understoodSet`) 소목차만 평면 리스트로 모아보기.
+챕터 헤더 우측 **● 암기** 버튼 → 챕터 전체에서 꾹눌러 암기 표시한(`understoodSet`) 소목차만 한 리스트로 모아보기.
 
-- 대목차 라벨로 그룹핑하여 표시 (시각적 구분만)
-- 첫 항목 = 현재 → 상단의 큰 **⤴ 패스** 버튼이 이걸 패스 (정상 모드와 동일 `passedSet` 공유)
+- **꾹누른 시각(`marked_at`) 오름차순** — 오래된 것부터 위에서 아래로
+- 첫 항목 = 현재(주황 강조) → 상단의 큰 **⤴ 패스** 버튼이 이걸 패스 (정상 모드와 동일 `passedSet` 공유)
 - 항목 꾹누르기 → `toggleUnderstood` → 암기 해제 → 리스트에서 즉시 제거 (정상 모드의 원위치로 복귀)
 - 모두 패스되면 🎉 축하 폭죽 → 암기 항목들의 passedSet만 초기화하여 처음부터 다시
 - 챕터 진입 시 자동으로 정상 모드로 시작 (`state.memorizedView=false`)
+
+**marked_at 출처**:
+- 서버: `op_understood` 테이블에 토글 시 `kstDateTime()` 값으로 기록 (`YYYY-MM-DD HH:MM:SS`)
+- 클라이언트: `/understood` 응답의 `items[]`에서 받아 `state.understoodMarkedAt[subId]`에 저장
+- 옛 데이터(빈 marked_at): 가장 오래된 것으로 취급 → 리스트 최상단
 
 ## 8. 학습 인터페이스 — 플래시카드 모드
 

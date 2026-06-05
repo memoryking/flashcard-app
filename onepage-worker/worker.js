@@ -961,8 +961,17 @@ async function handleUnderstoodList(request, env) {
   // 단순화: 사용자의 모든 understood 가져와 클라이언트에서 필터
   const r = await ncbRead(env, 'op_understood',
     `user_phone=${encodeURIComponent(auth.phone)}&limit=2000`);
-  const ids = (r.data || []).map(x => Number(x.subtopic_id));
-  return json({ subtopic_ids: ids, chapter_id: chapterId ? Number(chapterId) : null }, 200, request);
+  const rows = r.data || [];
+  const ids = rows.map(x => Number(x.subtopic_id));
+  const items = rows.map(x => ({
+    subtopic_id: Number(x.subtopic_id),
+    marked_at: x.marked_at || '',
+  }));
+  return json({
+    subtopic_ids: ids,
+    items,
+    chapter_id: chapterId ? Number(chapterId) : null,
+  }, 200, request);
 }
 
 // ============================================================
