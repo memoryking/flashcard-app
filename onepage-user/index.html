@@ -1453,17 +1453,15 @@ function renderMemorizedView(chapterId, hasAccess) {
   }
 
   // 상단 헤더 — 학습 모드의 topic-head와 같은 레이아웃 (제목 좌, ⤴ 패스 우)
+  // 접근권과 무관하게 표시 (본인이 표시한 데이터 정리 기능이라 구독 만료해도 사용 가능)
   const current = visible[0];
-  const passBtn = hasAccess ? `
-    <div class="study-controls">
-      <button class="study-btn skip-big" onclick="memorizedPass(${current.id})" title="이번 회 패스 — 다음 단어로">⤴ 패스</button>
-    </div>
-  ` : '';
   const header = `
     <div class="memo-header">
       <div class="memo-title">● 암기 모음</div>
       <span class="memo-count">${visible.length}</span>
-      ${passBtn}
+      <div class="study-controls">
+        <button class="study-btn skip-big" onclick="memorizedPass(${current.id})" title="이번 회 패스 — 다음 단어로">⤴ 패스</button>
+      </div>
     </div>
   `;
 
