@@ -112,17 +112,23 @@ a { color: #4fc3f7; text-decoration: none; }
   color: #c8e6c9;
   box-shadow: 0 0 0 2px rgba(165,214,167,0.15);
 }
-/* 암기 모음 모드 전용 패스 버튼 — 헤더에 항상 보이도록 */
-.app-header .memorized-pass {
-  padding: 6px 14px;
-  background: rgba(79,195,247,0.22); border: 1px solid rgba(79,195,247,0.45);
-  color: #81d4fa;
-  border-radius: 50px;
-  font-size: 12px; font-weight: 800;
-  transition: background 0.15s, transform 0.1s;
+
+/* 암기 모음 헤더 — 학습 모드의 topic-head와 같은 레이아웃 (좌: 제목, 우: ⤴ 패스) */
+.memo-header {
+  display: flex; align-items: center; gap: 10px;
+  padding: 14px 16px; margin-top: 6px;
+  background: linear-gradient(180deg, rgba(165,214,167,0.10) 0%, rgba(165,214,167,0.04) 100%);
+  border: 1px solid rgba(165,214,167,0.3);
+  border-radius: 10px;
 }
-.app-header .memorized-pass:hover { background: rgba(79,195,247,0.32); }
-.app-header .memorized-pass:active { transform: scale(0.94); }
+.memo-header .memo-title {
+  flex: 1; font-size: 15px; font-weight: 800;
+  color: #c8e6c9; display: flex; align-items: center; gap: 8px;
+}
+.memo-header .memo-count {
+  font-size: 11px; padding: 2px 8px; border-radius: 50px;
+  background: rgba(165,214,167,0.18); color: #a5d6a7; font-weight: 700;
+}
 
 .memo-empty {
   text-align: center; padding: 60px 20px;
@@ -719,7 +725,6 @@ a { color: #4fc3f7; text-decoration: none; }
   .app-header .collapse-center .cc-label { display: none; }
   .app-header .memorized-toggle { padding: 5px 10px; }
   .app-header .memorized-toggle .cc-label { display: none; }
-  .app-header .memorized-pass { padding: 5px 12px; font-size: 11px; }
   .app-header #chStatus { font-size: 11px; padding: 5px 8px; }
 }
 </style>
@@ -803,7 +808,6 @@ a { color: #4fc3f7; text-decoration: none; }
       <span style="font-size:14px">●</span>
       <span class="cc-label">암기</span>
     </button>
-    <button class="icon-btn memorized-pass" id="memorizedPassBtn" onclick="memorizedPassCurrent()" title="이번 회 패스 — 다음 단어로" style="display:none">⤴ 패스</button>
     <div class="spacer"></div>
     <span class="icon-btn" id="chStatus">D-30</span>
   </header>
@@ -1286,8 +1290,6 @@ async function enterChapter(chapterId) {
   state.memorizedView = false;
   const memoBtn = $('memorizedBtn');
   if (memoBtn) memoBtn.classList.remove('active');
-  const passBtn = $('memorizedPassBtn');
-  if (passBtn) passBtn.style.display = 'none';
   $('homeScreen').style.display = 'none';
   $('chapterScreen').style.display = 'block';
   window.scrollTo(0, 0);
@@ -1413,11 +1415,17 @@ function renderTree(chapterId) {
 }
 
 // 암기 모음 모드 — 챕터 전체에서 understood인 소목차를 한 리스트로 (꾹누른 시각 오름차순)
-// 반환: 트리 HTML 문자열 (패스 버튼은 헤더에 있고, 여기서는 리스트만)
+// 학습 모드의 topic-head처럼 상단에 헤더(좌: 제목, 우: ⤴ 패스)
 function renderMemorizedView(chapterId, hasAccess) {
-  const visible = getMemorizedVisible(chapterId);
-  updateMemorizedPassBtn(hasAccess, visible.length > 0);
-  if (visible === null) {
+  const topics = state.topicsByChapter[chapterId] || [];
+  const items = [];
+  for (const t of topics) {
+    const subs = state.subtopicsByTopic[t.id] || [];
+    for (const s of subs) {
+      if (state.understoodSet.has(Number(s.id))) items.push(s);
+    }
+  }
+  if (items.length === 0) {
     return `
       <div class="memo-empty">
         <div class="memo-icon">●</div>
@@ -1426,6 +1434,14 @@ function renderMemorizedView(chapterId, hasAccess) {
       </div>
     `;
   }
+  items.sort((a, b) => {
+    const ma = state.understoodMarkedAt[Number(a.id)] || '';
+    const mb = state.understoodMarkedAt[Number(b.id)] || '';
+    if (ma !== mb) return ma.localeCompare(mb);
+    return (Number(a.sort_order) || 0) - (Number(b.sort_order) || 0);
+  });
+  const visible = items.filter(s => !state.passedSet.has(Number(s.id)));
+
   if (visible.length === 0) {
     return `
       <div class="memo-empty">
@@ -1435,43 +1451,23 @@ function renderMemorizedView(chapterId, hasAccess) {
       </div>
     `;
   }
-  return visible.map((s, i) => renderSubtopic(s, i === 0)).join('');
-}
 
-// 암기 모음의 "보이는 순서" 계산 — null=암기 항목 자체가 없음, []=모두 패스됨
-function getMemorizedVisible(chapterId) {
-  const topics = state.topicsByChapter[chapterId] || [];
-  const items = [];
-  for (const t of topics) {
-    const subs = state.subtopicsByTopic[t.id] || [];
-    for (const s of subs) {
-      if (state.understoodSet.has(Number(s.id))) items.push(s);
-    }
-  }
-  if (items.length === 0) return null;
-  items.sort((a, b) => {
-    const ma = state.understoodMarkedAt[Number(a.id)] || '';
-    const mb = state.understoodMarkedAt[Number(b.id)] || '';
-    if (ma !== mb) return ma.localeCompare(mb);
-    return (Number(a.sort_order) || 0) - (Number(b.sort_order) || 0);
-  });
-  return items.filter(s => !state.passedSet.has(Number(s.id)));
-}
+  // 상단 헤더 — 학습 모드의 topic-head와 같은 레이아웃 (제목 좌, ⤴ 패스 우)
+  const current = visible[0];
+  const passBtn = hasAccess ? `
+    <div class="study-controls">
+      <button class="study-btn skip-big" onclick="memorizedPass(${current.id})" title="이번 회 패스 — 다음 단어로">⤴ 패스</button>
+    </div>
+  ` : '';
+  const header = `
+    <div class="memo-header">
+      <div class="memo-title">● 암기 모음</div>
+      <span class="memo-count">${visible.length}</span>
+      ${passBtn}
+    </div>
+  `;
 
-// 헤더 패스 버튼 표시 제어 (암기 모드 + 접근권 + 보이는 항목 있을 때만)
-function updateMemorizedPassBtn(hasAccess, hasVisible) {
-  const btn = $('memorizedPassBtn');
-  if (!btn) return;
-  const show = state.memorizedView && hasAccess && hasVisible;
-  btn.style.display = show ? '' : 'none';
-}
-
-// 헤더 패스 버튼 클릭 — 현재 첫 항목 패스
-function memorizedPassCurrent() {
-  if (!state.currentChapter) return;
-  const visible = getMemorizedVisible(state.currentChapter.id);
-  if (!visible || visible.length === 0) return;
-  memorizedPass(visible[0].id);
+  return header + visible.map((s, i) => renderSubtopic(s, i === 0)).join('');
 }
 
 function toggleMemorizedView() {
@@ -1480,11 +1476,6 @@ function toggleMemorizedView() {
   state.expanded.subtopic.clear();
   const btn = $('memorizedBtn');
   if (btn) btn.classList.toggle('active', state.memorizedView);
-  // 정상 모드로 돌아가면 패스 버튼 숨김 (renderMemorizedView가 다시 켜줌)
-  if (!state.memorizedView) {
-    const passBtn = $('memorizedPassBtn');
-    if (passBtn) passBtn.style.display = 'none';
-  }
   if (state.currentChapter) renderTree(state.currentChapter.id);
   window.scrollTo({ top: 0, behavior: 'smooth' });
 }
@@ -2220,7 +2211,6 @@ window.refreshChapter = refreshChapter;
 window.studyPass = studyPass;
 window.toggleMemorizedView = toggleMemorizedView;
 window.memorizedPass = memorizedPass;
-window.memorizedPassCurrent = memorizedPassCurrent;
 window.pressStart = pressStart;
 window.pressEnd = pressEnd;
 window.subClick = subClick;
