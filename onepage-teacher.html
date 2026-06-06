@@ -1230,7 +1230,8 @@ function openBulkModal(chapterId) {
           totalT += r.t_added; totalS += r.s_added; totalI += r.i_added;
           total = r.total;
           if (r.next_start === start && !r.done) {
-            throw new Error('진행이 멈췄습니다. 데이터를 확인해주세요.');
+            const reason = r.abort_reason ? ` (서버: ${r.abort_reason})` : '';
+            throw new Error(`진행이 멈췄습니다. 데이터를 확인해주세요.${reason}`);
           }
           start = r.next_start;
           topicMap = r.topic_map; subMap = r.sub_map; baseSort = r.base_sort;
@@ -1238,11 +1239,13 @@ function openBulkModal(chapterId) {
           if (r.done) break;
           // 진행 토스트 (오버라이트)
           const pct = total ? Math.round(start / total * 100) : 0;
+          const abortMark = r.aborted ? ' ⚠ 재개' : '';
           const t = $('toast');
-          t.textContent = `진행 중… ${start}/${total} (${pct}%)`;
+          t.textContent = `진행 중… ${start}/${total} (${pct}%)${abortMark}`;
           t.className = 'show';
-          // 짧은 지연 — nocodebackend 누적 부하 분산 + Cloudflare 동시 호출 회피
-          await new Promise(r => setTimeout(r, 200));
+          // 부분 진행 후 abort된 경우 nocodebackend 회복 시간 더 길게
+          const delayMs = r.aborted ? 800 : 200;
+          await new Promise(resolve => setTimeout(resolve, delayMs));
         }
         toast(`완료: 대목차 ${totalT} / 소목차 ${totalS} / 내용 ${totalI}`);
         delete state.topicsByChapter[chapterId];

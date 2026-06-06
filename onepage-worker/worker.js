@@ -187,10 +187,26 @@ const ncbH = (env) => ({
   'Authorization': `Bearer ${env.NCB_SECRET_KEY}`,
 });
 
-async function ncbCreate(env, table, data) {
-  const res = await fetch(ncbUrl(`/create/${table}`), {
-    method: 'POST', headers: ncbH(env), body: JSON.stringify(data),
-  });
+async function ncbCreate(env, table, data, timeoutMs = 6000) {
+  // AbortController로 개별 fetch 타임아웃 — nocodebackend가 hang되어도 Worker가 멈추지 않음
+  const ctrl = new AbortController();
+  const tid = setTimeout(() => ctrl.abort(), timeoutMs);
+  let res;
+  try {
+    res = await fetch(ncbUrl(`/create/${table}`), {
+      method: 'POST', headers: ncbH(env), body: JSON.stringify(data),
+      signal: ctrl.signal,
+    });
+  } catch (e) {
+    clearTimeout(tid);
+    if (e.name === 'AbortError') {
+      const err = new Error(`nocodebackend create timeout (${timeoutMs}ms): ${table}`);
+      err.status = 504; err.aborted = true;
+      throw err;
+    }
+    throw e;
+  }
+  clearTimeout(tid);
   const text = await res.text();
   let body = null;
   try { body = JSON.parse(text); } catch {}
@@ -885,24 +901,31 @@ async function handleBulkImport(request, env, chapterId) {
 
   // Phase 1 (순차): topic·sub 생성 + item 페이로드 큐잉
   // Phase 2 (병렬): item을 3개씩 Promise.all
-  // 시간/요청 예산 두 가지로 보호 — 어느 쪽이든 초과 임박하면 중단해 부분 진행 반환
+  // 모든 ncbCreate를 try/catch로 감싸서 hang·에러 시에도 부분 진행 반환 (throw X)
   let i = start;
+  let aborted = false;
+  let abortReason = '';
   const itemQueue = [];
   while (i < parsed.rows.length) {
-    if (Date.now() - startMs > MAX_WALL_MS) break;
+    if (Date.now() - startMs > MAX_WALL_MS) { aborted = true; abortReason = 'time_budget_phase1'; break; }
     const row = parsed.rows[i];
     // 토픽 생성 (필요 시)
     if (!topicMap.has(row.topic)) {
       if (used + itemQueue.length + 1 > MAX_REQ) break;
-      const r = await ncbCreate(env, 'op_topics', {
-        chapter_id: Number(chapterId),
-        title: row.topic,
-        sort_order: tOrd++,
-        is_free: 0,
-        updated_at: kstDateTime(),
-      });
-      topicMap.set(row.topic, Number(r.id));
-      used++; createdT++;
+      try {
+        const r = await ncbCreate(env, 'op_topics', {
+          chapter_id: Number(chapterId),
+          title: row.topic,
+          sort_order: tOrd++,
+          is_free: 0,
+          updated_at: kstDateTime(),
+        });
+        topicMap.set(row.topic, Number(r.id));
+        used++; createdT++;
+      } catch (e) {
+        aborted = true; abortReason = 'topic_create_fail:' + (e.message || '').slice(0, 100);
+        break;
+      }
     }
     const topicId = topicMap.get(row.topic);
 
@@ -910,14 +933,19 @@ async function handleBulkImport(request, env, chapterId) {
     const subKey = topicId + '|' + row.sub;
     if (!subMap.has(subKey)) {
       if (used + itemQueue.length + 1 > MAX_REQ) break;
-      const r = await ncbCreate(env, 'op_subtopics', {
-        topic_id: Number(topicId),
-        title: row.sub,
-        sort_order: subMap.size + 1,
-        updated_at: kstDateTime(),
-      });
-      subMap.set(subKey, Number(r.id));
-      used++; createdS++;
+      try {
+        const r = await ncbCreate(env, 'op_subtopics', {
+          topic_id: Number(topicId),
+          title: row.sub,
+          sort_order: subMap.size + 1,
+          updated_at: kstDateTime(),
+        });
+        subMap.set(subKey, Number(r.id));
+        used++; createdS++;
+      } catch (e) {
+        aborted = true; abortReason = 'sub_create_fail:' + (e.message || '').slice(0, 100);
+        break;
+      }
     }
     const subId = subMap.get(subKey);
 
@@ -931,30 +959,35 @@ async function handleBulkImport(request, env, chapterId) {
       caption: '',
       sort_order: i + 1,
       updated_at: kstDateTime(),
-      _rowIndex: i, // 부분 진행 추적용 (전송 시 제거)
+      _rowIndex: i,
     });
     i++;
   }
 
-  // Phase 2: 큐의 item을 3개씩 병렬 생성 (nocodebackend 동시 부하 감소)
-  // 시간 예산 초과 임박하면 남은 item 큐는 다음 호출에 넘김 (i를 롤백)
+  // Phase 2: 큐의 item을 3개씩 병렬 생성
   const BATCH = 3;
   let lastFlushedRow = start - 1;
   for (let k = 0; k < itemQueue.length; k += BATCH) {
-    if (Date.now() - startMs > 26000) break; // 30초 직전 안전 cutoff
+    if (Date.now() - startMs > 26000) { aborted = true; abortReason = 'time_budget_phase2'; break; }
     const slice = itemQueue.slice(k, k + BATCH);
-    await Promise.all(slice.map(it => {
-      const { _rowIndex, ...payload } = it;
-      return ncbCreate(env, 'op_items', payload);
-    }));
-    used += slice.length;
-    createdI += slice.length;
-    lastFlushedRow = slice[slice.length - 1]._rowIndex;
+    try {
+      await Promise.all(slice.map(it => {
+        const { _rowIndex, ...payload } = it;
+        return ncbCreate(env, 'op_items', payload);
+      }));
+      used += slice.length;
+      createdI += slice.length;
+      lastFlushedRow = slice[slice.length - 1]._rowIndex;
+    } catch (e) {
+      aborted = true; abortReason = 'item_create_fail:' + (e.message || '').slice(0, 100);
+      break;
+    }
   }
   // 미완료 item이 있으면 i를 그 행으로 되돌림 → 클라이언트가 다음 호출에서 재시도
   if (itemQueue.length > 0 && lastFlushedRow + 1 < i) {
     i = lastFlushedRow + 1;
   }
+  if (aborted) console.log(`[BULK ABORTED] start=${start} i=${i} reason=${abortReason}`);
 
   return json({
     ok: true,
@@ -965,6 +998,9 @@ async function handleBulkImport(request, env, chapterId) {
     base_sort: tOrd - 1,
     topic_map: Object.fromEntries(topicMap),
     sub_map: Object.fromEntries(subMap),
+    aborted: aborted || undefined,
+    abort_reason: aborted ? abortReason : undefined,
+    elapsed_ms: Date.now() - startMs,
   }, 200, request);
 }
 
