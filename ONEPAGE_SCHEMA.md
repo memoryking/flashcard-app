@@ -614,7 +614,7 @@ v2부터 결제 처리는 **Worker로 이전**. Pabbly는 **마케팅 발송**�
 
 자세한 워크플로우 구축 절차는 [ONEPAGE_FEATURES.md § 18](ONEPAGE_FEATURES.md#18-캐페인-발송-pabbly-웹훅) 참조.
 
-### H2. (deprecated v2) 결제 라우터 워크플로우
+### H2. (deprecated v1) 결제 라우터 워크플로우
 v1에서 사용했던 Pabbly Connect 5단계 라우터. v2 (Worker REST)로 대체되어 **OFF 처리 권장**.
 
 마이그레이션 후 정리:
@@ -669,3 +669,53 @@ npx wrangler secret put PAYAPP_LINKVAL   # 페이앱 연동 VALUE (선택)
 자세한 흐름·트러블슈팅:
 - [ONEPAGE_FEATURES.md § 5 결제 자동화 파이프라인](ONEPAGE_FEATURES.md#5-결제-자동화-파이프라인-worker-rest--airtable)
 - **[PAYMENT_INTEGRATION_GUIDE.md](PAYMENT_INTEGRATION_GUIDE.md)** — 새 앱(memoryking-user.html 등)에 결제 시스템 통합 시 시행착오 없이 작업할 수 있는 종합 가이드
+
+---
+
+## J. Worker 운영 메모
+
+### J1. ⚠️ nocodebackend `/read` 의 기본 `limit=10`
+
+**중대 함정**: nocodebackend의 `/read/{table}` endpoint는 `limit` 파라미터를 지정하지 않으면 **최대 10건**만 반환. 모든 행을 보려면 명시적으로 큰 limit 필수.
+
+**Worker 코드 규칙**: 모든 list 조회에 `limit=2000` 이상 명시.
+```js
+ncbRead(env, 'op_topics', `chapter_id=${cid}&limit=2000`)
+ncbRead(env, 'op_chapters', 'limit=2000')
+```
+
+**증상 사례 (수정 완료, 커밋 `c615fa0`)**: 챕터에 토픽 100개를 만들었는데도 클라이언트에 10개만 표시됨 — `/topics?chapter_id=N` 조회 시 limit 누락. bulk import가 "11번째에서 멈추는" 환각이 발생했지만 실제로는 DB에 정상 저장, 표시만 잘렸음.
+
+**점검할 곳**: `handleListChapters`, `handleListTopics`, `handleAdminOverview`, `handleAdminRevenue`, `handleAdminContentStats` 등 모든 list 응답 endpoint.
+
+### J2. 드래그앤드롭 순서 변경 endpoint
+
+Worker는 일괄 `sort_order` 갱신을 위한 3종 endpoint 제공. 모두 동일 패턴 `handleReorder(request, env, table)` 공유.
+
+| 경로 | 대상 테이블 | Body |
+|---|---|---|
+| `POST /topics/reorder` | `op_topics` | `{ ordered_ids[], start_index }` |
+| `POST /subtopics/reorder` | `op_subtopics` | 동일 |
+| `POST /items/reorder` | `op_items` | 동일 |
+
+- `ordered_ids`: 새 순서로 정렬된 ID 배열
+- `start_index`: 클라이언트 청크 분할 시 오프셋 (기본 0)
+- 동작: `sort_order = start_index + i + 1` 로 각 ID 업데이트
+- 한 호출 최대 40개 (Cloudflare subrequest 한도). 클라이언트가 30개씩 청크로 호출.
+
+**데이터 무결성**: 사용자의 `op_understood` 등은 `subtopic_id` 로 참조하므로 `sort_order` 변경에 영향 없음. 삭제 시 FK CASCADE로 자동 정리 (§A4·A5 참조).
+
+### J3. bulk import (TSV) — 청크 처리 + 토픽 prepopulate
+
+`POST /chapters/:id/bulk` 가 청크 단위로 반복 호출됨. 한 호출당 `MAX_REQ=40` subrequest로 제한 (Cloudflare 50 - 안전 마진 10).
+
+**첫 호출(`start=0`)에서만**:
+- 기존 토픽을 `topicMap`에 prepopulate → TSV에 동일 이름이 와도 중복 생성 X
+- `replace` 모드면 기존 토픽 삭제 (FK CASCADE로 자식 자동 정리)
+
+**파서 특이사항** (`tsvLines`):
+- `"` 는 셀 첫 글자(파일 시작/`\t`/`\n` 직후)일 때만 quote 모드 시작
+- 셀 중간의 stray `"` (예: `He said "hello"`)는 일반 문자로 처리 → 다음 행을 삼키지 않음
+- Excel Alt+Enter 멀티라인 셀은 정상 지원
+
+자세한 사용법은 [ONEPAGE_FEATURES.md § 12](ONEPAGE_FEATURES.md#12-일괄-입력-tsv) 참조.

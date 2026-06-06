@@ -544,6 +544,28 @@ function withTopicAnchor(topicId, callback) {
 ### 모두 접기 / 새로고침 / 일괄 입력
 - 툴바에 버튼 3개
 
+### 드래그앤드롭 순서 변경 (SortableJS)
+각 항목 좌측의 **⋮⋮ 핸들**을 끌어 같은 부모 안에서 순서 변경. 떨어뜨리면 자동 저장.
+
+| 레벨 | 끌어옮길 수 있는 범위 |
+|---|---|
+| 대목차 | 같은 챕터 안에서 |
+| 소목차 | 같은 대목차 안에서 |
+| 내용 블록 | 같은 소목차 안에서 |
+
+**기술 구현**
+- SortableJS 1.15.2 CDN, `forceFallback: true` (모든 브라우저·모바일 호환)
+- 핸들 분리: `.drag-handle`만 드래그 시작점, 클릭은 stopPropagation으로 분리
+- 컨테이너 wrapper: `<div class="reorder-list" data-sortable="topics|subtopics|items" data-parent-id="N">`
+- Worker 일괄 갱신: `POST /topics/reorder`, `/subtopics/reorder`, `/items/reorder`
+  - Body: `{ ordered_ids: [n,n,n], start_index: 0 }` — 30개씩 청크 분할 (subrequest 한도 안전)
+- 클라이언트 낙관적 업데이트: 성공 시 로컬 `state.X.sort_order` 동기화, 실패 시 fresh load 복구
+
+**데이터 무결성 — 사용자 학습 기록 보존**
+- 모든 사용자 reference는 `subtopic_id` 기준 → `sort_order` 변경 무영향
+- 콘텐츠 삭제 시: `op_understood.subtopic_id` FK CASCADE → 모든 사용자의 그 소목차 꾹누른 기록 자동 정리
+- 콘텐츠 추가: 학생 앱이 매번 fresh fetch → 즉시 반영, 새 sort_order 위치에 표시
+
 ---
 
 ## 12. 일괄 입력 (TSV)
@@ -562,10 +584,15 @@ A: 대목차       B: 소목차    C~ : 내용1, 내용2, 내용3 ...
 - 첫 행 헤더(`대목차`)는 자동 스킵
 - C열부터 끝까지가 그 소목차의 N개 내용 항목
 
-### Excel 멀티라인 셀 지원
+### Excel 멀티라인 셀 지원 + stray quote 처리
 - 셀 안에 Alt+Enter로 줄바꿈한 경우 Excel은 셀을 `"..."`로 감쌈
 - 파서가 따옴표 안의 `\n`을 행 구분자로 안 보고 셀 내용으로 처리
 - 따옴표 안의 `""`는 이스케이프된 `"`로 복원
+- **`"`는 셀의 첫 글자(파일 시작·`\t`·`\n` 직후)일 때만 quote 모드 시작** — 셀 중간의 stray `"`(예: 영어 단어 `He said "hello"`) 은 일반 문자로 처리되어 다음 행을 삼키지 않음
+
+### 토픽 중복 방지 (append 모드)
+- 첫 호출(`start=0`)에서 기존 토픽을 `topicMap`에 prepopulate
+- TSV가 동일 이름의 기존 토픽 참조 시 새로 만들지 않고 기존 ID 재사용
 
 ### 파일 업로드 대안
 - 큰 데이터는 엑셀 → "텍스트 (탭으로 분리)(*.txt)"로 저장
@@ -1005,8 +1032,11 @@ wrangler secret put PABBLY_WEBHOOK_URL
 | `/chapters/:id` | PUT/DELETE | 챕터 수정/삭제 |
 | `/chapters/:id/bulk` | POST | TSV 일괄 입력 (청크 처리) |
 | `/topics`·`/topics/:id` | POST/PUT/DELETE | 대목차 CRUD |
+| `/topics/reorder` | POST | 대목차 순서 일괄 변경 — `{ordered_ids[], start_index}` |
 | `/subtopics`·`/subtopics/:id` | POST/PUT/DELETE | 소목차 CRUD |
+| `/subtopics/reorder` | POST | 소목차 순서 일괄 변경 |
 | `/items`·`/items/:id` | POST/PUT/DELETE | 내용 블록 CRUD |
+| `/items/reorder` | POST | 내용 순서 일괄 변경 |
 
 ### 관리자 CRM용 (teacher gate, `/admin/*` 네임스페이스)
 | 경로 | 메서드 | 동작 |
