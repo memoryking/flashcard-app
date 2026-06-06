@@ -187,7 +187,7 @@ const ncbH = (env) => ({
   'Authorization': `Bearer ${env.NCB_SECRET_KEY}`,
 });
 
-async function ncbCreate(env, table, data, attempt = 0) {
+async function ncbCreate(env, table, data) {
   const res = await fetch(ncbUrl(`/create/${table}`), {
     method: 'POST', headers: ncbH(env), body: JSON.stringify(data),
   });
@@ -196,12 +196,6 @@ async function ncbCreate(env, table, data, attempt = 0) {
   try { body = JSON.parse(text); } catch {}
   console.log(`[NCB CREATE ${table}] ${res.status} body=${text.slice(0,300)} sent=${JSON.stringify(data).slice(0,200)}`);
   if (!res.ok || !body || (!body.id && body.status !== 'success' && body.status !== undefined)) {
-    // transient 5xx / 429 → 짧은 백오프 후 최대 2회 재시도 (총 3회 시도)
-    const transient = res.status >= 500 || res.status === 429;
-    if (transient && attempt < 2) {
-      await new Promise(r => setTimeout(r, 200 * (attempt + 1)));
-      return ncbCreate(env, table, data, attempt + 1);
-    }
     const err = new Error(`nocodebackend create failed: ${res.status} ${text}`);
     err.status = res.status;
     err.body = body;
@@ -848,7 +842,7 @@ async function handleBulkImport(request, env, chapterId) {
   const subMap = new Map(Object.entries(b.sub_map || {}).map(([k, v]) => [k, Number(v)]));
   const baseSort = Number(b.base_sort) || 0;
 
-  const MAX_REQ = 45; // 50 - 안전 마진 5. 첫 호출은 init read에 일부 차감됨
+  const MAX_REQ = 30; // 50 - 큰 안전 마진. nocodebackend 느려질 때 wall time도 보호
 
   const chapter = await ncbReadById(env, 'op_chapters', chapterId);
   if (!chapter) return json({ error: 'chapter_not_found' }, 404, request);
