@@ -777,23 +777,40 @@ async function handleDeleteItem(request, env, id) {
 
 // Excel TSV: 셀에 줄바꿈이 있으면 셀 전체를 따옴표("...")로 감쌈.
 // raw 텍스트를 "줄(=한 row) 단위"로 정확히 자르는 헬퍼.
+// 핵심: `"`는 셀의 첫 글자(파일 시작·탭·줄바꿈 직후)일 때만 quote 모드 시작.
+// 셀 중간의 stray `"`(영어 단어 안에 등장하는 인용부호 등)는 일반 문자로 취급.
+// → 사용자 TSV에 미닫힌 quote가 있어도 다음 행을 삼키지 않음.
 function tsvLines(text) {
   const out = [];
   let buf = '';
   let inQuote = false;
+  let atCellStart = true; // 파일 시작 또는 직전이 \t/\n/\r
   const s = String(text || '');
   for (let i = 0; i < s.length; i++) {
     const ch = s[i];
     if (ch === '"') {
-      // 이중 따옴표("") = 이스케이프된 ", 그렇지 않으면 토글
-      if (inQuote && s[i + 1] === '"') { buf += '"'; i++; continue; }
-      inQuote = !inQuote;
+      if (inQuote) {
+        // 이중 따옴표("") = 이스케이프된 "
+        if (s[i + 1] === '"') { buf += '""'; i++; }
+        else { inQuote = false; buf += ch; }
+      } else if (atCellStart) {
+        inQuote = true;
+        buf += ch;
+      } else {
+        // 셀 중간의 stray " — 그냥 문자
+        buf += ch;
+      }
+      atCellStart = false;
+    } else if (ch === '\t' && !inQuote) {
       buf += ch;
+      atCellStart = true;
     } else if ((ch === '\n' || ch === '\r') && !inQuote) {
       if (ch === '\r' && s[i + 1] === '\n') i++;
       out.push(buf); buf = '';
+      atCellStart = true;
     } else {
       buf += ch;
+      atCellStart = false;
     }
   }
   if (buf.length) out.push(buf);
@@ -815,6 +832,7 @@ function parseTSV(text) {
   //   대목차 칸이 비어 있으면 이전 대목차에 계속
   const lines = tsvLines(text);
   const rows = [];
+  const distinctTopics = new Set();
   let topicTitle = null;
 
   for (let i = 0; i < lines.length; i++) {
@@ -830,7 +848,7 @@ function parseTSV(text) {
     if (i === 0 && (a === '대목차' || a === 'topic' || a === 'Topic')) continue;
 
     // 새 대목차
-    if (a) topicTitle = a;
+    if (a) { topicTitle = a; distinctTopics.add(a); }
 
     if (b) {
       if (!topicTitle) return { error: `${i + 1}행: 대목차가 정해지지 않았습니다.` };
@@ -843,7 +861,7 @@ function parseTSV(text) {
     }
   }
 
-  return { rows };
+  return { rows, lines_count: lines.length, distinct_topics: distinctTopics.size };
 }
 
 // Cloudflare Workers 서브요청 한도(Free 50 / Paid 1000) 회피를 위한 청크 처리.
@@ -995,6 +1013,8 @@ async function handleBulkImport(request, env, chapterId) {
     next_start: i,
     done: i >= parsed.rows.length,
     total: parsed.rows.length,
+    lines_count: parsed.lines_count,
+    distinct_topics: parsed.distinct_topics,
     base_sort: tOrd - 1,
     topic_map: Object.fromEntries(topicMap),
     sub_map: Object.fromEntries(subMap),

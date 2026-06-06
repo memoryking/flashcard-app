@@ -1221,6 +1221,7 @@ function openBulkModal(chapterId) {
       let topicMap = {}, subMap = {}, baseSort = 0;
       let start = 0, totalT = 0, totalS = 0, totalI = 0, total = 0;
       let curMode = mode;
+      let linesCount = 0, distinctTopics = 0;
       try {
         for (let pass = 0; pass < 400; pass++) { // 안전 상한 400회
           const r = await api('POST', `/chapters/${chapterId}/bulk`, {
@@ -1229,6 +1230,8 @@ function openBulkModal(chapterId) {
           });
           totalT += r.t_added; totalS += r.s_added; totalI += r.i_added;
           total = r.total;
+          if (r.lines_count) linesCount = r.lines_count;
+          if (r.distinct_topics) distinctTopics = r.distinct_topics;
           if (r.next_start === start && !r.done) {
             const reason = r.abort_reason ? ` (서버: ${r.abort_reason})` : '';
             throw new Error(`진행이 멈췄습니다. 데이터를 확인해주세요.${reason}`);
@@ -1247,7 +1250,7 @@ function openBulkModal(chapterId) {
           const delayMs = r.aborted ? 800 : 200;
           await new Promise(resolve => setTimeout(resolve, delayMs));
         }
-        toast(`완료: 대목차 ${totalT} / 소목차 ${totalS} / 내용 ${totalI}`);
+        toast(`완료: 대목차 ${totalT}(분석 ${distinctTopics}) / 소목차 ${totalS} / 내용 ${totalI} · TSV 줄 ${linesCount} → 데이터 행 ${total}`);
         delete state.topicsByChapter[chapterId];
         Object.keys(state.subtopicsByTopic).forEach(k => delete state.subtopicsByTopic[k]);
         Object.keys(state.itemsBySubtopic).forEach(k => delete state.itemsBySubtopic[k]);
