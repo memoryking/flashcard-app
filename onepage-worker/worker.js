@@ -842,7 +842,9 @@ async function handleBulkImport(request, env, chapterId) {
   const subMap = new Map(Object.entries(b.sub_map || {}).map(([k, v]) => [k, Number(v)]));
   const baseSort = Number(b.base_sort) || 0;
 
-  const MAX_REQ = 30; // 50 - 큰 안전 마진. nocodebackend 느려질 때 wall time도 보호
+  const MAX_REQ = 20;   // 50 - 큰 안전 마진
+  const MAX_WALL_MS = 18000; // 30초 Cloudflare 한도의 60% — 응답 시간 변동 흡수
+  const startMs = Date.now();
 
   const chapter = await ncbReadById(env, 'op_chapters', chapterId);
   if (!chapter) return json({ error: 'chapter_not_found' }, 404, request);
@@ -882,11 +884,12 @@ async function handleBulkImport(request, env, chapterId) {
   let tOrd = topicBase + 1;
 
   // Phase 1 (순차): topic·sub 생성 + item 페이로드 큐잉
-  // Phase 2 (병렬): item을 5개씩 묶어 Promise.all로 wall time 단축
-  // → Cloudflare 무료 플랜 30초 wall time 한도 안전 확보
+  // Phase 2 (병렬): item을 3개씩 Promise.all
+  // 시간/요청 예산 두 가지로 보호 — 어느 쪽이든 초과 임박하면 중단해 부분 진행 반환
   let i = start;
   const itemQueue = [];
   while (i < parsed.rows.length) {
+    if (Date.now() - startMs > MAX_WALL_MS) break;
     const row = parsed.rows[i];
     // 토픽 생성 (필요 시)
     if (!topicMap.has(row.topic)) {
@@ -928,17 +931,29 @@ async function handleBulkImport(request, env, chapterId) {
       caption: '',
       sort_order: i + 1,
       updated_at: kstDateTime(),
+      _rowIndex: i, // 부분 진행 추적용 (전송 시 제거)
     });
     i++;
   }
 
-  // Phase 2: 큐의 item을 5개씩 병렬 생성
-  const BATCH = 5;
+  // Phase 2: 큐의 item을 3개씩 병렬 생성 (nocodebackend 동시 부하 감소)
+  // 시간 예산 초과 임박하면 남은 item 큐는 다음 호출에 넘김 (i를 롤백)
+  const BATCH = 3;
+  let lastFlushedRow = start - 1;
   for (let k = 0; k < itemQueue.length; k += BATCH) {
+    if (Date.now() - startMs > 26000) break; // 30초 직전 안전 cutoff
     const slice = itemQueue.slice(k, k + BATCH);
-    await Promise.all(slice.map(it => ncbCreate(env, 'op_items', it)));
+    await Promise.all(slice.map(it => {
+      const { _rowIndex, ...payload } = it;
+      return ncbCreate(env, 'op_items', payload);
+    }));
     used += slice.length;
     createdI += slice.length;
+    lastFlushedRow = slice[slice.length - 1]._rowIndex;
+  }
+  // 미완료 item이 있으면 i를 그 행으로 되돌림 → 클라이언트가 다음 호출에서 재시도
+  if (itemQueue.length > 0 && lastFlushedRow + 1 < i) {
+    i = lastFlushedRow + 1;
   }
 
   return json({

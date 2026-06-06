@@ -1222,7 +1222,7 @@ function openBulkModal(chapterId) {
       let start = 0, totalT = 0, totalS = 0, totalI = 0, total = 0;
       let curMode = mode;
       try {
-        for (let pass = 0; pass < 200; pass++) { // 안전 상한 200회
+        for (let pass = 0; pass < 400; pass++) { // 안전 상한 400회
           const r = await api('POST', `/chapters/${chapterId}/bulk`, {
             tsv, mode: curMode, start,
             topic_map: topicMap, sub_map: subMap, base_sort: baseSort,
@@ -1241,6 +1241,8 @@ function openBulkModal(chapterId) {
           const t = $('toast');
           t.textContent = `진행 중… ${start}/${total} (${pct}%)`;
           t.className = 'show';
+          // 짧은 지연 — nocodebackend 누적 부하 분산 + Cloudflare 동시 호출 회피
+          await new Promise(r => setTimeout(r, 200));
         }
         toast(`완료: 대목차 ${totalT} / 소목차 ${totalS} / 내용 ${totalI}`);
         delete state.topicsByChapter[chapterId];
