@@ -743,6 +743,25 @@ async function handleDeleteItem(request, env, id) {
   return json({ ok: true }, 200, request);
 }
 
+// 일괄 sort_order 갱신 — 드래그앤드롭 재정렬용. ordered_ids 순서대로 1부터 부여.
+// start_index 로 클라이언트 청크 분할 지원 (한 호출 ~30개씩, MAX_REQ 40 한도 안전).
+async function handleReorder(request, env, table) {
+  const b = await request.json().catch(() => ({}));
+  const ids = Array.isArray(b.ordered_ids) ? b.ordered_ids.map(Number).filter(Boolean) : [];
+  const startIndex = Number(b.start_index) || 0;
+  if (!ids.length) return json({ error: 'ordered_ids required' }, 400, request);
+  if (ids.length > 40) return json({ error: 'too many ids (chunk to 30 max per call)' }, 400, request);
+  let updated = 0;
+  for (let i = 0; i < ids.length; i++) {
+    await ncbUpdate(env, table, ids[i], {
+      sort_order: startIndex + i + 1,
+      updated_at: kstDateTime(),
+    });
+    updated++;
+  }
+  return json({ ok: true, updated }, 200, request);
+}
+
 // ============================================================
 // 일괄 입력 (TSV: 대목차\t소목차\t내용)
 // ============================================================
@@ -2409,6 +2428,10 @@ async function route(request, env) {
   }
 
   // topics
+  if (m === 'POST' && path === '/topics/reorder') {
+    const g = teacherGate(); if (g) return g;
+    return handleReorder(request, env, 'op_topics');
+  }
   if (m === 'POST' && path === '/topics') {
     const g = teacherGate(); if (g) return g;
     return handleCreateTopic(request, env);
@@ -2421,6 +2444,10 @@ async function route(request, env) {
   }
 
   // subtopics
+  if (m === 'POST' && path === '/subtopics/reorder') {
+    const g = teacherGate(); if (g) return g;
+    return handleReorder(request, env, 'op_subtopics');
+  }
   if (m === 'POST' && path === '/subtopics') {
     const g = teacherGate(); if (g) return g;
     return handleCreateSubtopic(request, env);
@@ -2433,6 +2460,10 @@ async function route(request, env) {
   }
 
   // items
+  if (m === 'POST' && path === '/items/reorder') {
+    const g = teacherGate(); if (g) return g;
+    return handleReorder(request, env, 'op_items');
+  }
   if (m === 'POST' && path === '/items') {
     const g = teacherGate(); if (g) return g;
     return handleCreateItem(request, env);

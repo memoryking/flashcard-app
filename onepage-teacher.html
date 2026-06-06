@@ -349,7 +349,26 @@ a { color: #4fc3f7; text-decoration: none; }
   .chapter-head { padding: 12px 12px; }
   .modal { max-height: 95vh; }
 }
+
+/* ─── 드래그앤드롭 (SortableJS) ─── */
+.drag-handle {
+  display: inline-flex; align-items: center; justify-content: center;
+  width: 22px; height: 22px; flex-shrink: 0;
+  color: rgba(255,255,255,0.35); font-size: 14px; line-height: 1;
+  cursor: grab; user-select: none;
+  border-radius: 4px;
+}
+.drag-handle:hover { color: rgba(255,255,255,0.85); background: rgba(255,255,255,0.05); }
+.drag-handle:active { cursor: grabbing; }
+.sortable-ghost {
+  opacity: 0.4;
+  background: rgba(233,69,96,0.18) !important;
+}
+.sortable-chosen { box-shadow: 0 0 0 2px rgba(233,69,96,0.5); }
+.sortable-drag { opacity: 0.95; }
+.reorder-list { min-height: 4px; }
 </style>
+<script src="https://cdn.jsdelivr.net/npm/sortablejs@1.15.2/Sortable.min.js"></script>
 </head>
 <body>
 
@@ -579,6 +598,83 @@ function render() {
     for (const c of groups[subject]) html += renderChapter(c);
   }
   list.innerHTML = html;
+  initSortable();
+}
+
+// ── 드래그앤드롭 (SortableJS) ────────────────────────────────
+const REORDER_PATH = {
+  topics: '/topics/reorder',
+  subtopics: '/subtopics/reorder',
+  items: '/items/reorder',
+};
+function initSortable() {
+  if (typeof Sortable === 'undefined') return;
+  document.querySelectorAll('[data-sortable]').forEach(el => {
+    Sortable.create(el, {
+      animation: 150,
+      handle: '.drag-handle',
+      ghostClass: 'sortable-ghost',
+      chosenClass: 'sortable-chosen',
+      dragClass: 'sortable-drag',
+      onEnd: async (evt) => {
+        if (evt.oldIndex === evt.newIndex) return;
+        const type = el.dataset.sortable;
+        const ids = Array.from(el.children)
+          .map(c => Number(c.dataset.id))
+          .filter(Boolean);
+        await applyReorder(type, el.dataset.parentId, ids);
+      },
+    });
+  });
+}
+async function applyReorder(type, parentId, ids) {
+  const path = REORDER_PATH[type];
+  if (!path) return;
+  showLoading(true);
+  try {
+    // 30개씩 청크 — Worker MAX_REQ 40 한도 안전
+    const CHUNK = 30;
+    for (let off = 0; off < ids.length; off += CHUNK) {
+      const slice = ids.slice(off, off + CHUNK);
+      await api('POST', path, { ordered_ids: slice, start_index: off });
+    }
+    // 로컬 state 동기화 (재정렬된 sort_order 반영)
+    syncSortOrder(type, parentId, ids);
+    toast('순서 저장됨');
+  } catch (e) {
+    toast('순서 저장 실패: ' + e.message, true);
+    // 실패 시 서버에서 fresh load
+    if (type === 'topics') await loadTopics(Number(parentId));
+    else if (type === 'subtopics') await loadSubtopics(Number(parentId));
+    else if (type === 'items') await loadItems(Number(parentId));
+  } finally {
+    showLoading(false);
+  }
+}
+function syncSortOrder(type, parentId, ids) {
+  const idxOf = (arr, id) => arr.findIndex(x => Number(x.id) === Number(id));
+  if (type === 'topics') {
+    const list = state.topicsByChapter[parentId] || [];
+    list.forEach((t, i) => {
+      const newIdx = ids.indexOf(Number(t.id));
+      if (newIdx >= 0) t.sort_order = newIdx + 1;
+    });
+    list.sort((a, b) => (Number(a.sort_order) || 0) - (Number(b.sort_order) || 0));
+  } else if (type === 'subtopics') {
+    const list = state.subtopicsByTopic[parentId] || [];
+    list.forEach((s) => {
+      const newIdx = ids.indexOf(Number(s.id));
+      if (newIdx >= 0) s.sort_order = newIdx + 1;
+    });
+    list.sort((a, b) => (Number(a.sort_order) || 0) - (Number(b.sort_order) || 0));
+  } else if (type === 'items') {
+    const list = state.itemsBySubtopic[parentId] || [];
+    list.forEach((it) => {
+      const newIdx = ids.indexOf(Number(it.id));
+      if (newIdx >= 0) it.sort_order = newIdx + 1;
+    });
+    list.sort((a, b) => (Number(a.sort_order) || 0) - (Number(b.sort_order) || 0));
+  }
 }
 
 function renderChapter(c) {
@@ -600,7 +696,9 @@ function renderChapter(c) {
       if (!topics.length) {
         body += '<div class="empty-state small">아직 대목차가 없습니다.</div>';
       } else {
-        body += topics.map(t => renderTopic(t)).join('');
+        body += `<div class="reorder-list" data-sortable="topics" data-parent-id="${c.id}">`
+              + topics.map(t => renderTopic(t)).join('')
+              + `</div>`;
       }
     }
   }
@@ -643,13 +741,16 @@ function renderTopic(t) {
       if (!subs.length) {
         body += '<div class="empty-state small">아직 소목차가 없습니다.</div>';
       } else {
-        body += subs.map(s => renderSubtopic(s)).join('');
+        body += `<div class="reorder-list" data-sortable="subtopics" data-parent-id="${t.id}">`
+              + subs.map(s => renderSubtopic(s)).join('')
+              + `</div>`;
       }
     }
   }
   return `
-    <div class="${cls}">
+    <div class="${cls}" data-id="${t.id}">
       <div class="topic-head" onclick="toggle('topic',${t.id})">
+        <span class="drag-handle" onclick="event.stopPropagation()" title="드래그로 순서 변경">⋮⋮</span>
         <div class="topic-arrow">▶</div>
         <div class="topic-title">${escapeHtml(t.title)}${t.is_free ? '<span class="free-badge">✨무료</span>' : ''}</div>
         <span class="topic-count">${t.subtopic_count || 0}</span>
@@ -694,13 +795,16 @@ function renderSubtopic(s) {
       if (!items.length) {
         body += '<div class="empty-state small">아직 내용이 없습니다.</div>';
       } else {
-        body += items.map(it => renderItem(it)).join('');
+        body += `<div class="reorder-list" data-sortable="items" data-parent-id="${s.id}">`
+              + items.map(it => renderItem(it)).join('')
+              + `</div>`;
       }
     }
   }
   return `
-    <div class="${cls}" data-subid="${s.id}">
+    <div class="${cls}" data-id="${s.id}" data-subid="${s.id}">
       <div class="subtopic-head" onclick="toggle('subtopic',${s.id})">
+        <span class="drag-handle" onclick="event.stopPropagation()" title="드래그로 순서 변경">⋮⋮</span>
         <div class="subtopic-arrow">▶</div>
         <div class="subtopic-title">${escapeHtml(s.title)}</div>
         <div class="subtopic-actions">
@@ -717,7 +821,8 @@ function renderSubtopic(s) {
 function renderItem(it) {
   if (it.kind === 'image') {
     return `
-      <div class="item">
+      <div class="item" data-id="${it.id}">
+        <span class="drag-handle" title="드래그로 순서 변경">⋮⋮</span>
         <div class="item-icon">🖼️</div>
         <div class="item-body">
           <img class="item-image" src="${escapeHtml(it.image_b64)}" alt="">
@@ -731,7 +836,8 @@ function renderItem(it) {
     `;
   }
   return `
-    <div class="item">
+    <div class="item" data-id="${it.id}">
+      <span class="drag-handle" title="드래그로 순서 변경">⋮⋮</span>
       <div class="item-icon">📝</div>
       <div class="item-body">
         <div class="item-text" id="text-${it.id}">${escapeHtml(it.text)}</div>
