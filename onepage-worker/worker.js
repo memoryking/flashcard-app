@@ -517,7 +517,8 @@ async function handleReferralInfo(request, env) {
 async function handleListChapters(request, env) {
   const url = new URL(request.url);
   const subject = url.searchParams.get('subject');
-  const filter = subject ? `subject=${encodeURIComponent(subject)}` : '';
+  const base = subject ? `subject=${encodeURIComponent(subject)}` : '';
+  const filter = base ? `${base}&limit=2000` : 'limit=2000';
   const r = await ncbRead(env, 'op_chapters', filter);
   const list = (r.data || []).sort((a, b) =>
     (a.subject || '').localeCompare(b.subject || '') ||
@@ -571,7 +572,7 @@ async function handleListTopics(request, env) {
   const url = new URL(request.url);
   const chapterId = url.searchParams.get('chapter_id');
   if (!chapterId) return json({ error: 'chapter_id required' }, 400, request);
-  const r = await ncbRead(env, 'op_topics', `chapter_id=${chapterId}`);
+  const r = await ncbRead(env, 'op_topics', `chapter_id=${chapterId}&limit=2000`);
   const topics = (r.data || []).sort((a, b) =>
     (Number(a.sort_order) || 0) - (Number(b.sort_order) || 0) ||
     (Number(a.id) || 0) - (Number(b.id) || 0)
@@ -1225,7 +1226,7 @@ async function handleAdminOverview(request, env) {
     atFindAllPaged(env, AT_USERS, '', 2000),
     atFindAllPaged(env, AT_ACCESS, '', 5000),
     atFindAllPaged(env, AT_PAYMENTS, '', 5000),
-    ncbRead(env, 'op_chapters', ''),
+    ncbRead(env, 'op_chapters', 'limit=2000'),
   ]);
   const chapters = chaptersResp.data || [];
 
@@ -1779,7 +1780,7 @@ async function handleAdminRevenue(request, env) {
 
   const [payments, chaptersResp, users] = await Promise.all([
     atFindAllPaged(env, AT_PAYMENTS, `IS_AFTER({paid_at}, "${fromIso}")`, 5000),
-    ncbRead(env, 'op_chapters', ''),
+    ncbRead(env, 'op_chapters', 'limit=2000'),
     atFindAllPaged(env, AT_USERS, '', 2000),
   ]);
   const chapters = chaptersResp.data || [];
@@ -2116,7 +2117,7 @@ async function handleAdminAccessRevoke(request, env, admin, phone, chapterIdStr)
 
 async function handleAdminContentStats(request, env) {
   const [chaptersResp, topicsResp, accesses] = await Promise.all([
-    ncbRead(env, 'op_chapters', ''),
+    ncbRead(env, 'op_chapters', 'limit=2000'),
     ncbRead(env, 'op_topics', 'limit=2000'),
     atFindAllPaged(env, AT_ACCESS, '', 5000),
   ]);
