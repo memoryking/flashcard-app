@@ -187,7 +187,7 @@ const ncbH = (env) => ({
   'Authorization': `Bearer ${env.NCB_SECRET_KEY}`,
 });
 
-async function ncbCreate(env, table, data) {
+async function ncbCreate(env, table, data, attempt = 0) {
   const res = await fetch(ncbUrl(`/create/${table}`), {
     method: 'POST', headers: ncbH(env), body: JSON.stringify(data),
   });
@@ -196,6 +196,12 @@ async function ncbCreate(env, table, data) {
   try { body = JSON.parse(text); } catch {}
   console.log(`[NCB CREATE ${table}] ${res.status} body=${text.slice(0,300)} sent=${JSON.stringify(data).slice(0,200)}`);
   if (!res.ok || !body || (!body.id && body.status !== 'success' && body.status !== undefined)) {
+    // transient 5xx / 429 → 짧은 백오프 후 최대 2회 재시도 (총 3회 시도)
+    const transient = res.status >= 500 || res.status === 429;
+    if (transient && attempt < 2) {
+      await new Promise(r => setTimeout(r, 200 * (attempt + 1)));
+      return ncbCreate(env, table, data, attempt + 1);
+    }
     const err = new Error(`nocodebackend create failed: ${res.status} ${text}`);
     err.status = res.status;
     err.body = body;
@@ -206,6 +212,19 @@ async function ncbCreate(env, table, data) {
 async function ncbRead(env, table, filters = '') {
   const r = await fetch(ncbUrl(`/read/${table}`, filters), { headers: ncbH(env) });
   return r.json();
+}
+// 페이지네이션 — limit=500 단위로 모든 행 반환 (op_topics 500개 초과 대비)
+async function ncbReadAll(env, table, filters = '', hardMax = 5000) {
+  const out = [];
+  const pageSize = 500;
+  for (let offset = 0; offset < hardMax; offset += pageSize) {
+    const q = `${filters}${filters ? '&' : ''}limit=${pageSize}&offset=${offset}`;
+    const r = await ncbRead(env, table, q);
+    const data = r.data || [];
+    out.push(...data);
+    if (data.length < pageSize) break;
+  }
+  return out;
 }
 async function ncbSearch(env, table, query) {
   const r = await fetch(ncbUrl(`/search/${table}`), {
@@ -829,7 +848,7 @@ async function handleBulkImport(request, env, chapterId) {
   const subMap = new Map(Object.entries(b.sub_map || {}).map(([k, v]) => [k, Number(v)]));
   const baseSort = Number(b.base_sort) || 0;
 
-  const MAX_REQ = 40; // 50 - 안전 마진. 첫 호출은 read·delete도 포함되므로 더 보수적
+  const MAX_REQ = 45; // 50 - 안전 마진 5. 첫 호출은 init read에 일부 차감됨
 
   const chapter = await ncbReadById(env, 'op_chapters', chapterId);
   if (!chapter) return json({ error: 'chapter_not_found' }, 404, request);
@@ -844,20 +863,39 @@ async function handleBulkImport(request, env, chapterId) {
 
   // 첫 호출(start=0)에서만 초기 작업
   if (start === 0) {
+    // 기존 토픽 전체 읽기 (페이지네이션 — 500 초과 안전)
+    const existTopics = await ncbReadAll(env, 'op_topics', `chapter_id=${chapterId}`, 5000);
+    used += Math.ceil(existTopics.length / 500) || 1;
+
     if (mode === 'replace') {
-      const exist = await ncbRead(env, 'op_topics', `chapter_id=${chapterId}&limit=500`);
-      used++;
-      for (const t of exist.data || []) {
+      for (const t of existTopics) {
         if (used >= MAX_REQ) break; // 너무 많이 지워야 하면 다음 호출에서
         await ncbDelete(env, 'op_topics', t.id);
         used++;
       }
     } else {
-      // append용 — 기존 토픽의 sort_order 최대값
-      const exist = await ncbRead(env, 'op_topics', `chapter_id=${chapterId}&limit=500`);
-      used++;
-      for (const t of exist.data || []) {
+      // append: 기존 토픽들을 topicMap에 채워둠 → TSV에 같은 이름 들어와도 중복 안 생김
+      // TSV에 새 토픽이 와야만 ncbCreate 호출 → subrequest 절약
+      for (const t of existTopics) {
+        const title = String(t.title || '');
+        if (title && !topicMap.has(title)) topicMap.set(title, Number(t.id));
         topicBase = Math.max(topicBase, Number(t.sort_order) || 0);
+      }
+
+      // 기존 소목차도 subMap에 채워둠 — TSV가 기존 sub에 새 item만 추가하는 경우 dup 방지
+      // TSV가 참조하는 (기존 topic, 새 sub 이름) 조합만 미리 읽음 (불필요한 sub read 방지)
+      const tsvTopicsInExisting = new Set();
+      for (const row of parsed.rows) {
+        if (topicMap.has(row.topic)) tsvTopicsInExisting.add(topicMap.get(row.topic));
+      }
+      for (const tid of tsvTopicsInExisting) {
+        if (used >= MAX_REQ - 5) break; // sub 읽기에 너무 많이 쓰면 안 됨
+        const existSubs = await ncbReadAll(env, 'op_subtopics', `topic_id=${tid}`, 2000);
+        used++;
+        for (const s of existSubs) {
+          const key = tid + '|' + String(s.title || '');
+          if (!subMap.has(key)) subMap.set(key, Number(s.id));
+        }
       }
     }
   }
