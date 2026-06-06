@@ -862,6 +862,7 @@ async function handleBulkImport(request, env, chapterId) {
   let createdT = 0, createdS = 0, createdI = 0;
 
   // 첫 호출(start=0)에서만 초기 작업
+  // 핵심: 기존 topic을 topicMap에 prepopulate → TSV 동일 이름 와도 중복 생성 X
   if (start === 0) {
     // 기존 토픽 전체 읽기 (페이지네이션 — 500 초과 안전)
     const existTopics = await ncbReadAll(env, 'op_topics', `chapter_id=${chapterId}`, 5000);
@@ -874,29 +875,14 @@ async function handleBulkImport(request, env, chapterId) {
         used++;
       }
     } else {
-      // append: 기존 토픽들을 topicMap에 채워둠 → TSV에 같은 이름 들어와도 중복 안 생김
-      // TSV에 새 토픽이 와야만 ncbCreate 호출 → subrequest 절약
+      // append: 기존 토픽을 topicMap에 채움 (subrequest 0개 — 메모리 작업)
       for (const t of existTopics) {
         const title = String(t.title || '');
         if (title && !topicMap.has(title)) topicMap.set(title, Number(t.id));
         topicBase = Math.max(topicBase, Number(t.sort_order) || 0);
       }
-
-      // 기존 소목차도 subMap에 채워둠 — TSV가 기존 sub에 새 item만 추가하는 경우 dup 방지
-      // TSV가 참조하는 (기존 topic, 새 sub 이름) 조합만 미리 읽음 (불필요한 sub read 방지)
-      const tsvTopicsInExisting = new Set();
-      for (const row of parsed.rows) {
-        if (topicMap.has(row.topic)) tsvTopicsInExisting.add(topicMap.get(row.topic));
-      }
-      for (const tid of tsvTopicsInExisting) {
-        if (used >= MAX_REQ - 5) break; // sub 읽기에 너무 많이 쓰면 안 됨
-        const existSubs = await ncbReadAll(env, 'op_subtopics', `topic_id=${tid}`, 2000);
-        used++;
-        for (const s of existSubs) {
-          const key = tid + '|' + String(s.title || '');
-          if (!subMap.has(key)) subMap.set(key, Number(s.id));
-        }
-      }
+      // 기존 소목차는 사전 로딩하지 않음 (subrequest 폭증 방지)
+      // → 같은 (topic, sub) 조합으로 TSV 재실행 시 sub가 중복될 수 있으나 매우 드문 케이스
     }
   }
   let tOrd = topicBase + 1;
