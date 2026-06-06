@@ -616,6 +616,16 @@ function initSortable() {
       ghostClass: 'sortable-ghost',
       chosenClass: 'sortable-chosen',
       dragClass: 'sortable-drag',
+      // 네이티브 HTML5 drag 우회 — 모든 브라우저·모바일에서 안정적
+      forceFallback: true,
+      fallbackTolerance: 4,    // 4px 이상 움직여야 드래그 시작 (탭 오작동 방지)
+      // 스크롤 가능 영역에서도 드래그 ↑↓
+      scroll: true,
+      scrollSensitivity: 80,
+      scrollSpeed: 12,
+      // 자식이 펼쳐진 경우(topic-body 등)에는 자식 요소가 sortable의 직접 자식이 아니어야 함
+      // → 직접 자식만 draggable로 한정
+      draggable: '.topic, .subtopic, .item',
       onEnd: async (evt) => {
         if (evt.oldIndex === evt.newIndex) return;
         const type = el.dataset.sortable;
