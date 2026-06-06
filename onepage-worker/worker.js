@@ -881,12 +881,16 @@ async function handleBulkImport(request, env, chapterId) {
   }
   let tOrd = topicBase + 1;
 
+  // Phase 1 (순차): topic·sub 생성 + item 페이로드 큐잉
+  // Phase 2 (병렬): item을 5개씩 묶어 Promise.all로 wall time 단축
+  // → Cloudflare 무료 플랜 30초 wall time 한도 안전 확보
   let i = start;
+  const itemQueue = [];
   while (i < parsed.rows.length) {
     const row = parsed.rows[i];
     // 토픽 생성 (필요 시)
     if (!topicMap.has(row.topic)) {
-      if (used + 1 > MAX_REQ) break;
+      if (used + itemQueue.length + 1 > MAX_REQ) break;
       const r = await ncbCreate(env, 'op_topics', {
         chapter_id: Number(chapterId),
         title: row.topic,
@@ -902,7 +906,7 @@ async function handleBulkImport(request, env, chapterId) {
     // 소목차 생성 (필요 시)
     const subKey = topicId + '|' + row.sub;
     if (!subMap.has(subKey)) {
-      if (used + 1 > MAX_REQ) break;
+      if (used + itemQueue.length + 1 > MAX_REQ) break;
       const r = await ncbCreate(env, 'op_subtopics', {
         topic_id: Number(topicId),
         title: row.sub,
@@ -914,9 +918,9 @@ async function handleBulkImport(request, env, chapterId) {
     }
     const subId = subMap.get(subKey);
 
-    // 내용 생성
-    if (used + 1 > MAX_REQ) break;
-    await ncbCreate(env, 'op_items', {
+    // item은 즉시 만들지 않고 큐에 쌓음
+    if (used + itemQueue.length + 1 > MAX_REQ) break;
+    itemQueue.push({
       subtopic_id: Number(subId),
       kind: 'text',
       text: row.text,
@@ -925,8 +929,16 @@ async function handleBulkImport(request, env, chapterId) {
       sort_order: i + 1,
       updated_at: kstDateTime(),
     });
-    used++; createdI++;
     i++;
+  }
+
+  // Phase 2: 큐의 item을 5개씩 병렬 생성
+  const BATCH = 5;
+  for (let k = 0; k < itemQueue.length; k += BATCH) {
+    const slice = itemQueue.slice(k, k + BATCH);
+    await Promise.all(slice.map(it => ncbCreate(env, 'op_items', it)));
+    used += slice.length;
+    createdI += slice.length;
   }
 
   return json({
