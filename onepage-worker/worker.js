@@ -187,26 +187,10 @@ const ncbH = (env) => ({
   'Authorization': `Bearer ${env.NCB_SECRET_KEY}`,
 });
 
-async function ncbCreate(env, table, data, timeoutMs = 6000) {
-  // AbortController로 개별 fetch 타임아웃 — nocodebackend가 hang되어도 Worker가 멈추지 않음
-  const ctrl = new AbortController();
-  const tid = setTimeout(() => ctrl.abort(), timeoutMs);
-  let res;
-  try {
-    res = await fetch(ncbUrl(`/create/${table}`), {
-      method: 'POST', headers: ncbH(env), body: JSON.stringify(data),
-      signal: ctrl.signal,
-    });
-  } catch (e) {
-    clearTimeout(tid);
-    if (e.name === 'AbortError') {
-      const err = new Error(`nocodebackend create timeout (${timeoutMs}ms): ${table}`);
-      err.status = 504; err.aborted = true;
-      throw err;
-    }
-    throw e;
-  }
-  clearTimeout(tid);
+async function ncbCreate(env, table, data) {
+  const res = await fetch(ncbUrl(`/create/${table}`), {
+    method: 'POST', headers: ncbH(env), body: JSON.stringify(data),
+  });
   const text = await res.text();
   let body = null;
   try { body = JSON.parse(text); } catch {}
@@ -222,19 +206,6 @@ async function ncbCreate(env, table, data, timeoutMs = 6000) {
 async function ncbRead(env, table, filters = '') {
   const r = await fetch(ncbUrl(`/read/${table}`, filters), { headers: ncbH(env) });
   return r.json();
-}
-// 페이지네이션 — limit=500 단위로 모든 행 반환 (op_topics 500개 초과 대비)
-async function ncbReadAll(env, table, filters = '', hardMax = 5000) {
-  const out = [];
-  const pageSize = 500;
-  for (let offset = 0; offset < hardMax; offset += pageSize) {
-    const q = `${filters}${filters ? '&' : ''}limit=${pageSize}&offset=${offset}`;
-    const r = await ncbRead(env, table, q);
-    const data = r.data || [];
-    out.push(...data);
-    if (data.length < pageSize) break;
-  }
-  return out;
 }
 async function ncbSearch(env, table, query) {
   const r = await fetch(ncbUrl(`/search/${table}`), {
@@ -833,7 +804,6 @@ function parseTSV(text) {
   //   대목차 칸이 비어 있으면 이전 대목차에 계속
   const lines = tsvLines(text);
   const rows = [];
-  const distinctTopics = new Set();
   let topicTitle = null;
 
   for (let i = 0; i < lines.length; i++) {
@@ -849,7 +819,7 @@ function parseTSV(text) {
     if (i === 0 && (a === '대목차' || a === 'topic' || a === 'Topic')) continue;
 
     // 새 대목차
-    if (a) { topicTitle = a; distinctTopics.add(a); }
+    if (a) topicTitle = a;
 
     if (b) {
       if (!topicTitle) return { error: `${i + 1}행: 대목차가 정해지지 않았습니다.` };
@@ -862,7 +832,7 @@ function parseTSV(text) {
     }
   }
 
-  return { rows, lines_count: lines.length, distinct_topics: distinctTopics.size };
+  return { rows };
 }
 
 // Cloudflare Workers 서브요청 한도(Free 50 / Paid 1000) 회피를 위한 청크 처리.
@@ -877,9 +847,7 @@ async function handleBulkImport(request, env, chapterId) {
   const subMap = new Map(Object.entries(b.sub_map || {}).map(([k, v]) => [k, Number(v)]));
   const baseSort = Number(b.base_sort) || 0;
 
-  const MAX_REQ = 20;   // 50 - 큰 안전 마진
-  const MAX_WALL_MS = 18000; // 30초 Cloudflare 한도의 60% — 응답 시간 변동 흡수
-  const startMs = Date.now();
+  const MAX_REQ = 40; // 50 - 안전 마진. 첫 호출은 read·delete도 포함되므로 더 보수적
 
   const chapter = await ncbReadById(env, 'op_chapters', chapterId);
   if (!chapter) return json({ error: 'chapter_not_found' }, 404, request);
@@ -893,12 +861,10 @@ async function handleBulkImport(request, env, chapterId) {
   let createdT = 0, createdS = 0, createdI = 0;
 
   // 첫 호출(start=0)에서만 초기 작업
-  // 핵심: 기존 topic을 topicMap에 prepopulate → TSV 동일 이름 와도 중복 생성 X
   if (start === 0) {
-    // 기존 토픽 전체 읽기 (페이지네이션 — 500 초과 안전)
-    const existTopics = await ncbReadAll(env, 'op_topics', `chapter_id=${chapterId}`, 5000);
-    used += Math.ceil(existTopics.length / 500) || 1;
-
+    const exist = await ncbRead(env, 'op_topics', `chapter_id=${chapterId}&limit=2000`);
+    used++;
+    const existTopics = exist.data || [];
     if (mode === 'replace') {
       for (const t of existTopics) {
         if (used >= MAX_REQ) break; // 너무 많이 지워야 하면 다음 호출에서
@@ -906,71 +872,49 @@ async function handleBulkImport(request, env, chapterId) {
         used++;
       }
     } else {
-      // append: 기존 토픽을 topicMap에 채움 (subrequest 0개 — 메모리 작업)
+      // append: 기존 토픽을 topicMap에 채움 → TSV 동일 이름이 와도 중복 생성 X
       for (const t of existTopics) {
         const title = String(t.title || '');
         if (title && !topicMap.has(title)) topicMap.set(title, Number(t.id));
         topicBase = Math.max(topicBase, Number(t.sort_order) || 0);
       }
-      // 기존 소목차는 사전 로딩하지 않음 (subrequest 폭증 방지)
-      // → 같은 (topic, sub) 조합으로 TSV 재실행 시 sub가 중복될 수 있으나 매우 드문 케이스
     }
   }
   let tOrd = topicBase + 1;
 
-  // Phase 1 (순차): topic·sub 생성 + item 페이로드 큐잉
-  // Phase 2 (병렬): item을 3개씩 Promise.all
-  // 모든 ncbCreate를 try/catch로 감싸서 hang·에러 시에도 부분 진행 반환 (throw X)
   let i = start;
-  let aborted = false;
-  let abortReason = '';
-  const itemQueue = [];
   while (i < parsed.rows.length) {
-    if (Date.now() - startMs > MAX_WALL_MS) { aborted = true; abortReason = 'time_budget_phase1'; break; }
     const row = parsed.rows[i];
-    // 토픽 생성 (필요 시)
     if (!topicMap.has(row.topic)) {
-      if (used + itemQueue.length + 1 > MAX_REQ) break;
-      try {
-        const r = await ncbCreate(env, 'op_topics', {
-          chapter_id: Number(chapterId),
-          title: row.topic,
-          sort_order: tOrd++,
-          is_free: 0,
-          updated_at: kstDateTime(),
-        });
-        topicMap.set(row.topic, Number(r.id));
-        used++; createdT++;
-      } catch (e) {
-        aborted = true; abortReason = 'topic_create_fail:' + (e.message || '').slice(0, 100);
-        break;
-      }
+      if (used + 1 > MAX_REQ) break;
+      const r = await ncbCreate(env, 'op_topics', {
+        chapter_id: Number(chapterId),
+        title: row.topic,
+        sort_order: tOrd++,
+        is_free: 0,
+        updated_at: kstDateTime(),
+      });
+      topicMap.set(row.topic, Number(r.id));
+      used++; createdT++;
     }
     const topicId = topicMap.get(row.topic);
 
-    // 소목차 생성 (필요 시)
     const subKey = topicId + '|' + row.sub;
     if (!subMap.has(subKey)) {
-      if (used + itemQueue.length + 1 > MAX_REQ) break;
-      try {
-        const r = await ncbCreate(env, 'op_subtopics', {
-          topic_id: Number(topicId),
-          title: row.sub,
-          sort_order: subMap.size + 1,
-          updated_at: kstDateTime(),
-        });
-        subMap.set(subKey, Number(r.id));
-        used++; createdS++;
-      } catch (e) {
-        aborted = true; abortReason = 'sub_create_fail:' + (e.message || '').slice(0, 100);
-        break;
-      }
+      if (used + 1 > MAX_REQ) break;
+      const r = await ncbCreate(env, 'op_subtopics', {
+        topic_id: Number(topicId),
+        title: row.sub,
+        sort_order: subMap.size + 1,
+        updated_at: kstDateTime(),
+      });
+      subMap.set(subKey, Number(r.id));
+      used++; createdS++;
     }
     const subId = subMap.get(subKey);
 
-    // item은 즉시 만들지 않고 큐에 쌓음
-    if (used + itemQueue.length + 1 > MAX_REQ) break;
-    itemQueue.push({
+    if (used + 1 > MAX_REQ) break;
+    await ncbCreate(env, 'op_items', {
       subtopic_id: Number(subId),
       kind: 'text',
       text: row.text,
@@ -978,35 +922,10 @@ async function handleBulkImport(request, env, chapterId) {
       caption: '',
       sort_order: i + 1,
       updated_at: kstDateTime(),
-      _rowIndex: i,
     });
+    used++; createdI++;
     i++;
   }
-
-  // Phase 2: 큐의 item을 3개씩 병렬 생성
-  const BATCH = 3;
-  let lastFlushedRow = start - 1;
-  for (let k = 0; k < itemQueue.length; k += BATCH) {
-    if (Date.now() - startMs > 26000) { aborted = true; abortReason = 'time_budget_phase2'; break; }
-    const slice = itemQueue.slice(k, k + BATCH);
-    try {
-      await Promise.all(slice.map(it => {
-        const { _rowIndex, ...payload } = it;
-        return ncbCreate(env, 'op_items', payload);
-      }));
-      used += slice.length;
-      createdI += slice.length;
-      lastFlushedRow = slice[slice.length - 1]._rowIndex;
-    } catch (e) {
-      aborted = true; abortReason = 'item_create_fail:' + (e.message || '').slice(0, 100);
-      break;
-    }
-  }
-  // 미완료 item이 있으면 i를 그 행으로 되돌림 → 클라이언트가 다음 호출에서 재시도
-  if (itemQueue.length > 0 && lastFlushedRow + 1 < i) {
-    i = lastFlushedRow + 1;
-  }
-  if (aborted) console.log(`[BULK ABORTED] start=${start} i=${i} reason=${abortReason}`);
 
   return json({
     ok: true,
@@ -1014,14 +933,9 @@ async function handleBulkImport(request, env, chapterId) {
     next_start: i,
     done: i >= parsed.rows.length,
     total: parsed.rows.length,
-    lines_count: parsed.lines_count,
-    distinct_topics: parsed.distinct_topics,
     base_sort: tOrd - 1,
     topic_map: Object.fromEntries(topicMap),
     sub_map: Object.fromEntries(subMap),
-    aborted: aborted || undefined,
-    abort_reason: aborted ? abortReason : undefined,
-    elapsed_ms: Date.now() - startMs,
   }, 200, request);
 }
 
