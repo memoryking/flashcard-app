@@ -145,6 +145,14 @@ a { color: #4fc3f7; text-decoration: none; }
   background: rgba(76,175,80,0.2); color: #81c784;
   padding: 2px 8px; border-radius: 50px; font-weight: 700;
 }
+.chapter-meta .draft-tag {
+  background: rgba(255,193,7,0.2); color: #ffd54f;
+  padding: 2px 8px; border-radius: 50px; font-weight: 700;
+}
+.chapter.draft .chapter-head { opacity: 0.65; }
+.chapter.draft .chapter-head .chapter-title .name::after {
+  content: ' (비공개)'; color: #ffd54f; font-weight: 600; font-size: 11px;
+}
 .chapter-actions {
   display: flex; gap: 4px; flex-shrink: 0;
 }
@@ -689,7 +697,9 @@ function syncSortOrder(type, parentId, ids) {
 
 function renderChapter(c) {
   const opened = state.expanded.chapter.has(c.id);
-  const cls = 'chapter' + (opened ? ' opened' : '');
+  // is_published 미지정 또는 1이면 공개. 명시적 0만 비공개(draft).
+  const isDraft = c.is_published != null && Number(c.is_published) === 0;
+  const cls = 'chapter' + (opened ? ' opened' : '') + (isDraft ? ' draft' : '');
   let body = '';
   if (opened) {
     const topics = state.topicsByChapter[c.id];
@@ -723,6 +733,7 @@ function renderChapter(c) {
             <div class="name">${escapeHtml(c.title || '')}</div>
           </div>
           <div class="chapter-meta">
+            ${isDraft ? '<span class="draft-tag">📝 비공개</span>' : ''}
             ${c.is_all_free ? '<span class="free-all">✨ 전체 무료</span>' : ''}
             <span>${Number(c.monthly_price || 0).toLocaleString()}원/월</span>
           </div>
@@ -893,8 +904,10 @@ function openChapterModal(id) {
         <div><label>표시 순서</label><input type="number" id="m_order" value="${c?.sort_order ?? 0}"></div>
       </div>
       <div class="form-row"><label class="check"><input type="checkbox" id="m_freeAll" ${c?.is_all_free ? 'checked' : ''}> 챕터 전체 무료 (구독 없이 모든 내용 공개)</label></div>
+      <div class="form-row"><label class="check"><input type="checkbox" id="m_published" ${c && (c.is_published == null || Number(c.is_published) !== 0) ? 'checked' : ''}> 🌐 학생에게 공개 (체크 해제 시 선생님만 볼 수 있는 비공개 상태)</label></div>
       <div style="margin-top:8px;padding:8px 10px;background:rgba(76,175,80,0.08);border-radius:6px;font-size:11px;color:rgba(255,255,255,0.55);line-height:1.5;">
-        💡 결제 링크는 자동 생성됩니다. 페이앱 콘솔에 상품을 미리 만들 필요 없이 제목·가격만 입력하면 학생이 결제 시 동적으로 결제 페이지가 생성됩니다.
+        💡 결제 링크는 자동 생성됩니다. 페이앱 콘솔에 상품을 미리 만들 필요 없이 제목·가격만 입력하면 학생이 결제 시 동적으로 결제 페이지가 생성됩니다.<br>
+        💡 신규 챕터는 기본 <strong>비공개</strong>로 만들어집니다 — 콘텐츠 다 채운 후 체크해서 공개하세요.
       </div>
     `,
     save: async () => {
@@ -906,6 +919,7 @@ function openChapterModal(id) {
         monthly_price: Number($('m_price').value) || 3000,
         sort_order: Number($('m_order').value) || 0,
         is_all_free: $('m_freeAll').checked,
+        is_published: $('m_published').checked,
         // pay_url 입력 칸은 제거됨 (Worker가 결제 시 동적 생성)
         // 기존 값은 DB에 그대로 보존 (fallback용 + 마이그레이션 안전)
       };

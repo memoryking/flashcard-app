@@ -544,6 +544,18 @@ function withTopicAnchor(topicId, callback) {
 ### 모두 접기 / 새로고침 / 일괄 입력
 - 툴바에 버튼 3개
 
+### 공개/비공개 (draft)
+쇼핑몰 상품처럼 콘텐츠를 미리 올려두고 공개 시점 결정 가능.
+
+- 챕터 편집 모달 → **🌐 학생에게 공개** 체크박스
+- **신규 챕터는 기본 비공개** — 콘텐츠 다 채운 후 명시적 공개
+- 비공개 챕터:
+  - 선생님 앱: 카드 흐림 + `📝 비공개` 배지 + 제목 옆 `(비공개)` 표시 → 모두 노출
+  - 학생 앱: `/chapters` 응답에서 제외 → 카드 자체가 안 보임
+- `op_chapters.is_published` 컬럼 (BOOLEAN, default `1`)
+  - Worker가 `is_published=0`인 챕터만 학생에게 숨김
+  - NULL/미존재는 공개로 간주 (기존 데이터 호환)
+
 ### 드래그앤드롭 순서 변경 (SortableJS)
 각 항목 좌측의 **⋮⋮ 핸들**을 끌어 같은 부모 안에서 순서 변경. 떨어뜨리면 자동 저장.
 
@@ -992,7 +1004,7 @@ wrangler secret put PABBLY_WEBHOOK_URL
 - **FailedPayments**: mul_no, goodname, phone, email, amount, raw, error_message, retry_count, created_at (Created time auto), resolved — Pabbly 라우터의 안전망 (Airtable 쓰기 실패 시)
 
 ### nocodebackend (콘텐츠)
-- **op_chapters**: id, subject, title, sort_order, icon, description, monthly_price, is_all_free, **pay_url** (페이앱 결제 링크)
+- **op_chapters**: id, subject, title, sort_order, icon, description, monthly_price, is_all_free, **is_published** (0=비공개/draft — 학생 숨김), **pay_url** (페이앱 결제 링크)
 - **op_topics**: id, chapter_id, title, sort_order, is_free
 - **op_subtopics**: id, topic_id, title, sort_order, image_b64, caption
 - **op_items**: id, subtopic_id, kind, text, image_b64, caption, sort_order

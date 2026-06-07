@@ -491,7 +491,18 @@ async function handleListChapters(request, env) {
   const base = subject ? `subject=${encodeURIComponent(subject)}` : '';
   const filter = base ? `${base}&limit=2000` : 'limit=2000';
   const r = await ncbRead(env, 'op_chapters', filter);
-  const list = (r.data || []).sort((a, b) =>
+  // 학생에겐 비공개(is_published=0) 챕터 숨김. 선생님은 모두 노출.
+  // is_published 컬럼이 없거나 null이면 publish=1로 간주 (기존 데이터 호환)
+  const auth = await verifyAuth(request, env);
+  const isTeacher = auth && auth.role === 'teacher';
+  let list = r.data || [];
+  if (!isTeacher) {
+    list = list.filter(c => {
+      const v = c.is_published;
+      return v === undefined || v === null || Number(v) !== 0;
+    });
+  }
+  list.sort((a, b) =>
     (a.subject || '').localeCompare(b.subject || '') ||
     (Number(a.sort_order) || 0) - (Number(b.sort_order) || 0) ||
     (Number(a.id) || 0) - (Number(b.id) || 0)
@@ -509,6 +520,7 @@ async function handleCreateChapter(request, env, user) {
     description: String(b.description || ''),
     monthly_price: Number(b.monthly_price) || 3000,
     is_all_free: b.is_all_free ? 1 : 0,
+    is_published: b.is_published ? 1 : 0,  // 신규 챕터 기본 비공개 (선생님이 명시적 공개)
     pay_url: String(b.pay_url || '').trim(),
     updated_at: kstDateTime(),
   };
@@ -527,6 +539,7 @@ async function handleUpdateChapter(request, env, user, id) {
   if (b.description !== undefined) patch.description = String(b.description);
   if (b.monthly_price !== undefined) patch.monthly_price = Number(b.monthly_price) || 3000;
   if (b.is_all_free !== undefined) patch.is_all_free = b.is_all_free ? 1 : 0;
+  if (b.is_published !== undefined) patch.is_published = b.is_published ? 1 : 0;
   if (b.pay_url !== undefined) patch.pay_url = String(b.pay_url).trim();
   patch.updated_at = kstDateTime();
   const r = await ncbUpdate(env, 'op_chapters', id, patch);

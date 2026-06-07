@@ -309,6 +309,7 @@ Type 드롭다운에 보이는 옵션: `INT`, `BIGINT`, `VARCHAR(255)`, `DROPDOW
 | `description` | TEXT | — | — | — | 카드 부제 |
 | `monthly_price` | INT | ✅ | — | `3000` | 원 단위 |
 | `is_all_free` | BOOLEAN | ✅ | — | `0` | 1이면 챕터 전체 무료 |
+| `is_published` | BOOLEAN | — | — | `1` | **0이면 비공개(draft)** — 학생 `/chapters` 응답에서 제외. 선생님 앱은 모두 노출. 신규 챕터는 선생님 앱에서 0으로 생성. 컬럼이 없거나 NULL이면 공개로 간주 (기존 데이터 호환). |
 | `pay_url` | VARCHAR(255) | — | — | — | **(deprecated v2)** 옛 정적 QR 링크 저장용. v2 (Worker REST)부터 사용 안 함 — Worker가 결제 시 동적으로 PayApp 세션 생성. 컬럼은 fallback·마이그레이션 안전을 위해 보존. |
 | `updated_at` | DATETIME | — | — | — | Worker가 갱신 |
 
@@ -321,6 +322,12 @@ Type 드롭다운에 보이는 옵션: `INT`, `BIGINT`, `VARCHAR(255)`, `DROPDOW
 > ```sql
 > ALTER TABLE op_chapters ADD COLUMN pay_url VARCHAR(255) NULL;
 > ```
+
+> **마이그레이션 (`is_published`)**: 기존 챕터를 모두 공개로 유지하려면
+> ```sql
+> ALTER TABLE op_chapters ADD COLUMN is_published TINYINT(1) NOT NULL DEFAULT 1;
+> ```
+> NULL 허용으로 만들 경우 Worker가 NULL을 공개로 간주하지만, 명시적 DEFAULT 1이 더 안전.
 
 ---
 
