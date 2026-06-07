@@ -821,6 +821,9 @@ a { color: #4fc3f7; text-decoration: none; }
       </svg>
     </button>
     <button class="icon-btn" onclick="refreshChapter()" title="최신 콘텐츠 불러오기">↻</button>
+    <div class="live-chip" id="liveChipCh" style="display:none">
+      <div class="live-dot"></div><span id="liveCountCh">0</span>명 학습 중
+    </div>
     <div class="spacer"></div>
     <button class="icon-btn collapse-center" onclick="collapseAll()" title="모두 접기">
       <svg width="26" height="22" viewBox="0 0 26 22" fill="none" stroke="currentColor"
@@ -1222,10 +1225,19 @@ async function loadLiveCount() {
   try {
     const r = await api('GET', '/stats/learners-now');
     state.liveCount = Number(r.count) || 0;
-    const chip = $('liveChip');
-    $('liveCount').textContent = state.liveCount;
-    chip.style.display = state.liveCount > 0 ? 'flex' : 'none';
+    updateLiveChips();
   } catch {}
+}
+function updateLiveChips() {
+  const show = state.liveCount > 0;
+  // 홈 헤더 + 챕터 헤더 양쪽 동기화 (한 곳만 보이지만 둘 다 갱신해두면 화면 전환 시 즉시 반영)
+  for (const [chipId, countId] of [['liveChip', 'liveCount'], ['liveChipCh', 'liveCountCh']]) {
+    const chip = $(chipId);
+    const count = $(countId);
+    if (!chip || !count) continue;
+    count.textContent = state.liveCount;
+    chip.style.display = show ? 'flex' : 'none';
+  }
 }
 
 function renderHome() {
@@ -1318,6 +1330,7 @@ async function enterChapter(chapterId) {
   state.memorizedView = false;
   const memoBtn = $('memorizedBtn');
   if (memoBtn) memoBtn.classList.remove('active');
+  updateLiveChips(); // 캐시된 라이브 카운트 즉시 반영 (다음 폴링 기다리지 않음)
   $('homeScreen').style.display = 'none';
   $('chapterScreen').style.display = 'block';
   window.scrollTo(0, 0);
