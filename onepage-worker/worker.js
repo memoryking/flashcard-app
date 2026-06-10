@@ -924,11 +924,12 @@ async function handleBulkImport(request, env, chapterId) {
   let tOrd = topicBase + 1;
 
   let i = start;
-  let mergeItemsDeleted = 0; // 부분 진행 감지용 (i가 안 올라도 작업은 했음)
+  let mergeItemsDeleted = 0;
+  const itemQueue = []; // Phase 2 병렬 생성용 — 5개씩 묶어 Promise.all
   while (i < parsed.rows.length) {
     const row = parsed.rows[i];
     if (!topicMap.has(row.topic)) {
-      if (used + 1 > MAX_REQ) break;
+      if (used + itemQueue.length + 1 > MAX_REQ) break;
       const r = await ncbCreate(env, 'op_topics', {
         chapter_id: Number(chapterId),
         title: row.topic,
@@ -942,9 +943,8 @@ async function handleBulkImport(request, env, chapterId) {
     const topicId = topicMap.get(row.topic);
 
     // merge: 기존 토픽이면 그 토픽의 소목차들을 한 번만 로딩 (지연 prepopulate)
-    // 신규 생성된 토픽은 자식 소목차가 없으므로 스킵
     if (mode === 'merge' && initialTopicIds.has(topicId) && !loadedTopicSubs.has(topicId)) {
-      if (used + 1 > MAX_REQ) break;
+      if (used + itemQueue.length + 1 > MAX_REQ) break;
       const subResp = await ncbRead(env, 'op_subtopics', `topic_id=${topicId}&limit=2000`);
       used++;
       for (const s of (subResp.data || [])) {
@@ -957,7 +957,7 @@ async function handleBulkImport(request, env, chapterId) {
 
     const subKey = topicId + '|' + row.sub;
     if (!subMap.has(subKey)) {
-      if (used + 1 > MAX_REQ) break;
+      if (used + itemQueue.length + 1 > MAX_REQ) break;
       const r = await ncbCreate(env, 'op_subtopics', {
         topic_id: Number(topicId),
         title: row.sub,
@@ -971,34 +971,33 @@ async function handleBulkImport(request, env, chapterId) {
 
     // merge: 원래 있던 소목차면 기존 items 한 번 비움 (subtopic_id는 그대로 → 학습 기록 보존)
     if (mode === 'merge' && originalSubIds.has(subId) && !clearedSubs.has(subId)) {
-      if (used + 1 > MAX_REQ) break; // 읽기 budget 없음 → 다음 호출에서 재시도
+      if (used + itemQueue.length + 1 > MAX_REQ) break;
       const itemResp = await ncbRead(env, 'op_items', `subtopic_id=${subId}&limit=2000`);
       used++;
       const existingItems = itemResp.data || [];
-      // 병렬 5개씩 삭제 — wall time 단축. Cloudflare 6 concurrent connection 한도 안전
       const DELETE_BATCH = 5;
       let deletedAll = true;
       for (let k = 0; k < existingItems.length; k += DELETE_BATCH) {
-        const remaining = MAX_REQ - used;
+        const remaining = MAX_REQ - used - itemQueue.length;
         if (remaining <= 0) { deletedAll = false; break; }
         const slice = existingItems.slice(k, Math.min(k + DELETE_BATCH, k + remaining));
         await Promise.all(slice.map(it => ncbDelete(env, 'op_items', it.id)));
         used += slice.length;
         mergeItemsDeleted += slice.length;
-        if (k + slice.length < existingItems.length && used >= MAX_REQ) {
+        if (k + slice.length < existingItems.length && used + itemQueue.length >= MAX_REQ) {
           deletedAll = false; break;
         }
       }
       if (deletedAll) {
         clearedSubs.add(subId);
       } else {
-        // 일부만 지워졌으면 다음 호출에서 재시도 — i 안 올리고 break
         break;
       }
     }
 
-    if (used + 1 > MAX_REQ) break;
-    await ncbCreate(env, 'op_items', {
+    // item은 즉시 생성하지 않고 큐에 쌓음 (Phase 2에서 5개씩 병렬 생성)
+    if (used + itemQueue.length + 1 > MAX_REQ) break;
+    itemQueue.push({
       subtopic_id: Number(subId),
       kind: 'text',
       text: row.text,
@@ -1007,8 +1006,16 @@ async function handleBulkImport(request, env, chapterId) {
       sort_order: i + 1,
       updated_at: kstDateTime(),
     });
-    used++; createdI++;
     i++;
+  }
+
+  // Phase 2: item 큐를 5개씩 병렬 생성 — wall time 1/5로 단축
+  const CREATE_BATCH = 5;
+  for (let k = 0; k < itemQueue.length; k += CREATE_BATCH) {
+    const slice = itemQueue.slice(k, k + CREATE_BATCH);
+    await Promise.all(slice.map(payload => ncbCreate(env, 'op_items', payload)));
+    used += slice.length;
+    createdI += slice.length;
   }
 
   return json({
