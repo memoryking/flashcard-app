@@ -1353,6 +1353,7 @@ function openBulkModal(chapterId) {
       // 청크 반복 호출 — Worker 서브요청 한도 우회
       let topicMap = {}, subMap = {}, baseSort = 0;
       let originalSubIds = [], clearedSubs = [];
+      let initialTopicIds = [], loadedTopicSubs = [];
       let start = 0, totalT = 0, totalS = 0, totalI = 0, total = 0;
       let curMode = mode;
       try {
@@ -1361,16 +1362,20 @@ function openBulkModal(chapterId) {
             tsv, mode: curMode, start,
             topic_map: topicMap, sub_map: subMap, base_sort: baseSort,
             original_sub_ids: originalSubIds, cleared_subs: clearedSubs,
+            initial_topic_ids: initialTopicIds, loaded_topic_subs: loadedTopicSubs,
           });
           totalT += r.t_added; totalS += r.s_added; totalI += r.i_added;
           total = r.total;
-          if (r.next_start === start && !r.done) {
+          // i가 안 올라도 merge clear 도중이면 progress 인정 (정상)
+          if (r.next_start === start && !r.done && !r.merge_progress) {
             throw new Error('진행이 멈췄습니다. 데이터를 확인해주세요.');
           }
           start = r.next_start;
           topicMap = r.topic_map; subMap = r.sub_map; baseSort = r.base_sort;
           if (r.original_sub_ids) originalSubIds = r.original_sub_ids;
           if (r.cleared_subs) clearedSubs = r.cleared_subs;
+          if (r.initial_topic_ids) initialTopicIds = r.initial_topic_ids;
+          if (r.loaded_topic_subs) loadedTopicSubs = r.loaded_topic_subs;
           // merge 모드: 후속 호출도 merge 유지 (item clear 로직 작동)
           // replace 모드: 두번째 호출부터는 삭제 안 함 → append로 전환
           if (curMode === 'replace') curMode = 'append';
