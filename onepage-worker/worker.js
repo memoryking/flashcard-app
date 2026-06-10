@@ -885,7 +885,7 @@ async function handleBulkImport(request, env, chapterId) {
   const loadedTopicSubs = new Set((b.loaded_topic_subs || []).map(Number));
   const baseSort = Number(b.base_sort) || 0;
 
-  const MAX_REQ = 40; // 50 - 안전 마진. 첫 호출은 read·delete도 포함되므로 더 보수적
+  const MAX_REQ = 35; // 50 - 안전 마진. merge 모드는 read+delete+create 누적이라 wall time 보호 필요
 
   const chapter = await ncbReadById(env, 'op_chapters', chapterId);
   if (!chapter) return json({ error: 'chapter_not_found' }, 404, request);
@@ -975,12 +975,19 @@ async function handleBulkImport(request, env, chapterId) {
       const itemResp = await ncbRead(env, 'op_items', `subtopic_id=${subId}&limit=2000`);
       used++;
       const existingItems = itemResp.data || [];
+      // 병렬 5개씩 삭제 — wall time 단축. Cloudflare 6 concurrent connection 한도 안전
+      const DELETE_BATCH = 5;
       let deletedAll = true;
-      for (const it of existingItems) {
-        if (used + 1 > MAX_REQ) { deletedAll = false; break; }
-        await ncbDelete(env, 'op_items', it.id);
-        used++;
-        mergeItemsDeleted++;
+      for (let k = 0; k < existingItems.length; k += DELETE_BATCH) {
+        const remaining = MAX_REQ - used;
+        if (remaining <= 0) { deletedAll = false; break; }
+        const slice = existingItems.slice(k, Math.min(k + DELETE_BATCH, k + remaining));
+        await Promise.all(slice.map(it => ncbDelete(env, 'op_items', it.id)));
+        used += slice.length;
+        mergeItemsDeleted += slice.length;
+        if (k + slice.length < existingItems.length && used >= MAX_REQ) {
+          deletedAll = false; break;
+        }
       }
       if (deletedAll) {
         clearedSubs.add(subId);
