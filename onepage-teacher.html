@@ -1356,6 +1356,7 @@ function openBulkModal(chapterId) {
       let initialTopicIds = [], loadedTopicSubs = [];
       let start = 0, totalT = 0, totalS = 0, totalI = 0, total = 0;
       let curMode = mode;
+      const startMs = Date.now();
       try {
         for (let pass = 0; pass < 200; pass++) { // 안전 상한 200회
           const r = await api('POST', `/chapters/${chapterId}/bulk`, {
@@ -1380,17 +1381,31 @@ function openBulkModal(chapterId) {
           // replace 모드: 두번째 호출부터는 삭제 안 함 → append로 전환
           if (curMode === 'replace') curMode = 'append';
           if (r.done) break;
-          // 진행 토스트 (오버라이트)
+          // 진행 토스트 (오버라이트) + ETA 계산
           const pct = total ? Math.round(start / total * 100) : 0;
+          const elapsedSec = (Date.now() - startMs) / 1000;
+          const rate = start / elapsedSec; // items/sec
+          let etaStr = '';
+          if (rate > 0 && start > 0) {
+            const remainingSec = (total - start) / rate;
+            etaStr = remainingSec > 90
+              ? ` · 남은 ~${Math.ceil(remainingSec / 60)}분`
+              : ` · 남은 ~${Math.max(1, Math.ceil(remainingSec))}초`;
+          }
           const t = $('toast');
-          t.textContent = `진행 중… ${start}/${total} (${pct}%)`;
+          t.textContent = `진행 중… ${start}/${total} (${pct}%)${etaStr}`;
           t.className = 'show';
         }
-        toast(`완료: 대목차 ${totalT} / 소목차 ${totalS} / 내용 ${totalI}`);
+        const elapsedSec = Math.round((Date.now() - startMs) / 1000);
+        const elapsedStr = elapsedSec > 60
+          ? `${Math.floor(elapsedSec / 60)}분 ${elapsedSec % 60}초`
+          : `${elapsedSec}초`;
         delete state.topicsByChapter[chapterId];
         Object.keys(state.subtopicsByTopic).forEach(k => delete state.subtopicsByTopic[k]);
         Object.keys(state.itemsBySubtopic).forEach(k => delete state.itemsBySubtopic[k]);
         await loadTopics(chapterId);
+        // 완료 후 명확한 alert — 토스트는 짧아서 놓치기 쉬움
+        alert(`✅ 입력 완료! (소요 ${elapsedStr})\n\n• 대목차 추가/매칭: ${totalT}\n• 소목차 추가/매칭: ${totalS}\n• 내용 입력: ${totalI}`);
         return true;
       } catch (e) { toast(e.message, true); return false; }
       finally { showLoading(false); }
