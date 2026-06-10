@@ -1336,19 +1336,23 @@ function openBulkModal(chapterId) {
       </div>
       <div class="form-row">
         <label class="check"><input type="radio" name="mode" id="m_modeA" value="append" checked> 기존 내용 뒤에 추가</label>
-        <label class="check"><input type="radio" name="mode" id="m_modeR" value="replace"> ⚠️ 전체 교체 (기존 모든 대목차 삭제 후 신규)</label>
+        <label class="check"><input type="radio" name="mode" id="m_modeM" value="merge"> ✨ 내용만 교체 — 같은 이름의 대목차·소목차는 그대로 두고 <strong>내용(items)</strong>만 새로 입력 <span style="color:#81c784">(학생의 꾹누른 기록 보존)</span></label>
+        <label class="check"><input type="radio" name="mode" id="m_modeR" value="replace"> ⚠️ 전체 교체 — 대목차 삭제 후 신규 <span style="color:#fca5a5">(학생 학습 기록 모두 삭제)</span></label>
       </div>
     `,
     save: async () => {
       const tsv = $('m_tsv').value;
-      const mode = $('m_modeR').checked ? 'replace' : 'append';
+      const mode = $('m_modeR').checked ? 'replace' : ($('m_modeM').checked ? 'merge' : 'append');
       if (!tsv.trim()) { toast('내용 비어 있음', true); return false; }
       if (mode === 'replace') {
-        if (!confirm('전체 교체는 기존 모든 대목차·소목차·내용을 삭제합니다.\n정말 진행할까요?')) return false;
+        if (!confirm('⚠️ 전체 교체는 기존 모든 대목차·소목차·내용을 삭제합니다.\n학생들의 꾹누른 기록도 함께 삭제됩니다.\n정말 진행할까요?')) return false;
+      } else if (mode === 'merge') {
+        if (!confirm('✨ 내용만 교체: 같은 이름의 대목차·소목차는 그대로 두고 안의 내용(items)만 교체합니다.\n학생의 꾹누른 기록은 보존됩니다.\n진행할까요?')) return false;
       }
       showLoading(true);
       // 청크 반복 호출 — Worker 서브요청 한도 우회
       let topicMap = {}, subMap = {}, baseSort = 0;
+      let originalSubIds = [], clearedSubs = [];
       let start = 0, totalT = 0, totalS = 0, totalI = 0, total = 0;
       let curMode = mode;
       try {
@@ -1356,6 +1360,7 @@ function openBulkModal(chapterId) {
           const r = await api('POST', `/chapters/${chapterId}/bulk`, {
             tsv, mode: curMode, start,
             topic_map: topicMap, sub_map: subMap, base_sort: baseSort,
+            original_sub_ids: originalSubIds, cleared_subs: clearedSubs,
           });
           totalT += r.t_added; totalS += r.s_added; totalI += r.i_added;
           total = r.total;
@@ -1364,7 +1369,11 @@ function openBulkModal(chapterId) {
           }
           start = r.next_start;
           topicMap = r.topic_map; subMap = r.sub_map; baseSort = r.base_sort;
-          curMode = 'append'; // 두번째 호출부터는 삭제 다시 X
+          if (r.original_sub_ids) originalSubIds = r.original_sub_ids;
+          if (r.cleared_subs) clearedSubs = r.cleared_subs;
+          // merge 모드: 후속 호출도 merge 유지 (item clear 로직 작동)
+          // replace 모드: 두번째 호출부터는 삭제 안 함 → append로 전환
+          if (curMode === 'replace') curMode = 'append';
           if (r.done) break;
           // 진행 토스트 (오버라이트)
           const pct = total ? Math.round(start / total * 100) : 0;

@@ -872,11 +872,15 @@ function parseTSV(text) {
 // 클라이언트가 done=true 될 때까지 반복 호출.
 async function handleBulkImport(request, env, chapterId) {
   const b = await request.json().catch(() => ({}));
-  const mode = b.mode === 'replace' ? 'replace' : 'append';
+  // mode: 'append' (기본) | 'merge' (제목 매칭 + 내용만 교체, 학습 기록 보존) | 'replace' (대목차 삭제 후 신규)
+  const mode = b.mode === 'replace' ? 'replace' : (b.mode === 'merge' ? 'merge' : 'append');
   const text = String(b.tsv || b.text || '');
   const start = Number(b.start) || 0;
   const topicMap = new Map(Object.entries(b.topic_map || {}).map(([k, v]) => [k, Number(v)]));
   const subMap = new Map(Object.entries(b.sub_map || {}).map(([k, v]) => [k, Number(v)]));
+  // merge 모드 전용 — 청크 간 상태 유지
+  const originalSubIds = new Set((b.original_sub_ids || []).map(Number));
+  const clearedSubs = new Set((b.cleared_subs || []).map(Number));
   const baseSort = Number(b.base_sort) || 0;
 
   const MAX_REQ = 40; // 50 - 안전 마진. 첫 호출은 read·delete도 포함되므로 더 보수적
@@ -904,11 +908,25 @@ async function handleBulkImport(request, env, chapterId) {
         used++;
       }
     } else {
-      // append: 기존 토픽을 topicMap에 채움 → TSV 동일 이름이 와도 중복 생성 X
+      // append·merge: 기존 토픽을 topicMap에 채움 → TSV 동일 이름이 와도 중복 생성 X
       for (const t of existTopics) {
         const title = String(t.title || '');
         if (title && !topicMap.has(title)) topicMap.set(title, Number(t.id));
         topicBase = Math.max(topicBase, Number(t.sort_order) || 0);
+      }
+      // merge: 기존 소목차도 모두 읽어 subMap·originalSubIds 채움
+      // (제목 매칭으로 기존 소목차 재사용 → 학생 꾹누른 기록 보존)
+      if (mode === 'merge') {
+        for (const t of existTopics) {
+          if (used >= MAX_REQ - 3) break; // 콘텐츠 처리용 budget 남김
+          const subResp = await ncbRead(env, 'op_subtopics', `topic_id=${t.id}&limit=2000`);
+          used++;
+          for (const s of (subResp.data || [])) {
+            const key = Number(t.id) + '|' + String(s.title || '');
+            if (!subMap.has(key)) subMap.set(key, Number(s.id));
+            originalSubIds.add(Number(s.id));
+          }
+        }
       }
     }
   }
@@ -945,6 +963,26 @@ async function handleBulkImport(request, env, chapterId) {
     }
     const subId = subMap.get(subKey);
 
+    // merge: 원래 있던 소목차면 기존 items 한 번 비움 (subtopic_id는 그대로 → 학습 기록 보존)
+    if (mode === 'merge' && originalSubIds.has(subId) && !clearedSubs.has(subId)) {
+      if (used + 1 > MAX_REQ) break; // 읽기 budget 없음 → 다음 호출에서 재시도
+      const itemResp = await ncbRead(env, 'op_items', `subtopic_id=${subId}&limit=2000`);
+      used++;
+      const existingItems = itemResp.data || [];
+      let deletedAll = true;
+      for (const it of existingItems) {
+        if (used + 1 > MAX_REQ) { deletedAll = false; break; }
+        await ncbDelete(env, 'op_items', it.id);
+        used++;
+      }
+      if (deletedAll) {
+        clearedSubs.add(subId);
+      } else {
+        // 일부만 지워졌으면 다음 호출에서 재시도 — i 안 올리고 break
+        break;
+      }
+    }
+
     if (used + 1 > MAX_REQ) break;
     await ncbCreate(env, 'op_items', {
       subtopic_id: Number(subId),
@@ -968,6 +1006,8 @@ async function handleBulkImport(request, env, chapterId) {
     base_sort: tOrd - 1,
     topic_map: Object.fromEntries(topicMap),
     sub_map: Object.fromEntries(subMap),
+    original_sub_ids: [...originalSubIds],
+    cleared_subs: [...clearedSubs],
   }, 200, request);
 }
 
