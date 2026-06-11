@@ -260,8 +260,9 @@ a { color: #4fc3f7; text-decoration: none; }
   position: relative; overflow: hidden;
   -webkit-tap-highlight-color: rgba(233,69,96,0.15);
   touch-action: manipulation;
-  /* 모든 카드의 ch-actions를 카드 바닥에 정렬 → 제목 길이와 무관하게 열기 버튼 높이 통일 */
-  display: flex; flex-direction: column;
+  /* 박스 크기 고정 — 2줄 제목 카드도 안에 다 들어가는 높이.
+     내용은 자연스럽게 위에서부터 흐름 → 1줄 제목 카드는 아래쪽 여백이 생기지만 박스 크기는 동일 */
+  min-height: 210px;
 }
 .chapter-card .ch-corner-badge {
   position: absolute; top: 8px; right: 10px;
@@ -284,9 +285,7 @@ a { color: #4fc3f7; text-decoration: none; }
 .chapter-card .ch-status.never { background: rgba(255,255,255,0.08); color: rgba(255,255,255,0.6); }
 .chapter-card .ch-status.free { background: rgba(76,175,80,0.25); color: #81c784; }
 .chapter-card .ch-actions {
-  display: flex; gap: 5px;
-  /* auto로 위쪽 공간 채워서 항상 카드 바닥에 붙음 */
-  margin-top: auto; padding-top: 10px;
+  display: flex; gap: 5px; margin-top: 10px;
 }
 .chapter-card .ch-actions button {
   flex: 1; padding: 7px; font-size: 11px; font-weight: 600;
@@ -801,7 +800,7 @@ a { color: #4fc3f7; text-decoration: none; }
 
 @media (max-width: 600px) {
   .chapter-cards { grid-template-columns: repeat(2, 1fr); }
-  .chapter-card { padding: 14px 12px; }
+  .chapter-card { padding: 14px 12px; min-height: 190px; }
   .chapter-card .ch-icon { font-size: 26px; }
   .chapter-card .ch-title { font-size: 14px; }
   .app-header { padding: 8px 10px; gap: 6px; }
