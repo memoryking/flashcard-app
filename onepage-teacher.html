@@ -1400,6 +1400,8 @@ function openBulkModal(chapterId) {
           t.textContent = `진행 중… ${start}/${total} (${pct}%)${etaStr}`;
           t.className = 'show';
         }
+        // 진행 토스트 숨김 — 루프 안에서 className 직접 설정해 자동 타이머가 없음
+        $('toast').className = '';
         const elapsedSec = Math.round((Date.now() - startMs) / 1000);
         const elapsedStr = elapsedSec > 60
           ? `${Math.floor(elapsedSec / 60)}분 ${elapsedSec % 60}초`
@@ -1411,7 +1413,7 @@ function openBulkModal(chapterId) {
         // 완료 후 명확한 alert — 토스트는 짧아서 놓치기 쉬움
         alert(`✅ 입력 완료! (소요 ${elapsedStr})\n\n• 대목차 추가/매칭: ${totalT}\n• 소목차 추가/매칭: ${totalS}\n• 내용 입력: ${totalI}`);
         return true;
-      } catch (e) { toast(e.message, true); return false; }
+      } catch (e) { $('toast').className = ''; toast(e.message, true); return false; }
       finally { showLoading(false); }
     },
     saveLabel: '입력 실행'
