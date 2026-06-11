@@ -844,7 +844,7 @@ function renderSubtopic(s) {
   `;
 }
 
-// YouTube URL에서 videoId 추출 (watch?v=, youtu.be, embed, shorts 모두 지원)
+// YouTube URL에서 videoId 추출 — 썸네일 미리보기용 (학생 앱에선 정책상 링크로만 표시)
 function getYouTubeId(url) {
   const patterns = [
     /[?&]v=([a-zA-Z0-9_-]{11})/,
@@ -857,6 +857,10 @@ function getYouTubeId(url) {
     if (m) return m[1];
   }
   return null;
+}
+// Gumlet 동영상 — 학생 앱에서 iframe embed로 재생됨
+function isGumletUrl(url) {
+  return /play\.gumlet\.io\/(?:embed\/)?[a-zA-Z0-9_-]+/.test(String(url || ''));
 }
 
 function renderItem(it) {
@@ -879,16 +883,21 @@ function renderItem(it) {
   if (it.kind === 'link') {
     const url = it.text || '';
     const ytId = getYouTubeId(url);
+    const isGumlet = isGumletUrl(url);
     const preview = ytId
       ? `<img src="https://img.youtube.com/vi/${ytId}/mqdefault.jpg" alt="" style="width:120px;height:67px;border-radius:4px;object-fit:cover;flex-shrink:0;">`
       : '';
+    const icon = isGumlet ? '🎬' : (ytId ? '▶️' : '🔗');
+    const badge = isGumlet
+      ? '<span style="font-size:9px;background:rgba(76,175,80,0.25);color:#81c784;padding:2px 6px;border-radius:50px;font-weight:700;">학생 앱에서 재생</span>'
+      : (ytId ? '<span style="font-size:9px;background:rgba(229,57,53,0.2);color:#ff8a80;padding:2px 6px;border-radius:50px;font-weight:700;">YouTube 링크 (정책상 외부 열림)</span>' : '');
     return `
       <div class="item" data-id="${it.id}">
         <span class="drag-handle" title="드래그로 순서 변경">⋮⋮</span>
-        <div class="item-icon">${ytId ? '▶️' : '🔗'}</div>
+        <div class="item-icon">${icon}</div>
         ${preview}
         <div class="item-body">
-          <div class="item-text"><a href="${escapeHtml(url)}" target="_blank" rel="noopener" style="color:#4fc3f7;text-decoration:underline;">${escapeHtml(it.caption || url)}</a></div>
+          <div class="item-text"><a href="${escapeHtml(url)}" target="_blank" rel="noopener" style="color:#4fc3f7;text-decoration:underline;">${escapeHtml(it.caption || url)}</a> ${badge}</div>
           ${it.caption ? `<div class="item-caption" style="word-break:break-all">${escapeHtml(url)}</div>` : ''}
         </div>
         <div class="item-actions">
@@ -1226,7 +1235,9 @@ async function editItemCaption(itemId) {
 }
 
 async function addLinkItem(subId) {
-  const url = prompt('URL을 입력하세요 (YouTube 또는 일반 링크):');
+  const url = prompt(
+    'URL 입력:\n\n• Gumlet 동영상 (play.gumlet.io/...) → 학생 앱에서 바로 재생\n• YouTube (youtube.com/watch?v=..., youtu.be/...) → 학생 앱에서 외부 링크로 (YouTube 정책)\n• 일반 URL → 링크 카드'
+  );
   if (url === null || !url.trim()) return;
   const trimmedUrl = url.trim();
   if (!/^https?:\/\//i.test(trimmedUrl)) {
