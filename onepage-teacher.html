@@ -1236,12 +1236,12 @@ async function editItemCaption(itemId) {
 
 async function addLinkItem(subId) {
   const url = prompt(
-    'URL 입력:\n\n• Gumlet 동영상 (play.gumlet.io/...) → 학생 앱에서 바로 재생\n• YouTube (youtube.com/watch?v=..., youtu.be/...) → 학생 앱에서 외부 링크로 (YouTube 정책)\n• 일반 URL → 링크 카드'
+    'URL 입력:\n\n• Gumlet 동영상 (play.gumlet.io/...) → 학생 앱에서 바로 재생\n• YouTube (youtube.com/watch?v=..., youtu.be/...) → 학생 앱에서 외부 링크로 (YouTube 정책)\n• 일반 URL → 링크 카드\n\n프로토콜(http://, https://)이 없으면 자동으로 https:// 추가됩니다.'
   );
   if (url === null || !url.trim()) return;
-  const trimmedUrl = url.trim();
+  let trimmedUrl = url.trim();
   if (!/^https?:\/\//i.test(trimmedUrl)) {
-    if (!confirm('URL이 http:// 또는 https:// 로 시작하지 않습니다. 그대로 저장할까요?')) return;
+    trimmedUrl = 'https://' + trimmedUrl.replace(/^\/\//, '');
   }
   const caption = prompt('링크 제목 (선택 — 비워두면 URL 그대로 표시):') || '';
   const items = state.itemsBySubtopic[subId] || [];

@@ -663,6 +663,10 @@ a { color: #4fc3f7; text-decoration: none; }
   border: 1px solid rgba(79,195,247,0.3);
   border-radius: 8px;
   transition: background 0.15s;
+  /* body의 user-select·touch-callout 차단을 무시하고 클릭 가능하게 */
+  cursor: pointer; pointer-events: auto;
+  -webkit-touch-callout: default;
+  -webkit-tap-highlight-color: rgba(79,195,247,0.25);
 }
 .link-card:hover { background: rgba(79,195,247,0.18); }
 .link-card .link-icon {
@@ -1835,6 +1839,14 @@ function getGumletEmbedUrl(url) {
   if (!m) return null;
   return `https://play.gumlet.io/embed/${m[1]}`;
 }
+// URL에 프로토콜이 없으면 https:// 자동 추가 → 클릭 시 상대 경로로 잘못 가는 것 방지
+function normalizeUrl(url) {
+  const s = String(url || '').trim();
+  if (!s) return '';
+  if (/^https?:\/\//i.test(s)) return s;
+  if (s.startsWith('//')) return 'https:' + s;
+  return 'https://' + s;
+}
 
 function renderItem(it) {
   if (it.kind === 'image') {
@@ -1847,7 +1859,8 @@ function renderItem(it) {
     `;
   }
   if (it.kind === 'link') {
-    const url = it.text || '';
+    const rawUrl = it.text || '';
+    const url = normalizeUrl(rawUrl); // http(s):// 없으면 자동 추가
     // Gumlet만 iframe embed (YouTube는 정책상 링크로)
     const gumletUrl = getGumletEmbedUrl(url);
     if (gumletUrl) {
@@ -1883,8 +1896,8 @@ function renderItem(it) {
         <a href="${escapeHtml(url)}" target="_blank" rel="noopener" class="link-card">
           <div class="link-icon">🔗</div>
           <div class="link-body">
-            <div class="link-title">${escapeHtml(it.caption || url)}</div>
-            ${it.caption ? `<div class="link-url">${escapeHtml(url)}</div>` : ''}
+            <div class="link-title">${escapeHtml(it.caption || rawUrl)}</div>
+            ${it.caption ? `<div class="link-url">${escapeHtml(rawUrl)}</div>` : ''}
           </div>
         </a>
       </div>
