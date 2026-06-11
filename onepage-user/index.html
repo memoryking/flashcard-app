@@ -274,7 +274,13 @@ a { color: #4fc3f7; text-decoration: none; }
 .chapter-card:hover { transform: translateY(-3px); border-color: rgba(233,69,96,0.4); }
 .chapter-card.expired { opacity: 0.7; }
 .chapter-card .ch-icon { font-size: 32px; margin-bottom: 8px; }
-.chapter-card .ch-title { font-size: 16px; font-weight: 700; color: #fff; margin-bottom: 4px; word-break: keep-all; }
+.chapter-card .ch-title {
+  font-size: 16px; font-weight: 700; color: #fff;
+  margin-bottom: 8px; word-break: keep-all;
+  /* 2줄 분량 공간 예약 → 1줄/2줄 제목 모두 다음 요소(무료 배지·열기 버튼) 위치 동일.
+     line-height 1.55 기준 2줄 = 3.1em, 약간의 여유 포함해서 3.2em */
+  min-height: 3.2em;
+}
 .chapter-card .ch-desc { font-size: 11px; color: rgba(255,255,255,0.5); margin-bottom: 12px; min-height: 16px; }
 .chapter-card .ch-status {
   display: inline-block; padding: 3px 10px; border-radius: 50px;
