@@ -814,6 +814,7 @@ function renderSubtopic(s) {
         <div style="margin:6px 0;display:flex;gap:6px;flex-wrap:wrap;">
           <button class="btn-secondary btn-small" onclick="event.stopPropagation();addTextItem(${s.id})">+ 텍스트</button>
           <button class="btn-secondary btn-small" onclick="event.stopPropagation();triggerImagePick(${s.id})">+ 이미지 (파일)</button>
+          <button class="btn-secondary btn-small" onclick="event.stopPropagation();addLinkItem(${s.id})">+ 🔗 링크</button>
           <span style="font-size:11px;color:rgba(255,255,255,0.4);align-self:center;">← Ctrl+V로 화면 캡쳐 붙여넣기 가능</span>
         </div>
       `;
@@ -843,6 +844,21 @@ function renderSubtopic(s) {
   `;
 }
 
+// YouTube URL에서 videoId 추출 (watch?v=, youtu.be, embed, shorts 모두 지원)
+function getYouTubeId(url) {
+  const patterns = [
+    /[?&]v=([a-zA-Z0-9_-]{11})/,
+    /youtu\.be\/([a-zA-Z0-9_-]{11})/,
+    /youtube\.com\/embed\/([a-zA-Z0-9_-]{11})/,
+    /youtube\.com\/shorts\/([a-zA-Z0-9_-]{11})/,
+  ];
+  for (const p of patterns) {
+    const m = String(url || '').match(p);
+    if (m) return m[1];
+  }
+  return null;
+}
+
 function renderItem(it) {
   if (it.kind === 'image') {
     return `
@@ -855,6 +871,28 @@ function renderItem(it) {
         </div>
         <div class="item-actions">
           <button class="btn-ghost btn-small" onclick="editItemCaption(${it.id})">✎</button>
+          <button class="btn-danger btn-small" onclick="deleteItem(${it.id},${it.subtopic_id})">🗑️</button>
+        </div>
+      </div>
+    `;
+  }
+  if (it.kind === 'link') {
+    const url = it.text || '';
+    const ytId = getYouTubeId(url);
+    const preview = ytId
+      ? `<img src="https://img.youtube.com/vi/${ytId}/mqdefault.jpg" alt="" style="width:120px;height:67px;border-radius:4px;object-fit:cover;flex-shrink:0;">`
+      : '';
+    return `
+      <div class="item" data-id="${it.id}">
+        <span class="drag-handle" title="드래그로 순서 변경">⋮⋮</span>
+        <div class="item-icon">${ytId ? '▶️' : '🔗'}</div>
+        ${preview}
+        <div class="item-body">
+          <div class="item-text"><a href="${escapeHtml(url)}" target="_blank" rel="noopener" style="color:#4fc3f7;text-decoration:underline;">${escapeHtml(it.caption || url)}</a></div>
+          ${it.caption ? `<div class="item-caption" style="word-break:break-all">${escapeHtml(url)}</div>` : ''}
+        </div>
+        <div class="item-actions">
+          <button class="btn-ghost btn-small" onclick="editItemLink(${it.id})">✎</button>
           <button class="btn-danger btn-small" onclick="deleteItem(${it.id},${it.subtopic_id})">🗑️</button>
         </div>
       </div>
@@ -1187,6 +1225,46 @@ async function editItemCaption(itemId) {
   finally { showLoading(false); }
 }
 
+async function addLinkItem(subId) {
+  const url = prompt('URL을 입력하세요 (YouTube 또는 일반 링크):');
+  if (url === null || !url.trim()) return;
+  const trimmedUrl = url.trim();
+  if (!/^https?:\/\//i.test(trimmedUrl)) {
+    if (!confirm('URL이 http:// 또는 https:// 로 시작하지 않습니다. 그대로 저장할까요?')) return;
+  }
+  const caption = prompt('링크 제목 (선택 — 비워두면 URL 그대로 표시):') || '';
+  const items = state.itemsBySubtopic[subId] || [];
+  const order = items.length ? Math.max(...items.map(i => Number(i.sort_order) || 0)) + 1 : 1;
+  showLoading(true);
+  try {
+    await api('POST', '/items', {
+      subtopic_id: subId, kind: 'link', text: trimmedUrl, caption, sort_order: order,
+    });
+    await loadItems(subId);
+    toast('링크 추가됨');
+  } catch (e) { toast(e.message, true); }
+  finally { showLoading(false); }
+}
+
+async function editItemLink(itemId) {
+  let curUrl = '', curCaption = '', subId = null;
+  for (const sid in state.itemsBySubtopic) {
+    const it = (state.itemsBySubtopic[sid] || []).find(x => x.id === itemId);
+    if (it) { curUrl = it.text || ''; curCaption = it.caption || ''; subId = Number(sid); break; }
+  }
+  const url = prompt('URL 수정:', curUrl);
+  if (url === null) return;
+  const caption = prompt('링크 제목 수정:', curCaption);
+  if (caption === null) return;
+  showLoading(true);
+  try {
+    await api('PUT', '/items/' + itemId, { text: url.trim(), caption });
+    if (subId) await loadItems(subId);
+    toast('저장됨');
+  } catch (e) { toast(e.message, true); }
+  finally { showLoading(false); }
+}
+
 async function deleteItem(itemId, subId) {
   if (!confirm('이 블록을 삭제할까요?')) return;
   showLoading(true);
@@ -1476,6 +1554,8 @@ window.deleteTopic = deleteTopic;
 window.deleteSubtopic = deleteSubtopic;
 window.deleteItem = deleteItem;
 window.addTextItem = addTextItem;
+window.addLinkItem = addLinkItem;
+window.editItemLink = editItemLink;
 window.editItemText = editItemText;
 window.editItemCaption = editItemCaption;
 window.triggerImagePick = triggerImagePick;
