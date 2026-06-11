@@ -643,6 +643,15 @@ a { color: #4fc3f7; text-decoration: none; }
 .item .item-caption {
   font-size: 11px; color: rgba(255,255,255,0.4); margin-top: 6px;
 }
+/* 텍스트 안 자동 링크 — body의 user-select:none / touch-callout:none 효과 해제 */
+.item-text .inline-link {
+  color: #4fc3f7; text-decoration: underline;
+  word-break: break-all;
+  cursor: pointer; pointer-events: auto;
+  -webkit-touch-callout: default;
+  -webkit-user-select: auto; user-select: auto;
+}
+.item-text .inline-link:hover { color: #81d4fa; }
 
 /* ─── 동영상 embed (item kind=link, Gumlet만) — 16:9 반응형 ─── */
 .video-embed {
@@ -1847,6 +1856,24 @@ function normalizeUrl(url) {
   if (s.startsWith('//')) return 'https:' + s;
   return 'https://' + s;
 }
+// 텍스트 안의 URL(http(s)://… 또는 www.…)을 자동으로 클릭 가능한 <a>로 변환
+// 텍스트 그대로 박혀있어도 링크가 동작하게 — kind='text' 아이템에도 적용됨
+function autolinkText(text) {
+  const s = String(text || '');
+  const urlRegex = /(https?:\/\/[^\s<>"]+|www\.[^\s<>"]+)/g;
+  let result = '';
+  let lastIndex = 0;
+  let m;
+  while ((m = urlRegex.exec(s)) !== null) {
+    result += escapeHtml(s.slice(lastIndex, m.index));
+    const url = m[0];
+    const href = /^https?:\/\//i.test(url) ? url : 'https://' + url;
+    result += `<a href="${escapeHtml(href)}" target="_blank" rel="noopener" class="inline-link">${escapeHtml(url)}</a>`;
+    lastIndex = m.index + url.length;
+  }
+  result += escapeHtml(s.slice(lastIndex));
+  return result;
+}
 
 function renderItem(it) {
   if (it.kind === 'image') {
@@ -1903,7 +1930,7 @@ function renderItem(it) {
       </div>
     `;
   }
-  return `<div class="item"><div class="item-text">${escapeHtml(it.text)}</div></div>`;
+  return `<div class="item"><div class="item-text">${autolinkText(it.text)}</div></div>`;
 }
 
 // ============================================================
