@@ -368,6 +368,12 @@ async function handleSignup(request, env) {
     referrer_url: String(utm.referrer || '').slice(0, 500),
   };
 
+  // 관심 주제 — URL ?interest=수능,토익 으로 전달된 값. 콤마 구분, 추후 사용자 편집 가능
+  const interestsList = Array.isArray(body.interests)
+    ? body.interests
+    : String(body.interests || '').split(',');
+  const interests = interestsList.map(s => String(s).trim()).filter(Boolean).slice(0, 20);
+
   if (!name) return json({ error: '이름을 입력하세요.' }, 400, request);
   if (!isValidPhone(phone)) return json({ error: '전화번호 형식이 올바르지 않습니다.' }, 400, request);
   if (!isValidEmail(email)) return json({ error: '이메일 형식이 올바르지 않습니다.' }, 400, request);
@@ -401,6 +407,7 @@ async function handleSignup(request, env) {
     referral_code: myCode,
     referred_by_code: referralCode || '',
     point: 0,
+    interests: interests.join(','),
     ...utmFields,
   });
   if (created.error || !created.id) {
@@ -465,9 +472,31 @@ async function handleMe(request, env) {
       point: Number(f.point) || 0,
       referral_code: f.referral_code,
       first_paid_at: f.first_paid_at || null,
+      interests: parseInterests(f.interests),
     },
     chapter_access: access, // { chapter_id: { expires_at, source } }
   }, 200, request);
+}
+
+// 콤마 구분 문자열 또는 배열 → 정제된 배열
+function parseInterests(raw) {
+  if (Array.isArray(raw)) return raw.map(s => String(s).trim()).filter(Boolean);
+  return String(raw || '').split(',').map(s => s.trim()).filter(Boolean);
+}
+
+// PUT /auth/me/interests — 사용자가 관심 주제 편집
+async function handleUpdateInterests(request, env) {
+  const auth = await verifyAuth(request, env);
+  if (!auth) return json({ error: 'unauthenticated' }, 401, request);
+  const body = await request.json().catch(() => ({}));
+  const list = Array.isArray(body.interests)
+    ? body.interests
+    : String(body.interests || '').split(',');
+  const interests = list.map(s => String(s).trim()).filter(Boolean).slice(0, 20);
+  const rec = await findUserByPhone(env, auth.phone);
+  if (!rec) return json({ error: 'user_not_found' }, 404, request);
+  await atUpdate(env, AT_USERS, rec.id, { interests: interests.join(',') });
+  return json({ ok: true, interests }, 200, request);
 }
 
 async function handleReferralInfo(request, env) {
@@ -2458,6 +2487,7 @@ async function route(request, env) {
   if (m === 'POST' && path === '/auth/signup') return handleSignup(request, env);
   if (m === 'POST' && path === '/auth/login') return handleLogin(request, env);
   if (m === 'GET' && path === '/auth/me') return handleMe(request, env);
+  if (m === 'PUT' && path === '/auth/me/interests') return handleUpdateInterests(request, env);
   if (m === 'GET' && path === '/referral/info') return handleReferralInfo(request, env);
   if (m === 'GET' && path === '/stats/learners-now') return handleLearnersNow(request, env);
   if (m === 'POST' && path === '/stats/ping') return handleStatsPing(request, env);

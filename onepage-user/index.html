@@ -229,6 +229,15 @@ a { color: #4fc3f7; text-decoration: none; }
   color: #4fc3f7;
 }
 .home-meta .refer-chip:hover { background: rgba(79,195,247,0.25); }
+.home-meta .interest-chip {
+  background: rgba(233,69,96,0.15); border-color: rgba(233,69,96,0.35);
+  color: #ff8a9e;
+}
+.home-meta .interest-chip:hover { background: rgba(233,69,96,0.25); }
+.home-meta .interest-chip.active {
+  background: rgba(233,69,96,0.35); border-color: rgba(233,69,96,0.6);
+  color: #fff;
+}
 .home-actions {
   display: flex; gap: 8px; margin-top: 14px; flex-wrap: wrap;
 }
@@ -779,6 +788,30 @@ a { color: #4fc3f7; text-decoration: none; }
   font-size: 10px; color: rgba(255,255,255,0.5); margin-top: 2px;
 }
 
+/* ─── 관심 주제 모달 ─── */
+.interest-modal .interest-toggle {
+  display: flex; align-items: center; gap: 10px;
+  padding: 12px 14px; background: rgba(233,69,96,0.10);
+  border: 1px solid rgba(233,69,96,0.3); border-radius: 8px;
+  margin-bottom: 14px; cursor: pointer; user-select: none;
+  font-size: 13px; font-weight: 600; color: #ff8a9e;
+}
+.interest-modal .interest-toggle input { width: 18px; height: 18px; cursor: pointer; }
+.interest-modal .interest-list {
+  max-height: 320px; overflow-y: auto;
+  display: flex; flex-direction: column; gap: 6px;
+}
+.interest-modal .interest-row {
+  display: flex; align-items: center; gap: 10px;
+  padding: 10px 12px; background: rgba(0,0,0,0.25);
+  border: 1px solid rgba(255,255,255,0.06); border-radius: 8px;
+  cursor: pointer; user-select: none; font-size: 14px;
+  transition: background 0.12s;
+}
+.interest-modal .interest-row:hover { background: rgba(255,255,255,0.05); }
+.interest-modal .interest-row input { width: 18px; height: 18px; cursor: pointer; flex-shrink: 0; }
+.interest-modal .interest-row input:checked + span { color: #ff8a9e; font-weight: 700; }
+
 .pay-modal .pay-row {
   display: flex; align-items: center; gap: 10px;
   padding: 12px; background: rgba(0,0,0,0.3); border-radius: 8px;
@@ -891,6 +924,7 @@ a { color: #4fc3f7; text-decoration: none; }
     <div class="home-meta">
       <button class="point-chip" onclick="openPointModal()">💰 <span id="homePoint">0</span>P · 사용</button>
       <button class="point-chip refer-chip" onclick="openReferralModal()">👥 추천하기</button>
+      <button class="point-chip interest-chip" id="interestChip" onclick="openInterestModal()" style="display:none">🎯 관심 주제</button>
     </div>
   </div>
   <div class="home-content" id="chapterCards"></div>
@@ -950,6 +984,7 @@ const API = 'https://onepage-api.memoryking.workers.dev';
 const TOKEN_KEY = 'op_user_token';
 const REF_KEY = 'op_ref_code';
 const UTM_KEY = 'op_utm';
+const INTERESTS_KEY = 'op_interests_pending'; // 가입 전 URL에서 캡쳐한 관심 주제
 const UTM_TTL_MS = 30 * 24 * 3600 * 1000;   // 30일 유지 (재방문 시까지 어트리뷰션 유지)
 const LANDING_URL = 'https://vipup.site/onepage';   // 결제 안내 페이지
 const REDEEM_COST = 3000;
@@ -977,6 +1012,8 @@ const state = {
   liveCount: 0,
   pingTimer: null,
   liveTimer: null,
+  interests: [],          // 사용자가 저장한 관심 주제 (subject 배열)
+  interestFilterOn: false, // 홈 필터 ON/OFF — interests가 있으면 기본 ON
 };
 
 // ============================================================
@@ -1145,10 +1182,13 @@ async function doSignup() {
     if (ref) body.referral_code = ref;
     const utm = loadUtm();
     if (utm) body.utm = utm;
+    const pendingInterests = loadPendingInterests();
+    if (pendingInterests.length) body.interests = pendingInterests;
     const r = await api('POST', '/auth/signup', body);
     localStorage.setItem(TOKEN_KEY, r.token);
     localStorage.removeItem(REF_KEY);
     localStorage.removeItem(UTM_KEY);
+    localStorage.removeItem(INTERESTS_KEY);
     state.user = r.user;
     state.point = 0;
     await loadMeAndEnter();
@@ -1180,7 +1220,31 @@ function captureUtmFromUrl() {
     if (utm.source || utm.medium || utm.campaign || utm.content || utm.term) {
       localStorage.setItem(UTM_KEY, JSON.stringify(utm));
     }
+    // ?interest=수능,토익 또는 ?interest=수능&interest=토익 캡쳐
+    const interestParams = u.searchParams.getAll('interest');
+    const interests = [];
+    for (const v of interestParams) {
+      for (const s of String(v).split(',')) {
+        const t = s.trim();
+        if (t) interests.push(t);
+      }
+    }
+    if (interests.length) {
+      localStorage.setItem(INTERESTS_KEY, JSON.stringify({ interests, at: Date.now() }));
+    }
   } catch {}
+}
+function loadPendingInterests() {
+  try {
+    const raw = localStorage.getItem(INTERESTS_KEY);
+    if (!raw) return [];
+    const o = JSON.parse(raw);
+    if (o.at && Date.now() - o.at > UTM_TTL_MS) {
+      localStorage.removeItem(INTERESTS_KEY);
+      return [];
+    }
+    return Array.isArray(o.interests) ? o.interests : [];
+  } catch { return []; }
 }
 function loadUtm() {
   try {
@@ -1267,6 +1331,8 @@ async function loadMeAndEnter() {
     state.user = r.user;
     state.point = Number(r.user.point) || 0;
     state.chapterAccess = r.chapter_access || {};
+    state.interests = Array.isArray(r.user.interests) ? r.user.interests : [];
+    state.interestFilterOn = state.interests.length > 0; // 관심 주제 있으면 기본 ON
     renderWatermark();
     await enterHome();
   } finally {
@@ -1329,15 +1395,44 @@ function renderHome() {
   $('homeGreeting').textContent = `${state.user.name || ''} 님, 안녕하세요`;
   $('homePoint').textContent = state.point.toLocaleString();
 
+  // 관심 주제 chip: 사용자 role이 student이고 챕터 수 ≥ 1일 때만 노출
+  // (interests 비어있어도 노출 — 사용자가 클릭해서 설정 가능)
+  const chip = $('interestChip');
+  if (chip) {
+    chip.style.display = (state.user && state.user.role === 'student') ? '' : 'none';
+    chip.classList.toggle('active', state.interestFilterOn && state.interests.length > 0);
+    if (state.interestFilterOn && state.interests.length > 0) {
+      chip.innerHTML = `🎯 관심 주제 <span style="opacity:0.7;font-weight:400">· ${state.interests.length}개</span>`;
+    } else {
+      chip.innerHTML = `🎯 관심 주제`;
+    }
+  }
+
   const cards = $('chapterCards');
   if (!state.chapters.length) {
     cards.innerHTML = '<div class="empty-state">아직 공개된 챕터가 없습니다.</div>';
     return;
   }
 
+  // 관심 주제 필터 (ON이고 interests 있을 때만 적용)
+  let visibleChapters = state.chapters;
+  if (state.interestFilterOn && state.interests.length > 0) {
+    visibleChapters = state.chapters.filter(c =>
+      state.interests.includes(c.subject || '기타')
+    );
+  }
+  if (!visibleChapters.length) {
+    cards.innerHTML = `
+      <div class="empty-state">
+        선택한 관심 주제에 해당하는 챕터가 없습니다.<br>
+        <button onclick="openInterestModal()" style="margin-top:10px;background:rgba(233,69,96,0.2);border:1px solid rgba(233,69,96,0.5);color:#ff8a9e;padding:8px 18px;border-radius:50px;cursor:pointer;font-size:13px;">🎯 관심 주제 편집</button>
+      </div>`;
+    return;
+  }
+
   // 과목별 그룹핑
   const groups = {};
-  for (const c of state.chapters) {
+  for (const c of visibleChapters) {
     const s = c.subject || '기타';
     if (!groups[s]) groups[s] = [];
     groups[s].push(c);
@@ -2381,6 +2476,64 @@ function openReferralModal() {
   });
 }
 
+// ============================================================
+// 관심 주제 모달 — 필터 토글 + 주제 선택
+// ============================================================
+function openInterestModal() {
+  // 전체 과목 목록 — state.chapters에서 distinct subject 추출
+  const allSubjects = [...new Set(state.chapters.map(c => c.subject || '기타'))].sort();
+  const selectedSet = new Set(state.interests);
+  const filterOn = state.interestFilterOn;
+  const checkboxes = allSubjects.length === 0
+    ? '<div style="text-align:center;color:rgba(255,255,255,0.5);font-size:13px;padding:20px 0;">아직 챕터가 없습니다.</div>'
+    : allSubjects.map(subj => `
+        <label class="interest-row">
+          <input type="checkbox" class="interest-cb" value="${escapeHtml(subj)}" ${selectedSet.has(subj) ? 'checked' : ''}>
+          <span>${escapeHtml(subj)}</span>
+        </label>
+      `).join('');
+  showModal({
+    title: '🎯 관심 주제',
+    klass: 'interest-modal',
+    body: `
+      <p style="font-size:13px;color:rgba(255,255,255,0.7);line-height:1.6;margin-bottom:14px;">
+        체크한 과목의 챕터만 홈 화면에 표시됩니다. 비우면 전체 노출.
+      </p>
+      <label class="interest-toggle">
+        <input type="checkbox" id="interestFilterToggle" ${filterOn ? 'checked' : ''}>
+        <span>관심 주제 필터 사용</span>
+      </label>
+      <div class="interest-list">
+        ${checkboxes}
+      </div>
+    `,
+    foot: `
+      <button onclick="closeModal()">취소</button>
+      <button class="primary" onclick="saveInterests()">저장</button>
+    `
+  });
+}
+
+async function saveInterests() {
+  const cbs = document.querySelectorAll('.interest-cb');
+  const selected = [];
+  cbs.forEach(cb => { if (cb.checked) selected.push(cb.value); });
+  const filterOn = $('interestFilterToggle').checked;
+  showLoading(true);
+  try {
+    await api('PUT', '/auth/me/interests', { interests: selected });
+    state.interests = selected;
+    state.interestFilterOn = filterOn && selected.length > 0;
+    closeModal();
+    renderHome();
+    toast('관심 주제 저장됨');
+  } catch (e) {
+    toast('저장 실패: ' + e.message, true);
+  } finally {
+    showLoading(false);
+  }
+}
+
 async function copyReferralLink() {
   const link = $('refLinkBox').textContent;
   try {
@@ -2481,6 +2634,8 @@ window.pressEnd = pressEnd;
 window.subClick = subClick;
 window.openReferralModal = openReferralModal;
 window.openPointModal = openPointModal;
+window.openInterestModal = openInterestModal;
+window.saveInterests = saveInterests;
 window.redeemFromPointModal = redeemFromPointModal;
 window.copyReferralLink = copyReferralLink;
 window.openPayModal = openPayModal;
