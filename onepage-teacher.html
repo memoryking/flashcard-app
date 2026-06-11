@@ -913,6 +913,7 @@ function renderItem(it) {
       <div class="item-icon">📝</div>
       <div class="item-body">
         <div class="item-text" id="text-${it.id}">${escapeHtml(it.text)}</div>
+        ${it.caption ? `<div class="item-caption">${escapeHtml(it.caption)}</div>` : ''}
       </div>
       <div class="item-actions">
         <button class="btn-ghost btn-small" onclick="editItemText(${it.id})">✎</button>
@@ -1186,12 +1187,13 @@ async function deleteSubtopic(id) {
 async function addTextItem(subId) {
   const text = prompt('텍스트 내용을 입력하세요:');
   if (text === null || !text.trim()) return;
+  const caption = prompt('설명 (선택 — 본문 아래 작은 글씨로 표시. 비워두면 표시 안 함):') || '';
   const items = state.itemsBySubtopic[subId] || [];
   const order = items.length ? Math.max(...items.map(i => Number(i.sort_order) || 0)) + 1 : 1;
   showLoading(true);
   try {
     await api('POST', '/items', {
-      subtopic_id: subId, kind: 'text', text, sort_order: order,
+      subtopic_id: subId, kind: 'text', text, caption, sort_order: order,
     });
     await loadItems(subId);
     toast('추가됨');
@@ -1200,17 +1202,19 @@ async function addTextItem(subId) {
 }
 
 async function editItemText(itemId) {
-  // 현재 텍스트 찾기
-  let cur = '', subId = null;
+  // 현재 텍스트·캡션 찾기
+  let curText = '', curCaption = '', subId = null;
   for (const sid in state.itemsBySubtopic) {
     const it = (state.itemsBySubtopic[sid] || []).find(x => x.id === itemId);
-    if (it) { cur = it.text || ''; subId = Number(sid); break; }
+    if (it) { curText = it.text || ''; curCaption = it.caption || ''; subId = Number(sid); break; }
   }
-  const text = prompt('텍스트 수정:', cur);
+  const text = prompt('텍스트 수정:', curText);
   if (text === null) return;
+  const caption = prompt('설명 수정 (비워두면 표시 안 함):', curCaption);
+  if (caption === null) return;
   showLoading(true);
   try {
-    await api('PUT', '/items/' + itemId, { text });
+    await api('PUT', '/items/' + itemId, { text, caption });
     if (subId) await loadItems(subId);
     toast('저장됨');
   } catch (e) { toast(e.message, true); }

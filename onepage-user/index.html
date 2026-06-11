@@ -1930,7 +1930,12 @@ function renderItem(it) {
       </div>
     `;
   }
-  return `<div class="item"><div class="item-text">${autolinkText(it.text)}</div></div>`;
+  return `
+    <div class="item">
+      <div class="item-text">${autolinkText(it.text)}</div>
+      ${it.caption ? `<div class="item-caption">${escapeHtml(it.caption)}</div>` : ''}
+    </div>
+  `;
 }
 
 // ============================================================
