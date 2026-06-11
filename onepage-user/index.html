@@ -1776,7 +1776,7 @@ function renderSubtopic(s, isCurrent) {
         <div class="subtopic-dot"></div>
         <div class="subtopic-arrow">▶</div>
         <div class="subtopic-title">${escapeHtml(s.title)}</div>
-        ${/[a-zA-Z]/.test(s.title || '') ? `
+        ${(/[a-zA-Z]/.test(s.title || '') && !/[가-힯ᄀ-ᇿ㄰-㆏]/.test(s.title || '')) ? `
         <button class="speak-btn"
                 onclick="event.stopPropagation();speakText(${JSON.stringify(s.title).replace(/"/g, '&quot;')})"
                 onmousedown="event.stopPropagation()"
