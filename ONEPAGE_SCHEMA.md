@@ -21,7 +21,7 @@
 | nocodebackend | `op_chapters` | 챕터 (+ 페이앱 결제 URL) |
 | nocodebackend | `op_topics` | 대목차 |
 | nocodebackend | `op_subtopics` | 소목차 (+ 대표 이미지) |
-| nocodebackend | `op_items` | 내용 블록 (텍스트·이미지) |
+| nocodebackend | `op_items` | 내용 블록 (텍스트·이미지·링크) |
 | nocodebackend | `op_understood` | 학생 꾹누르기 진도 |
 | nocodebackend | `op_pings` | 라이브 학습자 카운트 |
 
@@ -362,19 +362,27 @@ Type 드롭다운에 보이는 옵션: `INT`, `BIGINT`, `VARCHAR(255)`, `DROPDOW
 
 ---
 
-### B4. `op_items` (내용 블록 — 텍스트/이미지)
+### B4. `op_items` (내용 블록 — 텍스트/이미지/링크)
 
 | 필드명 | 타입 | Not null | FK/Unique | Default | 비고 |
 |---|---|---|---|---|---|
 | `subtopic_id` | INT | ✅ | **FK → op_subtopics.id (CASCADE)** | — | INT (Run SQL의 id에 맞춤) |
-| `kind` | VARCHAR(255) | ✅ | — | — | `'text'` 또는 `'image'` |
-| `text` | TEXT | — | — | — | text 블록 본문 (마크다운). image면 빈값 |
+| `kind` | VARCHAR(255) | ✅ | — | — | `'text'` / `'image'` / `'link'` |
+| `text` | TEXT | — | — | — | `kind='text'` → 본문 (마크다운). `kind='link'` → URL. `kind='image'` 면 빈값 |
 | `image_b64` | **LONGTEXT** | — | — | — | image 블록의 data URL. **JSON 타입이 base64 문자열을 거부하므로 LONGTEXT 사용**. UI에 LONGTEXT 옵션이 없으면 일단 JSON으로 만든 뒤 `ALTER TABLE op_items MODIFY image_b64 LONGTEXT NULL;` |
-| `caption` | VARCHAR(255) | — | — | — | 이미지 캡션 |
+| `caption` | VARCHAR(255) | — | — | — | 작은 설명 라인. **모든 kind에서 사용** — image 캡션 / link 제목·설명 / text 보조 설명 |
 | `sort_order` | INT | ✅ | — | `0` | 같은 소목차 안 순서 (예약어 `order` 회피) |
 | `updated_at` | DATETIME | — | — | — | |
 
 > **이미지 크기 주의**: 클라이언트(선생님 앱)에서 최대 폭 1200px · WebP 0.85로 압축 후 base64 인코딩. 일반 50~150KB. 300KB 초과 시 경고.
+
+> **`kind='link'` URL 분기 (학생 앱 렌더링)**:
+> - `play.gumlet.io/...` → 16:9 iframe 임베드
+> - YouTube (`watch?v=`, `youtu.be/`, `shorts/`) → 빨간 링크 카드 + 썸네일 → 클릭 시 새 탭 (정책상 임베드 X)
+> - 그 외 → 시안 링크 카드 → 새 탭
+> 프로토콜 누락(`google.com`) 시 렌더 시점에 `https://` 자동 prepend.
+
+> **`kind='text'` 안의 URL 자동 링크**: `autolinkText()` 가 `http(s)://` / `www.` 패턴을 `<a class="inline-link">` 로 감쌈. 기존 데이터에도 즉시 적용.
 
 ---
 

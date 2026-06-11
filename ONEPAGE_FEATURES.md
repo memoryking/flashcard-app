@@ -556,6 +556,47 @@ function withTopicAnchor(topicId, callback) {
   - Worker가 `is_published=0`인 챕터만 학생에게 숨김
   - NULL/미존재는 공개로 간주 (기존 데이터 호환)
 
+### 콘텐츠 블록 (op_items) 종류 3가지
+
+| `kind` | 저장 필드 | 학생 앱 렌더링 |
+|---|---|---|
+| `text` (기본) | `text` (+ 선택 `caption`) | 본문 + 본문 안의 URL 자동 링크화 + 선택적 작은 설명 캡션 |
+| `image` | `image_b64` (data URL) + 선택 `caption` | 이미지 + 캡션 |
+| **`link`** | `text` = URL (+ 선택 `caption` = 제목/설명) | URL 종류 따라 분기 (아래) |
+
+#### `link` 분기 — Gumlet vs YouTube vs 일반
+
+| URL | 학생 앱 표시 | 이유 |
+|---|---|---|
+| `play.gumlet.io/...` | **16:9 iframe 임베드** (페이지 안 재생, 자동 `embed/` 정규화) | Gumlet 정책 무관, 직접 재생 OK |
+| `youtube.com/watch?v=…`, `youtu.be/…`, `youtube.com/shorts/…` | **빨간 링크 카드** + mqdefault 썸네일 → 클릭 시 새 탭으로 YouTube | YouTube ToS 상 임베드 외부 노출 제약 → 학생 앱 안 재생 X |
+| 그 외 모든 URL | 시안 톤 링크 카드 (🔗 + 제목) → 새 탭 | |
+
+**선생님 앱 동작**:
+- `+ 🔗 링크` 버튼: URL + 제목 prompt → `kind='link'` 로 저장. 프로토콜(`http(s)://`) 없으면 자동 prepend
+- `+ 텍스트` 버튼: 본문 + 설명 prompt → `kind='text'` 로 저장
+- 둘 다 ✎ 버튼으로 후속 수정 가능
+
+**학생 앱 동작 (URL 처리)**:
+- `kind='link'`: 위 표대로 분기 렌더링
+- `kind='text'` 안의 URL: `autolinkText()` 헬퍼가 `http(s)://`/`www.` 패턴 자동 감지해 `<a class="inline-link">` 로 감싸 클릭 가능. 모든 환경(iOS/Android/PC)에서 클릭 동작하도록 `pointer-events: auto`·`touch-callout: default` 명시
+- URL에 프로토콜 누락 시 `normalizeUrl()` 이 렌더 시점에 `https://` 자동 prepend → 상대 경로 오해 방지
+
+### 발음 듣기 (Web Speech API)
+
+학생 앱에서 소목차 제목 옆 **🔊** 버튼 클릭 → 그 단어를 음성으로 재생.
+
+| 동작 | 디테일 |
+|---|---|
+| 기술 | 브라우저 내장 `speechSynthesis` API — 외부 API 키·과금 없음 |
+| 언어 | `detectSpeechLang`: 라틴 문자 있으면 `en-US`, 아니면 `ko-KR` |
+| 속도 | `rate: 0.85` (학습용으로 살짝 천천히) |
+| 표시 조건 | 소목차 제목에 라틴 문자 포함 **AND** 한글 미포함일 때만 (`/[a-zA-Z]/` 통과 + `/[가-힯ᄀ-ᇿ㄰-㆏]/` 미통과) |
+| 연속 클릭 | `speechSynthesis.cancel()` 로 진행 중 음성 중단 후 재생 |
+| 펼침·꾹누르기 분리 | `event.stopPropagation()` 을 click·mousedown·touchstart 모두에 |
+
+OS 네이티브 음성을 사용하므로 iOS/Android/Mac/Windows에서 자연스러운 발음. 안 들리면 무음 모드 또는 시스템에 영어 voice 미설치 가능성.
+
 ### 드래그앤드롭 순서 변경 (SortableJS)
 각 항목 좌측의 **⋮⋮ 핸들**을 끌어 같은 부모 안에서 순서 변경. 떨어뜨리면 자동 저장.
 
@@ -1023,7 +1064,9 @@ wrangler secret put PABBLY_WEBHOOK_URL
 - **op_chapters**: id, subject, title, sort_order, icon, description, monthly_price, is_all_free, **is_published** (0=비공개/draft — 학생 숨김), **pay_url** (페이앱 결제 링크)
 - **op_topics**: id, chapter_id, title, sort_order, is_free
 - **op_subtopics**: id, topic_id, title, sort_order, image_b64, caption
-- **op_items**: id, subtopic_id, kind, text, image_b64, caption, sort_order
+- **op_items**: id, subtopic_id, kind (`text`/`image`/`link`), text, image_b64, caption, sort_order
+  - `kind='link'`: `text` 컬럼에 URL 저장, `caption` 에 제목/설명
+  - `kind='text'`: `caption` 으로 이미지처럼 작은 설명 표시 (선택)
 - **op_understood**: user_phone, subtopic_id, marked_at (꾹누르기 진도)
 - **op_pings**: user_phone, first_ping_today, last_ping_at (라이브 카운트)
 
