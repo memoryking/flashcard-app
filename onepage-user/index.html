@@ -2594,7 +2594,14 @@ function openAccountModal() {
         <div class="acc-info-label">이름</div><div>${escapeHtml(u.name || '-')}</div>
         <div class="acc-info-label">이메일</div><div>${escapeHtml(u.email || '-')}</div>
         <div class="acc-info-label">전화</div><div>${escapeHtml(u.phone || '-')}</div>
-        <div class="acc-info-label">추천 코드</div><div><strong style="color:#ffd54f;">${escapeHtml(u.referral_code || '-')}</strong></div>
+        <div class="acc-info-label">추천 코드</div>
+        <div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap;">
+          <strong style="color:#ffd54f;">${escapeHtml(u.referral_code || '-')}</strong>
+          ${u.referral_code ? `
+            <button class="acc-mini-btn" onclick="copyMyReferralCode()" style="padding:3px 9px;">📋 코드</button>
+            <button class="acc-mini-btn" onclick="copyMyReferralLinkFromAccount()" style="padding:3px 9px;">🔗 링크</button>
+          ` : ''}
+        </div>
       </div>
 
       <div class="acc-section-title">💰 포인트</div>
@@ -2740,18 +2747,30 @@ async function saveInterests() {
   }
 }
 
-async function copyReferralLink() {
-  const link = $('refLinkBox').textContent;
+async function copyToClipboard(text, label) {
   try {
-    await navigator.clipboard.writeText(link);
-    toast('링크가 복사되었습니다.');
+    await navigator.clipboard.writeText(text);
+    toast(`${label} 복사됨`);
   } catch {
-    // 폴백
     const ta = document.createElement('textarea');
-    ta.value = link; document.body.appendChild(ta); ta.select();
-    try { document.execCommand('copy'); toast('링크가 복사되었습니다.'); } catch { toast('복사 실패 — 직접 선택해주세요.', true); }
+    ta.value = text; document.body.appendChild(ta); ta.select();
+    try { document.execCommand('copy'); toast(`${label} 복사됨`); }
+    catch { toast('복사 실패 — 직접 선택해주세요.', true); }
     document.body.removeChild(ta);
   }
+}
+async function copyReferralLink() {
+  await copyToClipboard($('refLinkBox').textContent, '추천 링크');
+}
+async function copyMyReferralCode() {
+  const code = (state.user && state.user.referral_code) || '';
+  if (!code) { toast('추천 코드 없음', true); return; }
+  await copyToClipboard(code, '추천 코드');
+}
+async function copyMyReferralLinkFromAccount() {
+  const code = (state.user && state.user.referral_code) || '';
+  if (!code) { toast('추천 코드 없음', true); return; }
+  await copyToClipboard(`${LANDING_URL}?ref=${code}`, '추천 링크');
 }
 
 // ============================================================
@@ -2848,6 +2867,8 @@ window.submitChangePassword = submitChangePassword;
 window.doLogout = doLogout;
 window.redeemFromPointModal = redeemFromPointModal;
 window.copyReferralLink = copyReferralLink;
+window.copyMyReferralCode = copyMyReferralCode;
+window.copyMyReferralLinkFromAccount = copyMyReferralLinkFromAccount;
 window.openPayModal = openPayModal;
 window.goPayment = goPayment;
 window.confirmRedeem = confirmRedeem;
