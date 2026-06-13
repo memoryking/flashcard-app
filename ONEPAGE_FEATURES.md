@@ -355,7 +355,7 @@ npx wrangler secret put PAYAPP_LINKVAL   # 연동 VALUE
 ## 6. 포인트 시스템
 
 ### 환율
-**3,000P = 챕터 1개월 연장**
+**`REDEEM_COST` P = 챕터 30일 연장** (현재 상수 3,000P. 향후 챕터별 가변 가능성 있음)
 
 ### 적립
 - 친구가 내 추천으로 가입 + 첫 결제 → **양쪽 모두 +1,000P**
@@ -365,11 +365,13 @@ npx wrangler secret put PAYAPP_LINKVAL   # 연동 VALUE
 - 홈에서 **💰 포인트 칩 클릭** → 포인트 모달
 - 챕터별 4개 박스로 시각화:
   - 적립: 친구 1명 결제 = +1,000P
-  - 사용: 3,000P → +30일
+  - 사용: `REDEEM_COST` P → +30일
   - 유료 갱신: D-12 → D-42 (잔여 + 30)
   - 미구매 시작: → D-30
-- 챕터 선택 → 3,000P 차감 + ChapterAccess 30일 연장
-- 잔액이 또 3,000P 이상이면 모달 자동 재오픈 (연속 구매 편의)
+- 챕터 선택 → `REDEEM_COST` P 차감 + ChapterAccess 30일 연장
+- 잔액이 또 `REDEEM_COST` 이상이면 모달 자동 재오픈 (연속 구매 편의)
+
+> ⚠️ **UI 정책**: 사용자에게 보이는 문구에서 "3,000P = 챕터 1개월" 같은 고정 환율 표현 사용 금지. 챕터 가격은 1,000원짜리도 있어 혼동 우려. "포인트로 챕터 30일 연장" 처럼 가변 친화적 문구 권장.
 
 ### 워커 처리 (`POST /access/redeem`)
 ```js
@@ -404,7 +406,7 @@ https://vipup.site/onepage?ref=ABC123
 5. 양쪽 `point += 1000`, `OnepagePointTx`에 2행 추가
 6. 결제자 `first_paid_at`를 NOW()로
 
-→ 1명 추천 = 1,000P, 3명 = 3,000P = 챕터 1개월 무료
+→ 1명 추천 = 1,000P, 모이면 포인트로 챕터 30일 연장
 
 ---
 
@@ -1092,7 +1094,7 @@ wrangler secret put PABBLY_WEBHOOK_URL
 | `/stats/ping` | POST | 60초마다 학생이 호출 |
 | `/stats/learners-now` | GET | 오늘 학습자 수 |
 | `/access` | GET | 내 챕터별 접근 상태 |
-| `/access/redeem` | POST | 3,000P → 챕터 1개월 |
+| `/access/redeem` | POST | `REDEEM_COST` P → 챕터 30일 연장 |
 | **`/payment/request`** | **POST** | **학생: 챕터 결제 세션 생성 → PayApp payurl 반환 (var1=chapter_id)** |
 | **`/payapp/webhook`** | **POST** | **PayApp: 결제 완료 알림 수신 → OnepagePayments INSERT → `SUCCESS` 응답** |
 

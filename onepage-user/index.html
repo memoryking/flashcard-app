@@ -2368,7 +2368,7 @@ function openPayModal(chapterId) {
         <button onclick="confirmRedeem(${chapterId})" ${canRedeem ? '' : 'disabled'}>포인트</button>
       </div>
       <div style="margin-top:14px;padding:10px;background:rgba(76,175,80,0.08);border-radius:8px;font-size:12px;color:#a5d6a7;">
-        💡 친구 1명 추천하고 결제하면 둘 다 1,000P. 3명이면 챕터 1개월 무료.
+        💡 친구 1명 추천하고 결제하면 둘 다 1,000P. 모인 포인트로 챕터 연장 가능.
       </div>
     `,
     foot: `<button onclick="closeModal()">닫기</button>`
@@ -2469,12 +2469,12 @@ function openPointModal() {
       <div style="text-align:center;margin-bottom:18px;padding:14px;background:rgba(255,193,7,0.08);border-radius:12px;">
         <div style="font-size:11px;color:rgba(255,255,255,0.55);">내 보유 포인트</div>
         <div style="font-size:32px;font-weight:900;color:#ffd54f;margin-top:2px;">💰 ${state.point.toLocaleString()}P</div>
-        <div style="font-size:11px;color:rgba(255,255,255,0.5);margin-top:4px;">3,000P → 챕터 1개월 (잔여 기간에 +30일)</div>
+        <div style="font-size:11px;color:rgba(255,255,255,0.5);margin-top:4px;">포인트로 챕터 30일 연장 (잔여 기간에 +30일)</div>
       </div>
-      ${!canRedeem ? '<div style="text-align:center;font-size:12px;color:#fca5a5;margin-bottom:14px;padding:8px;background:rgba(239,68,68,0.1);border-radius:8px;">⚠️ 3,000P 이상 필요 — 친구 3명 추천하면 채워집니다</div>' : ''}
+      ${!canRedeem ? `<div style="text-align:center;font-size:12px;color:#fca5a5;margin-bottom:14px;padding:8px;background:rgba(239,68,68,0.1);border-radius:8px;">⚠️ 포인트가 부족합니다 (필요 ${REDEEM_COST.toLocaleString()}P) — 친구 추천으로 모으세요</div>` : ''}
       ${rows}
       <div style="margin-top:14px;padding:10px;background:rgba(76,175,80,0.08);border-radius:8px;font-size:11px;color:#a5d6a7;text-align:center;">
-        💡 친구가 가입+결제 시 둘 다 +1,000P · 3명이면 챕터 1개월 무료
+        💡 친구가 가입+결제 시 둘 다 +1,000P · 모인 포인트로 챕터 연장
       </div>
     `,
     foot: `<button onclick="closeModal()">닫기</button>`
@@ -2523,13 +2523,13 @@ function openReferralModal() {
       </div>
       <div class="ref-stats">
         <div class="ref-stat"><span class="v">${state.point.toLocaleString()}</span><span class="l">내 포인트</span></div>
-        <div class="ref-stat"><span class="v">${REDEEM_COST}P</span><span class="l">= 챕터 1개월</span></div>
+        <div class="ref-stat"><span class="v">+1,000P</span><span class="l">친구 1명당</span></div>
       </div>
       <div class="ref-steps">
         <div class="ref-step"><b>1</b><span>위 링크 복사 → 친구 문자/카톡</span></div>
         <div class="ref-step"><b>2</b><span>친구가 가입 + 챕터 결제</span></div>
         <div class="ref-step"><b>3</b><span>둘 다 자동으로 +1,000P</span></div>
-        <div class="ref-step"><b>★</b><span>3,000P 모이면 [포인트 사용] 버튼으로 챕터 1개월 무료</span></div>
+        <div class="ref-step"><b>★</b><span>포인트 모이면 [포인트 사용] 버튼으로 챕터 연장</span></div>
       </div>
     `,
     foot: `<button onclick="closeModal()">닫기</button>`
@@ -2607,7 +2607,7 @@ function openAccountModal() {
         <div class="acc-row-main"><span class="acc-row-title">${state.point.toLocaleString()} P</span></div>
         <button class="acc-mini-btn" onclick="closeModal();openPointModal();">사용하기 →</button>
       </div>
-      <div class="acc-row-sub">3,000P = 챕터 1개월. 친구 추천 시 둘 다 1,000P.</div>
+      <div class="acc-row-sub">친구 추천 시 둘 다 1,000P 적립. 모인 포인트로 챕터 연장 가능.</div>
 
       <div class="acc-section-title">📚 내 구독 ${isTeacher ? '' : `· 활성 ${active.length}개`}</div>
       ${subscriptionsHtml}
