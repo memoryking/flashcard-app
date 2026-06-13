@@ -990,120 +990,104 @@ async function handleBulkImport(request, env, chapterId) {
 
   let i = start;
   let mergeItemsDeleted = 0;
-  let partialError = null;
   const itemQueue = []; // Phase 2 병렬 생성용 — 5개씩 묶어 Promise.all
-  try {
-    while (i < parsed.rows.length) {
-      const row = parsed.rows[i];
-      if (!topicMap.has(row.topic)) {
-        if (used + itemQueue.length + 1 > MAX_REQ) break;
-        const r = await ncbCreate(env, 'op_topics', {
-          chapter_id: Number(chapterId),
-          title: row.topic,
-          sort_order: tOrd++,
-          is_free: 0,
-          updated_at: kstDateTime(),
-        });
-        topicMap.set(row.topic, Number(r.id));
-        used++; createdT++;
-      }
-      const topicId = topicMap.get(row.topic);
-
-      // merge: 기존 토픽이면 그 토픽의 소목차들을 한 번만 로딩 (지연 prepopulate)
-      if (mode === 'merge' && initialTopicIds.has(topicId) && !loadedTopicSubs.has(topicId)) {
-        if (used + itemQueue.length + 1 > MAX_REQ) break;
-        const subResp = await ncbRead(env, 'op_subtopics', `topic_id=${topicId}&limit=2000`);
-        used++;
-        for (const s of (subResp.data || [])) {
-          const key = topicId + '|' + String(s.title || '');
-          if (!subMap.has(key)) subMap.set(key, Number(s.id));
-          originalSubIds.add(Number(s.id));
-        }
-        loadedTopicSubs.add(topicId);
-      }
-
-      const subKey = topicId + '|' + row.sub;
-      if (!subMap.has(subKey)) {
-        if (used + itemQueue.length + 1 > MAX_REQ) break;
-        const r = await ncbCreate(env, 'op_subtopics', {
-          topic_id: Number(topicId),
-          title: row.sub,
-          sort_order: subMap.size + 1,
-          updated_at: kstDateTime(),
-        });
-        subMap.set(subKey, Number(r.id));
-        used++; createdS++;
-      }
-      const subId = subMap.get(subKey);
-
-      // merge: 원래 있던 소목차면 기존 items 한 번 비움 (subtopic_id는 그대로 → 학습 기록 보존)
-      if (mode === 'merge' && originalSubIds.has(subId) && !clearedSubs.has(subId)) {
-        if (used + itemQueue.length + 1 > MAX_REQ) break;
-        const itemResp = await ncbRead(env, 'op_items', `subtopic_id=${subId}&limit=2000`);
-        used++;
-        const existingItems = itemResp.data || [];
-        const DELETE_BATCH = 5;
-        let deletedAll = true;
-        for (let k = 0; k < existingItems.length; k += DELETE_BATCH) {
-          const remaining = MAX_REQ - used - itemQueue.length;
-          if (remaining <= 0) { deletedAll = false; break; }
-          const slice = existingItems.slice(k, Math.min(k + DELETE_BATCH, k + remaining));
-          await Promise.all(slice.map(it => ncbDelete(env, 'op_items', it.id)));
-          used += slice.length;
-          mergeItemsDeleted += slice.length;
-          if (k + slice.length < existingItems.length && used + itemQueue.length >= MAX_REQ) {
-            deletedAll = false; break;
-          }
-        }
-        if (deletedAll) {
-          clearedSubs.add(subId);
-        } else {
-          break;
-        }
-      }
-
-      // item은 즉시 생성하지 않고 큐에 쌓음 (Phase 2에서 5개씩 병렬 생성)
+  while (i < parsed.rows.length) {
+    const row = parsed.rows[i];
+    if (!topicMap.has(row.topic)) {
       if (used + itemQueue.length + 1 > MAX_REQ) break;
-      itemQueue.push({
-        subtopic_id: Number(subId),
-        kind: 'text',
-        text: row.text,
-        image_b64: null,
-        caption: '',
-        sort_order: i + 1,
+      const r = await ncbCreate(env, 'op_topics', {
+        chapter_id: Number(chapterId),
+        title: row.topic,
+        sort_order: tOrd++,
+        is_free: 0,
         updated_at: kstDateTime(),
       });
-      i++;
+      topicMap.set(row.topic, Number(r.id));
+      used++; createdT++;
+    }
+    const topicId = topicMap.get(row.topic);
+
+    // merge: 기존 토픽이면 그 토픽의 소목차들을 한 번만 로딩 (지연 prepopulate)
+    if (mode === 'merge' && initialTopicIds.has(topicId) && !loadedTopicSubs.has(topicId)) {
+      if (used + itemQueue.length + 1 > MAX_REQ) break;
+      const subResp = await ncbRead(env, 'op_subtopics', `topic_id=${topicId}&limit=2000`);
+      used++;
+      for (const s of (subResp.data || [])) {
+        const key = topicId + '|' + String(s.title || '');
+        if (!subMap.has(key)) subMap.set(key, Number(s.id));
+        originalSubIds.add(Number(s.id));
+      }
+      loadedTopicSubs.add(topicId);
     }
 
-    // Phase 2: item 큐를 5개씩 병렬 생성 — wall time 1/5로 단축
-    const CREATE_BATCH = 5;
-    for (let k = 0; k < itemQueue.length; k += CREATE_BATCH) {
-      const slice = itemQueue.slice(k, k + CREATE_BATCH);
-      try {
-        await Promise.all(slice.map(payload => ncbCreate(env, 'op_items', payload)));
+    const subKey = topicId + '|' + row.sub;
+    if (!subMap.has(subKey)) {
+      if (used + itemQueue.length + 1 > MAX_REQ) break;
+      const r = await ncbCreate(env, 'op_subtopics', {
+        topic_id: Number(topicId),
+        title: row.sub,
+        sort_order: subMap.size + 1,
+        updated_at: kstDateTime(),
+      });
+      subMap.set(subKey, Number(r.id));
+      used++; createdS++;
+    }
+    const subId = subMap.get(subKey);
+
+    // merge: 원래 있던 소목차면 기존 items 한 번 비움 (subtopic_id는 그대로 → 학습 기록 보존)
+    if (mode === 'merge' && originalSubIds.has(subId) && !clearedSubs.has(subId)) {
+      if (used + itemQueue.length + 1 > MAX_REQ) break;
+      const itemResp = await ncbRead(env, 'op_items', `subtopic_id=${subId}&limit=2000`);
+      used++;
+      const existingItems = itemResp.data || [];
+      const DELETE_BATCH = 5;
+      let deletedAll = true;
+      for (let k = 0; k < existingItems.length; k += DELETE_BATCH) {
+        const remaining = MAX_REQ - used - itemQueue.length;
+        if (remaining <= 0) { deletedAll = false; break; }
+        const slice = existingItems.slice(k, Math.min(k + DELETE_BATCH, k + remaining));
+        await Promise.all(slice.map(it => ncbDelete(env, 'op_items', it.id)));
         used += slice.length;
-        createdI += slice.length;
-      } catch (e) {
-        // 배치 중 일부는 성공했을 수 있음 — 보수적으로 createdI는 더하지 않고 next_start 만 후퇴
-        // i는 큐에 쌓은 만큼 이미 전진해 있으므로, 실패 배치의 첫 인덱스로 되돌림
-        i = i - (itemQueue.length - k);
-        partialError = `item create failed at row ${i + 1}: ${String(e?.message || e).slice(0, 200)}`;
-        console.error('bulk_phase2_failed', e);
+        mergeItemsDeleted += slice.length;
+        if (k + slice.length < existingItems.length && used + itemQueue.length >= MAX_REQ) {
+          deletedAll = false; break;
+        }
+      }
+      if (deletedAll) {
+        clearedSubs.add(subId);
+      } else {
         break;
       }
     }
-  } catch (e) {
-    // while 루프 중 ncbCreate/ncbRead 가 던진 예외 — 지금까지 진행한 만큼은 클라이언트에 반환
-    partialError = `bulk import failed at row ${i + 1}: ${String(e?.message || e).slice(0, 200)}`;
-    console.error('bulk_loop_failed', e);
+
+    // item은 즉시 생성하지 않고 큐에 쌓음 (Phase 2에서 5개씩 병렬 생성)
+    if (used + itemQueue.length + 1 > MAX_REQ) break;
+    itemQueue.push({
+      subtopic_id: Number(subId),
+      kind: 'text',
+      text: row.text,
+      image_b64: null,
+      caption: '',
+      sort_order: i + 1,
+      updated_at: kstDateTime(),
+    });
+    i++;
+  }
+
+  // Phase 2: item 큐를 5개씩 병렬 생성 — wall time 1/5로 단축
+  const CREATE_BATCH = 5;
+  for (let k = 0; k < itemQueue.length; k += CREATE_BATCH) {
+    const slice = itemQueue.slice(k, k + CREATE_BATCH);
+    await Promise.all(slice.map(payload => ncbCreate(env, 'op_items', payload)));
+    used += slice.length;
+    createdI += slice.length;
   }
 
   return json({
-    ok: !partialError,
+    ok: true,
     t_added: createdT, s_added: createdS, i_added: createdI,
     next_start: i,
-    done: !partialError && i >= parsed.rows.length,
+    done: i >= parsed.rows.length,
     total: parsed.rows.length,
     base_sort: tOrd - 1,
     topic_map: Object.fromEntries(topicMap),
@@ -1113,7 +1097,6 @@ async function handleBulkImport(request, env, chapterId) {
     initial_topic_ids: [...initialTopicIds],
     loaded_topic_subs: [...loadedTopicSubs],
     merge_progress: mergeItemsDeleted > 0, // i가 안 올라도 items 일부 지워졌으면 progress 인정
-    error: partialError || undefined,
   }, 200, request);
 }
 
