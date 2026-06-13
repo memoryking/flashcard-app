@@ -495,8 +495,14 @@ async function handleUpdateInterests(request, env) {
   const interests = list.map(s => String(s).trim()).filter(Boolean).slice(0, 20);
   const rec = await findUserByPhone(env, auth.phone);
   if (!rec) return json({ error: 'user_not_found' }, 404, request);
-  await atUpdate(env, AT_USERS, rec.id, { interests: interests.join(',') });
-  return json({ ok: true, interests }, 200, request);
+  const joined = interests.join(',');
+  console.log(`[INTERESTS UPDATE] phone=${auth.phone} interests="${joined}" recId=${rec.id}`);
+  const result = await atUpdate(env, AT_USERS, rec.id, { interests: joined });
+  if (result && result.error) {
+    console.log(`[INTERESTS UPDATE FAIL] ${JSON.stringify(result.error)}`);
+    return json({ error: 'airtable_update_failed', detail: result.error }, 500, request);
+  }
+  return json({ ok: true, interests, saved: joined }, 200, request);
 }
 
 async function handleReferralInfo(request, env) {

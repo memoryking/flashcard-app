@@ -985,6 +985,7 @@ const TOKEN_KEY = 'op_user_token';
 const REF_KEY = 'op_ref_code';
 const UTM_KEY = 'op_utm';
 const INTERESTS_KEY = 'op_interests_pending'; // 가입 전 URL에서 캡쳐한 관심 주제
+const INTEREST_FILTER_KEY = 'op_interest_filter'; // 필터 ON/OFF 토글 저장 (사용자별 phone 기준)
 const UTM_TTL_MS = 30 * 24 * 3600 * 1000;   // 30일 유지 (재방문 시까지 어트리뷰션 유지)
 const LANDING_URL = 'https://vipup.site/onepage';   // 결제 안내 페이지
 const REDEEM_COST = 3000;
@@ -1222,15 +1223,19 @@ function captureUtmFromUrl() {
     }
     // ?interest=수능,토익 또는 ?interest=수능&interest=토익 캡쳐
     const interestParams = u.searchParams.getAll('interest');
-    const interests = [];
+    const newInterests = [];
     for (const v of interestParams) {
       for (const s of String(v).split(',')) {
         const t = s.trim();
-        if (t) interests.push(t);
+        if (t) newInterests.push(t);
       }
     }
-    if (interests.length) {
-      localStorage.setItem(INTERESTS_KEY, JSON.stringify({ interests, at: Date.now() }));
+    if (newInterests.length) {
+      // 누적 — 이전 방문에서 캡쳐한 관심 주제와 합침 (Set으로 중복 제거)
+      // ?interest=한자 방문 → ?interest=영어 방문 = localStorage에 [한자, 영어]
+      const prev = loadPendingInterests();
+      const merged = [...new Set([...prev, ...newInterests])].slice(0, 20);
+      localStorage.setItem(INTERESTS_KEY, JSON.stringify({ interests: merged, at: Date.now() }));
     }
   } catch {}
 }
@@ -1332,7 +1337,11 @@ async function loadMeAndEnter() {
     state.point = Number(r.user.point) || 0;
     state.chapterAccess = r.chapter_access || {};
     state.interests = Array.isArray(r.user.interests) ? r.user.interests : [];
-    state.interestFilterOn = state.interests.length > 0; // 관심 주제 있으면 기본 ON
+    // 필터 ON/OFF: localStorage에 저장한 값이 있으면 그대로, 없으면 interests 있을 때 기본 ON
+    const savedToggle = localStorage.getItem(INTEREST_FILTER_KEY + '_' + (r.user.phone || ''));
+    if (savedToggle === '1') state.interestFilterOn = state.interests.length > 0;
+    else if (savedToggle === '0') state.interestFilterOn = false;
+    else state.interestFilterOn = state.interests.length > 0;
     renderWatermark();
     await enterHome();
   } finally {
@@ -2524,9 +2533,12 @@ async function saveInterests() {
     await api('PUT', '/auth/me/interests', { interests: selected });
     state.interests = selected;
     state.interestFilterOn = filterOn && selected.length > 0;
+    // 필터 토글 상태도 사용자별로 localStorage 저장
+    const key = INTEREST_FILTER_KEY + '_' + (state.user.phone || '');
+    localStorage.setItem(key, state.interestFilterOn ? '1' : '0');
     closeModal();
     renderHome();
-    toast('관심 주제 저장됨');
+    toast(`관심 주제 ${selected.length}개 저장됨 (Airtable 동기화 완료)`);
   } catch (e) {
     toast('저장 실패: ' + e.message, true);
   } finally {
