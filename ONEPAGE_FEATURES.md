@@ -410,6 +410,60 @@ https://vipup.site/onepage?ref=ABC123
 
 ---
 
+## 관심 주제 (interests)
+
+학습자별 노출 챕터를 좁히는 개인화 필터. 한자·기술사·토익·수능 등 카탈로그가 커져도 본인 관심 분야만 보이게.
+
+### 데이터 모델
+- `OnepageUsers.interests` — 콤마 구분 과목 문자열 (예: `"수능,토익"`)
+- 빈 값 또는 미설정 → 전체 챕터 노출 (필터 OFF가 기본)
+
+### 학생 앱 동작
+- 우상단 **👤 계정** 모달 → **🎯 관심 주제 → 편집** 모달에서 체크박스로 선택 + 필터 토글
+- 필터 ON + interests 비어있지 않으면 그 과목의 챕터만 홈에 표시
+- 필터 OFF 또는 interests 빈 값 → 전체 노출
+- 필터 토글 상태는 `localStorage` 에 phone별로 저장 (새로고침해도 유지)
+
+### URL 파라미터 자동 캡쳐 (마케팅용)
+```
+https://onepage-study.vercel.app/?interest=수능,토익
+https://onepage-study.vercel.app/?interest=수능&interest=한자
+```
+- `captureUtmFromUrl()` 이 `?interest=` 파라미터를 파싱해 `localStorage`(30일 TTL)에 누적 저장
+- 다중 방문 시 **누적(union, 중복 제거)** — 한자 광고 클릭 후 영어 광고 클릭 = 둘 다 캡쳐
+- 가입 시 body.interests로 Worker 전송 → `OnepageUsers.interests` 에 저장
+- 로그인된 사용자가 같은 URL 재방문해도 본인의 Airtable 값은 변경 X (localStorage만 갱신, 다른 사람 가입 대비)
+
+### 우선순위
+| 상황 | 진실의 출처 |
+|---|---|
+| 신규 가입 직전 | localStorage (URL 캡쳐) |
+| 가입·로그인 이후 모든 시점 | **Airtable** (`/auth/me` 응답) |
+| 모달에서 편집 | `PUT /auth/me/interests` → Airtable 즉시 업데이트 |
+
+---
+
+## 내 계정 모달 (학생 앱 우상단 👤)
+
+홈 헤더 우상단 **👤** 버튼 → 종합 계정 모달.
+
+### 구성
+- **기본 정보**: 이름·이메일·전화·추천 코드 (노란 강조)
+- **💰 포인트**: 잔액 + `사용하기 →` (포인트 모달로 이동)
+- **📚 내 구독**: 활성 챕터 카드 (D-N 배지, D-7 이하 주황 경고) + 만료일 KST + 만료 챕터 3개 미리보기. 선생님 role은 `🛠 관리자 — 모든 챕터 무제한`
+- **🎯 관심 주제**: 현재 선택 태그 표시 + `편집 →` (관심 모달로 이동)
+- **🔒 보안**: `비밀번호 변경 →` (변경 모달)
+- **푸터**: 🚪 로그아웃(빨강) + 닫기
+
+### 비밀번호 변경
+- 모달: 현재/새/확인 3칸. 6자 이상 + 확인 일치 검증
+- Worker `POST /auth/change-password`:
+  - `verifyPassword(old_password, password_hash)` → 틀리면 401
+  - `hashPassword(new_password)` 로 PBKDF2 재해시 후 Airtable 업데이트
+  - 변경 후 토큰은 그대로 유지 (재로그인 불필요)
+
+---
+
 ### 암기 모음 모드 (챕터 내 ●)
 
 챕터 헤더 우측 **● 암기** 버튼 → 챕터 전체에서 꾹눌러 암기 표시한(`understoodSet`) 소목차만 한 리스트로 모아보기.
@@ -1053,7 +1107,7 @@ wrangler secret put PABBLY_WEBHOOK_URL
 ## 20. 데이터 모델
 
 ### Airtable (사람·돈·캐페인·결제 폴백)
-- **OnepageUsers**: name, phone, email, password_hash, role, referral_code, referred_by_code, point, first_paid_at, **utm_source, utm_medium, utm_campaign, utm_content, utm_term, landing_url, referrer_url** (UTM 7개 — 가입 시 한 번만 기록)
+- **OnepageUsers**: name, phone, email, password_hash, role, referral_code, referred_by_code, point, first_paid_at, **interests** (콤마 구분 과목 배열 — 가입 시 URL `?interest=` 캡쳐 또는 학생 앱 모달에서 편집), **utm_source, utm_medium, utm_campaign, utm_content, utm_term, landing_url, referrer_url** (UTM 7개 — 가입 시 한 번만 기록)
 - **OnepageChapterAccess**: user_phone, chapter_id, chapter_title, expires_at, last_payment_id, source — Worker(`/payapp/webhook` 또는 `/admin/access/grant`) + C1 Automation이 갱신
 - **OnepagePayments**: mul_no, user_phone, user_email, chapter_id, chapter_title, amount, paid_at, raw, status — **Worker `/payapp/webhook`이 직접 채움** (v2부터)
 - **OnepagePointTx**: user_phone, delta, reason, balance_after, memo (감사 로그 + 관리자 지급 시 `[관리자:이름]` 접두)
@@ -1081,9 +1135,11 @@ wrangler secret put PABBLY_WEBHOOK_URL
 ### 공개 / 학생용
 | 경로 | 메서드 | 동작 |
 |---|---|---|
-| `/auth/signup` | POST | 회원가입 (+ utm 필드 7개 자동 저장) |
+| `/auth/signup` | POST | 회원가입 (+ utm 필드 7개 + interests 자동 저장) |
 | `/auth/login` | POST | 로그인 → JWT 토큰 |
-| `/auth/me` | GET | 내 정보 + 챕터 접근 맵 |
+| `/auth/me` | GET | 내 정보 + 챕터 접근 맵 + interests 배열 |
+| `/auth/me/interests` | PUT | 관심 주제 편집 — `{interests: [...]}` 콤마 join하여 Airtable 갱신 |
+| `/auth/change-password` | POST | 비밀번호 변경 — `{old_password, new_password}`, 현재 비번 검증 후 PBKDF2 재해시 |
 | `/referral/info?code=` | GET | 추천 코드 유효성 (이름 마스킹) |
 | `/chapters` | GET | 챕터 목록 |
 | `/topics?chapter_id=` | GET | 대목차 목록 + 동봉 subtopics |

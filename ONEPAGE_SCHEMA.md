@@ -51,9 +51,12 @@
 | **`utm_term`** | **Single line text** | — | 키워드 (선택) |
 | **`landing_url`** | **Long text** | — | 가입 직전 랜딩 URL 전체 (파라미터 포함) |
 | **`referrer_url`** | **Long text** | — | `document.referrer` (어디서 클릭해서 왔는지) |
+| **`interests`** | **Long text** | — | 관심 주제 — 콤마 구분 과목 문자열 (예: `"수능,토익"`). 가입 시 URL `?interest=...` 캡쳐 또는 학생 앱 모달에서 편집. 빈 값/미설정이면 필터 OFF (전체 노출). 최대 20개. |
 | `created_at` | **Created time** (auto) | 자동 채움 | Airtable 자동 필드 |
 
 **UTM 7개 필드**: 가입 시 한 번만 기록(불변). 비어 있어도 OK — 추천 가입이나 직접 입력 가입은 비어 있음. CRM `/admin/attribution`이 이 필드들로 캐페인별 성과 집계.
+
+**`interests` 필드**: UTM과 달리 **사용자 편집 가능**. 학생 앱 우상단 👤 → 🎯 관심 주제 모달의 체크박스 결과를 `PUT /auth/me/interests` 로 즉시 갱신. URL `?interest=` 자동 캡쳐는 가입 직전 localStorage 30일 TTL에 누적.
 
 **유니크 제약 (Airtable 자체 unique 제약은 없으니 Worker에서 검사)**
 - `phone` 유니크
@@ -580,9 +583,9 @@ if (existing) {
 
 ## G. 마이그레이션 SQL 요약 (기존 설치에 추가된 컬럼·테이블)
 
-**Airtable 신규 필드 (`OnepageUsers`)** — 7개:
-- `utm_source`, `utm_medium`, `utm_campaign`, `utm_content`, `utm_term` → Single line text
-- `landing_url`, `referrer_url` → Long text
+**Airtable 신규 필드 (`OnepageUsers`)**:
+- UTM 7개 (어트리뷰션): `utm_source`, `utm_medium`, `utm_campaign`, `utm_content`, `utm_term` → Single line text · `landing_url`, `referrer_url` → Long text
+- **`interests`** → Long text (관심 주제 — 콤마 구분. 가입 시 URL 캡쳐 또는 학생 앱 모달에서 편집)
 
 **Airtable 신규 테이블**:
 - `OnepageCampaigns` (A5 참조) — CRM QR 라이브러리
