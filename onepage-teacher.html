@@ -318,6 +318,16 @@ a { color: #4fc3f7; text-decoration: none; }
   min-height: 320px; font-family: monospace; font-size: 12px;
   white-space: pre; overflow: auto;
 }
+
+/* 텍스트 항목 추가/수정 — 긴 지문도 편하게 */
+.text-item-modal { max-width: 720px; }
+.text-item-modal #m_text {
+  min-height: 280px; font-family: inherit; font-size: 14px;
+  line-height: 1.6; white-space: pre-wrap;
+}
+.text-item-modal #m_caption {
+  min-height: 60px; font-family: inherit; font-size: 13px;
+}
 .tsv-help {
   background: rgba(79,195,247,0.08); border: 1px solid rgba(79,195,247,0.2);
   border-radius: 6px; padding: 10px 14px; font-size: 12px;
@@ -1184,41 +1194,71 @@ async function deleteSubtopic(id) {
 // ============================================================
 // 아이템 CRUD
 // ============================================================
+function openTextItemModal({ title, initialText = '', initialCaption = '', onSave }) {
+  modal({
+    title,
+    klass: 'text-item-modal',
+    body: `
+      <div class="form-row">
+        <label>본문 *</label>
+        <textarea id="m_text" placeholder="여러 줄 입력 가능 — 줄바꿈은 그대로 표시됩니다.">${escapeHtml(initialText)}</textarea>
+        <div class="help">Enter로 줄바꿈, 모서리를 끌어 높이 조절</div>
+      </div>
+      <div class="form-row">
+        <label>설명 (선택)</label>
+        <textarea id="m_caption" placeholder="본문 아래 작은 글씨. 비우면 표시 안 함.">${escapeHtml(initialCaption)}</textarea>
+      </div>
+    `,
+    save: async () => {
+      const text = $('m_text').value;
+      const caption = $('m_caption').value;
+      if (!text.trim()) { toast('본문 필수', true); return false; }
+      return await onSave({ text, caption });
+    }
+  });
+}
+
 async function addTextItem(subId) {
-  const text = prompt('텍스트 내용을 입력하세요:');
-  if (text === null || !text.trim()) return;
-  const caption = prompt('설명 (선택 — 본문 아래 작은 글씨로 표시. 비워두면 표시 안 함):') || '';
-  const items = state.itemsBySubtopic[subId] || [];
-  const order = items.length ? Math.max(...items.map(i => Number(i.sort_order) || 0)) + 1 : 1;
-  showLoading(true);
-  try {
-    await api('POST', '/items', {
-      subtopic_id: subId, kind: 'text', text, caption, sort_order: order,
-    });
-    await loadItems(subId);
-    toast('추가됨');
-  } catch (e) { toast(e.message, true); }
-  finally { showLoading(false); }
+  openTextItemModal({
+    title: '텍스트 추가',
+    onSave: async ({ text, caption }) => {
+      const items = state.itemsBySubtopic[subId] || [];
+      const order = items.length ? Math.max(...items.map(i => Number(i.sort_order) || 0)) + 1 : 1;
+      showLoading(true);
+      try {
+        await api('POST', '/items', {
+          subtopic_id: subId, kind: 'text', text, caption, sort_order: order,
+        });
+        await loadItems(subId);
+        toast('추가됨');
+        return true;
+      } catch (e) { toast(e.message, true); return false; }
+      finally { showLoading(false); }
+    }
+  });
 }
 
 async function editItemText(itemId) {
-  // 현재 텍스트·캡션 찾기
   let curText = '', curCaption = '', subId = null;
   for (const sid in state.itemsBySubtopic) {
     const it = (state.itemsBySubtopic[sid] || []).find(x => x.id === itemId);
     if (it) { curText = it.text || ''; curCaption = it.caption || ''; subId = Number(sid); break; }
   }
-  const text = prompt('텍스트 수정:', curText);
-  if (text === null) return;
-  const caption = prompt('설명 수정 (비워두면 표시 안 함):', curCaption);
-  if (caption === null) return;
-  showLoading(true);
-  try {
-    await api('PUT', '/items/' + itemId, { text, caption });
-    if (subId) await loadItems(subId);
-    toast('저장됨');
-  } catch (e) { toast(e.message, true); }
-  finally { showLoading(false); }
+  openTextItemModal({
+    title: '텍스트 수정',
+    initialText: curText,
+    initialCaption: curCaption,
+    onSave: async ({ text, caption }) => {
+      showLoading(true);
+      try {
+        await api('PUT', '/items/' + itemId, { text, caption });
+        if (subId) await loadItems(subId);
+        toast('저장됨');
+        return true;
+      } catch (e) { toast(e.message, true); return false; }
+      finally { showLoading(false); }
+    }
+  });
 }
 
 async function editItemCaption(itemId) {
