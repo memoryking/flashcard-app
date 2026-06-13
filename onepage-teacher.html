@@ -1464,6 +1464,16 @@ function openBulkModal(chapterId) {
           });
           totalT += r.t_added; totalS += r.s_added; totalI += r.i_added;
           total = r.total;
+          // 서버에서 부분 실패를 알리면 — 지금까지 결과를 보존하고 중단
+          if (r.error) {
+            $('toast').className = '';
+            alert(`⚠️ 입력이 중간에 실패했습니다.\n\n원인: ${r.error}\n\n지금까지 진행분:\n• 대목차: ${totalT}\n• 소목차: ${totalS}\n• 내용: ${totalI}\n• 처리 행: ${r.next_start}/${r.total}\n\n실패 위치 전후 행을 확인하고 다시 시도하세요.`);
+            delete state.topicsByChapter[chapterId];
+            Object.keys(state.subtopicsByTopic).forEach(k => delete state.subtopicsByTopic[k]);
+            Object.keys(state.itemsBySubtopic).forEach(k => delete state.itemsBySubtopic[k]);
+            await loadTopics(chapterId);
+            return false;
+          }
           // i가 안 올라도 merge clear 도중이면 progress 인정 (정상)
           if (r.next_start === start && !r.done && !r.merge_progress) {
             throw new Error('진행이 멈췄습니다. 데이터를 확인해주세요.');
@@ -1506,7 +1516,12 @@ function openBulkModal(chapterId) {
         // 완료 후 명확한 alert — 토스트는 짧아서 놓치기 쉬움
         alert(`✅ 입력 완료! (소요 ${elapsedStr})\n\n• 대목차 추가/매칭: ${totalT}\n• 소목차 추가/매칭: ${totalS}\n• 내용 입력: ${totalI}`);
         return true;
-      } catch (e) { $('toast').className = ''; toast(e.message, true); return false; }
+      } catch (e) {
+        $('toast').className = '';
+        // 토스트는 2.4초 후 사라져서 긴 에러 메시지를 못 읽을 수 있음 → alert 로 표시
+        alert(`❌ 일괄 입력 실패\n\n${e.message}`);
+        return false;
+      }
       finally { showLoading(false); }
     },
     saveLabel: '입력 실행'
