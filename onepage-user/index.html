@@ -2146,6 +2146,9 @@ function withTopicAnchor(topicId, callback) {
 function studyPass(subId, topicId) {
   state.passedSet.add(Number(subId));
   state.expanded.subtopic.delete(Number(subId));
+  // 같은 대목차의 다른 펼쳐진 소목차들도 모두 닫음 → 다음 단어에 집중
+  const sameTopicSubs = state.subtopicsByTopic[topicId] || [];
+  for (const s of sameTopicSubs) state.expanded.subtopic.delete(Number(s.id));
   savePassed();
 
   // 보이는 소목차가 1개라도 남았는지 확인 (완료된 단어도 패스해야 사라짐)
