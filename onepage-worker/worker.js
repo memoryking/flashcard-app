@@ -484,6 +484,29 @@ function parseInterests(raw) {
   return String(raw || '').split(',').map(s => s.trim()).filter(Boolean);
 }
 
+// POST /auth/change-password — 현재 비밀번호 검증 후 새 비밀번호로 교체
+async function handleChangePassword(request, env) {
+  const auth = await verifyAuth(request, env);
+  if (!auth) return json({ error: 'unauthenticated' }, 401, request);
+  const body = await request.json().catch(() => ({}));
+  const oldPw = String(body.old_password || '');
+  const newPw = String(body.new_password || '');
+  if (!oldPw || !newPw) return json({ error: '현재/새 비밀번호 모두 입력하세요.' }, 400, request);
+  if (newPw.length < 6) return json({ error: '새 비밀번호는 6자 이상이어야 합니다.' }, 400, request);
+
+  const rec = await findUserByPhone(env, auth.phone);
+  if (!rec) return json({ error: 'user_not_found' }, 404, request);
+  const ok = await verifyPassword(oldPw, rec.fields.password_hash || '');
+  if (!ok) return json({ error: '현재 비밀번호가 일치하지 않습니다.' }, 401, request);
+
+  const newHash = await hashPassword(newPw);
+  const result = await atUpdate(env, AT_USERS, rec.id, { password_hash: newHash });
+  if (result && result.error) {
+    return json({ error: 'update_failed', detail: result.error }, 500, request);
+  }
+  return json({ ok: true }, 200, request);
+}
+
 // PUT /auth/me/interests — 사용자가 관심 주제 편집
 async function handleUpdateInterests(request, env) {
   const auth = await verifyAuth(request, env);
@@ -2494,6 +2517,7 @@ async function route(request, env) {
   if (m === 'POST' && path === '/auth/login') return handleLogin(request, env);
   if (m === 'GET' && path === '/auth/me') return handleMe(request, env);
   if (m === 'PUT' && path === '/auth/me/interests') return handleUpdateInterests(request, env);
+  if (m === 'POST' && path === '/auth/change-password') return handleChangePassword(request, env);
   if (m === 'GET' && path === '/referral/info') return handleReferralInfo(request, env);
   if (m === 'GET' && path === '/stats/learners-now') return handleLearnersNow(request, env);
   if (m === 'POST' && path === '/stats/ping') return handleStatsPing(request, env);

@@ -788,6 +788,57 @@ a { color: #4fc3f7; text-decoration: none; }
   font-size: 10px; color: rgba(255,255,255,0.5); margin-top: 2px;
 }
 
+/* ─── 내 계정 모달 ─── */
+.account-modal .acc-info-row {
+  display: grid; grid-template-columns: 70px 1fr;
+  gap: 6px 12px; margin-bottom: 14px;
+  padding: 12px 14px; background: rgba(0,0,0,0.25);
+  border-radius: 8px; font-size: 13px; align-items: center;
+}
+.account-modal .acc-info-label { color: rgba(255,255,255,0.5); font-size: 11px; }
+.account-modal .acc-section-title {
+  font-size: 12px; font-weight: 700; color: rgba(255,255,255,0.6);
+  margin: 16px 0 6px; letter-spacing: 0.03em;
+}
+.account-modal .acc-row {
+  display: flex; align-items: center; gap: 10px;
+  padding: 10px 12px; background: rgba(0,0,0,0.25);
+  border: 1px solid rgba(255,255,255,0.05); border-radius: 8px;
+  margin-bottom: 4px; font-size: 13px;
+}
+.account-modal .acc-row-main { flex: 1; display: flex; align-items: center; gap: 8px; min-width: 0; }
+.account-modal .acc-row-icon { font-size: 18px; flex-shrink: 0; }
+.account-modal .acc-row-title { font-weight: 600; color: #fff; word-break: keep-all; }
+.account-modal .acc-row-sub {
+  font-size: 11px; color: rgba(255,255,255,0.45);
+  padding: 0 12px 8px; margin-top: -2px;
+}
+.account-modal .acc-badge {
+  background: rgba(76,175,80,0.2); color: #81c784;
+  padding: 3px 10px; border-radius: 50px;
+  font-size: 11px; font-weight: 800; flex-shrink: 0;
+}
+.account-modal .acc-badge.warn { background: rgba(255,152,0,0.2); color: #ffb74d; }
+.account-modal .acc-badge.expired { background: rgba(255,255,255,0.08); color: rgba(255,255,255,0.5); }
+.account-modal .acc-empty {
+  text-align: center; padding: 12px; font-size: 12px;
+  color: rgba(255,255,255,0.4);
+}
+.account-modal .acc-mini-btn {
+  background: rgba(79,195,247,0.15); border: 1px solid rgba(79,195,247,0.35);
+  color: #4fc3f7; padding: 6px 12px; border-radius: 50px;
+  font-size: 12px; font-weight: 700; cursor: pointer;
+}
+.account-modal .acc-mini-btn:hover { background: rgba(79,195,247,0.25); }
+.account-modal .acc-tag-row {
+  display: flex; flex-wrap: wrap; gap: 6px;
+}
+.account-modal .acc-tag {
+  background: rgba(233,69,96,0.15); border: 1px solid rgba(233,69,96,0.35);
+  color: #ff8a9e; padding: 4px 10px; border-radius: 50px;
+  font-size: 12px; font-weight: 600;
+}
+
 /* ─── 관심 주제 모달 ─── */
 .interest-modal .interest-toggle {
   display: flex; align-items: center; gap: 10px;
@@ -917,7 +968,7 @@ a { color: #4fc3f7; text-decoration: none; }
       <div class="live-dot"></div><span id="liveCount">0</span>명 학습 중
     </div>
     <div class="spacer"></div>
-    <button class="icon-btn" onclick="logout()">🚪</button>
+    <button class="icon-btn" onclick="openAccountModal()" title="내 계정">👤</button>
   </header>
   <div class="home-top">
     <div class="home-greeting" id="homeGreeting">안녕하세요</div>
@@ -2486,6 +2537,154 @@ function openReferralModal() {
 }
 
 // ============================================================
+// 내 계정 모달 — 포인트·구독·관심·비밀번호·로그아웃 종합
+// ============================================================
+function openAccountModal() {
+  const u = state.user || {};
+  // 구독 정보 (활성 + 만료된 챕터)
+  const access = state.chapterAccess || {};
+  const isTeacher = u.role === 'teacher';
+  const chapterMap = {};
+  for (const c of state.chapters || []) chapterMap[c.id] = c;
+  const now = Date.now() + 9 * 3600 * 1000; // KST
+  const active = [];
+  const expired = [];
+  for (const cid in access) {
+    const a = access[cid];
+    const ch = chapterMap[cid];
+    if (!ch) continue;
+    const exp = new Date(a.expires_at).getTime();
+    if (exp > now) active.push({ ch, expiresAt: a.expires_at, dLeft: Math.ceil((exp - now) / 86400000) });
+    else expired.push({ ch, expiresAt: a.expires_at });
+  }
+  active.sort((a, b) => a.dLeft - b.dLeft);
+
+  const subscriptionsHtml = isTeacher
+    ? '<div class="acc-row" style="color:#ffd54f;font-weight:600;">🛠 관리자 — 모든 챕터 무제한</div>'
+    : active.length === 0
+      ? '<div class="acc-empty">활성 구독이 없습니다</div>'
+      : active.map(a => `
+          <div class="acc-row">
+            <div class="acc-row-main">
+              <span class="acc-row-icon">${escapeHtml(a.ch.icon || '📘')}</span>
+              <span class="acc-row-title">${escapeHtml(a.ch.title)}</span>
+            </div>
+            <span class="acc-badge ${a.dLeft <= 7 ? 'warn' : ''}">D-${a.dLeft}</span>
+          </div>
+          <div class="acc-row-sub">만료: ${fmtKstDate(a.expiresAt)} KST</div>
+        `).join('');
+
+  const expiredHtml = expired.length === 0 ? '' : `
+    <div class="acc-section-title" style="margin-top:14px;color:rgba(255,255,255,0.45);">만료된 구독 ${expired.length}개</div>
+    ${expired.slice(0, 3).map(e => `
+      <div class="acc-row" style="opacity:0.55">
+        <div class="acc-row-main">
+          <span class="acc-row-icon">${escapeHtml(e.ch.icon || '📘')}</span>
+          <span class="acc-row-title">${escapeHtml(e.ch.title)}</span>
+        </div>
+        <span class="acc-badge expired">만료</span>
+      </div>
+    `).join('')}
+  `;
+
+  const interestsHtml = (state.interests || []).length === 0
+    ? '<div class="acc-empty" style="font-size:12px;">설정 없음 (전체 노출)</div>'
+    : `<div class="acc-tag-row">${state.interests.map(i => `<span class="acc-tag">${escapeHtml(i)}</span>`).join('')}</div>`;
+
+  showModal({
+    title: `${escapeHtml(u.name || '내')} 계정`,
+    klass: 'account-modal',
+    body: `
+      <div class="acc-info-row">
+        <div class="acc-info-label">이름</div><div>${escapeHtml(u.name || '-')}</div>
+        <div class="acc-info-label">이메일</div><div>${escapeHtml(u.email || '-')}</div>
+        <div class="acc-info-label">전화</div><div>${escapeHtml(u.phone || '-')}</div>
+        <div class="acc-info-label">추천 코드</div><div><strong style="color:#ffd54f;">${escapeHtml(u.referral_code || '-')}</strong></div>
+      </div>
+
+      <div class="acc-section-title">💰 포인트</div>
+      <div class="acc-row">
+        <div class="acc-row-main"><span class="acc-row-title">${state.point.toLocaleString()} P</span></div>
+        <button class="acc-mini-btn" onclick="closeModal();openPointModal();">사용하기 →</button>
+      </div>
+      <div class="acc-row-sub">3,000P = 챕터 1개월. 친구 추천 시 둘 다 1,000P.</div>
+
+      <div class="acc-section-title">📚 내 구독 ${isTeacher ? '' : `· 활성 ${active.length}개`}</div>
+      ${subscriptionsHtml}
+      ${expiredHtml}
+
+      <div class="acc-section-title">🎯 관심 주제</div>
+      ${interestsHtml}
+      <button class="acc-mini-btn" style="margin-top:8px;" onclick="closeModal();openInterestModal();">관심 주제 편집 →</button>
+
+      <div class="acc-section-title">🔒 보안</div>
+      <button class="acc-mini-btn" onclick="closeModal();openChangePasswordModal();">비밀번호 변경 →</button>
+    `,
+    foot: `
+      <button onclick="closeModal();doLogout();" style="background:rgba(239,68,68,0.15);border:1px solid rgba(239,68,68,0.4);color:#fca5a5;">🚪 로그아웃</button>
+      <button onclick="closeModal()">닫기</button>
+    `
+  });
+}
+
+function openChangePasswordModal() {
+  showModal({
+    title: '비밀번호 변경',
+    body: `
+      <div style="display:flex;flex-direction:column;gap:10px;">
+        <label style="font-size:12px;color:rgba(255,255,255,0.6);">현재 비밀번호</label>
+        <input type="password" id="cp_old" placeholder="현재 비밀번호" autocomplete="current-password"
+          style="padding:10px 12px;background:rgba(0,0,0,0.3);border:1px solid rgba(255,255,255,0.1);border-radius:8px;color:#fff;font-size:14px;">
+        <label style="font-size:12px;color:rgba(255,255,255,0.6);margin-top:6px;">새 비밀번호 (6자 이상)</label>
+        <input type="password" id="cp_new" placeholder="새 비밀번호" autocomplete="new-password"
+          style="padding:10px 12px;background:rgba(0,0,0,0.3);border:1px solid rgba(255,255,255,0.1);border-radius:8px;color:#fff;font-size:14px;">
+        <label style="font-size:12px;color:rgba(255,255,255,0.6);margin-top:6px;">새 비밀번호 확인</label>
+        <input type="password" id="cp_confirm" placeholder="다시 입력" autocomplete="new-password"
+          style="padding:10px 12px;background:rgba(0,0,0,0.3);border:1px solid rgba(255,255,255,0.1);border-radius:8px;color:#fff;font-size:14px;">
+        <div id="cp_err" style="display:none;color:#fca5a5;font-size:12px;margin-top:4px;"></div>
+      </div>
+    `,
+    foot: `
+      <button onclick="closeModal()">취소</button>
+      <button class="primary" onclick="submitChangePassword()">변경</button>
+    `
+  });
+  setTimeout(() => { $('cp_old') && $('cp_old').focus(); }, 100);
+}
+
+async function submitChangePassword() {
+  const oldPw = $('cp_old').value;
+  const newPw = $('cp_new').value;
+  const confirmPw = $('cp_confirm').value;
+  const err = $('cp_err');
+  err.style.display = 'none';
+  if (!oldPw || !newPw) { err.textContent = '모든 칸을 입력하세요.'; err.style.display = 'block'; return; }
+  if (newPw.length < 6) { err.textContent = '새 비밀번호는 6자 이상.'; err.style.display = 'block'; return; }
+  if (newPw !== confirmPw) { err.textContent = '새 비밀번호 확인이 일치하지 않습니다.'; err.style.display = 'block'; return; }
+  showLoading(true);
+  try {
+    await api('POST', '/auth/change-password', { old_password: oldPw, new_password: newPw });
+    closeModal();
+    toast('비밀번호가 변경되었습니다.');
+  } catch (e) {
+    err.textContent = e.message;
+    err.style.display = 'block';
+  } finally {
+    showLoading(false);
+  }
+}
+
+function doLogout() {
+  localStorage.removeItem(TOKEN_KEY);
+  state.user = null;
+  stopTimers();
+  $('watermark').classList.remove('show');
+  $('homeScreen').style.display = 'none';
+  $('chapterScreen').style.display = 'none';
+  $('authScreen').style.display = 'flex';
+}
+
+// ============================================================
 // 관심 주제 모달 — 필터 토글 + 주제 선택
 // ============================================================
 function openInterestModal() {
@@ -2648,6 +2847,10 @@ window.openReferralModal = openReferralModal;
 window.openPointModal = openPointModal;
 window.openInterestModal = openInterestModal;
 window.saveInterests = saveInterests;
+window.openAccountModal = openAccountModal;
+window.openChangePasswordModal = openChangePasswordModal;
+window.submitChangePassword = submitChangePassword;
+window.doLogout = doLogout;
 window.redeemFromPointModal = redeemFromPointModal;
 window.copyReferralLink = copyReferralLink;
 window.openPayModal = openPayModal;
