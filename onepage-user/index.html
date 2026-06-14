@@ -2290,18 +2290,16 @@ function subClick(e, subId) {
 
 // 암기 모음 모드 — 펼친 시점에 호출. 화면 갱신·토스트 없이 understoodSet/서버만 정리
 // (스냅샷이 이번 회 화면을 고정하므로 사용자 입장에선 즉시 사라지지 않음)
+// understoodMarkedAt은 정렬 키라서 건드리지 않음 — 이번 회 정렬 순서 유지
 async function silentUnmarkUnderstood(subId) {
   if (!state.user) return;
   if (!state.understoodSet.has(Number(subId))) return;
-  const prevMarkedAt = state.understoodMarkedAt[Number(subId)];
   state.understoodSet.delete(Number(subId));
-  delete state.understoodMarkedAt[Number(subId)];
   try {
     await api('POST', '/understood', { subtopic_id: subId });
   } catch (e) {
     // 실패 시 롤백 — 다음 회에도 암기로 남음
     state.understoodSet.add(Number(subId));
-    if (prevMarkedAt !== undefined) state.understoodMarkedAt[Number(subId)] = prevMarkedAt;
   }
 }
 
