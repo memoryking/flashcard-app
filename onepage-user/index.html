@@ -1163,14 +1163,16 @@ function renderWatermark() {
     wm.innerHTML = '';
     return;
   }
-  const text = formatPhone(state.user.phone);
-  // SVG 패턴: 대각선 반복, 알파 낮음
+  // 전화번호 뒤 5자리만 표시 — 식별 가능하면서 노출 최소화
+  const digits = String(state.user.phone || '').replace(/\D/g, '');
+  const text = digits.slice(-5);
+  // SVG 패턴: 대각선 반복, 알파 더 옅게
   wm.innerHTML = `
     <svg xmlns="http://www.w3.org/2000/svg" preserveAspectRatio="none">
       <defs>
         <pattern id="wmPat" x="0" y="0" width="320" height="180" patternUnits="userSpaceOnUse" patternTransform="rotate(-30)">
-          <text x="0" y="80" fill="rgba(255,255,255,0.06)" font-size="22" font-weight="600" font-family="monospace">${escapeHtml(text)}</text>
-          <text x="160" y="160" fill="rgba(255,255,255,0.06)" font-size="22" font-weight="600" font-family="monospace">${escapeHtml(text)}</text>
+          <text x="0" y="80" fill="rgba(255,255,255,0.03)" font-size="22" font-weight="600" font-family="monospace">${escapeHtml(text)}</text>
+          <text x="160" y="160" fill="rgba(255,255,255,0.03)" font-size="22" font-weight="600" font-family="monospace">${escapeHtml(text)}</text>
         </pattern>
       </defs>
       <rect width="100%" height="100%" fill="url(#wmPat)"/>
