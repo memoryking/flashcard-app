@@ -1757,15 +1757,23 @@ function rebuildMemoSnapshot() {
   }
 }
 
+// 암기 모음 스냅샷의 모든 items 백그라운드 프리페치 → 펼침 시 즉각 표시
+function prefetchMemoSnapshot() {
+  for (const subId of state.memoSnapshotIds) {
+    ensureItems(subId, true);
+  }
+}
+
 function toggleMemorizedView() {
   state.memorizedView = !state.memorizedView;
   // 모드 전환 시 펼친 소목차 닫기 (혼선 방지)
   state.expanded.subtopic.clear();
   const btn = $('memorizedBtn');
   if (btn) btn.classList.toggle('active', state.memorizedView);
-  // ON으로 전환 → 현재 암기된 것들을 스냅샷에 고정
+  // ON으로 전환 → 현재 암기된 것들을 스냅샷에 고정 + items 미리 받기
   if (state.memorizedView) {
     rebuildMemoSnapshot();
+    prefetchMemoSnapshot();
   } else {
     state.memoSnapshotIds = new Set();
   }
@@ -1802,8 +1810,9 @@ function memorizedPass(subId) {
         }
       }
       savePassed();
-      // 미암기로 분류된 소목차는 다음 회 스냅샷에서 빠짐
+      // 미암기로 분류된 소목차는 다음 회 스냅샷에서 빠짐 + 새 스냅샷 items 프리페치
       rebuildMemoSnapshot();
+      prefetchMemoSnapshot();
       if (state.memorizedView && state.currentChapter) renderTree(state.currentChapter.id);
     }, 2200);
     return;
@@ -1904,7 +1913,10 @@ function renderTopic(t, hasAccess) {
 
 function renderSubtopic(s, isCurrent) {
   const opened = state.expanded.subtopic.has(s.id);
-  const understood = state.understoodSet.has(Number(s.id));
+  // 암기 모음 모드: 스냅샷 기준으로 understood 처리 → 펼친 직후 깜빡임(초록 → 기본) 방지
+  const understood = state.memorizedView
+    ? state.memoSnapshotIds.has(Number(s.id))
+    : state.understoodSet.has(Number(s.id));
   // 정상 모드: understood면 current 강조 안 함 (이미 학습 완료)
   // 암기 모음 모드: understood여도 맨 위 항목은 current로 강조 (학습 대상)
   const showCurrent = isCurrent && (state.memorizedView || !understood);
