@@ -1065,6 +1065,7 @@ const state = {
   understoodMarkedAt: {},     // subtopic_id → marked_at (YYYY-MM-DD HH:MM:SS) — 암기 모음 정렬용
   passedSet: new Set(),       // 이번 회 패스한 소목차 (세션만 — 새로고침 시 복원)
   memorizedView: false,       // 챕터 내 암기 모음 모드 (꾹누른 소목차만 모아보기)
+  memoSnapshotIds: new Set(), // 암기 모음 진입 시 보여줄 소목차 스냅샷 — 펼친 항목이 미암기로 분류돼도 이번 회는 그대로 보이게
   expanded: { topic: new Set(), subtopic: new Set() },
   liveCount: 0,
   pingTimer: null,
@@ -1560,6 +1561,7 @@ async function enterChapter(chapterId) {
   loadPassed(chapterId);  // 저장된 패스 위치 복원 (마지막 학습 위치)
   // 챕터 진입 시 정상 모드로 시작
   state.memorizedView = false;
+  state.memoSnapshotIds = new Set();
   const memoBtn = $('memorizedBtn');
   if (memoBtn) memoBtn.classList.remove('active');
   updateLiveChips(); // 캐시된 라이브 카운트 즉시 반영 (다음 폴링 기다리지 않음)
@@ -1687,7 +1689,8 @@ function renderTree(chapterId) {
   $('chapterTree').innerHTML = topics.map(t => renderTopic(t, hasAccess)).join('');
 }
 
-// 암기 모음 모드 — 챕터 전체에서 understood인 소목차를 한 리스트로 (꾹누른 시각 오름차순)
+// 암기 모음 모드 — 진입 시점 스냅샷의 소목차를 한 리스트로 (꾹누른 시각 오름차순)
+// 펼친 항목은 즉시 미암기로 분류되지만 스냅샷에는 남아 이번 회에는 그대로 보임 → 다음 회 진입 시 빠짐
 // 학습 모드의 topic-head처럼 상단에 헤더(좌: 제목, 우: ⤴ 패스)
 function renderMemorizedView(chapterId, hasAccess) {
   const topics = state.topicsByChapter[chapterId] || [];
@@ -1695,7 +1698,7 @@ function renderMemorizedView(chapterId, hasAccess) {
   for (const t of topics) {
     const subs = state.subtopicsByTopic[t.id] || [];
     for (const s of subs) {
-      if (state.understoodSet.has(Number(s.id))) items.push(s);
+      if (state.memoSnapshotIds.has(Number(s.id))) items.push(s);
     }
   }
   if (items.length === 0) {
@@ -1741,12 +1744,31 @@ function renderMemorizedView(chapterId, hasAccess) {
   return header + visible.map((s, i) => renderSubtopic(s, i === 0)).join('');
 }
 
+function rebuildMemoSnapshot() {
+  state.memoSnapshotIds = new Set();
+  const cid = state.currentChapter && state.currentChapter.id;
+  if (!cid) return;
+  const topics = state.topicsByChapter[cid] || [];
+  for (const t of topics) {
+    const subs = state.subtopicsByTopic[t.id] || [];
+    for (const s of subs) {
+      if (state.understoodSet.has(Number(s.id))) state.memoSnapshotIds.add(Number(s.id));
+    }
+  }
+}
+
 function toggleMemorizedView() {
   state.memorizedView = !state.memorizedView;
   // 모드 전환 시 펼친 소목차 닫기 (혼선 방지)
   state.expanded.subtopic.clear();
   const btn = $('memorizedBtn');
   if (btn) btn.classList.toggle('active', state.memorizedView);
+  // ON으로 전환 → 현재 암기된 것들을 스냅샷에 고정
+  if (state.memorizedView) {
+    rebuildMemoSnapshot();
+  } else {
+    state.memoSnapshotIds = new Set();
+  }
   if (state.currentChapter) renderTree(state.currentChapter.id);
   window.scrollTo({ top: 0, behavior: 'smooth' });
 }
@@ -1765,7 +1787,7 @@ function memorizedPass(subId) {
   for (const t of topics) {
     const subs = state.subtopicsByTopic[t.id] || [];
     for (const s of subs) {
-      if (state.understoodSet.has(Number(s.id)) && !state.passedSet.has(Number(s.id))) remaining.push(s);
+      if (state.memoSnapshotIds.has(Number(s.id)) && !state.passedSet.has(Number(s.id))) remaining.push(s);
     }
   }
 
@@ -1776,10 +1798,12 @@ function memorizedPass(subId) {
       for (const t of topics) {
         const subs = state.subtopicsByTopic[t.id] || [];
         for (const s of subs) {
-          if (state.understoodSet.has(Number(s.id))) state.passedSet.delete(Number(s.id));
+          if (state.memoSnapshotIds.has(Number(s.id))) state.passedSet.delete(Number(s.id));
         }
       }
       savePassed();
+      // 미암기로 분류된 소목차는 다음 회 스냅샷에서 빠짐
+      rebuildMemoSnapshot();
       if (state.memorizedView && state.currentChapter) renderTree(state.currentChapter.id);
     }, 2200);
     return;
@@ -2231,6 +2255,11 @@ function subClick(e, subId) {
     // 아코디언: 다른 소목차 모두 닫고 이것만 열기
     state.expanded.subtopic.clear();
     state.expanded.subtopic.add(subId);
+    // 암기 모음 모드에서 펼치는 순간 = "다시 봐야 한다" → 자동으로 미암기로 분류
+    // 스냅샷에는 남아 있어 이번 회 화면에서는 그대로 보이고, 다음 회 진입 시 빠짐
+    if (state.memorizedView && state.understoodSet.has(Number(subId))) {
+      silentUnmarkUnderstood(Number(subId));
+    }
   }
   renderTree(state.currentChapter.id);
 
@@ -2244,6 +2273,23 @@ function subClick(e, subId) {
         window.scrollBy(0, delta);
       }
     }
+  }
+}
+
+// 암기 모음 모드 — 펼친 시점에 호출. 화면 갱신·토스트 없이 understoodSet/서버만 정리
+// (스냅샷이 이번 회 화면을 고정하므로 사용자 입장에선 즉시 사라지지 않음)
+async function silentUnmarkUnderstood(subId) {
+  if (!state.user) return;
+  if (!state.understoodSet.has(Number(subId))) return;
+  const prevMarkedAt = state.understoodMarkedAt[Number(subId)];
+  state.understoodSet.delete(Number(subId));
+  delete state.understoodMarkedAt[Number(subId)];
+  try {
+    await api('POST', '/understood', { subtopic_id: subId });
+  } catch (e) {
+    // 실패 시 롤백 — 다음 회에도 암기로 남음
+    state.understoodSet.add(Number(subId));
+    if (prevMarkedAt !== undefined) state.understoodMarkedAt[Number(subId)] = prevMarkedAt;
   }
 }
 
