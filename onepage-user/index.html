@@ -974,6 +974,7 @@ a { color: #4fc3f7; text-decoration: none; }
       <div class="live-dot"></div><span id="liveCount">0</span>명 학습 중
     </div>
     <div class="spacer"></div>
+    <button class="icon-btn" onclick="openGuide()" title="사용법 가이드">📖</button>
     <button class="icon-btn" onclick="openAccountModal()" title="내 계정">👤</button>
   </header>
   <div class="home-top">
@@ -2616,6 +2617,13 @@ function openReferralModal() {
 }
 
 // ============================================================
+// 사용법 가이드 — 새 탭으로 열기 (정적 페이지)
+// ============================================================
+function openGuide() {
+  window.open('guide.html', '_blank', 'noopener');
+}
+
+// ============================================================
 // 내 계정 모달 — 포인트·구독·관심·비밀번호·로그아웃 종합
 // ============================================================
 function openAccountModal() {
@@ -2946,6 +2954,7 @@ window.openPointModal = openPointModal;
 window.openInterestModal = openInterestModal;
 window.saveInterests = saveInterests;
 window.openAccountModal = openAccountModal;
+window.openGuide = openGuide;
 window.openChangePasswordModal = openChangePasswordModal;
 window.submitChangePassword = submitChangePassword;
 window.doLogout = doLogout;

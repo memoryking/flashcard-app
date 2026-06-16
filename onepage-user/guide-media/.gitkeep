@@ -1,0 +1,32 @@
+# 가이드 미디어 폴더
+
+여기에 가이드용 영상/이미지를 넣으세요.
+
+## 파일 이름 규칙
+- 01-home.mp4
+- 02-expand.mp4
+- 03-press.mp4
+- 04-pass.mp4
+- 05-memorized.mp4
+- 06-account.mp4
+- 07-pay.mp4
+
+## 권장 사양
+- 형식: MP4 (H.264) 또는 WebM
+- 길이: 3~6초 (자동 반복)
+- 해상도: 720p 이하
+- 용량: 파일당 1~2MB 권장
+
+## 캡처 도구 추천
+- Windows: ScreenToGif (https://www.screentogif.com)
+  - 영역 선택 → 녹화 → "다른 이름으로 저장" → MP4 선택
+  - 또는 GIF 로 저장 후 https://cloudconvert.com 에서 MP4 변환
+- 더 간단: ShareX 의 화면 녹화 기능
+
+## guide.html 에서 미디어 연결
+각 STEP 의 .media-placeholder 블록을 다음으로 교체:
+
+```html
+<video src="guide-media/01-home.mp4"
+       autoplay loop muted playsinline></video>
+```
