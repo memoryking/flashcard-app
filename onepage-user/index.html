@@ -1492,6 +1492,11 @@ function renderHome() {
     if (!groups[s]) groups[s] = [];
     groups[s].push(c);
   }
+  // 그룹 안 정렬: 구독 중 → 학습 진행 있음 → 구매 이력(만료) → 그 외
+  // (같은 우선순위 안에서는 원래 순서 유지 — JS sort는 안정 정렬)
+  for (const subj in groups) {
+    groups[subj].sort((a, b) => chapterPriority(a) - chapterPriority(b));
+  }
   let html = '';
   for (const subj of Object.keys(groups).sort()) {
     html += `<div class="subject-section">
@@ -1502,6 +1507,27 @@ function renderHome() {
     </div>`;
   }
   cards.innerHTML = html;
+}
+
+// 홈 화면 카드 정렬 우선순위 — 작을수록 위
+// 0: 구독 활성 (D-N 보이는 챕터)
+// 1: 학습 진행 있음 (passedSet localStorage 비어있지 않음 — 무료/만료/미구매 막론)
+// 2: 구매 이력 있음 (만료)
+// 3: 그 외 (미구매 + 진행 없음)
+function chapterPriority(c) {
+  const access = state.chapterAccess[c.id];
+  const dLeft = access ? daysLeft(access.expires_at) : null;
+  const isPaidActive = dLeft != null && dLeft > 0;
+  if (isPaidActive) return 0;
+  try {
+    const raw = localStorage.getItem('op_passed_' + c.id);
+    if (raw) {
+      const arr = JSON.parse(raw);
+      if (Array.isArray(arr) && arr.length > 0) return 1;
+    }
+  } catch {}
+  if (access) return 2;
+  return 3;
 }
 
 function renderChapterCard(c) {
