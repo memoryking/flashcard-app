@@ -1913,7 +1913,7 @@ function renderTopic(t, hasAccess) {
     const hasTop = topSubId != null;
     studyBtns = hasTop ? `
       <div class="study-controls">
-        <button class="study-btn skip-big" onclick="event.stopPropagation();studyPass(${topSubId},${t.id})" title="안 펼치고 패스 = ● 암기 / 펼친 뒤 패스 = 미암기로 다시 학습">⤴ 패스</button>
+        <button class="study-btn skip-big" onclick="event.stopPropagation();studyPassSmart(${t.id})" title="안 펼치고 패스 = ● 암기 / 펼친 뒤 패스 = 미암기로 다시 학습">⤴ 패스</button>
       </div>` : '';
   }
 
@@ -2210,10 +2210,31 @@ function withTopicAnchor(topicId, callback) {
   requestAnimationFrame(adjust);
 }
 
+// 패스 버튼 — 펼쳐진 소목차가 있으면 그 항목을 패스 대상으로 잡음
+// (정렬상 맨 위가 아니라 사용자가 실제로 보고 있던 항목을 패스 → 녹색 항목 재학습 가능)
+function studyPassSmart(topicId) {
+  const subs = state.subtopicsByTopic[topicId] || [];
+  const visible = subs.filter(s => !state.passedSet.has(Number(s.id)));
+  // 1순위: 이 대목차 안에 펼친 항목이 있으면 그것
+  let target = visible.find(s => state.expanded.subtopic.has(Number(s.id)));
+  // 2순위: 첫 미암기, 없으면 첫 항목 (정렬상)
+  if (!target) {
+    const sorted = [...visible].sort((a, b) => {
+      const aDone = state.understoodSet.has(Number(a.id)) ? 1 : 0;
+      const bDone = state.understoodSet.has(Number(b.id)) ? 1 : 0;
+      if (aDone !== bDone) return aDone - bDone;
+      return (Number(a.sort_order) || 0) - (Number(b.sort_order) || 0);
+    });
+    target = sorted.find(s => !state.understoodSet.has(Number(s.id))) || sorted[0];
+  }
+  if (!target) return;
+  studyPass(Number(target.id), topicId);
+}
+
 // 패스: 이번 회 안 봄. 완료 포함 모든 소목차가 패스되어야 축하 → 자동 재시작
 // 동작 자동화:
-// - 내용을 안 펼치고 패스 → "안다" 신호 → 자동 ● 암기
-// - 내용을 펼친 뒤 패스 → "다시 봐야 했다" → 자동 미암기 (이미 ●였다면 해제)
+// - 내용을 안 펼치고 패스 → "안다" 신호 → 자동 ● 암기 (이미 ●면 유지)
+// - 내용을 펼친 뒤 패스 → "다시 봐야 했다" → 자동 미암기 (녹색이었어도 해제)
 //   다음 회 시작 시 미암기 항목으로 다시 등장
 function studyPass(subId, topicId) {
   const wasOpened = state.expanded.subtopic.has(Number(subId));
@@ -3090,6 +3111,7 @@ window.toggleTopic = toggleTopic;
 window.collapseAll = collapseAll;
 window.refreshChapter = refreshChapter;
 window.studyPass = studyPass;
+window.studyPassSmart = studyPassSmart;
 window.toggleMemorizedView = toggleMemorizedView;
 window.memorizedPass = memorizedPass;
 window.pressStart = pressStart;
