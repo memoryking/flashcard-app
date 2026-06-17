@@ -507,6 +507,107 @@ async function handleChangePassword(request, env) {
   return json({ ok: true }, 200, request);
 }
 
+// 휴대폰 가운데 자리 마스킹 — 010-1234-5678 → 010****5678
+function maskPhone(phone) {
+  const d = String(phone || '').replace(/\D/g, '');
+  if (d.length < 7) return d;
+  const head = d.slice(0, 3);
+  const tail = d.slice(-4);
+  return head + '*'.repeat(Math.max(1, d.length - 7)) + tail;
+}
+
+// POST /auth/forgot-password — 이메일로 사용자 찾고 휴대폰으로 6자리 코드 SMS
+// 보안: 이메일 미존재 시에도 200 OK 응답해서 가입자 enumeration 차단
+async function handleForgotPassword(request, env) {
+  const body = await request.json().catch(() => ({}));
+  const email = String(body.email || '').trim().toLowerCase();
+  if (!email) return json({ error: '이메일을 입력하세요.' }, 400, request);
+
+  const rec = await findUserByEmail(env, email);
+  if (!rec) {
+    // 존재 여부를 숨김 — UI는 "코드를 보냈습니다"로 동일하게 안내
+    return json({ ok: true, sent: false }, 200, request);
+  }
+  const phone = rec.fields.phone || '';
+  if (!phone) {
+    return json({ ok: false, error: '이 계정에 휴대폰이 등록돼 있지 않습니다. 관리자에게 문의하세요.' }, 400, request);
+  }
+
+  // 6자리 코드(000000~999999), 10분 유효
+  const code = String(Math.floor(Math.random() * 1000000)).padStart(6, '0');
+  const expiresAt = kstISOString(new Date(kstNow().getTime() + 10 * 60 * 1000));
+
+  await atUpdate(env, AT_USERS, rec.id, {
+    reset_code: code,
+    reset_code_expires_at: expiresAt,
+  });
+
+  // Pabbly 웹훅으로 SMS 발송 (template=password_reset)
+  // Pabbly 라우터에서 이 template을 SOLAPI 발송 단계로 분기시켜 두어야 합니다.
+  const webhookUrl = env.PABBLY_WEBHOOK_URL || '';
+  if (webhookUrl) {
+    const message = `[원페이지] 비밀번호 재설정 코드: ${code} (10분 유효). 본인이 요청하지 않았다면 무시하세요.`;
+    try {
+      await fetch(webhookUrl, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          template: 'password_reset',
+          channel: 'sms',
+          name: rec.fields.name || '',
+          phone,
+          email: rec.fields.email || '',
+          code,
+          custom_message: message,
+          sent_at: kstISOString(),
+        }),
+      });
+    } catch (e) {
+      console.error('forgot_password_webhook_failed', e);
+      // 웹훅 실패해도 코드는 저장돼 있으니 200으로 응답 (재시도 가능)
+    }
+  } else {
+    console.warn('PABBLY_WEBHOOK_URL not set — SMS not actually sent. Reset code:', code);
+  }
+
+  return json({ ok: true, sent: true, phone_masked: maskPhone(phone) }, 200, request);
+}
+
+// POST /auth/reset-password — 코드 검증 후 비밀번호 변경
+async function handleResetPassword(request, env) {
+  const body = await request.json().catch(() => ({}));
+  const email = String(body.email || '').trim().toLowerCase();
+  const code = String(body.code || '').trim();
+  const newPw = String(body.new_password || '');
+
+  if (!email || !code || !newPw) return json({ error: '이메일·코드·새 비밀번호를 모두 입력하세요.' }, 400, request);
+  if (newPw.length < 6) return json({ error: '새 비밀번호는 6자 이상이어야 합니다.' }, 400, request);
+  if (!/^\d{6}$/.test(code)) return json({ error: '인증 코드는 6자리 숫자입니다.' }, 400, request);
+
+  const rec = await findUserByEmail(env, email);
+  if (!rec) return json({ error: '코드가 일치하지 않거나 만료됐습니다.' }, 400, request);
+
+  const storedCode = String(rec.fields.reset_code || '');
+  const expiresAt = String(rec.fields.reset_code_expires_at || '');
+  if (!storedCode || storedCode !== code) {
+    return json({ error: '코드가 일치하지 않거나 만료됐습니다.' }, 400, request);
+  }
+  if (!expiresAt || expiresAt < kstISOString()) {
+    return json({ error: '코드가 만료됐습니다. 다시 요청하세요.' }, 400, request);
+  }
+
+  const newHash = await hashPassword(newPw);
+  const result = await atUpdate(env, AT_USERS, rec.id, {
+    password_hash: newHash,
+    reset_code: '',
+    reset_code_expires_at: '',
+  });
+  if (result && result.error) {
+    return json({ error: 'update_failed', detail: result.error }, 500, request);
+  }
+  return json({ ok: true }, 200, request);
+}
+
 // PUT /auth/me/interests — 사용자가 관심 주제 편집
 async function handleUpdateInterests(request, env) {
   const auth = await verifyAuth(request, env);
@@ -2525,6 +2626,8 @@ async function route(request, env) {
   if (m === 'GET' && path === '/auth/me') return handleMe(request, env);
   if (m === 'PUT' && path === '/auth/me/interests') return handleUpdateInterests(request, env);
   if (m === 'POST' && path === '/auth/change-password') return handleChangePassword(request, env);
+  if (m === 'POST' && path === '/auth/forgot-password') return handleForgotPassword(request, env);
+  if (m === 'POST' && path === '/auth/reset-password') return handleResetPassword(request, env);
   if (m === 'GET' && path === '/referral/info') return handleReferralInfo(request, env);
   if (m === 'GET' && path === '/stats/learners-now') return handleLearnersNow(request, env);
   if (m === 'POST' && path === '/stats/ping') return handleStatsPing(request, env);

@@ -952,6 +952,9 @@ a { color: #4fc3f7; text-decoration: none; }
       <label>비밀번호</label><input id="li_password" type="password" autocomplete="current-password">
       <div class="err" id="loginErr"></div>
       <button class="primary" id="loginBtn">로그인</button>
+      <div style="text-align:center;margin-top:10px;">
+        <a href="#" onclick="event.preventDefault();openForgotPasswordModal();" style="color:#9ca3af;font-size:13px;text-decoration:underline;">비밀번호를 잊으셨나요?</a>
+      </div>
     </div>
     <div id="signupForm" style="display:none">
       <label>이름</label><input id="su_name" type="text">
@@ -2779,6 +2782,119 @@ function doLogout() {
 }
 
 // ============================================================
+// 비밀번호 찾기 — 이메일 → 등록 휴대폰으로 6자리 코드 SMS → 코드+새 비번
+// ============================================================
+function openForgotPasswordModal() {
+  // 로그인 화면에 입력된 이메일이 있으면 미리 채워넣음
+  const prefill = ($('li_email') && $('li_email').value.trim()) || '';
+  showModal({
+    title: '비밀번호 찾기',
+    body: `
+      <div id="fp_step1" style="display:flex;flex-direction:column;gap:10px;">
+        <div style="font-size:13px;color:rgba(255,255,255,0.7);line-height:1.6;">
+          가입한 이메일을 입력하시면 <strong style="color:#fff;">등록된 휴대폰</strong>으로
+          6자리 인증 코드를 보내드립니다.
+        </div>
+        <label style="font-size:12px;color:rgba(255,255,255,0.6);margin-top:6px;">이메일</label>
+        <input type="email" id="fp_email" placeholder="가입 시 사용한 이메일" autocomplete="username" value="${escapeHtml(prefill)}"
+          style="padding:10px 12px;background:rgba(0,0,0,0.3);border:1px solid rgba(255,255,255,0.1);border-radius:8px;color:#fff;font-size:14px;">
+        <div id="fp_err1" style="display:none;color:#fca5a5;font-size:12px;margin-top:4px;"></div>
+      </div>
+      <div id="fp_step2" style="display:none;flex-direction:column;gap:10px;">
+        <div id="fp_sent_info" style="font-size:13px;color:rgba(255,255,255,0.75);line-height:1.6;background:rgba(79,195,247,0.08);border-left:3px solid #4fc3f7;padding:10px 12px;border-radius:0 8px 8px 0;"></div>
+        <label style="font-size:12px;color:rgba(255,255,255,0.6);margin-top:6px;">인증 코드 (6자리)</label>
+        <input type="text" id="fp_code" inputmode="numeric" pattern="\\d{6}" maxlength="6" placeholder="000000"
+          style="padding:10px 12px;background:rgba(0,0,0,0.3);border:1px solid rgba(255,255,255,0.1);border-radius:8px;color:#fff;font-size:18px;letter-spacing:6px;text-align:center;font-family:monospace;">
+        <label style="font-size:12px;color:rgba(255,255,255,0.6);margin-top:6px;">새 비밀번호 (6자 이상)</label>
+        <input type="password" id="fp_new" placeholder="새 비밀번호" autocomplete="new-password"
+          style="padding:10px 12px;background:rgba(0,0,0,0.3);border:1px solid rgba(255,255,255,0.1);border-radius:8px;color:#fff;font-size:14px;">
+        <label style="font-size:12px;color:rgba(255,255,255,0.6);margin-top:6px;">새 비밀번호 확인</label>
+        <input type="password" id="fp_confirm" placeholder="다시 입력" autocomplete="new-password"
+          style="padding:10px 12px;background:rgba(0,0,0,0.3);border:1px solid rgba(255,255,255,0.1);border-radius:8px;color:#fff;font-size:14px;">
+        <div id="fp_err2" style="display:none;color:#fca5a5;font-size:12px;margin-top:4px;"></div>
+        <div style="text-align:right;margin-top:2px;">
+          <a href="#" onclick="event.preventDefault();fpBackToStep1();" style="color:#9ca3af;font-size:12px;text-decoration:underline;">← 이메일 다시 입력</a>
+        </div>
+      </div>
+    `,
+    foot: `
+      <button onclick="closeModal()">취소</button>
+      <button class="primary" id="fp_submitBtn" onclick="fpSendCode()">코드 받기</button>
+    `
+  });
+  setTimeout(() => { $('fp_email') && $('fp_email').focus(); }, 100);
+}
+
+function fpBackToStep1() {
+  $('fp_step1').style.display = 'flex';
+  $('fp_step2').style.display = 'none';
+  $('fp_submitBtn').textContent = '코드 받기';
+  $('fp_submitBtn').onclick = fpSendCode;
+  setTimeout(() => { $('fp_email') && $('fp_email').focus(); }, 50);
+}
+
+async function fpSendCode() {
+  const email = $('fp_email').value.trim();
+  const err = $('fp_err1');
+  err.style.display = 'none';
+  if (!email) { err.textContent = '이메일을 입력하세요.'; err.style.display = 'block'; return; }
+
+  const btn = $('fp_submitBtn');
+  btn.disabled = true;
+  showLoading(true);
+  try {
+    const r = await api('POST', '/auth/forgot-password', { email });
+    // 보안상 가입 여부 노출 안 함 — sent=false여도 동일 UI 흐름
+    const info = r.sent
+      ? `<strong style="color:#4fc3f7;">${escapeHtml(r.phone_masked || '등록 번호')}</strong> 번호로 6자리 코드를 보냈습니다.<br>10분 이내에 입력하세요.`
+      : `등록된 이메일이 있다면 휴대폰으로 코드가 발송됐습니다.<br>10분 이내에 입력하세요.`;
+    $('fp_sent_info').innerHTML = info;
+    $('fp_step1').style.display = 'none';
+    $('fp_step2').style.display = 'flex';
+    btn.textContent = '비밀번호 변경';
+    btn.onclick = fpResetPassword;
+    setTimeout(() => { $('fp_code') && $('fp_code').focus(); }, 50);
+  } catch (e) {
+    err.textContent = e.message;
+    err.style.display = 'block';
+  } finally {
+    btn.disabled = false;
+    showLoading(false);
+  }
+}
+
+async function fpResetPassword() {
+  const email = $('fp_email').value.trim();
+  const code = $('fp_code').value.trim();
+  const newPw = $('fp_new').value;
+  const confirmPw = $('fp_confirm').value;
+  const err = $('fp_err2');
+  err.style.display = 'none';
+  if (!/^\d{6}$/.test(code)) { err.textContent = '6자리 숫자 코드를 입력하세요.'; err.style.display = 'block'; return; }
+  if (newPw.length < 6) { err.textContent = '새 비밀번호는 6자 이상.'; err.style.display = 'block'; return; }
+  if (newPw !== confirmPw) { err.textContent = '새 비밀번호 확인이 일치하지 않습니다.'; err.style.display = 'block'; return; }
+
+  const btn = $('fp_submitBtn');
+  btn.disabled = true;
+  showLoading(true);
+  try {
+    await api('POST', '/auth/reset-password', { email, code, new_password: newPw });
+    closeModal();
+    toast('비밀번호가 변경되었습니다. 새 비밀번호로 로그인하세요.');
+    // 로그인 화면 이메일 칸에 그대로 두고 비밀번호 칸에 포커스
+    $('li_email').value = email;
+    $('li_password').value = '';
+    setTimeout(() => { $('li_password') && $('li_password').focus(); }, 100);
+  } catch (e) {
+    err.textContent = e.message;
+    err.style.display = 'block';
+  } finally {
+    btn.disabled = false;
+    showLoading(false);
+  }
+}
+
+// ============================================================
 // 관심 주제 모달 — 필터 토글 + 주제 선택
 // ============================================================
 function openInterestModal() {
@@ -2956,6 +3072,10 @@ window.saveInterests = saveInterests;
 window.openAccountModal = openAccountModal;
 window.openGuide = openGuide;
 window.openChangePasswordModal = openChangePasswordModal;
+window.openForgotPasswordModal = openForgotPasswordModal;
+window.fpBackToStep1 = fpBackToStep1;
+window.fpSendCode = fpSendCode;
+window.fpResetPassword = fpResetPassword;
 window.submitChangePassword = submitChangePassword;
 window.doLogout = doLogout;
 window.redeemFromPointModal = redeemFromPointModal;
