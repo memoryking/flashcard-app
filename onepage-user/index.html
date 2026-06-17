@@ -1913,7 +1913,7 @@ function renderTopic(t, hasAccess) {
     const hasTop = topSubId != null;
     studyBtns = hasTop ? `
       <div class="study-controls">
-        <button class="study-btn skip-big" onclick="event.stopPropagation();studyPass(${topSubId},${t.id})" title="이번 회 패스 — 다음 단어로">⤴ 패스</button>
+        <button class="study-btn skip-big" onclick="event.stopPropagation();studyPass(${topSubId},${t.id})" title="안 펼치고 패스 = ● 암기 / 펼친 뒤 패스 = 미암기로 다시 학습">⤴ 패스</button>
       </div>` : '';
   }
 
@@ -2211,13 +2211,25 @@ function withTopicAnchor(topicId, callback) {
 }
 
 // 패스: 이번 회 안 봄. 완료 포함 모든 소목차가 패스되어야 축하 → 자동 재시작
+// 동작 자동화:
+// - 내용을 안 펼치고 패스 → "안다" 신호 → 자동 ● 암기
+// - 내용을 펼친 뒤 패스 → "다시 봐야 했다" → 자동 미암기 (이미 ●였다면 해제)
+//   다음 회 시작 시 미암기 항목으로 다시 등장
 function studyPass(subId, topicId) {
+  const wasOpened = state.expanded.subtopic.has(Number(subId));
   state.passedSet.add(Number(subId));
   state.expanded.subtopic.delete(Number(subId));
   // 같은 대목차의 다른 펼쳐진 소목차들도 모두 닫음 → 다음 단어에 집중
   const sameTopicSubs = state.subtopicsByTopic[topicId] || [];
   for (const s of sameTopicSubs) state.expanded.subtopic.delete(Number(s.id));
   savePassed();
+
+  // 자동 학습 상태 갱신 — 화면 깜빡임 없이 백그라운드 서버 동기화
+  if (wasOpened) {
+    silentUnmarkUnderstood(Number(subId));
+  } else {
+    silentMarkUnderstood(Number(subId));
+  }
 
   // 보이는 소목차가 1개라도 남았는지 확인 (완료된 단어도 패스해야 사라짐)
   const subs = state.subtopicsByTopic[topicId] || [];
@@ -2317,6 +2329,24 @@ function subClick(e, subId) {
         window.scrollBy(0, delta);
       }
     }
+  }
+}
+
+// 패스 — 안 펼치고 패스한 경우 자동 ● 암기로 설정 (정상 모드에서 사용)
+// 화면 갱신·토스트 없이 understoodSet 갱신 + 서버 동기화
+async function silentMarkUnderstood(subId) {
+  if (!state.user) return;
+  if (state.understoodSet.has(Number(subId))) return;
+  state.understoodSet.add(Number(subId));
+  // 클라이언트 KST 시각 — 서버 kstDateTime() 호환 정렬 키
+  const d = new Date(Date.now() + 9 * 3600 * 1000);
+  state.understoodMarkedAt[Number(subId)] = d.toISOString().replace('T', ' ').slice(0, 19);
+  try {
+    await api('POST', '/understood', { subtopic_id: subId });
+  } catch (e) {
+    // 실패 시 롤백
+    state.understoodSet.delete(Number(subId));
+    delete state.understoodMarkedAt[Number(subId)];
   }
 }
 
