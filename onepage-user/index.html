@@ -2560,15 +2560,23 @@ async function silentMarkUnderstood(subId) {
 async function silentUnmarkUnderstood(subId) {
   if (!state.user) return;
   if (!state.understoodSet.has(Number(subId))) return;
+  const wasInEverExpanded = state.everExpandedSet.has(Number(subId));
   state.understoodSet.delete(Number(subId));
-  // 다지기에서 호출됐을 때만 — 챕터 뷰 정렬에서 맨 아래로 보낼 식별
-  if (state.memorizedView) state.recentlyFailedFromMemo.add(Number(subId));
+  // 다지기에서 호출됐을 때 — 챕터 뷰로 복귀하면서 두 가지:
+  // 1) recentlyFailedFromMemo 에 추가 → ↺ 표시 + 맨 아래 정렬
+  // 2) everExpandedSet 에서 제거 → 챕터 뷰에서 안 펼치고 패스하면 "fresh" 판정으로
+  //    silentMark 호출 → ● 등록 → 내일 다지기로 정상 등록
+  if (state.memorizedView) {
+    state.recentlyFailedFromMemo.add(Number(subId));
+    state.everExpandedSet.delete(Number(subId));
+  }
   try {
     await api('POST', '/understood', { subtopic_id: subId });
   } catch (e) {
     // 실패 시 롤백 — 다음 회에도 암기로 남음
     state.understoodSet.add(Number(subId));
     state.recentlyFailedFromMemo.delete(Number(subId));
+    if (wasInEverExpanded) state.everExpandedSet.add(Number(subId));
   }
 }
 
