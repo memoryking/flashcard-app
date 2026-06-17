@@ -1070,6 +1070,7 @@ const state = {
   passedSet: new Set(),       // 이번 회 패스한 소목차 (세션만 — 새로고침 시 복원)
   memorizedView: false,       // 챕터 내 암기 모음 모드 (꾹누른 소목차만 모아보기)
   memoSnapshotIds: new Set(), // 암기 모음 진입 시 보여줄 소목차 스냅샷 — 펼친 항목이 미암기로 분류돼도 이번 회는 그대로 보이게
+  everExpandedSet: new Set(), // 이 챕터 진입 후 한 번이라도 펼쳐본 소목차 — 패스 시 자동 ●/미암기 판정에 사용. 챕터 나가면 초기화
   expanded: { topic: new Set(), subtopic: new Set() },
   liveCount: 0,
   pingTimer: null,
@@ -1594,6 +1595,7 @@ async function enterChapter(chapterId) {
   // 챕터 진입 시 정상 모드로 시작
   state.memorizedView = false;
   state.memoSnapshotIds = new Set();
+  state.everExpandedSet = new Set();   // 펼침 이력 초기화 — 챕터 단위로 유지
   const memoBtn = $('memorizedBtn');
   if (memoBtn) memoBtn.classList.remove('active');
   updateLiveChips(); // 캐시된 라이브 카운트 즉시 반영 (다음 폴링 기다리지 않음)
@@ -1913,7 +1915,7 @@ function renderTopic(t, hasAccess) {
     const hasTop = topSubId != null;
     studyBtns = hasTop ? `
       <div class="study-controls">
-        <button class="study-btn skip-big" onclick="event.stopPropagation();studyPassSmart(${t.id})" title="안 펼치고 패스 = ● 암기 / 펼친 뒤 패스 = 미암기로 다시 학습">⤴ 패스</button>
+        <button class="study-btn skip-big" onclick="event.stopPropagation();studyPass(${topSubId},${t.id})" title="맨 위 항목 패스 — 이 챕터에서 펼친 적 있으면 미암기, 없으면 ● 자동">⤴ 패스</button>
       </div>` : '';
   }
 
@@ -2210,34 +2212,15 @@ function withTopicAnchor(topicId, callback) {
   requestAnimationFrame(adjust);
 }
 
-// 패스 버튼 — 펼쳐진 소목차가 있으면 그 항목을 패스 대상으로 잡음
-// (정렬상 맨 위가 아니라 사용자가 실제로 보고 있던 항목을 패스 → 녹색 항목 재학습 가능)
-function studyPassSmart(topicId) {
-  const subs = state.subtopicsByTopic[topicId] || [];
-  const visible = subs.filter(s => !state.passedSet.has(Number(s.id)));
-  // 1순위: 이 대목차 안에 펼친 항목이 있으면 그것
-  let target = visible.find(s => state.expanded.subtopic.has(Number(s.id)));
-  // 2순위: 첫 미암기, 없으면 첫 항목 (정렬상)
-  if (!target) {
-    const sorted = [...visible].sort((a, b) => {
-      const aDone = state.understoodSet.has(Number(a.id)) ? 1 : 0;
-      const bDone = state.understoodSet.has(Number(b.id)) ? 1 : 0;
-      if (aDone !== bDone) return aDone - bDone;
-      return (Number(a.sort_order) || 0) - (Number(b.sort_order) || 0);
-    });
-    target = sorted.find(s => !state.understoodSet.has(Number(s.id))) || sorted[0];
-  }
-  if (!target) return;
-  studyPass(Number(target.id), topicId);
-}
-
-// 패스: 이번 회 안 봄. 완료 포함 모든 소목차가 패스되어야 축하 → 자동 재시작
-// 동작 자동화:
-// - 내용을 안 펼치고 패스 → "안다" 신호 → 자동 ● 암기 (이미 ●면 유지)
-// - 내용을 펼친 뒤 패스 → "다시 봐야 했다" → 자동 미암기 (녹색이었어도 해제)
-//   다음 회 시작 시 미암기 항목으로 다시 등장
+// 패스: 맨 위 항목이 사라짐. 완료 포함 모든 소목차가 패스되어야 축하 → 자동 재시작
+// 자동 학습 상태 갱신 (이 챕터에 들어와서의 펼침 이력 기준):
+//   미암기 + 펼쳐봤음 → 미암기 그대로
+//   미암기 + 안 펼침   → 자동 ● 암기
+//   ●암기 + 펼쳐봤음   → 미암기로 전환
+//   ●암기 + 안 펼침   → ● 그대로
 function studyPass(subId, topicId) {
-  const wasOpened = state.expanded.subtopic.has(Number(subId));
+  // 챕터 단위로 누적된 펼침 이력으로 판정 (현재 펼쳐져 있는지가 아님)
+  const wasOpened = state.everExpandedSet.has(Number(subId));
   state.passedSet.add(Number(subId));
   state.expanded.subtopic.delete(Number(subId));
   // 같은 대목차의 다른 펼쳐진 소목차들도 모두 닫음 → 다음 단어에 집중
@@ -2332,6 +2315,8 @@ function subClick(e, subId) {
     // 아코디언: 다른 소목차 모두 닫고 이것만 열기
     state.expanded.subtopic.clear();
     state.expanded.subtopic.add(subId);
+    // 이 챕터 안에서 한 번이라도 펼친 항목은 기억 — 패스 시 미암기 판정에 사용
+    state.everExpandedSet.add(Number(subId));
     // 암기 모음 모드에서 펼치는 순간 = "다시 봐야 한다" → 자동으로 미암기로 분류
     // 스냅샷에는 남아 있어 이번 회 화면에서는 그대로 보이고, 다음 회 진입 시 빠짐
     if (state.memorizedView && state.understoodSet.has(Number(subId))) {
@@ -3111,7 +3096,6 @@ window.toggleTopic = toggleTopic;
 window.collapseAll = collapseAll;
 window.refreshChapter = refreshChapter;
 window.studyPass = studyPass;
-window.studyPassSmart = studyPassSmart;
 window.toggleMemorizedView = toggleMemorizedView;
 window.memorizedPass = memorizedPass;
 window.pressStart = pressStart;
