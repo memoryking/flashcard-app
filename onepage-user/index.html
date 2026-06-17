@@ -137,6 +137,51 @@ a { color: #4fc3f7; text-decoration: none; }
 .memo-empty .memo-icon { font-size: 48px; margin-bottom: 12px; opacity: 0.4; }
 .memo-empty .memo-hint { font-size: 12px; margin-top: 8px; color: rgba(255,255,255,0.35); }
 
+/* ── 암기 모음 — due 그룹 (간격 반복) ─────────────────────── */
+.memo-group { margin-bottom: 18px; }
+.memo-group-head {
+  font-size: 13px; font-weight: 700;
+  padding: 10px 14px;
+  margin: 14px 14px 8px;
+  border-radius: 8px;
+  display: flex; align-items: center; gap: 8px;
+  background: rgba(255,255,255,0.03);
+  border-left: 4px solid rgba(255,255,255,0.2);
+}
+.memo-group-head .memo-group-count {
+  margin-left: auto;
+  font-size: 11px; font-weight: 700;
+  background: rgba(255,255,255,0.08); color: #e5e7eb;
+  padding: 2px 8px; border-radius: 50px;
+}
+/* 오늘 = 강조 빨강 */
+.memo-grp-today .memo-group-head {
+  background: rgba(233,69,96,0.10);
+  border-left-color: #e94560;
+  color: #ff8a9e;
+}
+/* 내일 = 주황 */
+.memo-grp-tomorrow .memo-group-head {
+  background: rgba(255,152,0,0.07);
+  border-left-color: #ff9800;
+  color: #ffb74d;
+}
+.memo-grp-tomorrow .subtopic { opacity: 0.82; }
+/* 이번 주 = 노랑 */
+.memo-grp-week .memo-group-head {
+  background: rgba(255,213,79,0.06);
+  border-left-color: #ffd54f;
+  color: #ffe082;
+}
+.memo-grp-week .subtopic { opacity: 0.65; }
+/* 이후 = 회색 */
+.memo-grp-future .memo-group-head {
+  background: rgba(176,190,197,0.05);
+  border-left-color: #90a4ae;
+  color: #b0bec5;
+}
+.memo-grp-future .subtopic { opacity: 0.5; }
+
 /* ─────────────────────────────────────────────
    로그인/회원가입
    ───────────────────────────────────────────── */
@@ -1067,6 +1112,8 @@ const state = {
   itemsBySubtopic: {},
   understoodSet: new Set(),
   understoodMarkedAt: {},     // subtopic_id → marked_at (YYYY-MM-DD HH:MM:SS) — 암기 모음 정렬용
+  understoodBox: {},          // subtopic_id → Leitner box 1~6 (간격 반복 단계)
+  understoodNextReview: {},   // subtopic_id → next_review_at (KST DATETIME) — 암기 모음에서 due 그룹핑
   passedSet: new Set(),       // 이번 회 패스한 학습 카드 (세션만 — 새로고침 시 복원)
   memorizedView: false,       // 챕터 내 암기 모음 모드 (꾹누른 학습 카드만 모아보기)
   memoSnapshotIds: new Set(), // 암기 모음 진입 시 보여줄 학습 카드 스냅샷 — 펼친 항목이 미암기로 분류돼도 이번 회는 그대로 보이게
@@ -1439,8 +1486,13 @@ async function loadUnderstood() {
     const r = await api('GET', '/understood');
     state.understoodSet = new Set((r.subtopic_ids || []).map(Number));
     state.understoodMarkedAt = {};
+    state.understoodBox = {};
+    state.understoodNextReview = {};
     for (const it of (r.items || [])) {
-      state.understoodMarkedAt[Number(it.subtopic_id)] = it.marked_at || '';
+      const sid = Number(it.subtopic_id);
+      state.understoodMarkedAt[sid] = it.marked_at || '';
+      state.understoodBox[sid] = Number(it.review_box) || 1;
+      state.understoodNextReview[sid] = it.next_review_at || '';
     }
   } catch {}
 }
@@ -1728,14 +1780,20 @@ function renderTree(chapterId) {
 // 학습 모드의 topic-head처럼 상단에 헤더(좌: 제목, 우: ⤴ 패스)
 function renderMemorizedView(chapterId, hasAccess) {
   const topics = state.topicsByChapter[chapterId] || [];
-  const items = [];
+
+  // 스냅샷에 든 모든 카드를 due 그룹으로 분류 (오늘/내일/이번 주/이후)
+  const groups = { today: [], tomorrow: [], week: [], future: [] };
   for (const t of topics) {
     const subs = state.subtopicsByTopic[t.id] || [];
     for (const s of subs) {
-      if (state.memoSnapshotIds.has(Number(s.id))) items.push(s);
+      if (!state.memoSnapshotIds.has(Number(s.id))) continue;
+      const bucket = dueBucket(state.understoodNextReview[Number(s.id)]);
+      groups[bucket].push(s);
     }
   }
-  if (items.length === 0) {
+
+  const totalSnap = groups.today.length + groups.tomorrow.length + groups.week.length + groups.future.length;
+  if (totalSnap === 0) {
     return `
       <div class="memo-empty">
         <div class="memo-icon">●</div>
@@ -1744,15 +1802,25 @@ function renderMemorizedView(chapterId, hasAccess) {
       </div>
     `;
   }
-  items.sort((a, b) => {
-    const ma = state.understoodMarkedAt[Number(a.id)] || '';
-    const mb = state.understoodMarkedAt[Number(b.id)] || '';
-    if (ma !== mb) return ma.localeCompare(mb);
-    return (Number(a.sort_order) || 0) - (Number(b.sort_order) || 0);
-  });
-  const visible = items.filter(s => !state.passedSet.has(Number(s.id)));
 
-  if (visible.length === 0) {
+  // 그룹 내 정렬 — next_review_at 오름차순, 동률이면 sort_order
+  const innerSort = (a, b) => {
+    const na = state.understoodNextReview[Number(a.id)] || '';
+    const nb = state.understoodNextReview[Number(b.id)] || '';
+    if (na !== nb) return na.localeCompare(nb);
+    return (Number(a.sort_order) || 0) - (Number(b.sort_order) || 0);
+  };
+  for (const k of ['today', 'tomorrow', 'week', 'future']) groups[k].sort(innerSort);
+
+  // 그룹별 visible (passedSet 제외) 추출 + 전체 보이는 카드 목록 (현재 타겟용)
+  const visibleByGroup = {};
+  const allVisible = [];
+  for (const k of ['today', 'tomorrow', 'week', 'future']) {
+    visibleByGroup[k] = groups[k].filter(s => !state.passedSet.has(Number(s.id)));
+    for (const s of visibleByGroup[k]) allVisible.push(s);
+  }
+
+  if (allVisible.length === 0) {
     return `
       <div class="memo-empty">
         <div class="memo-icon">🎉</div>
@@ -1762,20 +1830,48 @@ function renderMemorizedView(chapterId, hasAccess) {
     `;
   }
 
-  // 상단 헤더 — 학습 모드의 topic-head와 같은 레이아웃 (제목 좌, ⤴ 패스 우)
-  // 접근권과 무관하게 표시 (본인이 표시한 데이터 정리 기능이라 구독 만료해도 사용 가능)
-  const current = visible[0];
+  // 맨 위 카드가 ⤴ 패스의 대상 (현재 타겟)
+  const current = allVisible[0];
+  const todayCount = visibleByGroup.today.length;
+  const restCount = allVisible.length - todayCount;
+
   const header = `
     <div class="memo-header">
       <div class="memo-title">● 암기 모음</div>
-      <span class="memo-count">${visible.length}</span>
+      <span class="memo-count" title="오늘 due / 그 외">${todayCount}${restCount ? ` <span style="opacity:0.6">+${restCount}</span>` : ''}</span>
       <div class="study-controls">
-        <button class="study-btn skip-big" onclick="memorizedPass(${current.id})" title="이번 회 패스 — 다음 단어로">⤴ 패스</button>
+        <button class="study-btn skip-big" onclick="memorizedPass(${current.id})" title="안 펼치고 패스 = 회상 성공(다음 박스로) / 펼친 뒤 패스 = 미암기로">⤴ 패스</button>
       </div>
     </div>
   `;
 
-  return header + visible.map((s, i) => renderSubtopic(s, i === 0)).join('');
+  // 그룹별 렌더 — 그룹 헤더 + 카드들. 빈 그룹은 출력 안 함.
+  const GROUP_META = {
+    today:    { label: '📍 오늘 복습',   cls: 'memo-grp-today' },
+    tomorrow: { label: '🌅 내일 복습',   cls: 'memo-grp-tomorrow' },
+    week:     { label: '📅 이번 주',     cls: 'memo-grp-week' },
+    future:   { label: '🗓 이후',         cls: 'memo-grp-future' },
+  };
+  let topIdx = 0;
+  const blocks = ['today', 'tomorrow', 'week', 'future']
+    .filter(k => visibleByGroup[k].length > 0)
+    .map(k => {
+      const meta = GROUP_META[k];
+      const cardsHtml = visibleByGroup[k].map(s => {
+        const isTop = (topIdx === 0);
+        topIdx++;
+        return renderSubtopic(s, isTop);
+      }).join('');
+      return `
+        <div class="memo-group ${meta.cls}">
+          <div class="memo-group-head">${meta.label} <span class="memo-group-count">${visibleByGroup[k].length}</span></div>
+          ${cardsHtml}
+        </div>
+      `;
+    })
+    .join('');
+
+  return header + blocks;
 }
 
 function rebuildMemoSnapshot() {
@@ -1817,6 +1913,11 @@ function toggleMemorizedView() {
 
 // 암기 모음 모드의 패스 — 현재 항목을 이번 회에서 제외
 function memorizedPass(subId) {
+  // 회상 성공 = 안 펼치고 패스 (펼쳤다면 이미 silentUnmark 되어 understoodSet에서 빠짐)
+  // → 박스 진행 (간격 반복 advance)
+  if (state.understoodSet.has(Number(subId))) {
+    silentAdvanceUnderstood(Number(subId));
+  }
   state.passedSet.add(Number(subId));
   state.expanded.subtopic.delete(Number(subId));
   savePassed();
@@ -2338,6 +2439,47 @@ function subClick(e, subId) {
   }
 }
 
+// ─── SRS due 그룹 분류 ───────────────────────────────────────
+// 오늘/내일/이번 주/이후 4단계. 레거시(next_review_at 없음)는 '오늘'로 취급
+function kstTodayDate() {
+  return new Date(Date.now() + 9 * 3600 * 1000).toISOString().slice(0, 10);
+}
+function dueBucket(nextReviewAt) {
+  if (!nextReviewAt) return 'today';
+  const today = kstTodayDate();
+  const due = String(nextReviewAt).slice(0, 10);
+  if (due <= today) return 'today';
+  const t = Date.UTC(...today.split('-').map((v, i) => i === 1 ? Number(v) - 1 : Number(v)));
+  const d = Date.UTC(...due.split('-').map((v, i) => i === 1 ? Number(v) - 1 : Number(v)));
+  const diffDays = Math.round((d - t) / (24 * 3600 * 1000));
+  if (diffDays === 1) return 'tomorrow';
+  if (diffDays <= 7) return 'week';
+  return 'future';
+}
+function dueDaysLeft(nextReviewAt) {
+  if (!nextReviewAt) return 0;
+  const today = kstTodayDate();
+  const due = String(nextReviewAt).slice(0, 10);
+  const t = Date.UTC(...today.split('-').map((v, i) => i === 1 ? Number(v) - 1 : Number(v)));
+  const d = Date.UTC(...due.split('-').map((v, i) => i === 1 ? Number(v) - 1 : Number(v)));
+  return Math.round((d - t) / (24 * 3600 * 1000));
+}
+
+// 암기 모음 모드 — 안 펼치고 패스하면 호출. 박스 진행 (Leitner advance)
+async function silentAdvanceUnderstood(subId) {
+  if (!state.user) return;
+  if (!state.understoodSet.has(Number(subId))) return;
+  try {
+    const r = await api('POST', '/understood/advance', { subtopic_id: subId });
+    if (r && r.review_box) {
+      state.understoodBox[Number(subId)] = r.review_box;
+      state.understoodNextReview[Number(subId)] = r.next_review_at || '';
+    }
+  } catch (e) {
+    // 조용히 무시 — 다음 회 진입 시 서버에서 최신 상태 다시 로드됨
+  }
+}
+
 // 패스 — 안 펼치고 패스한 경우 자동 ● 암기로 설정 (정상 모드에서 사용)
 // 화면 갱신·토스트 없이 understoodSet 갱신 + 서버 동기화
 async function silentMarkUnderstood(subId) {
@@ -2348,7 +2490,12 @@ async function silentMarkUnderstood(subId) {
   const d = new Date(Date.now() + 9 * 3600 * 1000);
   state.understoodMarkedAt[Number(subId)] = d.toISOString().replace('T', ' ').slice(0, 19);
   try {
-    await api('POST', '/understood', { subtopic_id: subId });
+    const r = await api('POST', '/understood', { subtopic_id: subId });
+    // 서버가 box=1, next_review_at=내일 자동 세팅 — 받은 값 반영
+    if (r && r.review_box) {
+      state.understoodBox[Number(subId)] = r.review_box;
+      state.understoodNextReview[Number(subId)] = r.next_review_at || '';
+    }
   } catch (e) {
     // 실패 시 롤백
     state.understoodSet.delete(Number(subId));
