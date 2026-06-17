@@ -1136,6 +1136,7 @@ const state = {
   memoSnapshotIds: new Set(), // 암기 모음 진입 시 보여줄 학습 카드 스냅샷 — 펼친 항목이 미암기로 분류돼도 이번 회는 그대로 보이게
   everExpandedSet: new Set(), // 이 챕터 진입 후 한 번이라도 펼쳐본 학습 카드 — 패스 시 자동 ●/미암기 판정에 사용. 챕터 나가면 초기화
   recentlyFailedFromMemo: new Set(), // 이번 챕터 진입 중 다지기에서 실패(펼침)해서 챕터 뷰로 돌아온 카드 — 챕터 뷰 정렬 시 맨 아래로
+  peekedPassedSet: new Set(), // 펼친 뒤 패스해서 "틀린 단어"로 확정된 카드 — 챕터 뷰 정렬·색 구분용. 펼치는 순간이 아니라 패스 후에야 추가
   expanded: { topic: new Set(), subtopic: new Set() },
   liveCount: 0,
   pingTimer: null,
@@ -1667,6 +1668,7 @@ async function enterChapter(chapterId) {
   state.memoSnapshotIds = new Set();
   state.everExpandedSet = new Set();   // 펼침 이력 초기화 — 챕터 단위로 유지
   state.recentlyFailedFromMemo = new Set();  // 다지기 실패 → 챕터 뷰 복귀 표시 초기화
+  state.peekedPassedSet = new Set();   // 펼친 뒤 패스 = "틀린 단어" 표시 초기화
   const memoBtn = $('memorizedBtn');
   if (memoBtn) memoBtn.classList.remove('active');
   updateLiveChips(); // 캐시된 라이브 카운트 즉시 반영 (다음 폴링 기다리지 않음)
@@ -2028,7 +2030,8 @@ function renderTopic(t, hasAccess) {
           const visible = unmastered.filter(s => !state.passedSet.has(Number(s.id)));
 
           const cat = (s) => {
-            if (state.everExpandedSet.has(Number(s.id)) || state.recentlyFailedFromMemo.has(Number(s.id))) return 1;
+            // 펼친 직후가 아니라 "펼친 뒤 패스"한 카드만 아래로
+            if (state.peekedPassedSet.has(Number(s.id)) || state.recentlyFailedFromMemo.has(Number(s.id))) return 1;
             return 0;
           };
           const sortedSubs = [...visible].sort((a, b) => {
@@ -2093,9 +2096,10 @@ function renderSubtopic(s, isCurrent) {
   const showCurrent = isCurrent && (state.memorizedView || !understood);
   // 다지기에서 실패해 챕터 뷰로 돌아온 카드 — ↺ 표시 (정상 모드만)
   const failedFromMemo = !state.memorizedView && state.recentlyFailedFromMemo.has(Number(s.id));
-  // 챕터에서 펼친 적 있는 미암기 = "틀린 단어" — 색 다름 (다지기 복귀 카드와는 별도)
+  // 챕터에서 펼친 뒤 패스해 "틀린 단어"로 확정된 카드 — 색 다름 (다지기 복귀 카드와 별도)
+  // 펼치는 순간이 아니라 패스 후에야 색 변경 → state.peekedPassedSet 기준
   const peeked = !state.memorizedView && !understood && !failedFromMemo
-              && state.everExpandedSet.has(Number(s.id));
+              && state.peekedPassedSet.has(Number(s.id));
   const cls = 'subtopic'
     + (opened ? ' opened' : '')
     + (understood ? ' understood' : '')
@@ -2375,6 +2379,8 @@ function studyPass(subId, topicId) {
 
   // 자동 학습 상태 갱신 — 화면 깜빡임 없이 백그라운드 서버 동기화
   if (wasOpened) {
+    // 펼친 뒤 패스 = "틀린 단어"로 확정 → 정렬·색 구분용 마킹 (패스 시점에만)
+    state.peekedPassedSet.add(Number(subId));
     silentUnmarkUnderstood(Number(subId));
   } else {
     silentMarkUnderstood(Number(subId));
