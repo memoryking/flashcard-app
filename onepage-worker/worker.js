@@ -2294,6 +2294,110 @@ async function handleAdminAccessRevoke(request, env, admin, phone, chapterIdStr)
   }, 200, request);
 }
 
+// DELETE /admin/user/:phone — 회원과 관련 데이터 일괄 삭제
+// 영향 테이블 7곳: OnepageUsers / OnepageChapterAccess / OnepagePayments / OnepagePointTx
+// / OnepageCampaignSends / op_understood / op_pings
+// Worker 무료 플랜 서브요청 한도(50) 보호: 총 행 수가 너무 많으면 413으로 거부하고
+// 수동 정리 안내 — 일반 회원은 거의 다 한 번에 처리됨.
+async function handleAdminDeleteUser(request, env, phoneRaw) {
+  const phone = normalizePhone(decodeURIComponent(phoneRaw));
+  if (!phone) return json({ error: 'invalid_phone' }, 400, request);
+
+  const userRec = await findUserByPhone(env, phone);
+  if (!userRec) return json({ error: 'user_not_found' }, 404, request);
+  if (String(userRec.fields.role || '') === 'teacher') {
+    return json({ error: '관리자 계정은 삭제할 수 없습니다.' }, 403, request);
+  }
+
+  const phoneEsc = phone.replace(/"/g, '\\"');
+
+  // Phase 1: 모든 관련 행 ID 병렬 수집
+  let accessRecs = [], paymentRecs = [], pointTxRecs = [], sendRecs = [];
+  let understoodItems = [], pingsItems = [];
+  try {
+    const [a, p, t, s, u, pg] = await Promise.all([
+      atFindAllPaged(env, AT_ACCESS, `{user_phone}="${phoneEsc}"`, 500),
+      atFindAllPaged(env, AT_PAYMENTS, `{user_phone}="${phoneEsc}"`, 500),
+      atFindAllPaged(env, AT_POINTTX, `{user_phone}="${phoneEsc}"`, 1000),
+      atFindAllPaged(env, AT_CAMPAIGN_SENDS, `{phone}="${phoneEsc}"`, 500).catch(() => []),
+      ncbRead(env, 'op_understood', `user_phone=${encodeURIComponent(phone)}&limit=5000`),
+      ncbRead(env, 'op_pings', `user_phone=${encodeURIComponent(phone)}&limit=100`),
+    ]);
+    accessRecs = a; paymentRecs = p; pointTxRecs = t; sendRecs = s;
+    understoodItems = (u && u.data) || [];
+    pingsItems = (pg && pg.data) || [];
+  } catch (e) {
+    return json({ error: 'lookup_failed', message: String(e?.message || e) }, 500, request);
+  }
+
+  const totalToDelete = accessRecs.length + paymentRecs.length + pointTxRecs.length
+                      + sendRecs.length + understoodItems.length + pingsItems.length + 1;
+
+  // 안전 한도: 무료 플랜 서브요청 50개 중 조회에 이미 7~20 정도 소진 → 삭제는 30개 정도 가능
+  const MAX_DELETES = 30;
+  if (totalToDelete > MAX_DELETES) {
+    return json({
+      error: 'too_many_records',
+      message: `이 회원은 삭제할 데이터가 ${totalToDelete}건으로 한 번에 처리할 수 없습니다 (한 번 ${MAX_DELETES}건). 학습 이력이 많은 경우는 nocodebackend·Airtable에서 user_phone="${phone}" 으로 검색해 수동 정리해 주세요.`,
+      total: totalToDelete,
+      counts: {
+        access: accessRecs.length,
+        payments: paymentRecs.length,
+        point_tx: pointTxRecs.length,
+        sends: sendRecs.length,
+        understood: understoodItems.length,
+        pings: pingsItems.length,
+      },
+    }, 413, request);
+  }
+
+  // Phase 2: 병렬 삭제 (10개씩 묶어서 wall time 단축)
+  const ops = [
+    ...accessRecs.map(r => atDelete(env, AT_ACCESS, r.id)),
+    ...paymentRecs.map(r => atDelete(env, AT_PAYMENTS, r.id)),
+    ...pointTxRecs.map(r => atDelete(env, AT_POINTTX, r.id)),
+    ...sendRecs.map(r => atDelete(env, AT_CAMPAIGN_SENDS, r.id)),
+    ...understoodItems.map(it => ncbDelete(env, 'op_understood', it.id)),
+    ...pingsItems.map(it => ncbDelete(env, 'op_pings', it.id)),
+  ];
+  const CHUNK = 10;
+  try {
+    for (let i = 0; i < ops.length; i += CHUNK) {
+      await Promise.all(ops.slice(i, i + CHUNK));
+    }
+  } catch (e) {
+    return json({
+      error: 'partial_delete_failed',
+      message: `중간 삭제 실패: ${String(e?.message || e)}. 일부 데이터가 남아 있을 수 있습니다. 다시 시도하세요.`,
+    }, 500, request);
+  }
+
+  // 마지막: 사용자 본인 삭제 (실패해도 나머지는 이미 정리됨)
+  try {
+    await atDelete(env, AT_USERS, userRec.id);
+  } catch (e) {
+    return json({
+      error: 'user_delete_failed',
+      message: `관련 데이터는 모두 삭제했으나 마지막 사용자 레코드 삭제에 실패했습니다: ${String(e?.message || e)}`,
+    }, 500, request);
+  }
+
+  return json({
+    ok: true,
+    deleted_phone: phone,
+    total: totalToDelete,
+    deleted: {
+      user: 1,
+      access: accessRecs.length,
+      payments: paymentRecs.length,
+      point_tx: pointTxRecs.length,
+      sends: sendRecs.length,
+      understood: understoodItems.length,
+      pings: pingsItems.length,
+    },
+  }, 200, request);
+}
+
 async function handleAdminContentStats(request, env) {
   const [chaptersResp, topicsResp, accesses] = await Promise.all([
     ncbRead(env, 'op_chapters', 'limit=2000'),
@@ -2732,6 +2836,7 @@ async function route(request, env) {
     if (m === 'GET' && path === '/admin/users') return handleAdminUsers(request, env);
     p = pathMatch(path, '/admin/user/:phone');
     if (p && m === 'GET') return handleAdminUserDetail(request, env, p.phone);
+    if (p && m === 'DELETE') return handleAdminDeleteUser(request, env, p.phone);
     if (m === 'POST' && path === '/admin/points') return handleAdminGrantPoints(request, env, auth);
     if (m === 'POST' && path === '/admin/webhook/send') return handleAdminWebhookSend(request, env, auth);
     if (m === 'GET' && path === '/admin/campaign-sends') return handleAdminCampaigns(request, env);

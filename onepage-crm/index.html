@@ -550,7 +550,12 @@ async function api(method, path, body) {
   }
   const r = await fetch(API + path, opts);
   const j = await r.json().catch(() => ({}));
-  if (!r.ok) throw new Error(j.error || ('HTTP ' + r.status));
+  if (!r.ok) {
+    const err = new Error(j.message || j.error || ('HTTP ' + r.status));
+    err.status = r.status;
+    err.data = j;
+    throw err;
+  }
   return j;
 }
 
@@ -963,6 +968,7 @@ function renderUserDetail(r) {
     <div style="display:flex;gap:8px;margin-bottom:14px;flex-wrap:wrap">
       <button class="btn-primary" onclick="openGrantPoints('${escapeHtml(u.phone)}','${escapeHtml(u.name)}')">⭐ 포인트 지급</button>
       <button class="btn-blue" onclick="campaignSinglePhone('${escapeHtml(u.phone)}')">📤 메시지 발송</button>
+      ${u.role === 'teacher' ? '' : `<button class="btn-warn" onclick="confirmDeleteUser('${escapeHtml(u.phone)}','${escapeHtml(u.name)}')" style="margin-left:auto">🗑️ 회원 삭제</button>`}
     </div>
 
     <div class="detail-sec">
@@ -998,6 +1004,55 @@ function renderUserDetail(r) {
 // ============================================================
 // 포인트 지급 모달
 // ============================================================
+// 회원 완전 삭제 — 휴대폰 번호 재입력 + 연관 데이터 일괄 삭제
+async function confirmDeleteUser(phone, name) {
+  const entered = prompt(
+    `⚠️ ${name} 님 (${phone}) 을(를) 완전히 삭제합니다.\n\n` +
+    `삭제되는 데이터:\n` +
+    `· 사용자 본인 정보 (Airtable)\n` +
+    `· 챕터 구독·결제·포인트 이력 (Airtable)\n` +
+    `· 마케팅 발송 이력 (Airtable)\n` +
+    `· 학습 진도(꾹누른 표시)·실시간 핑 (nocodebackend)\n\n` +
+    `되돌릴 수 없습니다.\n\n` +
+    `확인을 위해 휴대폰 번호를 그대로 입력하세요:`
+  );
+  if (entered === null) return; // 취소
+  const normalized = String(entered).replace(/\D/g, '');
+  if (normalized !== String(phone).replace(/\D/g, '')) {
+    alert('번호가 일치하지 않습니다. 삭제 취소됨.');
+    return;
+  }
+  try {
+    showLoading && showLoading(true);
+    const r = await api('DELETE', '/admin/user/' + encodeURIComponent(phone));
+    const d = r.deleted || {};
+    alert(
+      `✅ 삭제 완료\n\n` +
+      `· 사용자: ${d.user}\n` +
+      `· 챕터 구독: ${d.access}\n` +
+      `· 결제: ${d.payments}\n` +
+      `· 포인트 이력: ${d.point_tx}\n` +
+      `· 마케팅 발송: ${d.sends}\n` +
+      `· 학습 진도: ${d.understood}\n` +
+      `· 실시간 핑: ${d.pings}\n` +
+      `합계: ${r.total}건`
+    );
+    closeModal && closeModal();
+    // 사용자 목록 갱신
+    if (typeof loadUsers === 'function') loadUsers();
+  } catch (e) {
+    if (e.status === 413) {
+      alert('이 회원은 데이터가 너무 많아 한 번에 삭제할 수 없습니다.\n\n' + (e.message || ''));
+    } else if (e.status === 403) {
+      alert(e.message || '관리자 계정은 삭제할 수 없습니다.');
+    } else {
+      alert('삭제 실패: ' + (e.message || e));
+    }
+  } finally {
+    showLoading && showLoading(false);
+  }
+}
+
 function openGrantPoints(phone, name) {
   const body = `
     <p style="font-size:13px;color:rgba(255,255,255,0.6);margin-bottom:14px">
@@ -1851,6 +1906,7 @@ function closeModal() { $('modal').classList.remove('open'); }
 window.closeModal = closeModal;
 window.openUserDetail = openUserDetail;
 window.openGrantPoints = openGrantPoints;
+window.confirmDeleteUser = confirmDeleteUser;
 window.openGrantAccess = openGrantAccess;
 window.submitGrantAccess = submitGrantAccess;
 window.revokeAccess = revokeAccess;
