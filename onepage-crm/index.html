@@ -1841,7 +1841,7 @@ function renderContent() {
       <div class="ch-icon">${escapeHtml(c.icon || '📘')}</div>
       <div class="ch-info">
         <div class="ch-title">${escapeHtml(c.subject)} · ${escapeHtml(c.title)} ${freeBadge}</div>
-        <div class="ch-meta">대목차 ${c.topic_count}개 · 무료 미리보기 ${c.free_topic_count}개</div>
+        <div class="ch-meta">목차 ${c.topic_count}개 · 무료 미리보기 ${c.free_topic_count}개</div>
         ${warn}
       </div>
       <div class="ch-stats">
@@ -1864,7 +1864,7 @@ function renderContent() {
         <div class="value">${fmtNum(r.total_chapters)}<span class="unit">개</span></div>
       </div>
       <div class="kpi-card purple">
-        <div class="label">전체 대목차</div>
+        <div class="label">전체 목차</div>
         <div class="value">${fmtNum(r.total_topics)}<span class="unit">개</span></div>
       </div>
       <div class="kpi-card green">

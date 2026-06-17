@@ -19,8 +19,8 @@
 | Airtable | `UnknownPayments` | (v1 deprecated) Pabbly 결제 라우터 폴백 — 상품명 미매칭 |
 | Airtable | `FailedPayments` | (v1 deprecated) Pabbly 결제 라우터 안전망 — Airtable 쓰기 실패 |
 | nocodebackend | `op_chapters` | 챕터 (+ 페이앱 결제 URL) |
-| nocodebackend | `op_topics` | 대목차 |
-| nocodebackend | `op_subtopics` | 소목차 (+ 대표 이미지) |
+| nocodebackend | `op_topics` | 목차 |
+| nocodebackend | `op_subtopics` | 학습 카드 (+ 대표 이미지) |
 | nocodebackend | `op_items` | 내용 블록 (텍스트·이미지·링크) |
 | nocodebackend | `op_understood` | 학생 꾹누르기 진도 |
 | nocodebackend | `op_pings` | 라이브 학습자 카운트 |
@@ -334,7 +334,7 @@ Type 드롭다운에 보이는 옵션: `INT`, `BIGINT`, `VARCHAR(255)`, `DROPDOW
 
 ---
 
-### B2. `op_topics` (대목차)
+### B2. `op_topics` (목차)
 
 | 필드명 | 타입 | Not null | FK/Unique | Default | 비고 |
 |---|---|---|---|---|---|
@@ -346,14 +346,14 @@ Type 드롭다운에 보이는 옵션: `INT`, `BIGINT`, `VARCHAR(255)`, `DROPDOW
 
 ---
 
-### B3. `op_subtopics` (소목차)
+### B3. `op_subtopics` (학습 카드)
 
 | 필드명 | 타입 | Not null | FK/Unique | Default | 비고 |
 |---|---|---|---|---|---|
 | `topic_id` | INT | ✅ | **FK → op_topics.id (CASCADE)** | — | INT (Run SQL의 id에 맞춤) |
 | `title` | VARCHAR(255) | ✅ | — | — | |
 | `sort_order` | INT | ✅ | — | `0` | (예약어 `order` 회피) |
-| `image_b64` | **LONGTEXT** | — | — | — | 소목차 대표 이미지 (펼치지 않아도 표지로 보임). data URL 형식 |
+| `image_b64` | **LONGTEXT** | — | — | — | 학습 카드 대표 이미지 (펼치지 않아도 표지로 보임). data URL 형식 |
 | `caption` | VARCHAR(255) | — | — | — | 이미지 캡션 (선택) |
 | `updated_at` | DATETIME | — | — | — | |
 
@@ -374,7 +374,7 @@ Type 드롭다운에 보이는 옵션: `INT`, `BIGINT`, `VARCHAR(255)`, `DROPDOW
 | `text` | TEXT | — | — | — | `kind='text'` → 본문 (마크다운). `kind='link'` → URL. `kind='image'` 면 빈값 |
 | `image_b64` | **LONGTEXT** | — | — | — | image 블록의 data URL. **JSON 타입이 base64 문자열을 거부하므로 LONGTEXT 사용**. UI에 LONGTEXT 옵션이 없으면 일단 JSON으로 만든 뒤 `ALTER TABLE op_items MODIFY image_b64 LONGTEXT NULL;` |
 | `caption` | VARCHAR(255) | — | — | — | 작은 설명 라인. **모든 kind에서 사용** — image 캡션 / link 제목·설명 / text 보조 설명 |
-| `sort_order` | INT | ✅ | — | `0` | 같은 소목차 안 순서 (예약어 `order` 회피) |
+| `sort_order` | INT | ✅ | — | `0` | 같은 학습 카드 안 순서 (예약어 `order` 회피) |
 | `updated_at` | DATETIME | — | — | — | |
 
 > **이미지 크기 주의**: 클라이언트(선생님 앱)에서 최대 폭 1200px · WebP 0.85로 압축 후 base64 인코딩. 일반 50~150KB. 300KB 초과 시 경고.
@@ -552,7 +552,7 @@ if (existing) {
 | 트리거 | 대상 | 동작 |
 |---|---|---|
 | 회원가입 | OnepageUsers | 신규 행 생성 (Worker가 referral_code 생성·중복 확인) |
-| 소목차 꾹누르기 | op_understood | upsert (이미 있으면 행 삭제 = 토글) |
+| 학습 카드 꾹누르기 | op_understood | upsert (이미 있으면 행 삭제 = 토글) |
 | 60초 ping | op_pings | upsert (user_phone로 찾아 first_ping_today 갱신) |
 | 선생님이 콘텐츠 CRUD | op_chapters/topics/subtopics/items | 일반 CRUD |
 | 일괄 입력 (TSV) | op_topics/subtopics/items 한꺼번에 | append 또는 replace 모드 |

@@ -162,7 +162,7 @@ a { color: #4fc3f7; text-decoration: none; }
 }
 .chapter.opened > .chapter-body { display: block; }
 
-/* 대목차 */
+/* 목차 */
 .topic {
   background: rgba(0,0,0,0.2); border-radius: 8px; margin-top: 8px;
   overflow: hidden;
@@ -195,7 +195,7 @@ a { color: #4fc3f7; text-decoration: none; }
 }
 .topic.opened > .topic-body { display: block; }
 
-/* 소목차 = 보라 톤 (제목·미리보기 영역) */
+/* 학습 카드 = 보라 톤 (제목·미리보기 영역) */
 .subtopic {
   background: linear-gradient(180deg, rgba(83,52,131,0.18) 0%, rgba(83,52,131,0.10) 100%);
   border: 1px solid rgba(179,157,219,0.22);
@@ -213,7 +213,7 @@ a { color: #4fc3f7; text-decoration: none; }
 .subtopic.opened .subtopic-arrow { transform: rotate(90deg); }
 .subtopic-title { flex: 1; font-size: 13px; color: rgba(255,255,255,0.9); min-width: 0; }
 .subtopic-actions { display: flex; gap: 4px; }
-/* 본문 = 어두운 다른 톤 (소목차와 명확히 분리) */
+/* 본문 = 어두운 다른 톤 (학습 카드와 명확히 분리) */
 .subtopic-body {
   display: none; padding: 12px 14px 12px 28px;
   background: #0a0a1a;
@@ -423,7 +423,7 @@ a { color: #4fc3f7; text-decoration: none; }
     <div class="toolbar">
       <button class="btn-primary" onclick="openChapterModal()">+ 챕터 추가</button>
       <button class="btn-secondary" onclick="reloadChapters()">↻ 새로고침</button>
-      <button class="btn-secondary" onclick="collapseAll()" title="펼친 모든 챕터·대목차·소목차 접기">📂 모두 접기</button>
+      <button class="btn-secondary" onclick="collapseAll()" title="펼친 모든 챕터·목차·학습 카드 접기">📂 모두 접기</button>
     </div>
     <div id="chapterList"></div>
   </main>
@@ -723,12 +723,12 @@ function renderChapter(c) {
     } else {
       body = `
         <div style="margin:6px 0;">
-          <button class="btn-secondary" onclick="event.stopPropagation();openTopicModal(${c.id})">+ 대목차 추가</button>
+          <button class="btn-secondary" onclick="event.stopPropagation();openTopicModal(${c.id})">+ 목차 추가</button>
           <button class="btn-secondary" onclick="event.stopPropagation();openBulkModal(${c.id})">📋 일괄 입력 (엑셀)</button>
         </div>
       `;
       if (!topics.length) {
-        body += '<div class="empty-state small">아직 대목차가 없습니다.</div>';
+        body += '<div class="empty-state small">아직 목차가 없습니다.</div>';
       } else {
         body += `<div class="reorder-list" data-sortable="topics" data-parent-id="${c.id}">`
               + topics.map(t => renderTopic(t)).join('')
@@ -772,9 +772,9 @@ function renderTopic(t) {
       loadSubtopics(t.id);
       body = '<div class="empty-state small">로드 중…</div>';
     } else {
-      body = `<div style="margin:6px 0;"><button class="btn-secondary btn-small" onclick="event.stopPropagation();openSubtopicModal(${t.id})">+ 소목차 추가</button></div>`;
+      body = `<div style="margin:6px 0;"><button class="btn-secondary btn-small" onclick="event.stopPropagation();openSubtopicModal(${t.id})">+ 학습 카드 추가</button></div>`;
       if (!subs.length) {
-        body += '<div class="empty-state small">아직 소목차가 없습니다.</div>';
+        body += '<div class="empty-state small">아직 학습 카드가 없습니다.</div>';
       } else {
         body += `<div class="reorder-list" data-sortable="subtopics" data-parent-id="${t.id}">`
               + subs.map(s => renderSubtopic(s)).join('')
@@ -999,7 +999,7 @@ function openChapterModal(id) {
 
 async function deleteChapter(id) {
   const c = state.chapters.find(x => x.id === id);
-  if (!confirm(`"${c.title}" 챕터를 삭제할까요?\n안의 모든 대목차·소목차·내용이 함께 삭제됩니다.`)) return;
+  if (!confirm(`"${c.title}" 챕터를 삭제할까요?\n안의 모든 목차·학습 카드·내용이 함께 삭제됩니다.`)) return;
   showLoading(true);
   try {
     await api('DELETE', '/chapters/' + id);
@@ -1012,19 +1012,19 @@ async function deleteChapter(id) {
 }
 
 // ============================================================
-// 대목차 CRUD
+// 목차 CRUD
 // ============================================================
 function openTopicModal(chapterId, topicId) {
   const t = topicId ? (state.topicsByChapter[chapterId] || []).find(x => x.id === topicId) : null;
   modal({
-    title: topicId ? '대목차 편집' : '대목차 추가',
+    title: topicId ? '목차 편집' : '목차 추가',
     body: `
       <div class="form-row"><label>제목 *</label><input type="text" id="m_title" value="${escapeHtml(t?.title || '')}" placeholder="미분의 기본"></div>
       <div class="form-row row-2">
         <div><label>표시 순서</label><input type="number" id="m_order" value="${t?.sort_order ?? 0}"></div>
         <div style="align-self:end;"><label class="check"><input type="checkbox" id="m_free" ${t?.is_free ? 'checked' : ''}> ✨ 무료 공개</label></div>
       </div>
-      <div class="form-row"><div class="help">무료 공개로 설정하면 이 대목차 전체가 비구독자에게도 보입니다.</div></div>
+      <div class="form-row"><div class="help">무료 공개로 설정하면 이 목차 전체가 비구독자에게도 보입니다.</div></div>
     `,
     save: async () => {
       const data = {
@@ -1046,7 +1046,7 @@ function openTopicModal(chapterId, topicId) {
 }
 
 async function deleteTopic(id) {
-  if (!confirm('이 대목차를 삭제할까요?\n안의 소목차·내용도 함께 삭제됩니다.')) return;
+  if (!confirm('이 목차를 삭제할까요?\n안의 학습 카드·내용도 함께 삭제됩니다.')) return;
   showLoading(true);
   try {
     // 어느 챕터인지 찾기
@@ -1064,9 +1064,9 @@ async function deleteTopic(id) {
 }
 
 // ============================================================
-// 소목차 CRUD
+// 학습 카드 CRUD
 // ============================================================
-// 소목차 편집 모달이 보유한 임시 이미지 데이터 URL (저장 전)
+// 학습 카드 편집 모달이 보유한 임시 이미지 데이터 URL (저장 전)
 let _modalSubImage = null;
 
 function openSubtopicModal(topicId, subId) {
@@ -1074,7 +1074,7 @@ function openSubtopicModal(topicId, subId) {
   _modalSubImage = s?.image_b64 || null;
 
   modal({
-    title: subId ? '소목차 편집' : '소목차 추가',
+    title: subId ? '학습 카드 편집' : '학습 카드 추가',
     body: `
       <div class="form-row"><label>제목 *</label><input type="text" id="m_title" value="${escapeHtml(s?.title || '')}" placeholder="미분계수의 정의"></div>
       <div class="form-row"><label>표시 순서</label><input type="number" id="m_order" value="${s?.sort_order ?? 0}"></div>
@@ -1088,7 +1088,7 @@ function openSubtopicModal(topicId, subId) {
           <button class="btn-secondary btn-small" type="button" onclick="pasteSubImage()" title="클립보드의 캡쳐 붙여넣기">📋 클립보드</button>
           ${_modalSubImage ? '<button class="btn-danger btn-small" type="button" onclick="removeSubImage()">🗑️ 제거</button>' : ''}
         </div>
-        <div class="help">이 소목차의 핵심 그림 (도형·공식·예제 캡쳐). 펼치면 맨 위에 표시됨.</div>
+        <div class="help">이 학습 카드의 핵심 그림 (도형·공식·예제 캡쳐). 펼치면 맨 위에 표시됨.</div>
       </div>
       <div class="form-row">
         <label>이미지 캡션 (선택)</label>
@@ -1108,7 +1108,7 @@ function openSubtopicModal(topicId, subId) {
         if (subId) await api('PUT', '/subtopics/' + subId, data);
         else await api('POST', '/subtopics', data);
         await loadSubtopics(topicId);
-        // 대목차의 count 갱신을 위해 topics도 reload
+        // 목차의 count 갱신을 위해 topics도 reload
         const topics = state.topicsByChapter || {};
         for (const cid in topics) {
           if ((topics[cid] || []).some(t => t.id === topicId)) { await loadTopics(Number(cid)); break; }
@@ -1170,7 +1170,7 @@ function removeSubImage() {
 }
 
 async function deleteSubtopic(id) {
-  if (!confirm('이 소목차를 삭제할까요?\n안의 모든 내용 블록도 함께 삭제됩니다.')) return;
+  if (!confirm('이 학습 카드를 삭제할까요?\n안의 모든 내용 블록도 함께 삭제됩니다.')) return;
   showLoading(true);
   try {
     let topicId = null;
@@ -1390,11 +1390,11 @@ function blobToDataURL(blob) {
   });
 }
 
-// 전역 paste 핸들러 — 펼친 소목차 중 첫 번째에 넣음
+// 전역 paste 핸들러 — 펼친 학습 카드 중 첫 번째에 넣음
 document.addEventListener('paste', async (e) => {
   if (!state.user || state.user.role !== 'teacher') return;
   // 입력 필드(textarea·input)에 포커스가 있으면 paste 가로채지 않음
-  // → bulk 모달의 TSV 붙여넣기·소목차 모달의 캡션 등 정상 동작 보장
+  // → bulk 모달의 TSV 붙여넣기·학습 카드 모달의 캡션 등 정상 동작 보장
   const active = document.activeElement;
   if (active && (active.tagName === 'TEXTAREA' || active.tagName === 'INPUT')) return;
   const items = (e.clipboardData || window.clipboardData)?.items;
@@ -1405,7 +1405,7 @@ document.addEventListener('paste', async (e) => {
       if (!file) continue;
       const openedSubs = Array.from(state.expanded.subtopic);
       if (!openedSubs.length) {
-        toast('이미지를 추가할 소목차를 먼저 펼치세요.', true);
+        toast('이미지를 추가할 학습 카드를 먼저 펼치세요.', true);
         return;
       }
       const targetSubId = openedSubs[openedSubs.length - 1];
@@ -1455,13 +1455,13 @@ function openBulkModal(chapterId) {
     body: `
       <div class="tsv-help">
         엑셀에서 다음 형식의 셀들을 선택해 복사 → 아래에 붙여넣기.<br>
-        <code>A: 대목차</code> · <code>B: 소목차</code> · <code>C~ : 내용1, 내용2, 내용3 ...</code> (한 소목차에 여러 내용 가로로)<br>
-        대목차 칸 비우면 "이전 대목차에 계속". 첫 행 헤더는 자동 스킵.<br>
+        <code>A: 목차</code> · <code>B: 학습 카드</code> · <code>C~ : 내용1, 내용2, 내용3 ...</code> (한 학습 카드에 여러 내용 가로로)<br>
+        목차 칸 비우면 "이전 목차에 계속". 첫 행 헤더는 자동 스킵.<br>
         💡 셀 사이는 자동으로 탭 — 셀 안의 공백은 콘텐츠 그대로 유지됩니다.
       </div>
       <div class="form-row">
         <label>붙여넣기 (탭 구분 TSV — 가로형)</label>
-        <textarea id="m_tsv" placeholder="대목차&#9;소목차&#9;내용1&#9;내용2&#9;내용3&#9;...&#10;조선 왕의 업적&#9;세종&#9;훈민정음 창제&#9;집현전 설치&#9;4군 6진 개척&#9;칠정산 편찬&#10;&#9;성종&#9;경국대전 완성&#9;홍문관 설치"></textarea>
+        <textarea id="m_tsv" placeholder="목차&#9;학습 카드&#9;내용1&#9;내용2&#9;내용3&#9;...&#10;조선 왕의 업적&#9;세종&#9;훈민정음 창제&#9;집현전 설치&#9;4군 6진 개척&#9;칠정산 편찬&#10;&#9;성종&#9;경국대전 완성&#9;홍문관 설치"></textarea>
         <div style="margin-top:6px;display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
           <label class="btn-secondary btn-small" style="cursor:pointer;margin:0;">
             📂 파일에서 불러오기
@@ -1473,8 +1473,8 @@ function openBulkModal(chapterId) {
       </div>
       <div class="form-row">
         <label class="check"><input type="radio" name="mode" id="m_modeA" value="append" checked> 기존 내용 뒤에 추가</label>
-        <label class="check"><input type="radio" name="mode" id="m_modeM" value="merge"> ✨ 내용만 교체 — 같은 이름의 대목차·소목차는 그대로 두고 <strong>내용(items)</strong>만 새로 입력 <span style="color:#81c784">(학생의 꾹누른 기록 보존)</span></label>
-        <label class="check"><input type="radio" name="mode" id="m_modeR" value="replace"> ⚠️ 전체 교체 — 대목차 삭제 후 신규 <span style="color:#fca5a5">(학생 학습 기록 모두 삭제)</span></label>
+        <label class="check"><input type="radio" name="mode" id="m_modeM" value="merge"> ✨ 내용만 교체 — 같은 이름의 목차·학습 카드는 그대로 두고 <strong>내용(items)</strong>만 새로 입력 <span style="color:#81c784">(학생의 꾹누른 기록 보존)</span></label>
+        <label class="check"><input type="radio" name="mode" id="m_modeR" value="replace"> ⚠️ 전체 교체 — 목차 삭제 후 신규 <span style="color:#fca5a5">(학생 학습 기록 모두 삭제)</span></label>
       </div>
     `,
     save: async () => {
@@ -1482,9 +1482,9 @@ function openBulkModal(chapterId) {
       const mode = $('m_modeR').checked ? 'replace' : ($('m_modeM').checked ? 'merge' : 'append');
       if (!tsv.trim()) { toast('내용 비어 있음', true); return false; }
       if (mode === 'replace') {
-        if (!confirm('⚠️ 전체 교체는 기존 모든 대목차·소목차·내용을 삭제합니다.\n학생들의 꾹누른 기록도 함께 삭제됩니다.\n정말 진행할까요?')) return false;
+        if (!confirm('⚠️ 전체 교체는 기존 모든 목차·학습 카드·내용을 삭제합니다.\n학생들의 꾹누른 기록도 함께 삭제됩니다.\n정말 진행할까요?')) return false;
       } else if (mode === 'merge') {
-        if (!confirm('✨ 내용만 교체: 같은 이름의 대목차·소목차는 그대로 두고 안의 내용(items)만 교체합니다.\n학생의 꾹누른 기록은 보존됩니다.\n진행할까요?')) return false;
+        if (!confirm('✨ 내용만 교체: 같은 이름의 목차·학습 카드는 그대로 두고 안의 내용(items)만 교체합니다.\n학생의 꾹누른 기록은 보존됩니다.\n진행할까요?')) return false;
       }
       showLoading(true);
       // 청크 반복 호출 — Worker 서브요청 한도 우회
@@ -1544,7 +1544,7 @@ function openBulkModal(chapterId) {
         Object.keys(state.itemsBySubtopic).forEach(k => delete state.itemsBySubtopic[k]);
         await loadTopics(chapterId);
         // 완료 후 명확한 alert — 토스트는 짧아서 놓치기 쉬움
-        alert(`✅ 입력 완료! (소요 ${elapsedStr})\n\n• 대목차 추가/매칭: ${totalT}\n• 소목차 추가/매칭: ${totalS}\n• 내용 입력: ${totalI}`);
+        alert(`✅ 입력 완료! (소요 ${elapsedStr})\n\n• 목차 추가/매칭: ${totalT}\n• 학습 카드 추가/매칭: ${totalS}\n• 내용 입력: ${totalI}`);
         return true;
       } catch (e) {
         $('toast').className = '';

@@ -74,8 +74,8 @@
 
 ```
 챕터 (Chapter)              ← 결제 단위, 월별 구독
-  └ 대목차 (Topic)          ← is_free=1이면 무료 열람
-     └ 소목차 (Subtopic)    ← 학습 단위 (=플래시카드 1장)
+  └ 목차 (Topic)          ← is_free=1이면 무료 열람
+     └ 학습 카드 (Subtopic)    ← 학습 단위 (=플래시카드 1장)
         ├ 대표 이미지        ← 항상 보임 (표지)
         └ 내용 블록 (Items)  ← text/image, 펼침 시 표시
 ```
@@ -89,7 +89,7 @@
 - **챕터당 월 3,000원~** (`monthly_price` 컬럼, 챕터마다 다른 가격 가능)
 - 결제 후 **30일** 동안 그 챕터 전체 열람
 - **자동결제 X** — 매월 본인이 직접 결제
-- 만료 후 자동으로 무료 사용자 (그 챕터의 무료 대목차만)
+- 만료 후 자동으로 무료 사용자 (그 챕터의 무료 목차만)
 
 저장: Airtable `OnepageChapterAccess` (user×chapter 행마다 expires_at)
 
@@ -99,9 +99,9 @@
 - 빈 값이면 결제 버튼이 비활성화됨 (포인트 사용은 가능)
 - 선생님 앱 챕터 편집 모달에 입력 칸 있음
 
-### 미구매 챕터도 진입 가능 — 무료 대목차 미리보기
+### 미구매 챕터도 진입 가능 — 무료 목차 미리보기
 - 챕터 카드 본문 클릭 → 트리 진입 (구매 안 했어도)
-- `is_free=1`인 대목차만 열람 가능, 나머지는 🔒 표시
+- `is_free=1`인 목차만 열람 가능, 나머지는 🔒 표시
 - 결제 유도 동선 자연스럽게 — "둘러보기 → 마음에 들면 결제"
 
 > 결제 → 학습기간 연장은 **Worker `/payapp/webhook` + Airtable Automation C1**이 자동 처리 (Pabbly 결제 라우터는 v2에서 제거됨).
@@ -466,7 +466,7 @@ https://onepage-study.vercel.app/?interest=수능&interest=한자
 
 ### 암기 모음 모드 (챕터 내 ●)
 
-챕터 헤더 우측 **● 암기** 버튼 → 챕터 전체에서 꾹눌러 암기 표시한(`understoodSet`) 소목차만 한 리스트로 모아보기.
+챕터 헤더 우측 **● 암기** 버튼 → 챕터 전체에서 꾹눌러 암기 표시한(`understoodSet`) 학습 카드만 한 리스트로 모아보기.
 
 - **꾹누른 시각(`marked_at`) 오름차순** — 오래된 것부터 위에서 아래로
 - 첫 항목 = 현재(주황 강조) → 상단의 큰 **⤴ 패스** 버튼이 이걸 패스 (정상 모드와 동일 `passedSet` 공유)
@@ -485,7 +485,7 @@ https://onepage-study.vercel.app/?interest=수능&interest=한자
 
 ### 화면 구성
 ```
-▼ 일상/대화 ⑫           [        ⤴ 패스         ]  ← 대목차 헤더
+▼ 일상/대화 ⑫           [        ⤴ 패스         ]  ← 목차 헤더
   🟠 appointment                                    ← 학습 대상 (주황)
   ○ reservation
   ○ cancel
@@ -494,46 +494,46 @@ https://onepage-study.vercel.app/?interest=수능&interest=한자
   ● recover
 ```
 
-대목차 헤더 구성:
+목차 헤더 구성:
 - **▶/▼** 화살표 — 펼침/접힘 표시
-- **제목** — 대목차 이름
-- **⑫ 카운트 배지** — 제목 바로 뒤에 원형 표시 (소목차 총 개수, 학습 동기 부여)
+- **제목** — 목차 이름
+- **⑫ 카운트 배지** — 제목 바로 뒤에 원형 표시 (학습 카드 총 개수, 학습 동기 부여)
 - **⤴ 패스 버튼** — 헤더 오른쪽 끝까지 확장 (손가락으로 누르기 편함)
 
 ### 학습 동작 — 버튼 1개 + 꾹누르기 1개
 
 | 동작 | 트리거 | 결과 | 저장 |
 |---|---|---|---|
-| **펼치기/접기** | 소목차 짧게 탭 | 내용 표시 (아코디언) | — |
-| **패스** | 대목차 헤더의 **⤴ 패스** 버튼 | 맨 위 소목차가 이번 회에서 빠지고 다음 단어가 위로 올라옴 | localStorage (챕터 단위, 영구) |
-| **완료/다시 토글** | 소목차를 600ms 꾹누르기 | 학습완료 ● 표시 ↔ 미학습 토글 | DB (`op_understood`) |
+| **펼치기/접기** | 학습 카드 짧게 탭 | 내용 표시 (아코디언) | — |
+| **패스** | 목차 헤더의 **⤴ 패스** 버튼 | 맨 위 학습 카드가 이번 회에서 빠지고 다음 단어가 위로 올라옴 | localStorage (챕터 단위, 영구) |
+| **완료/다시 토글** | 학습 카드를 600ms 꾹누르기 | 학습완료 ● 표시 ↔ 미학습 토글 | DB (`op_understood`) |
 
 → 버튼 1개 + 꾹누르기 1개로 모든 학습 흐름 처리. 버튼은 단순하고 크게, 동작은 직관적으로.
 
 ### 모두 패스 시 — 폭죽 축하 + 자동 재시작
-대목차 안 **모든** 소목차를 패스(완료된 것도 포함)하면:
+목차 안 **모든** 학습 카드를 패스(완료된 것도 포함)하면:
 1. 화면 가득 폭죽 🎉 오버레이 + "수고하셨어요!" 메시지 (1.5초)
-2. 자동으로 해당 대목차의 패스 상태 초기화
+2. 자동으로 해당 목차의 패스 상태 초기화
 3. 처음부터 다시 학습 시작
 
 → "다시 시작" 버튼 없이도 한 사이클이 자연스럽게 닫힘.
 
 ### 첫 단어 강조
-첫 미학습 소목차는 🟠 **주황 배경**으로 강조 → "지금 이걸 학습하세요" 신호.
+첫 미학습 학습 카드는 🟠 **주황 배경**으로 강조 → "지금 이걸 학습하세요" 신호.
 
 ### 영구 저장된 패스 상태
 - 키: `localStorage.op_passed_<chapterId>`
 - 챕터 진입 시 자동 복원 → 마지막 학습 위치에서 계속
 
 ### 마지막 본 콘텐츠 자동 로딩
-- 페이지를 닫았다 다시 열어도 마지막에 보던 챕터·대목차·소목차가 그대로 복원
+- 페이지를 닫았다 다시 열어도 마지막에 보던 챕터·목차·학습 카드가 그대로 복원
 - 페이지 단위로 기억하므로 다른 탭에서 다른 챕터를 봐도 충돌 없음
 
 ---
 
 ## 9. 콘텐츠 정렬 규칙
 
-소목차는 다음 순서로 자동 정렬:
+학습 카드는 다음 순서로 자동 정렬:
 
 1. **미학습** (`understood=false` AND `passed=false`) — 위에
 2. **학습완료** (`understood=true`) — 아래로
@@ -552,12 +552,12 @@ https://onepage-study.vercel.app/?interest=수능&interest=한자
 ### CSS 단계 — Auto-scroll 방지
 ```css
 .chapter-tree {
-  padding-bottom: 100vh;   /* 마지막 대목차 아래 1화면 분 여유 */
+  padding-bottom: 100vh;   /* 마지막 목차 아래 1화면 분 여유 */
   overflow-anchor: none;
 }
 ```
 - 페이지가 항상 충분히 길어서 콘텐츠 줄어도 max-scroll 발동 X
-- 마지막 대목차에서 패스해도 위에서 콘텐츠 안 내려옴
+- 마지막 목차에서 패스해도 위에서 콘텐츠 안 내려옴
 
 ### JS 단계 — withTopicAnchor
 ```js
@@ -569,13 +569,13 @@ function withTopicAnchor(topicId, callback) {
   adjust(); requestAnimationFrame(adjust);
 }
 ```
-- 대목차 헤더(패스 버튼 포함)의 화면 Y 위치 캡쳐
+- 목차 헤더(패스 버튼 포함)의 화면 Y 위치 캡쳐
 - 렌더 후 위치 변화량만큼 scrollBy로 보정
 - 패스 / 꾹누르기 / 펼침 모두 이 함수로 감싸짐
 
 → 패스 버튼 위치가 항상 같은 자리에 있어 연속 탭 가능
 
-### 소목차 펼침도 동일
+### 학습 카드 펼침도 동일
 `subClick` 함수도 같은 패턴으로 펼침 시 위치 보정.
 
 ---
@@ -583,11 +583,11 @@ function withTopicAnchor(topicId, callback) {
 ## 11. 선생님 — 콘텐츠 관리
 
 ### 트리 CRUD
-- 챕터 → 대목차 → 소목차 → 내용 블록 (4단계)
+- 챕터 → 목차 → 학습 카드 → 내용 블록 (4단계)
 - 각 단계 추가/편집/삭제 (`✎`/`🗑️`)
 - DB FK CASCADE로 챕터 삭제 시 아래 모두 자동 정리
 
-### 소목차 편집 모달
+### 학습 카드 편집 모달
 - 제목·sort_order
 - **대표 이미지** picker + 클립보드 붙여넣기 + 캡션
 - 이미지는 op_subtopics.image_b64에 base64로 저장
@@ -640,14 +640,14 @@ function withTopicAnchor(topicId, callback) {
 
 ### 발음 듣기 (Web Speech API)
 
-학생 앱에서 소목차 제목 옆 **🔊** 버튼 클릭 → 그 단어를 음성으로 재생.
+학생 앱에서 학습 카드 제목 옆 **🔊** 버튼 클릭 → 그 단어를 음성으로 재생.
 
 | 동작 | 디테일 |
 |---|---|
 | 기술 | 브라우저 내장 `speechSynthesis` API — 외부 API 키·과금 없음 |
 | 언어 | `detectSpeechLang`: 라틴 문자 있으면 `en-US`, 아니면 `ko-KR` |
 | 속도 | `rate: 0.85` (학습용으로 살짝 천천히) |
-| 표시 조건 | 소목차 제목에 라틴 문자 포함 **AND** 한글 미포함일 때만 (`/[a-zA-Z]/` 통과 + `/[가-힯ᄀ-ᇿ㄰-㆏]/` 미통과) |
+| 표시 조건 | 학습 카드 제목에 라틴 문자 포함 **AND** 한글 미포함일 때만 (`/[a-zA-Z]/` 통과 + `/[가-힯ᄀ-ᇿ㄰-㆏]/` 미통과) |
 | 연속 클릭 | `speechSynthesis.cancel()` 로 진행 중 음성 중단 후 재생 |
 | 펼침·꾹누르기 분리 | `event.stopPropagation()` 을 click·mousedown·touchstart 모두에 |
 
@@ -658,9 +658,9 @@ OS 네이티브 음성을 사용하므로 iOS/Android/Mac/Windows에서 자연�
 
 | 레벨 | 끌어옮길 수 있는 범위 |
 |---|---|
-| 대목차 | 같은 챕터 안에서 |
-| 소목차 | 같은 대목차 안에서 |
-| 내용 블록 | 같은 소목차 안에서 |
+| 목차 | 같은 챕터 안에서 |
+| 학습 카드 | 같은 목차 안에서 |
+| 내용 블록 | 같은 학습 카드 안에서 |
 
 **기술 구현**
 - SortableJS 1.15.2 CDN, `forceFallback: true` (모든 브라우저·모바일 호환)
@@ -672,7 +672,7 @@ OS 네이티브 음성을 사용하므로 iOS/Android/Mac/Windows에서 자연�
 
 **데이터 무결성 — 사용자 학습 기록 보존**
 - 모든 사용자 reference는 `subtopic_id` 기준 → `sort_order` 변경 무영향
-- 콘텐츠 삭제 시: `op_understood.subtopic_id` FK CASCADE → 모든 사용자의 그 소목차 꾹누른 기록 자동 정리
+- 콘텐츠 삭제 시: `op_understood.subtopic_id` FK CASCADE → 모든 사용자의 그 학습 카드 꾹누른 기록 자동 정리
 - 콘텐츠 추가: 학생 앱이 매번 fresh fetch → 즉시 반영, 새 sort_order 위치에 표시
 
 ---
@@ -683,15 +683,15 @@ OS 네이티브 음성을 사용하므로 iOS/Android/Mac/Windows에서 자연�
 
 ### 포맷 (가로형)
 ```
-A: 대목차       B: 소목차    C~ : 내용1, 내용2, 내용3 ...
+A: 목차       B: 학습 카드    C~ : 내용1, 내용2, 내용3 ...
 ─────────────────────────────────────────────
 조선 왕의 업적   세종        훈민정음 창제  집현전 설치  4군 6진 개척
                 성종        경국대전 완성  홍문관 설치
 ```
 
-- 대목차 칸 비우면 "이전 대목차에 계속"
-- 첫 행 헤더(`대목차`)는 자동 스킵
-- C열부터 끝까지가 그 소목차의 N개 내용 항목
+- 목차 칸 비우면 "이전 목차에 계속"
+- 첫 행 헤더(`목차`)는 자동 스킵
+- C열부터 끝까지가 그 학습 카드의 N개 내용 항목
 
 ### Excel 멀티라인 셀 지원 + stray quote 처리
 - 셀 안에 Alt+Enter로 줄바꿈한 경우 Excel은 셀을 `"..."`로 감쌈
@@ -707,17 +707,17 @@ A: 대목차       B: 소목차    C~ : 내용1, 내용2, 내용3 ...
 
 | 모드 | 동작 | 학생 학습 기록 영향 |
 |---|---|---|
-| **append** (기본) | 기존 내용 뒤에 추가 — 동일 이름 대목차·소목차 재사용해서 items만 누적 | ✅ 보존 (subtopic_id 유지) |
-| **✨ merge** | 동일 이름 대목차·소목차 그대로 두고 **items만 전부 교체** — 콘텐츠 업데이트용 | ✅ **완벽 보존** (subtopic_id 유지, 꾹누른 기록 그대로) |
-| ⚠️ **replace** | 챕터의 모든 대목차 삭제 후 신규 입력 | ❌ FK CASCADE로 모든 꾹누른 기록 삭제됨 |
+| **append** (기본) | 기존 내용 뒤에 추가 — 동일 이름 목차·학습 카드 재사용해서 items만 누적 | ✅ 보존 (subtopic_id 유지) |
+| **✨ merge** | 동일 이름 목차·학습 카드 그대로 두고 **items만 전부 교체** — 콘텐츠 업데이트용 | ✅ **완벽 보존** (subtopic_id 유지, 꾹누른 기록 그대로) |
+| ⚠️ **replace** | 챕터의 모든 목차 삭제 후 신규 입력 | ❌ FK CASCADE로 모든 꾹누른 기록 삭제됨 |
 
 #### merge 모드 동작 디테일
-- 첫 호출에서 모든 기존 토픽 + 그 소목차들을 한 번에 읽어 `topicMap`·`subMap`·`originalSubIds` 채움
+- 첫 호출에서 모든 기존 토픽 + 그 학습 카드들을 한 번에 읽어 `topicMap`·`subMap`·`originalSubIds` 채움
 - TSV 행마다:
-  - 동일 이름 대목차·소목차 발견 → 기존 ID 재사용
-  - 그 소목차가 "원래 있던 것"이면 첫 만남 시 기존 items 일괄 삭제(`clearedSubs` 마킹) → 새 items 입력
-  - TSV에 없는 기존 대목차·소목차는 그대로 둠 (수동 정리 필요 시 선생님 앱에서)
-- `originalSubIds`·`clearedSubs` 는 청크 간 body로 왕복하며 상태 유지 (한 소목차의 items가 많아 한 청크에 못 끝나면 다음 청크에서 재시도)
+  - 동일 이름 목차·학습 카드 발견 → 기존 ID 재사용
+  - 그 학습 카드가 "원래 있던 것"이면 첫 만남 시 기존 items 일괄 삭제(`clearedSubs` 마킹) → 새 items 입력
+  - TSV에 없는 기존 목차·학습 카드는 그대로 둠 (수동 정리 필요 시 선생님 앱에서)
+- `originalSubIds`·`clearedSubs` 는 청크 간 body로 왕복하며 상태 유지 (한 학습 카드의 items가 많아 한 청크에 못 끝나면 다음 청크에서 재시도)
 
 ### 파일 업로드 대안
 - 큰 데이터는 엑셀 → "텍스트 (탭으로 분리)(*.txt)"로 저장
@@ -1142,8 +1142,8 @@ wrangler secret put PABBLY_WEBHOOK_URL
 | `/auth/change-password` | POST | 비밀번호 변경 — `{old_password, new_password}`, 현재 비번 검증 후 PBKDF2 재해시 |
 | `/referral/info?code=` | GET | 추천 코드 유효성 (이름 마스킹) |
 | `/chapters` | GET | 챕터 목록 |
-| `/topics?chapter_id=` | GET | 대목차 목록 + 동봉 subtopics |
-| `/subtopics?topic_id=` | GET | 소목차 목록 |
+| `/topics?chapter_id=` | GET | 목차 목록 + 동봉 subtopics |
+| `/subtopics?topic_id=` | GET | 학습 카드 목록 |
 | `/items?subtopic_id=` | GET | 내용 블록 (구독 게이트 적용) |
 | `/understood` | POST | 꾹누르기 토글 |
 | `/understood?chapter_id=` | GET | 내 이해 표시 목록 |
@@ -1160,10 +1160,10 @@ wrangler secret put PABBLY_WEBHOOK_URL
 | `/chapters` | POST | 챕터 생성 (pay_url 포함) |
 | `/chapters/:id` | PUT/DELETE | 챕터 수정/삭제 |
 | `/chapters/:id/bulk` | POST | TSV 일괄 입력 (청크 처리) |
-| `/topics`·`/topics/:id` | POST/PUT/DELETE | 대목차 CRUD |
-| `/topics/reorder` | POST | 대목차 순서 일괄 변경 — `{ordered_ids[], start_index}` |
-| `/subtopics`·`/subtopics/:id` | POST/PUT/DELETE | 소목차 CRUD |
-| `/subtopics/reorder` | POST | 소목차 순서 일괄 변경 |
+| `/topics`·`/topics/:id` | POST/PUT/DELETE | 목차 CRUD |
+| `/topics/reorder` | POST | 목차 순서 일괄 변경 — `{ordered_ids[], start_index}` |
+| `/subtopics`·`/subtopics/:id` | POST/PUT/DELETE | 학습 카드 CRUD |
+| `/subtopics/reorder` | POST | 학습 카드 순서 일괄 변경 |
 | `/items`·`/items/:id` | POST/PUT/DELETE | 내용 블록 CRUD |
 | `/items/reorder` | POST | 내용 순서 일괄 변경 |
 
@@ -1187,7 +1187,7 @@ wrangler secret put PABBLY_WEBHOOK_URL
 | **`/admin/access/:phone/:chapter_id`** | **DELETE** | **챕터 권한 회수** (ChapterAccess 행 삭제) |
 
 ### 구독 게이트 (`/items` 응답)
-- 무료 대목차 (is_free=1) → 누구나 200
+- 무료 목차 (is_free=1) → 누구나 200
 - 비구독자 → 402 + `{error: 'subscription_required', chapter_id}`
 - 비로그인 → 401
 - 선생님 (role=teacher) → 항상 통과

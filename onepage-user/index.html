@@ -336,7 +336,7 @@ a { color: #4fc3f7; text-decoration: none; }
 .chapter-tree {
   max-width: 760px; margin: 0 auto;
   /* padding-bottom: 100vh — 콘텐츠가 줄어도 페이지 최대 스크롤이 변하지 않도록
-     마지막 대목차 아래에 항상 화면 1개 분의 여유 공간 (브라우저 자동 위로 스크롤 방지) */
+     마지막 목차 아래에 항상 화면 1개 분의 여유 공간 (브라우저 자동 위로 스크롤 방지) */
   padding: 16px 14px 100vh;
   overflow-anchor: none;
 }
@@ -350,7 +350,7 @@ a { color: #4fc3f7; text-decoration: none; }
 .topic-card.opened { border-color: rgba(233,69,96,0.4); }
 .topic-card.locked { background: rgba(255,255,255,0.02); }
 
-/* 학습 컨트롤 — 대목차 헤더 안에 표시 (펼친 상태일 때) */
+/* 학습 컨트롤 — 목차 헤더 안에 표시 (펼친 상태일 때) */
 .study-controls {
   display: flex; gap: 4px; flex-shrink: 0;
   margin-left: auto;
@@ -374,7 +374,7 @@ a { color: #4fc3f7; text-decoration: none; }
 .study-btn.reset  { background: rgba(255,255,255,0.06); color: rgba(255,255,255,0.7); border-color: rgba(255,255,255,0.15); }
 .study-btn:active { transform: scale(0.92); }
 
-/* 현재 학습 대상 (맨 위 미학습 소목차) — 주황 강조 */
+/* 현재 학습 대상 (맨 위 미학습 학습 카드) — 주황 강조 */
 .subtopic.current {
   background: linear-gradient(180deg, rgba(255,138,0,0.22) 0%, rgba(255,138,0,0.10) 100%) !important;
   border-color: rgba(255,138,0,0.55) !important;
@@ -382,7 +382,7 @@ a { color: #4fc3f7; text-decoration: none; }
 }
 .subtopic.current .subtopic-title { color: #ffb74d; }
 
-/* 소목차마다 액션 버튼 — head 안 우측에 표시 */
+/* 학습 카드마다 액션 버튼 — head 안 우측에 표시 */
 .subtopic-actions {
   display: flex; gap: 4px; flex-shrink: 0;
   pointer-events: auto;
@@ -405,7 +405,7 @@ a { color: #4fc3f7; text-decoration: none; }
 .sa-btn.done   { background: rgba(76,175,80,0.2);   color: #81c784;  border-color: rgba(76,175,80,0.35); }
 .sa-btn.redo   { background: rgba(255,138,0,0.18);  color: #ffb74d;  border-color: rgba(255,138,0,0.3); }
 
-/* 큰 패스 버튼 — 대목차 헤더 오른쪽, 항상 같은 크기로 고정 */
+/* 큰 패스 버튼 — 목차 헤더 오른쪽, 항상 같은 크기로 고정 */
 .study-btn.skip-big {
   padding: 0 22px; width: 110px; height: 30px;
   border-radius: 50px;
@@ -497,7 +497,7 @@ a { color: #4fc3f7; text-decoration: none; }
   font-size: 10px; padding: 3px 9px; border-radius: 50px; font-weight: 600;
   flex-shrink: 0;
 }
-/* 진도 바 — 대목차 옆에 암기/전체 비율 시각화 */
+/* 진도 바 — 목차 옆에 암기/전체 비율 시각화 */
 .topic-progress {
   position: relative; flex-shrink: 0;
   width: 88px; height: 18px;
@@ -544,7 +544,7 @@ a { color: #4fc3f7; text-decoration: none; }
   padding: 9px 22px; font-size: 13px; font-weight: 700; border-radius: 50px;
 }
 
-/* 소목차 = 보라 톤 (제목·미리보기 영역) */
+/* 학습 카드 = 보라 톤 (제목·미리보기 영역) */
 .subtopic {
   background: linear-gradient(180deg, rgba(83,52,131,0.18) 0%, rgba(83,52,131,0.10) 100%);
   border: 1px solid rgba(179,157,219,0.25);
@@ -556,7 +556,7 @@ a { color: #4fc3f7; text-decoration: none; }
   border-color: rgba(76,175,80,0.45);
   background: linear-gradient(180deg, rgba(76,175,80,0.14) 0%, rgba(76,175,80,0.06) 100%);
 }
-/* 펼친 소목차 — 테두리·그림자 강조로 다른 항목과 시각적 분리 (집중 학습) */
+/* 펼친 학습 카드 — 테두리·그림자 강조로 다른 항목과 시각적 분리 (집중 학습) */
 .subtopic.opened {
   border-color: rgba(179,157,219,0.7);
   border-width: 2px;
@@ -607,7 +607,7 @@ a { color: #4fc3f7; text-decoration: none; }
 .subtopic-hint {
   font-size: 10px; color: rgba(255,255,255,0.35);
 }
-/* 발음 듣기 버튼 — 소목차 제목 옆 */
+/* 발음 듣기 버튼 — 학습 카드 제목 옆 */
 .speak-btn {
   background: rgba(79,195,247,0.12);
   border: 1px solid rgba(79,195,247,0.3);
@@ -622,7 +622,7 @@ a { color: #4fc3f7; text-decoration: none; }
 }
 .speak-btn:hover { background: rgba(79,195,247,0.22); }
 .speak-btn:active { transform: scale(0.9); background: rgba(79,195,247,0.35); }
-/* 본문 = 어두운 다른 톤 (소목차와 명확히 분리) */
+/* 본문 = 어두운 다른 톤 (학습 카드와 명확히 분리) */
 .subtopic-body {
   display: none; padding: 14px 16px 14px 28px;
   background: #0a0a1a;
@@ -1067,10 +1067,10 @@ const state = {
   itemsBySubtopic: {},
   understoodSet: new Set(),
   understoodMarkedAt: {},     // subtopic_id → marked_at (YYYY-MM-DD HH:MM:SS) — 암기 모음 정렬용
-  passedSet: new Set(),       // 이번 회 패스한 소목차 (세션만 — 새로고침 시 복원)
-  memorizedView: false,       // 챕터 내 암기 모음 모드 (꾹누른 소목차만 모아보기)
-  memoSnapshotIds: new Set(), // 암기 모음 진입 시 보여줄 소목차 스냅샷 — 펼친 항목이 미암기로 분류돼도 이번 회는 그대로 보이게
-  everExpandedSet: new Set(), // 이 챕터 진입 후 한 번이라도 펼쳐본 소목차 — 패스 시 자동 ●/미암기 판정에 사용. 챕터 나가면 초기화
+  passedSet: new Set(),       // 이번 회 패스한 학습 카드 (세션만 — 새로고침 시 복원)
+  memorizedView: false,       // 챕터 내 암기 모음 모드 (꾹누른 학습 카드만 모아보기)
+  memoSnapshotIds: new Set(), // 암기 모음 진입 시 보여줄 학습 카드 스냅샷 — 펼친 항목이 미암기로 분류돼도 이번 회는 그대로 보이게
+  everExpandedSet: new Set(), // 이 챕터 진입 후 한 번이라도 펼쳐본 학습 카드 — 패스 시 자동 ●/미암기 판정에 사용. 챕터 나가면 초기화
   expanded: { topic: new Set(), subtopic: new Set() },
   liveCount: 0,
   pingTimer: null,
@@ -1561,7 +1561,7 @@ function renderChapterCard(c) {
   const price = Number(c.monthly_price) || 3000;
   const canRedeem = state.point >= REDEEM_COST;
 
-  // 미구매 챕터도 카드 클릭으로 진입 → 무료 대목차는 열람, 유료 대목차는 🔒
+  // 미구매 챕터도 카드 클릭으로 진입 → 무료 목차는 열람, 유료 목차는 🔒
   let actions;
   if (isActive) {
     actions = `<button class="primary" onclick="event.stopPropagation();enterChapter(${c.id})">열기 →</button>`;
@@ -1653,7 +1653,7 @@ async function loadItems(subtopicId) {
   return ensureItems(subtopicId, false);
 }
 
-// 같은 소목차의 동시 중복 fetch 방지 + prefetch 일 때는 강제 리렌더 안 함
+// 같은 학습 카드의 동시 중복 fetch 방지 + prefetch 일 때는 강제 리렌더 안 함
 const _itemsLoading = new Map();   // subtopicId → Promise
 async function ensureItems(subId, isPrefetch) {
   const existing = state.itemsBySubtopic[subId];
@@ -1668,7 +1668,7 @@ async function ensureItems(subId, isPrefetch) {
       if (e.status === 402) {
         state.itemsBySubtopic[subId] = { locked: true, chapter_id: e.data?.chapter_id };
       } else if (e.status === 404) {
-        // 소목차가 삭제됨 — 자동 새로고침 (포그라운드 클릭일 때만)
+        // 학습 카드가 삭제됨 — 자동 새로고침 (포그라운드 클릭일 때만)
         if (!isPrefetch && state.expanded.subtopic.has(Number(subId))) {
           toast('콘텐츠가 변경되었습니다. 새로고침합니다.');
           refreshChapter();
@@ -1682,7 +1682,7 @@ async function ensureItems(subId, isPrefetch) {
     } finally {
       _itemsLoading.delete(subId);
     }
-    // 현재 펼쳐진 소목차일 때만 리렌더 (백그라운드 prefetch는 조용히)
+    // 현재 펼쳐진 학습 카드일 때만 리렌더 (백그라운드 prefetch는 조용히)
     if (!isPrefetch || state.expanded.subtopic.has(Number(subId))) {
       if (state.currentChapter) renderTree(state.currentChapter.id);
     }
@@ -1691,7 +1691,7 @@ async function ensureItems(subId, isPrefetch) {
   return p;
 }
 
-// 펼친 대목차들의 모든 소목차 items를 백그라운드로 미리 가져오기
+// 펼친 목차들의 모든 학습 카드 items를 백그라운드로 미리 가져오기
 function prefetchOpenTopics() {
   if (!state.currentChapter) return;
   const topics = state.topicsByChapter[state.currentChapter.id] || [];
@@ -1710,7 +1710,7 @@ function renderTree(chapterId) {
   const dLeft = access ? daysLeft(access.expires_at) : null;
   const hasAccess = isTeacher || Number(c.is_all_free) === 1 || (dLeft != null && dLeft > 0);
 
-  // 암기 모음 모드 — 챕터 전체에서 understood인 소목차만 평면 리스트로
+  // 암기 모음 모드 — 챕터 전체에서 understood인 학습 카드만 평면 리스트로
   if (state.memorizedView) {
     $('chapterTree').innerHTML = renderMemorizedView(chapterId, hasAccess);
     return;
@@ -1723,7 +1723,7 @@ function renderTree(chapterId) {
   $('chapterTree').innerHTML = topics.map(t => renderTopic(t, hasAccess)).join('');
 }
 
-// 암기 모음 모드 — 진입 시점 스냅샷의 소목차를 한 리스트로 (꾹누른 시각 오름차순)
+// 암기 모음 모드 — 진입 시점 스냅샷의 학습 카드를 한 리스트로 (꾹누른 시각 오름차순)
 // 펼친 항목은 즉시 미암기로 분류되지만 스냅샷에는 남아 이번 회에는 그대로 보임 → 다음 회 진입 시 빠짐
 // 학습 모드의 topic-head처럼 상단에 헤더(좌: 제목, 우: ⤴ 패스)
 function renderMemorizedView(chapterId, hasAccess) {
@@ -1740,7 +1740,7 @@ function renderMemorizedView(chapterId, hasAccess) {
       <div class="memo-empty">
         <div class="memo-icon">●</div>
         <div>아직 암기 모음이 비어 있습니다.</div>
-        <div class="memo-hint">소목차를 꾹 누르면 여기로 모입니다.</div>
+        <div class="memo-hint">학습 카드를 꾹 누르면 여기로 모입니다.</div>
       </div>
     `;
   }
@@ -1800,7 +1800,7 @@ function prefetchMemoSnapshot() {
 
 function toggleMemorizedView() {
   state.memorizedView = !state.memorizedView;
-  // 모드 전환 시 펼친 소목차 닫기 (혼선 방지)
+  // 모드 전환 시 펼친 학습 카드 닫기 (혼선 방지)
   state.expanded.subtopic.clear();
   const btn = $('memorizedBtn');
   if (btn) btn.classList.toggle('active', state.memorizedView);
@@ -1844,7 +1844,7 @@ function memorizedPass(subId) {
         }
       }
       savePassed();
-      // 미암기로 분류된 소목차는 다음 회 스냅샷에서 빠짐 + 새 스냅샷 items 프리페치
+      // 미암기로 분류된 학습 카드는 다음 회 스냅샷에서 빠짐 + 새 스냅샷 items 프리페치
       rebuildMemoSnapshot();
       prefetchMemoSnapshot();
       if (state.memorizedView && state.currentChapter) renderTree(state.currentChapter.id);
@@ -1877,11 +1877,11 @@ function renderTopic(t, hasAccess) {
       const subs = state.subtopicsByTopic[t.id];
       if (subs === undefined) {
         loadSubtopics(t.id);
-        body = '<div class="empty-state">소목차 로딩…</div>';
+        body = '<div class="empty-state">학습 카드 로딩…</div>';
       } else if (!subs.length) {
-        body = '<div class="empty-state">소목차 없음</div>';
+        body = '<div class="empty-state">학습 카드 없음</div>';
       } else {
-        // 자가 치유 — 이전 버전(↺ 버튼 있던 시절)에 모든 소목차가 패스된 채 저장된 경우,
+        // 자가 치유 — 이전 버전(↺ 버튼 있던 시절)에 모든 학습 카드가 패스된 채 저장된 경우,
         // 펼치면 비어 있고 다시 시작할 수단도 없어 정지 상태가 됨. 조용히 패스 집합 초기화.
         const allPassed = subs.every(s => state.passedSet.has(Number(s.id)));
         if (allPassed) {
@@ -1909,7 +1909,7 @@ function renderTopic(t, hasAccess) {
   }
 
   // 학습 컨트롤 — 큰 패스 버튼 1개 (펼친 상태 + 접근권 있을 때)
-  // 펼침은 소목차 직접 클릭, 완료/다시는 꾹누르기로 처리되므로 버튼은 패스만
+  // 펼침은 학습 카드 직접 클릭, 완료/다시는 꾹누르기로 처리되므로 버튼은 패스만
   let studyBtns = '';
   if (opened && !locked) {
     const hasTop = topSubId != null;
@@ -1919,7 +1919,7 @@ function renderTopic(t, hasAccess) {
       </div>` : '';
   }
 
-  // 대목차별 암기 진도 — understoodSet 기준 비율
+  // 목차별 암기 진도 — understoodSet 기준 비율
   const subsAll = state.subtopicsByTopic[t.id] || [];
   const total = subsAll.length || Number(t.subtopic_count) || 0;
   const learned = subsAll.filter(s => state.understoodSet.has(Number(s.id))).length;
@@ -2192,7 +2192,7 @@ function loadPassed(chapterId) {
   } catch { state.passedSet = new Set(); }
 }
 
-// 대목차 헤더의 화면 Y 위치를 고정한 채 렌더링 (스크롤 보정)
+// 목차 헤더의 화면 Y 위치를 고정한 채 렌더링 (스크롤 보정)
 // → 패스/완료 누를 때 위쪽 콘텐츠가 흔들리지 않고 헤더가 같은 자리에 머무름
 function withTopicAnchor(topicId, callback) {
   const sel = `[data-topic="${topicId}"] > .topic-head`;
@@ -2212,7 +2212,7 @@ function withTopicAnchor(topicId, callback) {
   requestAnimationFrame(adjust);
 }
 
-// 패스: 맨 위 항목이 사라짐. 완료 포함 모든 소목차가 패스되어야 축하 → 자동 재시작
+// 패스: 맨 위 항목이 사라짐. 완료 포함 모든 학습 카드가 패스되어야 축하 → 자동 재시작
 // 자동 학습 상태 갱신 (이 챕터에 들어와서의 펼침 이력 기준):
 //   미암기 + 펼쳐봤음 → 미암기 그대로
 //   미암기 + 안 펼침   → 자동 ● 암기
@@ -2223,7 +2223,7 @@ function studyPass(subId, topicId) {
   const wasOpened = state.everExpandedSet.has(Number(subId));
   state.passedSet.add(Number(subId));
   state.expanded.subtopic.delete(Number(subId));
-  // 같은 대목차의 다른 펼쳐진 소목차들도 모두 닫음 → 다음 단어에 집중
+  // 같은 목차의 다른 펼쳐진 학습 카드들도 모두 닫음 → 다음 단어에 집중
   const sameTopicSubs = state.subtopicsByTopic[topicId] || [];
   for (const s of sameTopicSubs) state.expanded.subtopic.delete(Number(s.id));
   savePassed();
@@ -2235,7 +2235,7 @@ function studyPass(subId, topicId) {
     silentMarkUnderstood(Number(subId));
   }
 
-  // 보이는 소목차가 1개라도 남았는지 확인 (완료된 단어도 패스해야 사라짐)
+  // 보이는 학습 카드가 1개라도 남았는지 확인 (완료된 단어도 패스해야 사라짐)
   const subs = state.subtopicsByTopic[topicId] || [];
   const stillVisible = subs.filter(s => !state.passedSet.has(Number(s.id)));
 
@@ -2304,7 +2304,7 @@ function pressEnd() {
 function subClick(e, subId) {
   if (_longFired) { _longFired = false; e.preventDefault(); return; }
 
-  // 클릭한 소목차의 화면 위치 캡쳐 (위쪽 다른 소목차가 닫혀도 자리 유지하려고)
+  // 클릭한 학습 카드의 화면 위치 캡쳐 (위쪽 다른 학습 카드가 닫혀도 자리 유지하려고)
   const subEl = e.currentTarget && e.currentTarget.closest('.subtopic');
   const beforeY = subEl ? subEl.getBoundingClientRect().top : null;
 
@@ -2312,7 +2312,7 @@ function subClick(e, subId) {
     // 이미 펼쳐진 거 다시 누름 = 접기
     state.expanded.subtopic.delete(subId);
   } else {
-    // 아코디언: 다른 소목차 모두 닫고 이것만 열기
+    // 아코디언: 다른 학습 카드 모두 닫고 이것만 열기
     state.expanded.subtopic.clear();
     state.expanded.subtopic.add(subId);
     // 이 챕터 안에서 한 번이라도 펼친 항목은 기억 — 패스 시 미암기 판정에 사용
@@ -2325,7 +2325,7 @@ function subClick(e, subId) {
   }
   renderTree(state.currentChapter.id);
 
-  // 렌더 후 같은 소목차가 화면에서 위로 이동했으면 그만큼 스크롤 보정 → 클릭 위치 고정
+  // 렌더 후 같은 학습 카드가 화면에서 위로 이동했으면 그만큼 스크롤 보정 → 클릭 위치 고정
   if (beforeY != null) {
     const newEl = document.querySelector('[data-sub="' + subId + '"]');
     if (newEl) {
@@ -2400,7 +2400,7 @@ async function toggleUnderstood(subId) {
       delete state.understoodMarkedAt[Number(subId)];
     }
     renderTree(state.currentChapter.id);
-    // 소목차가 이미 삭제된 경우 자동 새로고침
+    // 학습 카드가 이미 삭제된 경우 자동 새로고침
     if (e.status === 500 || e.status === 404) {
       toast('콘텐츠가 변경되었습니다. 새로고침합니다.', false);
       refreshChapter();

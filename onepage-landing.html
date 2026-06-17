@@ -239,7 +239,7 @@
 #opRoot .op-topic-body { display: none; padding: 0 12px 12px; }
 #opRoot .op-topic.opened .op-topic-body { display: block; }
 
-/* 소목차 = 보라 톤 (학생 앱과 동일) */
+/* 학습 카드 = 보라 톤 (학생 앱과 동일) */
 #opRoot .op-sub {
     background: linear-gradient(180deg, rgba(83,52,131,0.28) 0%, rgba(83,52,131,0.15) 100%);
     border: 1px solid rgba(179,157,219,0.3);
@@ -263,7 +263,7 @@
 }
 #opRoot .op-sub-title { font-size: 14px; color: rgba(255,255,255,0.95); flex: 1; font-weight: 600; }
 #opRoot .op-sub.understood .op-sub-title { color: #a5d6a7; }
-/* 본문 = 어두운 톤 (소목차와 명확히 분리) */
+/* 본문 = 어두운 톤 (학습 카드와 명확히 분리) */
 #opRoot .op-sub-body {
     display: none; padding: 14px 14px 14px 36px;
     color: rgba(255,255,255,0.88); font-size: 13.5px; line-height: 1.75;
@@ -655,7 +655,7 @@
                 <em>D-12 · 010-1234-****</em>
             </div>
 
-            <!-- 대목차 1: 미분의 기본 (무료) -->
+            <!-- 목차 1: 미분의 기본 (무료) -->
             <div class="op-topic" data-topic="1">
                 <div class="op-topic-head">
                     <div class="op-topic-title">
@@ -690,7 +690,7 @@
                 </div>
             </div>
 
-            <!-- 대목차 2: 미분법 공식 (유료) -->
+            <!-- 목차 2: 미분법 공식 (유료) -->
             <div class="op-topic" data-topic="2">
                 <div class="op-topic-head">
                     <div class="op-topic-title">
@@ -731,7 +731,7 @@
                 </div>
             </div>
 
-            <!-- 대목차 3: 응용 (유료, 잠금) -->
+            <!-- 목차 3: 응용 (유료, 잠금) -->
             <div class="op-topic" data-topic="3">
                 <div class="op-topic-head">
                     <div class="op-topic-title">
@@ -743,7 +743,7 @@
                 </div>
             </div>
         </div>
-        <div class="op-demo-hint">👆 대목차 클릭 → 소목차 클릭. <b>꾹 누르면</b> 이해 완료 ●로 표시</div>
+        <div class="op-demo-hint">👆 목차 클릭 → 학습 카드 클릭. <b>꾹 누르면</b> 이해 완료 ●로 표시</div>
     </div>
 </section>
 
@@ -764,9 +764,9 @@
         <div class="op-step">
             <div class="op-step-num">2</div>
             <div class="op-step-body">
-                <h4>📖 대목차 펼치면 학습 시작</h4>
-                <p>대목차(예: "여행/교통")를 톡 누르면 안의 단어들이 펼쳐집니다. <strong>맨 위 단어가 주황색으로 강조</strong>되며 이게 지금 학습할 카드. 이미지 있는 단어는 표지 그림이 함께 보여서 단서 제공.</p>
-                <span class="op-step-tip">💡 대목차 제목 옆 ⑫ 같은 <strong>원형 숫자</strong>는 그 안의 단어 개수 — 학습 동기 부여.</span>
+                <h4>📖 목차 펼치면 학습 시작</h4>
+                <p>목차(예: "여행/교통")를 톡 누르면 안의 단어들이 펼쳐집니다. <strong>맨 위 단어가 주황색으로 강조</strong>되며 이게 지금 학습할 카드. 이미지 있는 단어는 표지 그림이 함께 보여서 단서 제공.</p>
+                <span class="op-step-tip">💡 목차 제목 옆 ⑫ 같은 <strong>원형 숫자</strong>는 그 안의 단어 개수 — 학습 동기 부여.</span>
             </div>
         </div>
         <div class="op-step">
@@ -775,7 +775,7 @@
                 <h4>🎯 동작은 단 두 가지</h4>
                 <p style="margin-bottom:8px;">버튼 1개 + 꾹누르기 1개로 모든 학습이 진행됩니다:</p>
                 <div style="background:rgba(0,0,0,0.04);border-radius:8px;padding:10px 12px;font-size:13.5px;line-height:1.9;">
-                    <div>🔵 <strong>⤴ 패스 버튼</strong> — 대목차 오른쪽 끝까지 펼쳐진 큰 버튼. 누르면 맨 위 단어가 빠지고 <em>다음 단어가 그 자리로 올라옴</em></div>
+                    <div>🔵 <strong>⤴ 패스 버튼</strong> — 목차 오른쪽 끝까지 펼쳐진 큰 버튼. 누르면 맨 위 단어가 빠지고 <em>다음 단어가 그 자리로 올라옴</em></div>
                     <div>👆 <strong>단어를 짧게 탭</strong> — 펼쳐서 뜻·예문 확인 (다른 단어 누르면 자동으로 닫힘)</div>
                     <div>✋ <strong>단어를 꾹 누르기</strong> — 완벽히 알아 → 학습완료 ● 표시. 다시 꾹 누르면 미학습으로 되돌아옴</div>
                 </div>
@@ -786,7 +786,7 @@
             <div class="op-step-num">4</div>
             <div class="op-step-body">
                 <h4>🎉 다 패스하면 폭죽 + 자동 재시작</h4>
-                <p>한 대목차의 모든 단어를 패스하면 <strong>축하 폭죽</strong>이 터지고, 잠시 뒤 그 대목차가 처음부터 다시 시작됩니다. "다시 시작" 버튼을 누를 필요 없이 한 사이클이 자연스럽게 닫힘.</p>
+                <p>한 목차의 모든 단어를 패스하면 <strong>축하 폭죽</strong>이 터지고, 잠시 뒤 그 목차가 처음부터 다시 시작됩니다. "다시 시작" 버튼을 누를 필요 없이 한 사이클이 자연스럽게 닫힘.</p>
                 <span class="op-step-tip">💡 챕터를 닫거나 페이지를 새로고침해도 <strong>마지막에 보던 곳이 그대로 복원</strong>. 학습완료(●) 표시는 다른 기기에서도 동기화됩니다.</span>
             </div>
         </div>
@@ -802,7 +802,7 @@
         <div class="op-value">
             <span class="op-value-ico">📖</span>
             <span class="op-value-title">한 페이지 = 한 단원</span>
-            <span class="op-value-desc">대목차·소목차·내용 3단계를 펼침으로 한 화면에. 어디부터 봐야 할지 헤맬 일 없음.</span>
+            <span class="op-value-desc">목차·학습 카드·내용 3단계를 펼침으로 한 화면에. 어디부터 봐야 할지 헤맬 일 없음.</span>
         </div>
         <div class="op-value">
             <span class="op-value-ico">🔄</span>
@@ -812,7 +812,7 @@
         <div class="op-value">
             <span class="op-value-ico">✓</span>
             <span class="op-value-title">이해 진도 자동 저장</span>
-            <span class="op-value-desc">소목차를 <strong>꾹 누르면</strong> 이해 완료 ●. 다음 접속에도, 다른 기기에서도 그대로.</span>
+            <span class="op-value-desc">학습 카드를 <strong>꾹 누르면</strong> 이해 완료 ●. 다음 접속에도, 다른 기기에서도 그대로.</span>
         </div>
     </div>
 </section>
@@ -821,7 +821,7 @@
 <section class="op-section">
     <div class="op-free-cta">
         <h3>✨ 가입 없이 무료로 둘러보세요</h3>
-        <p>각 챕터의 핵심 대목차는 누구나 무료로 열람 가능합니다.</p>
+        <p>각 챕터의 핵심 목차는 누구나 무료로 열람 가능합니다.</p>
         <a href="https://onepage-study.vercel.app/" target="_top">무료 챕터 보러가기 →</a>
     </div>
 </section>
@@ -838,7 +838,7 @@
         <span class="op-price-num">3,000<em>원/월~</em></span>
         <span class="op-price-from">* 챕터별로 가격이 다를 수 있습니다</span>
         <div class="op-price-feats">
-            <div class="op-price-feat">선택한 챕터의 모든 대목차·소목차·내용</div>
+            <div class="op-price-feat">선택한 챕터의 모든 목차·학습 카드·내용</div>
             <div class="op-price-feat">매주 업데이트 즉시 반영</div>
             <div class="op-price-feat">이해 진도 자동 저장 · 기기 간 동기화</div>
             <div class="op-price-feat">결제일 기준 30일 — 자동결제 없음</div>
@@ -923,7 +923,7 @@
     <div class="op-faq">
         <div class="op-faq-item">
             <div class="op-faq-q"><span class="op-faq-q-text">결제하면 언제까지 볼 수 있나요?</span><span class="op-faq-toggle">+</span></div>
-            <div class="op-faq-a">결제일로부터 <strong>30일</strong> 동안 해당 챕터 전체를 볼 수 있습니다. 30일 후에는 자동으로 무료 사용자가 되어, 그 챕터의 무료 대목차만 보입니다. 자동결제로 빠져나가는 돈은 없습니다.</div>
+            <div class="op-faq-a">결제일로부터 <strong>30일</strong> 동안 해당 챕터 전체를 볼 수 있습니다. 30일 후에는 자동으로 무료 사용자가 되어, 그 챕터의 무료 목차만 보입니다. 자동결제로 빠져나가는 돈은 없습니다.</div>
         </div>
         <div class="op-faq-item">
             <div class="op-faq-q"><span class="op-faq-q-text">한 번에 모든 챕터를 결제해야 하나요?</span><span class="op-faq-toggle">+</span></div>
@@ -1024,22 +1024,22 @@
         }
     } catch (e) {}
 
-    // ── 대목차 펼침/접힘 ──
+    // ── 목차 펼침/접힘 ──
     root.querySelectorAll('.op-topic').forEach(function (t) {
         var head = t.querySelector('.op-topic-head');
         var locked = t.querySelector('.op-topic-lock');
         if (!head) return;
         head.addEventListener('click', function () {
             if (locked) {
-                // 잠긴 대목차는 결제 페이지로 (랜딩 데모에선 안내만)
-                alert('이 대목차는 구독 후 볼 수 있습니다.');
+                // 잠긴 목차는 결제 페이지로 (랜딩 데모에선 안내만)
+                alert('이 목차는 구독 후 볼 수 있습니다.');
                 return;
             }
             t.classList.toggle('opened');
         });
     });
 
-    // ── 소목차 펼침/접힘 + 꾹누르기 = 이해 표시 ──
+    // ── 학습 카드 펼침/접힘 + 꾹누르기 = 이해 표시 ──
     root.querySelectorAll('.op-sub').forEach(function (s) {
         var head = s.querySelector('.op-sub-head');
         if (!head) return;

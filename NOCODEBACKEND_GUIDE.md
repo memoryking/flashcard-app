@@ -104,10 +104,10 @@ nocodebackend 대시보드
 
 | FK | On delete | 이유 |
 |---|---|---|
-| `op_topics.chapter_id` → `op_chapters.id` | CASCADE | 챕터 삭제 → 모든 대목차 자동 삭제 |
-| `op_subtopics.topic_id` → `op_topics.id` | CASCADE | 대목차 삭제 → 모든 소목차 자동 삭제 |
-| `op_items.subtopic_id` → `op_subtopics.id` | CASCADE | 소목차 삭제 → 모든 내용 자동 삭제 |
-| `op_understood.subtopic_id` → `op_subtopics.id` | CASCADE | 소목차 삭제 → 그 진도도 정리 |
+| `op_topics.chapter_id` → `op_chapters.id` | CASCADE | 챕터 삭제 → 모든 목차 자동 삭제 |
+| `op_subtopics.topic_id` → `op_topics.id` | CASCADE | 목차 삭제 → 모든 학습 카드 자동 삭제 |
+| `op_items.subtopic_id` → `op_subtopics.id` | CASCADE | 학습 카드 삭제 → 모든 내용 자동 삭제 |
+| `op_understood.subtopic_id` → `op_subtopics.id` | CASCADE | 학습 카드 삭제 → 그 진도도 정리 |
 
 → 모두 트리 구조이므로 **CASCADE 통일**. 챕터 한 줄만 지우면 그 아래 수백 행이 깔끔하게 정리됨.
 
@@ -529,13 +529,13 @@ while (true) {
 ```
 
 ### 핵심 포인트
-- 클라이언트가 `topic_map`·`sub_map`을 다음 호출로 전달해 **중복 토픽/소목차 생성 회피**
+- 클라이언트가 `topic_map`·`sub_map`을 다음 호출로 전달해 **중복 토픽/학습 카드 생성 회피**
 - 첫 호출(start=0)에서만 chapter 읽기 + replace 모드 시 삭제
 - 진행도 토스트 표시 (`245/1000 (24%)`)
 - 안전 상한 (예: 200회 반복) — 무한 루프 방지
 
 ### Free 플랜에서 가능한 대량 처리량
-- 호출당 ~35 items 처리 (5는 토픽·소목차·여유)
+- 호출당 ~35 items 처리 (5는 토픽·학습 카드·여유)
 - 200회 반복 = **~7,000 items 처리 가능**
 - Paid 플랜이면 호출당 한도 ↑, 더 빠름
 

@@ -644,7 +644,7 @@ async function handleReferralInfo(request, env) {
 }
 
 // ============================================================
-// 핸들러 — 챕터/토픽/소목차 (CRUD)
+// 핸들러 — 챕터/토픽/학습 카드 (CRUD)
 // ============================================================
 
 async function handleListChapters(request, env) {
@@ -723,7 +723,7 @@ async function handleListTopics(request, env) {
     (Number(a.sort_order) || 0) - (Number(b.sort_order) || 0) ||
     (Number(a.id) || 0) - (Number(b.id) || 0)
   );
-  // 각 토픽의 소목차를 병렬 fetch — 한꺼번에 가져와 count + 캐시
+  // 각 토픽의 학습 카드를 병렬 fetch — 한꺼번에 가져와 count + 캐시
   const subsArr = await Promise.all(
     topics.map(t => ncbRead(env, 'op_subtopics', `topic_id=${t.id}&limit=200`))
   );
@@ -938,7 +938,7 @@ async function handleReorder(request, env, table) {
 }
 
 // ============================================================
-// 일괄 입력 (TSV: 대목차\t소목차\t내용)
+// 일괄 입력 (TSV: 목차\t학습 카드\t내용)
 // ============================================================
 
 // Excel TSV: 셀에 줄바꿈이 있으면 셀 전체를 따옴표("...")로 감쌈.
@@ -993,9 +993,9 @@ function unquote(c) {
 
 function parseTSV(text) {
   // 새 포맷:
-  //   대목차(A) | 소목차(B) | 내용1(C) | 내용2(D) | 내용3(E) | ...
-  //   각 행은 한 소목차이고 C열부터 여러 내용 칸이 가로로 나열됨
-  //   대목차 칸이 비어 있으면 이전 대목차에 계속
+  //   목차(A) | 학습 카드(B) | 내용1(C) | 내용2(D) | 내용3(E) | ...
+  //   각 행은 한 학습 카드이고 C열부터 여러 내용 칸이 가로로 나열됨
+  //   목차 칸이 비어 있으면 이전 목차에 계속
   const lines = tsvLines(text);
   const rows = [];
   let topicTitle = null;
@@ -1006,30 +1006,30 @@ function parseTSV(text) {
     const cols = raw.split('\t').map(unquote);
     const a = cols[0] || '';
     const b = cols[1] || '';
-    // C열부터 끝까지가 그 소목차의 내용 항목들
+    // C열부터 끝까지가 그 학습 카드의 내용 항목들
     const items = cols.slice(2).filter(c => c.length > 0);
 
     // 헤더 자동 스킵
-    if (i === 0 && (a === '대목차' || a === 'topic' || a === 'Topic')) continue;
+    if (i === 0 && (a === '목차' || a === '대목차' || a === 'topic' || a === 'Topic')) continue;
 
-    // 새 대목차
+    // 새 목차
     if (a) topicTitle = a;
 
     if (b) {
-      if (!topicTitle) return { error: `${i + 1}행: 대목차가 정해지지 않았습니다.` };
-      if (!items.length) return { error: `${i + 1}행: 소목차 '${b}'에 내용이 없습니다 (3번째 칸부터 내용 입력).` };
-      // VARCHAR(255) 제한 — 긴 지문을 소목차에 넣으면 nocodebackend가 422를 던집니다
+      if (!topicTitle) return { error: `${i + 1}행: 목차가 정해지지 않았습니다.` };
+      if (!items.length) return { error: `${i + 1}행: 학습 카드 '${b}'에 내용이 없습니다 (3번째 칸부터 내용 입력).` };
+      // VARCHAR(255) 제한 — 긴 지문을 학습 카드에 넣으면 nocodebackend가 422를 던집니다
       if (topicTitle.length > 255) {
-        return { error: `${i + 1}행: 대목차 제목이 너무 깁니다 (${topicTitle.length}자, 최대 255자). 본문은 내용 칸(C열~)에 넣으세요.` };
+        return { error: `${i + 1}행: 목차 제목이 너무 깁니다 (${topicTitle.length}자, 최대 255자). 본문은 내용 칸(C열~)에 넣으세요.` };
       }
       if (b.length > 255) {
-        return { error: `${i + 1}행: 소목차 제목이 너무 깁니다 (${b.length}자, 최대 255자). 지문/문제 본문은 내용 칸(C열~)에 넣으세요. (현재 소목차 첫 60자: "${b.slice(0, 60)}…")` };
+        return { error: `${i + 1}행: 학습 카드 제목이 너무 깁니다 (${b.length}자, 최대 255자). 지문/문제 본문은 내용 칸(C열~)에 넣으세요. (현재 학습 카드 첫 60자: "${b.slice(0, 60)}…")` };
       }
       for (const text of items) {
         rows.push({ line: i + 1, topic: topicTitle, sub: b, text });
       }
     } else if (items.length) {
-      return { error: `${i + 1}행: 소목차 칸이 비어 있는데 내용만 있습니다.` };
+      return { error: `${i + 1}행: 학습 카드 칸이 비어 있는데 내용만 있습니다.` };
     }
   }
 
@@ -1041,7 +1041,7 @@ function parseTSV(text) {
 // 클라이언트가 done=true 될 때까지 반복 호출.
 async function handleBulkImport(request, env, chapterId) {
   const b = await request.json().catch(() => ({}));
-  // mode: 'append' (기본) | 'merge' (제목 매칭 + 내용만 교체, 학습 기록 보존) | 'replace' (대목차 삭제 후 신규)
+  // mode: 'append' (기본) | 'merge' (제목 매칭 + 내용만 교체, 학습 기록 보존) | 'replace' (목차 삭제 후 신규)
   const mode = b.mode === 'replace' ? 'replace' : (b.mode === 'merge' ? 'merge' : 'append');
   const text = String(b.tsv || b.text || '');
   const start = Number(b.start) || 0;
@@ -1087,7 +1087,7 @@ async function handleBulkImport(request, env, chapterId) {
         // merge: 어떤 토픽이 "원래 있던 것"인지 기록 (지연 로딩에 사용)
         if (mode === 'merge') initialTopicIds.add(Number(t.id));
       }
-      // merge: 소목차는 토픽별로 지연 로딩 (init budget 보호) → 루프 안에서 처음 만났을 때 1회 로딩
+      // merge: 학습 카드는 토픽별로 지연 로딩 (init budget 보호) → 루프 안에서 처음 만났을 때 1회 로딩
     }
   }
   let tOrd = topicBase + 1;
@@ -1111,7 +1111,7 @@ async function handleBulkImport(request, env, chapterId) {
     }
     const topicId = topicMap.get(row.topic);
 
-    // merge: 기존 토픽이면 그 토픽의 소목차들을 한 번만 로딩 (지연 prepopulate)
+    // merge: 기존 토픽이면 그 토픽의 학습 카드들을 한 번만 로딩 (지연 prepopulate)
     if (mode === 'merge' && initialTopicIds.has(topicId) && !loadedTopicSubs.has(topicId)) {
       if (used + itemQueue.length + 1 > MAX_REQ) break;
       const subResp = await ncbRead(env, 'op_subtopics', `topic_id=${topicId}&limit=2000`);
@@ -1138,7 +1138,7 @@ async function handleBulkImport(request, env, chapterId) {
     }
     const subId = subMap.get(subKey);
 
-    // merge: 원래 있던 소목차면 기존 items 한 번 비움 (subtopic_id는 그대로 → 학습 기록 보존)
+    // merge: 원래 있던 학습 카드면 기존 items 한 번 비움 (subtopic_id는 그대로 → 학습 기록 보존)
     if (mode === 'merge' && originalSubIds.has(subId) && !clearedSubs.has(subId)) {
       if (used + itemQueue.length + 1 > MAX_REQ) break;
       const itemResp = await ncbRead(env, 'op_items', `subtopic_id=${subId}&limit=2000`);
