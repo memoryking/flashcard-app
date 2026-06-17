@@ -542,9 +542,12 @@ async function handleForgotPassword(request, env) {
     reset_code_expires_at: expiresAt,
   });
 
-  // Pabbly 웹훅으로 SMS 발송 (template=password_reset)
-  // Pabbly 라우터에서 이 template을 SOLAPI 발송 단계로 분기시켜 두어야 합니다.
-  const webhookUrl = env.PABBLY_WEBHOOK_URL || '';
+  // Pabbly 웹훅으로 SMS 발송.
+  // 권장: 비밀번호 재설정 전용 워크플로우(Webhook→SOLAPI, ChatGPT 없음)를 만들고
+  //       PABBLY_RESET_WEBHOOK_URL 에 그 URL을 설정하세요. ChatGPT가 코드를 변형할 위험 차단.
+  // 미설정 시 기존 캠페인 웹훅(PABBLY_WEBHOOK_URL)을 사용 — Pabbly 측에서 template=password_reset
+  // 일 때 ChatGPT 단계를 우회하도록 라우터를 구성해 두어야 합니다.
+  const webhookUrl = env.PABBLY_RESET_WEBHOOK_URL || env.PABBLY_WEBHOOK_URL || '';
   if (webhookUrl) {
     const message = `[원페이지] 비밀번호 재설정 코드: ${code} (10분 유효). 본인이 요청하지 않았다면 무시하세요.`;
     try {
