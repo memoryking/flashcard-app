@@ -17,7 +17,7 @@
 <div id="opRoot" style="all:initial;display:block;">
 <style>
 /* ========== Scoping reset (iframe·임베드 안전) ========== */
-#opRoot, #opRoot * { all: initial; box-sizing: border-box; font-family: inherit; color: inherit; line-height: inherit; }
+#opRoot, #opRoot * { all: initial; box-sizing: border-box; font-family: inherit; color: inherit; line-height: inherit; font-size: inherit; font-weight: inherit; }
 /* all:initial이 <style>·<script>·<head>의 기본 display:none을 inline으로 덮어 코드가 노출되는 문제 — 명시적으로 숨김 */
 #opRoot style, #opRoot script, #opRoot meta, #opRoot link, #opRoot title { display: none !important; }
 #opRoot {
@@ -39,6 +39,12 @@
 #opRoot img { display: block; max-width: 100%; height: auto; }
 #opRoot a { text-decoration: none; cursor: pointer; }
 #opRoot button { cursor: pointer; border: none; }
+/* all:initial이 table 계열 display도 inline으로 만들어 표가 깨지는 문제 — 명시적 복원 */
+#opRoot table { display: table; border-collapse: collapse; width: 100%; }
+#opRoot thead { display: table-header-group; }
+#opRoot tbody { display: table-row-group; }
+#opRoot tr { display: table-row; }
+#opRoot th, #opRoot td { display: table-cell; vertical-align: middle; }
 
 /* ========== Sticky bottom CTA ========== */
 #opRoot .op-sticky {
@@ -648,19 +654,19 @@
     <p class="op-section-lead">👇 직접 눌러보세요. 클릭으로 펼쳐지는 3단계 구조.</p>
 
     <div class="op-demo-wrap">
-        <div class="op-demo-bar"><i></i><i></i><i></i><span>onepage.app — 미분 챕터</span></div>
+        <div class="op-demo-bar"><i></i><i></i><i></i><span>onepage.app — 수능 영단어 챕터 1</span></div>
         <div class="op-demo-screen">
             <div class="op-demo-screen-title">
-                <strong>📐 미분</strong>
+                <strong>🧠 수능 영단어 1</strong>
                 <em>D-12 · 010-1234-****</em>
             </div>
 
-            <!-- 목차 1: 미분의 기본 (무료) -->
+            <!-- 목차 1: 자연·날씨 (무료) -->
             <div class="op-topic" data-topic="1">
                 <div class="op-topic-head">
                     <div class="op-topic-title">
                         <span class="op-topic-arrow">▶</span>
-                        <span>미분의 기본</span>
+                        <span>자연 · 날씨</span>
                         <span class="op-topic-free">✨ 무료</span>
                     </div>
                     <span class="op-topic-count">2</span>
@@ -669,33 +675,36 @@
                     <div class="op-sub" data-sub="1-1">
                         <div class="op-sub-head">
                             <div class="op-sub-dot"></div>
-                            <div class="op-sub-title">미분계수의 정의</div>
+                            <div class="op-sub-title">harvest <span style="color:rgba(255,255,255,0.4);font-weight:400;font-size:13px">[ˈhɑːrvɪst]</span></div>
                         </div>
                         <div class="op-sub-body">
-                            <p>함수 <code>f(x)</code>의 <code>x=a</code>에서의 <strong style="color:#ffb347">순간변화율</strong>을 미분계수라 한다.</p>
-                            <p><code>f'(a) = lim h→0 [f(a+h) − f(a)] / h</code></p>
-                            <p>기하학적으로는 <code>(a, f(a))</code>에서의 접선의 기울기.</p>
+                            <p><strong style="color:#ffb347">n. 수확  ·  v. 거두어들이다</strong></p>
+                            <p>The farmer celebrated a rich <code>harvest</code> this autumn.<br>
+                            농부는 올 가을 풍성한 수확을 자축했다.</p>
+                            <p style="font-size:12.5px;color:rgba(255,255,255,0.55);">💡 har(허~) + vest(조끼) → 조끼 입고 수확하는 농부</p>
                         </div>
                     </div>
                     <div class="op-sub" data-sub="1-2">
                         <div class="op-sub-head">
                             <div class="op-sub-dot"></div>
-                            <div class="op-sub-title">도함수</div>
+                            <div class="op-sub-title">gust <span style="color:rgba(255,255,255,0.4);font-weight:400;font-size:13px">[ɡʌst]</span></div>
                         </div>
                         <div class="op-sub-body">
-                            <p>미분계수를 모든 <code>x</code>에 대해 일반화한 함수.</p>
-                            <p><code>f'(x) = lim h→0 [f(x+h) − f(x)] / h</code></p>
+                            <p><strong style="color:#ffb347">n. 돌풍, 한바탕 몰아치는 것</strong></p>
+                            <p>A sudden <code>gust</code> of wind blew open the door.<br>
+                            갑자기 돌풍이 불어 문이 열렸다.</p>
+                            <p style="font-size:12.5px;color:rgba(255,255,255,0.55);">💡 거스트 → 거센 바람</p>
                         </div>
                     </div>
                 </div>
             </div>
 
-            <!-- 목차 2: 미분법 공식 (유료) -->
+            <!-- 목차 2: 감정·상태 (유료) -->
             <div class="op-topic" data-topic="2">
                 <div class="op-topic-head">
                     <div class="op-topic-title">
                         <span class="op-topic-arrow">▶</span>
-                        <span>미분법 공식</span>
+                        <span>감정 · 상태</span>
                     </div>
                     <span class="op-topic-count">3</span>
                 </div>
@@ -703,47 +712,52 @@
                     <div class="op-sub" data-sub="2-1">
                         <div class="op-sub-head">
                             <div class="op-sub-dot"></div>
-                            <div class="op-sub-title">합성함수의 미분</div>
+                            <div class="op-sub-title">vivid <span style="color:rgba(255,255,255,0.4);font-weight:400;font-size:13px">[ˈvɪvɪd]</span></div>
                         </div>
                         <div class="op-sub-body">
-                            <p><code>(f∘g)'(x) = f'(g(x)) · g'(x)</code></p>
-                            <p>안의 함수를 살려두고 미분 → 안 함수도 한 번 더 미분 (체인룰).</p>
+                            <p><strong style="color:#ffb347">a. 생생한, 선명한</strong></p>
+                            <p>She has <code>vivid</code> memories of her childhood.<br>
+                            그녀는 어린 시절의 생생한 기억이 있다.</p>
                         </div>
                     </div>
                     <div class="op-sub" data-sub="2-2">
                         <div class="op-sub-head">
                             <div class="op-sub-dot"></div>
-                            <div class="op-sub-title">곱의 미분</div>
+                            <div class="op-sub-title">abundant <span style="color:rgba(255,255,255,0.4);font-weight:400;font-size:13px">[əˈbʌndənt]</span></div>
                         </div>
                         <div class="op-sub-body">
-                            <p><code>(fg)' = f'g + fg'</code></p>
+                            <p><strong style="color:#ffb347">a. 풍부한, 많은</strong></p>
+                            <p>They had <code>abundant</code> food and water for the journey.<br>
+                            그들은 여행에 쓸 풍부한 음식과 물이 있었다.</p>
                         </div>
                     </div>
                     <div class="op-sub" data-sub="2-3">
                         <div class="op-sub-head">
                             <div class="op-sub-dot"></div>
-                            <div class="op-sub-title">몫의 미분</div>
+                            <div class="op-sub-title">stall <span style="color:rgba(255,255,255,0.4);font-weight:400;font-size:13px">[stɔːl]</span></div>
                         </div>
                         <div class="op-sub-body">
-                            <p><code>(f/g)' = (f'g − fg') / g²</code></p>
+                            <p><strong style="color:#ffb347">v. 지연시키다, 멈추다</strong></p>
+                            <p>Don't <code>stall</code> — give me your answer now.<br>
+                            지체하지 마. 지금 답해.</p>
                         </div>
                     </div>
                 </div>
             </div>
 
-            <!-- 목차 3: 응용 (유료, 잠금) -->
+            <!-- 목차 3: 사회·시사 (유료, 잠금) -->
             <div class="op-topic" data-topic="3">
                 <div class="op-topic-head">
                     <div class="op-topic-title">
                         <span class="op-topic-arrow">▶</span>
-                        <span>미분의 응용</span>
+                        <span>사회 · 시사</span>
                         <span class="op-topic-lock">🔒</span>
                     </div>
                     <span class="op-topic-count">5</span>
                 </div>
             </div>
         </div>
-        <div class="op-demo-hint">👆 목차 클릭 → 학습 카드 클릭. <b>꾹 누르면</b> 이해 완료 ●로 표시</div>
+        <div class="op-demo-hint">👆 목차 클릭 → 영단어 클릭. <b>꾹 누르면</b> ● 다지기에 등록 → 1·2·4·8·16·32일 간격 자동 복습</div>
     </div>
 </section>
 
@@ -896,7 +910,7 @@
                     <td style="padding:12px;font-weight:600;color:#333;">시작 비용</td>
                     <td style="padding:12px;text-align:center;color:#666;">무료(광고) /<br>버전업 1~3만원</td>
                     <td style="padding:12px;text-align:center;color:#666;">무료지만<br>덱 만들기 부담</td>
-                    <td style="padding:12px;text-align:center;background:rgba(233,69,96,0.03);color:#1a1a2e;font-weight:600;">챕터당<br>1,000원~</td>
+                    <td style="padding:12px;text-align:center;background:rgba(233,69,96,0.03);color:#1a1a2e;font-weight:600;">필요한 챕터만<br>골라서</td>
                 </tr>
             </tbody>
         </table>
@@ -954,9 +968,9 @@
 
     <div class="op-price-card">
         <span class="op-price-tag">월 구독</span>
-        <span class="op-price-label">챕터당</span>
-        <span class="op-price-num">1,000<em>원/월~</em></span>
-        <span class="op-price-from">* 챕터마다 분량·가격이 다릅니다 (1,000원~)</span>
+        <span class="op-price-label">챕터당 30일</span>
+        <span class="op-price-num" style="font-size:34px;line-height:1.1;">챕터별<em style="display:block;font-size:18px;margin-top:6px;color:#fff;opacity:0.85;">가격이 다릅니다</em></span>
+        <span class="op-price-from">* 정확한 가격은 학생 앱 챕터 카드에서 확인</span>
         <div class="op-price-feats">
             <div class="op-price-feat">선택한 챕터의 모든 목차·학습 카드·내용</div>
             <div class="op-price-feat">매주 업데이트 즉시 반영</div>
@@ -1090,7 +1104,7 @@
 <!-- ========== STICKY BOTTOM ========== -->
 <div class="op-sticky">
     <div class="op-sticky-text">
-        <em>챕터당 월 1,000원~</em>
+        <em>원하는 챕터만 골라서</em>
         <small>자동결제 없음 · 다지기 시스템 포함</small>
     </div>
     <a href="https://onepage-study.vercel.app/" target="_top" class="op-sticky-cta">시작하기 →</a>
