@@ -86,9 +86,9 @@ function addDays(iso, days) {
 }
 
 // ── 간격 반복 (Leitner) ─────────────────────────────────────
-// Box 1~6, 각 박스의 "다음 복습까지" 일수.
+// Box 1~6, 각 박스의 "다음 복습까지" 일수. 2배수 증가.
 // 처음 ● 표시 = Box 1. 회상 성공 시 다음 박스로. Box 6에 도달하면 그 자리 유지.
-const SRS_INTERVALS_DAYS = [0, 1, 3, 7, 14, 30, 90]; // 인덱스 0 미사용
+const SRS_INTERVALS_DAYS = [0, 1, 2, 4, 8, 16, 32]; // 인덱스 0 미사용
 function srsNextReviewAt(box) {
   const safeBox = Math.min(Math.max(Number(box) || 1, 1), 6);
   const days = SRS_INTERVALS_DAYS[safeBox];

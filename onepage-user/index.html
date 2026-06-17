@@ -160,13 +160,13 @@ a { color: #4fc3f7; text-decoration: none; }
   border-left-color: #e94560;
   color: #ff8a9e;
 }
-/* 내일 = 주황 */
-.memo-grp-tomorrow .memo-group-head {
+/* 가까운 미래 (1~2일 후) = 주황 */
+.memo-grp-soon .memo-group-head {
   background: rgba(255,152,0,0.07);
   border-left-color: #ff9800;
   color: #ffb74d;
 }
-.memo-grp-tomorrow .subtopic { opacity: 0.82; }
+.memo-grp-soon .subtopic { opacity: 0.82; }
 /* 이번 주 = 노랑 */
 .memo-grp-week .memo-group-head {
   background: rgba(255,213,79,0.06);
@@ -1781,19 +1781,20 @@ function renderTree(chapterId) {
 function renderMemorizedView(chapterId, hasAccess) {
   const topics = state.topicsByChapter[chapterId] || [];
 
-  // 스냅샷에 든 모든 카드를 due 그룹으로 분류 (오늘/내일/이번 주/이후)
-  const groups = { today: [], tomorrow: [], week: [], future: [] };
+  // 스냅샷에 든 모든 카드를 "정확한 due 일수"로 그룹화
+  // 키: dueDaysLeft 결과 (0=오늘, 1=내일, 2=2일 후, ...). 같은 일수는 같은 그룹.
+  const groupMap = new Map();   // days(int) → cards[]
   for (const t of topics) {
     const subs = state.subtopicsByTopic[t.id] || [];
     for (const s of subs) {
       if (!state.memoSnapshotIds.has(Number(s.id))) continue;
-      const bucket = dueBucket(state.understoodNextReview[Number(s.id)]);
-      groups[bucket].push(s);
+      const days = dueDaysLeft(state.understoodNextReview[Number(s.id)]);
+      if (!groupMap.has(days)) groupMap.set(days, []);
+      groupMap.get(days).push(s);
     }
   }
 
-  const totalSnap = groups.today.length + groups.tomorrow.length + groups.week.length + groups.future.length;
-  if (totalSnap === 0) {
+  if (groupMap.size === 0) {
     return `
       <div class="memo-empty">
         <div class="memo-icon">●</div>
@@ -1810,14 +1811,20 @@ function renderMemorizedView(chapterId, hasAccess) {
     if (na !== nb) return na.localeCompare(nb);
     return (Number(a.sort_order) || 0) - (Number(b.sort_order) || 0);
   };
-  for (const k of ['today', 'tomorrow', 'week', 'future']) groups[k].sort(innerSort);
+  for (const [, arr] of groupMap) arr.sort(innerSort);
 
-  // 그룹별 visible (passedSet 제외) 추출 + 전체 보이는 카드 목록 (현재 타겟용)
-  const visibleByGroup = {};
+  // 일수 키를 오름차순으로 (오늘 → 내일 → ...)
+  const sortedKeys = [...groupMap.keys()].sort((a, b) => a - b);
+
+  // passedSet 제외한 visible 카드 + 전체 visible 목록 (현재 타겟용)
+  const visibleByDays = new Map();
   const allVisible = [];
-  for (const k of ['today', 'tomorrow', 'week', 'future']) {
-    visibleByGroup[k] = groups[k].filter(s => !state.passedSet.has(Number(s.id)));
-    for (const s of visibleByGroup[k]) allVisible.push(s);
+  for (const k of sortedKeys) {
+    const v = groupMap.get(k).filter(s => !state.passedSet.has(Number(s.id)));
+    if (v.length) {
+      visibleByDays.set(k, v);
+      for (const s of v) allVisible.push(s);
+    }
   }
 
   if (allVisible.length === 0) {
@@ -1832,7 +1839,7 @@ function renderMemorizedView(chapterId, hasAccess) {
 
   // 맨 위 카드가 ⤴ 패스의 대상 (현재 타겟)
   const current = allVisible[0];
-  const todayCount = visibleByGroup.today.length;
+  const todayCount = (visibleByDays.get(0) || []).length;
   const restCount = allVisible.length - todayCount;
 
   const header = `
@@ -1845,33 +1852,27 @@ function renderMemorizedView(chapterId, hasAccess) {
     </div>
   `;
 
-  // 그룹별 렌더 — 그룹 헤더 + 카드들. 빈 그룹은 출력 안 함.
-  const GROUP_META = {
-    today:    { label: '📍 오늘 복습',   cls: 'memo-grp-today' },
-    tomorrow: { label: '🌅 내일 복습',   cls: 'memo-grp-tomorrow' },
-    week:     { label: '📅 이번 주',     cls: 'memo-grp-week' },
-    future:   { label: '🗓 이후',         cls: 'memo-grp-future' },
-  };
+  // 그룹별 렌더 — 정확한 N일 라벨 + 일수 강도에 따른 시각 클래스
   let topIdx = 0;
-  const blocks = ['today', 'tomorrow', 'week', 'future']
-    .filter(k => visibleByGroup[k].length > 0)
-    .map(k => {
-      const meta = GROUP_META[k];
-      const cardsHtml = visibleByGroup[k].map(s => {
-        const isTop = (topIdx === 0);
-        topIdx++;
-        return renderSubtopic(s, isTop);
-      }).join('');
-      return `
-        <div class="memo-group ${meta.cls}">
-          <div class="memo-group-head">${meta.label} <span class="memo-group-count">${visibleByGroup[k].length}</span></div>
-          ${cardsHtml}
-        </div>
-      `;
-    })
-    .join('');
+  const blocks = [];
+  for (const days of visibleByDays.keys()) {
+    const cards = visibleByDays.get(days);
+    const tier = dueTier(days);
+    const label = dueLabel(days);
+    const cardsHtml = cards.map(s => {
+      const isTop = (topIdx === 0);
+      topIdx++;
+      return renderSubtopic(s, isTop);
+    }).join('');
+    blocks.push(`
+      <div class="memo-group memo-grp-${tier}">
+        <div class="memo-group-head">${label} <span class="memo-group-count">${cards.length}</span></div>
+        ${cardsHtml}
+      </div>
+    `);
+  }
 
-  return header + blocks;
+  return header + blocks.join('');
 }
 
 function rebuildMemoSnapshot() {
@@ -2439,30 +2440,35 @@ function subClick(e, subId) {
   }
 }
 
-// ─── SRS due 그룹 분류 ───────────────────────────────────────
-// 오늘/내일/이번 주/이후 4단계. 레거시(next_review_at 없음)는 '오늘'로 취급
+// ─── SRS due 일수 계산 ──────────────────────────────────────
+// 레거시(next_review_at 없음) 또는 과거 due → 0 ("오늘 복습")
 function kstTodayDate() {
   return new Date(Date.now() + 9 * 3600 * 1000).toISOString().slice(0, 10);
-}
-function dueBucket(nextReviewAt) {
-  if (!nextReviewAt) return 'today';
-  const today = kstTodayDate();
-  const due = String(nextReviewAt).slice(0, 10);
-  if (due <= today) return 'today';
-  const t = Date.UTC(...today.split('-').map((v, i) => i === 1 ? Number(v) - 1 : Number(v)));
-  const d = Date.UTC(...due.split('-').map((v, i) => i === 1 ? Number(v) - 1 : Number(v)));
-  const diffDays = Math.round((d - t) / (24 * 3600 * 1000));
-  if (diffDays === 1) return 'tomorrow';
-  if (diffDays <= 7) return 'week';
-  return 'future';
 }
 function dueDaysLeft(nextReviewAt) {
   if (!nextReviewAt) return 0;
   const today = kstTodayDate();
   const due = String(nextReviewAt).slice(0, 10);
-  const t = Date.UTC(...today.split('-').map((v, i) => i === 1 ? Number(v) - 1 : Number(v)));
-  const d = Date.UTC(...due.split('-').map((v, i) => i === 1 ? Number(v) - 1 : Number(v)));
-  return Math.round((d - t) / (24 * 3600 * 1000));
+  const parse = ymd => {
+    const [y, m, d] = ymd.split('-').map(Number);
+    return Date.UTC(y, m - 1, d);
+  };
+  const diffDays = Math.round((parse(due) - parse(today)) / (24 * 3600 * 1000));
+  return Math.max(0, diffDays); // 과거 due 는 0 (오늘 복습)
+}
+// 일수에 따른 시각 강도 — 헤더 색·카드 opacity
+// 0: today (빨강 강조), 1~2: soon (주황), 3~7: week (노랑), 8+: future (회색)
+function dueTier(days) {
+  if (days <= 0) return 'today';
+  if (days <= 2) return 'soon';
+  if (days <= 7) return 'week';
+  return 'future';
+}
+// 그룹 헤더 라벨 — 정확한 일수 표시
+function dueLabel(days) {
+  if (days <= 0) return '📍 오늘 복습';
+  if (days === 1) return '내일 복습';
+  return `${days}일 후 복습`;
 }
 
 // 암기 모음 모드 — 안 펼치고 패스하면 호출. 박스 진행 (Leitner advance)
