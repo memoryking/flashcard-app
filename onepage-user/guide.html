@@ -45,6 +45,92 @@
   /* ───────── 콘텐츠 컨테이너 ───────── */
   .wrap { max-width: 720px; margin: 0 auto; padding: 24px 18px 80px; }
 
+  /* ───────── 대원칙 (히어로 위 강조 카드) ───────── */
+  .principle {
+    background: linear-gradient(135deg, rgba(233,69,96,0.10), rgba(83,52,131,0.18));
+    border: 1px solid rgba(233,69,96,0.35);
+    border-radius: 20px;
+    padding: 26px 22px 22px;
+    margin-bottom: 22px;
+    position: relative;
+    overflow: hidden;
+  }
+  .principle::before {
+    content: '';
+    position: absolute; top: 0; left: -30%;
+    width: 60%; height: 100%;
+    background: linear-gradient(90deg, transparent, rgba(233,69,96,0.10), transparent);
+    animation: principleShine 6s ease-in-out infinite;
+    pointer-events: none;
+  }
+  @keyframes principleShine {
+    0%, 100% { transform: translateX(0); }
+    50% { transform: translateX(180%); }
+  }
+  .principle-badge {
+    display: inline-block;
+    background: rgba(233,69,96,0.18);
+    color: #ff8a9e;
+    font-size: 11px; font-weight: 700;
+    padding: 4px 12px; border-radius: 50px;
+    margin-bottom: 12px;
+    letter-spacing: 0.5px;
+    position: relative;
+  }
+  .principle-slogan {
+    font-size: 22px; font-weight: 800; color: #fff;
+    line-height: 1.45; margin-bottom: 20px;
+    position: relative;
+  }
+  .principle-slogan em {
+    font-style: normal;
+    background: linear-gradient(90deg, #ffd180, #ff8a9e);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+  }
+  .principle-list {
+    list-style: none; counter-reset: pr;
+    padding: 0; margin: 0;
+    position: relative;
+  }
+  .principle-list li {
+    counter-increment: pr;
+    display: grid;
+    grid-template-columns: 28px 1fr;
+    gap: 12px;
+    padding: 12px 0;
+    border-top: 1px solid rgba(255,255,255,0.06);
+  }
+  .principle-list li:first-child {
+    border-top: none;
+    padding-top: 4px;
+  }
+  .principle-list li::before {
+    content: counter(pr);
+    display: flex; align-items: center; justify-content: center;
+    width: 26px; height: 26px;
+    background: linear-gradient(135deg, #e94560, #533483);
+    color: #fff; font-weight: 800; font-size: 12px;
+    border-radius: 8px;
+  }
+  .principle-list li b {
+    display: block;
+    font-size: 14.5px; font-weight: 700; color: #fff;
+    margin-bottom: 3px;
+  }
+  .principle-list li span {
+    display: block;
+    font-size: 13px; color: rgba(255,255,255,0.72);
+    line-height: 1.65;
+  }
+  @media (max-width: 600px) {
+    .principle { padding: 22px 18px 18px; }
+    .principle-slogan { font-size: 18px; margin-bottom: 16px; }
+    .principle-list li b { font-size: 13.5px; }
+    .principle-list li span { font-size: 12.5px; }
+  }
+
   /* ───────── 히어로 ───────── */
   .hero {
     text-align: center; padding: 36px 20px 28px;
@@ -181,6 +267,38 @@
 </header>
 
 <div class="wrap">
+
+  <!-- ───────── 대원칙 ───────── -->
+  <section class="principle">
+    <div class="principle-badge">⚡ 학습의 대원칙</div>
+    <h2 class="principle-slogan">현명한 반복은<br><em>당신을 천재로 만듭니다</em></h2>
+    <ol class="principle-list">
+      <li>
+        <div>
+          <b>반복 앞에서 안 외워지는 것은 없습니다</b>
+          <span>아무리 어려운 내용도 반복을 거치면 결국 완전히 내 것이 됩니다.</span>
+        </div>
+      </li>
+      <li>
+        <div>
+          <b>목차부터 머리에 새기세요</b>
+          <span>학습이 끝났을 때 목차 자체가 또렷이 머릿속에 자리잡혀 있어야 합니다.</span>
+        </div>
+      </li>
+      <li>
+        <div>
+          <b>다양함이 기억을 굳힙니다</b>
+          <span>학습 카드 안의 내용이 다양할수록 두뇌에 더 구조적으로 저장됩니다.</span>
+        </div>
+      </li>
+      <li>
+        <div>
+          <b>콘텐츠는 계속 진화합니다</b>
+          <span>모든 목차·학습 카드·내용은 최적의 형태가 될 때까지 끊임없이 추가·수정·삭제됩니다.</span>
+        </div>
+      </li>
+    </ol>
+  </section>
 
   <!-- ───────── 히어로 ───────── -->
   <section class="hero">
