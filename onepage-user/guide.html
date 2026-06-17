@@ -131,6 +131,107 @@
     .principle-list li span { font-size: 12.5px; }
   }
 
+  /* ───────── 전체 보기 (화면 캡쳐 + 말풍선) ───────── */
+  .overview {
+    background: #16213e;
+    border: 1px solid #2a2a4e;
+    border-radius: 16px;
+    padding: 22px 20px 24px;
+    margin-bottom: 22px;
+  }
+  .overview h2 {
+    font-size: 17px; font-weight: 800; color: #fff;
+    margin-bottom: 4px; line-height: 1.4;
+  }
+  .overview .subtitle {
+    font-size: 13px; color: rgba(255,255,255,0.55);
+    margin-bottom: 18px;
+  }
+  .tour-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    gap: 18px;
+  }
+  .tour-card {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+  }
+  .tour-card h4 {
+    font-size: 13px; font-weight: 700;
+    color: #4fc3f7; margin: 0;
+    display: flex; align-items: center; gap: 5px;
+  }
+  .tour-shot {
+    position: relative;
+    width: 100%;
+    aspect-ratio: 9 / 19.5;
+    background: #0a0a1a;
+    border: 1px dashed rgba(255,255,255,0.15);
+    border-radius: 14px;
+    overflow: hidden;
+  }
+  .tour-shot img {
+    width: 100%; height: 100%;
+    object-fit: cover; display: block;
+    background: #000;
+  }
+  .tour-empty {
+    position: absolute; inset: 0;
+    display: flex; flex-direction: column;
+    align-items: center; justify-content: center;
+    gap: 6px;
+    color: rgba(255,255,255,0.3);
+    font-size: 11px; text-align: center; padding: 12px;
+  }
+  .tour-empty .icon { font-size: 28px; opacity: 0.6; }
+  .tour-empty code {
+    background: rgba(255,255,255,0.06);
+    padding: 2px 6px; border-radius: 4px;
+    font-size: 10px; color: #ffd180;
+  }
+  /* 말풍선 — 이미지 위 % 좌표로 배치 */
+  .tour-bubble {
+    position: absolute;
+    background: #e94560;
+    color: #fff;
+    font-size: 10px; font-weight: 700;
+    padding: 4px 9px;
+    border-radius: 10px;
+    white-space: nowrap;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.5);
+    z-index: 2;
+    transform: translate(-50%, -50%);
+    pointer-events: none;
+  }
+  .tour-bubble::after {
+    content: '';
+    position: absolute;
+    width: 7px; height: 7px;
+    background: #e94560;
+    transform: rotate(45deg);
+  }
+  /* 꼬리 방향 (data-tail 으로 지정) */
+  .tour-bubble[data-tail="down"]::after  { bottom: -3px; left: 50%; margin-left: -3px; }
+  .tour-bubble[data-tail="up"]::after    { top: -3px;    left: 50%; margin-left: -3px; }
+  .tour-bubble[data-tail="left"]::after  { left: -3px;   top: 50%;  margin-top: -3px; }
+  .tour-bubble[data-tail="right"]::after { right: -3px;  top: 50%;  margin-top: -3px; }
+  /* 보조 색 — 두 번째 강조 색 */
+  .tour-bubble.alt { background: #4fc3f7; }
+  .tour-bubble.alt::after { background: #4fc3f7; }
+  .tour-card .tour-desc {
+    font-size: 12px;
+    color: rgba(255,255,255,0.65);
+    line-height: 1.6;
+    margin-top: 2px;
+  }
+  @media (max-width: 600px) {
+    .tour-grid { grid-template-columns: 1fr 1fr; gap: 12px; }
+    .tour-bubble { font-size: 9px; padding: 3px 7px; }
+    .tour-card h4 { font-size: 12px; }
+    .tour-card .tour-desc { font-size: 11px; }
+  }
+
   /* ───────── 히어로 ───────── */
   .hero {
     text-align: center; padding: 36px 20px 28px;
@@ -305,6 +406,106 @@
     <div class="pill">📖 1분이면 충분합니다</div>
     <h1 style="margin-top:14px;">7가지만 알면<br><em>원페이지 학습</em> 끝</h1>
     <p>아래로 스크롤하면서 영상을 한 번씩만 보세요</p>
+  </section>
+
+  <!-- ───────── 전체 보기 — 5장 캡쳐 + 말풍선 ───────── -->
+  <section class="overview">
+    <h2>👀 전체 보기</h2>
+    <div class="subtitle">5개 화면에 어떤 기능이 있는지 한눈에. (말풍선의 위치·문구는 자유롭게 수정 가능)</div>
+    <div class="tour-grid">
+
+      <!-- 1. 메인 화면 (홈) -->
+      <div class="tour-card">
+        <h4>📱 메인 화면</h4>
+        <div class="tour-shot">
+          <!-- 이미지 준비되면 .tour-empty 블록을 <img>로 교체 -->
+          <div class="tour-empty">
+            <div class="icon">🏠</div>
+            <div>홈 화면 캡쳐</div>
+            <code>guide-media/screen-home.png</code>
+          </div>
+          <!-- 말풍선 (이미지 위 % 좌표) -->
+          <div class="tour-bubble"     style="top:6%;  left:80%;" data-tail="down">📖 / 👤</div>
+          <div class="tour-bubble alt" style="top:18%; left:30%;" data-tail="down">💰 포인트</div>
+          <div class="tour-bubble alt" style="top:18%; left:72%;" data-tail="down">👥 추천</div>
+          <div class="tour-bubble"     style="top:48%; left:50%;" data-tail="up">챕터 카드</div>
+          <div class="tour-bubble"     style="top:46%; left:88%;" data-tail="left">D-N</div>
+        </div>
+        <div class="tour-desc">구독·학습 중인 챕터가 자동으로 위로 정렬됩니다.</div>
+      </div>
+
+      <!-- 2. 학습 페이지 (챕터 안) -->
+      <div class="tour-card">
+        <h4>📚 학습 페이지</h4>
+        <div class="tour-shot">
+          <div class="tour-empty">
+            <div class="icon">📚</div>
+            <div>챕터 내부 캡쳐</div>
+            <code>guide-media/screen-chapter.png</code>
+          </div>
+          <div class="tour-bubble"     style="top:5%;  left:25%;" data-tail="down">↻ 새로고침</div>
+          <div class="tour-bubble alt" style="top:5%;  left:78%;" data-tail="down">● 암기 모음</div>
+          <div class="tour-bubble"     style="top:30%; left:50%;" data-tail="up">목차 + 진도바</div>
+          <div class="tour-bubble alt" style="top:42%; left:85%;" data-tail="left">⤴ 패스</div>
+          <div class="tour-bubble"     style="top:60%; left:35%;" data-tail="up">학습 카드</div>
+        </div>
+        <div class="tour-desc">목차를 펼치면 학습 카드, 카드를 누르면 본문이 나옵니다.</div>
+      </div>
+
+      <!-- 3. 암기 모음 -->
+      <div class="tour-card">
+        <h4>● 암기 모음</h4>
+        <div class="tour-shot">
+          <div class="tour-empty">
+            <div class="icon">●</div>
+            <div>암기 모음 보기 캡쳐</div>
+            <code>guide-media/screen-memo.png</code>
+          </div>
+          <div class="tour-bubble"     style="top:8%;  left:50%;" data-tail="down">● 표시한 것만</div>
+          <div class="tour-bubble alt" style="top:18%; left:85%;" data-tail="left">⤴ 패스</div>
+          <div class="tour-bubble"     style="top:42%; left:30%;" data-tail="up">현재 카드</div>
+          <div class="tour-bubble alt" style="top:62%; left:55%;" data-tail="up">펼치면 미암기로</div>
+        </div>
+        <div class="tour-desc">외운 것만 모아 빠르게 복습. 펼친 카드는 다음 회에 빠집니다.</div>
+      </div>
+
+      <!-- 4. 내 계정 (설정) -->
+      <div class="tour-card">
+        <h4>👤 내 계정</h4>
+        <div class="tour-shot">
+          <div class="tour-empty">
+            <div class="icon">👤</div>
+            <div>내 계정 모달 캡쳐</div>
+            <code>guide-media/screen-account.png</code>
+          </div>
+          <div class="tour-bubble"     style="top:14%; left:50%;" data-tail="down">이름·전화·이메일</div>
+          <div class="tour-bubble alt" style="top:32%; left:50%;" data-tail="down">💰 포인트</div>
+          <div class="tour-bubble"     style="top:50%; left:50%;" data-tail="down">구독 챕터 D-N</div>
+          <div class="tour-bubble alt" style="top:68%; left:35%;" data-tail="up">📋 코드</div>
+          <div class="tour-bubble alt" style="top:68%; left:72%;" data-tail="up">🔗 링크</div>
+          <div class="tour-bubble"     style="top:86%; left:50%;" data-tail="up">비밀번호·로그아웃</div>
+        </div>
+        <div class="tour-desc">내 정보·구독 현황·추천 코드를 한 화면에서.</div>
+      </div>
+
+      <!-- 5. 포인트 사용 -->
+      <div class="tour-card">
+        <h4>💰 포인트 사용</h4>
+        <div class="tour-shot">
+          <div class="tour-empty">
+            <div class="icon">💳</div>
+            <div>포인트 사용 모달 캡쳐</div>
+            <code>guide-media/screen-point.png</code>
+          </div>
+          <div class="tour-bubble"     style="top:16%; left:50%;" data-tail="down">보유 포인트</div>
+          <div class="tour-bubble alt" style="top:42%; left:50%;" data-tail="down">대상 챕터 선택</div>
+          <div class="tour-bubble"     style="top:62%; left:50%;" data-tail="up">소모량 안내</div>
+          <div class="tour-bubble alt" style="top:84%; left:50%;" data-tail="up">+30일 연장</div>
+        </div>
+        <div class="tour-desc">포인트로 챕터를 30일 더 학습할 수 있어요.</div>
+      </div>
+
+    </div>
   </section>
 
   <!-- ───────── STEP 1 ───────── -->

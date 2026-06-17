@@ -3,6 +3,8 @@
 여기에 가이드용 영상/이미지를 넣으세요.
 
 ## 파일 이름 규칙
+
+### 7 스텝 영상 (MP4)
 - 01-home.mp4
 - 02-expand.mp4
 - 03-pass.mp4
@@ -10,6 +12,13 @@
 - 05-memorized.mp4
 - 06-account.mp4
 - 07-pay.mp4
+
+### 전체 보기 5장 캡쳐 (PNG)
+- screen-home.png      — 홈 화면 (챕터 카드 목록)
+- screen-chapter.png   — 학습 페이지 (목차·학습 카드·패스)
+- screen-memo.png      — 암기 모음 보기
+- screen-account.png   — 👤 내 계정 모달
+- screen-point.png     — 💰 포인트 사용 모달
 
 ## 권장 사양
 - 형식: MP4 (H.264) 또는 WebM
