@@ -18,6 +18,7 @@
 13. [이미지 처리](#13-이미지-처리)
 14. [보안 — 워터마크·캡쳐 차단](#14-보안--워터마크캡쳐-차단)
 15. [라이브 학습자 카운트](#15-라이브-학습자-카운트)
+15-B. [사용법 가이드 페이지](#15-b-사용법-가이드-페이지-guidehtml)
 16. [관리자 CRM 대시보드](#16-관리자-crm-대시보드)
 17. [마케팅 어트리뷰션 + QR 생성기 (UTM)](#17-마케팅-어트리뷰션--qr-생성기-utm)
 18. [캐페인 발송 (Pabbly 웹훅)](#18-캐페인-발송-pabbly-웹훅)
@@ -462,6 +463,29 @@ https://onepage-study.vercel.app/?interest=수능&interest=한자
   - `hashPassword(new_password)` 로 PBKDF2 재해시 후 Airtable 업데이트
   - 변경 후 토큰은 그대로 유지 (재로그인 불필요)
 
+### 비밀번호 찾기 — SMS 6자리 코드
+
+로그인 화면 "비밀번호를 잊으셨나요?" 링크에서 진입. 2단계 모달.
+
+**Step 1 — 이메일 입력**
+- 로그인 폼의 이메일이 있으면 자동 채워 넣음
+- `POST /auth/forgot-password { email }` 호출
+- 서버: `findUserByEmail` → 6자리 코드 생성(`Math.random()`로 000000~999999) → KST 만료시각(+10분) → `atUpdate(AT_USERS, { reset_code, reset_code_expires_at })` → Pabbly 웹훅으로 SMS 발송
+- **보안 — 이메일 enumeration 차단**: 미존재 이메일이어도 200 `{ ok:true, sent:false }` 반환. UI는 동일하게 "코드를 보냈습니다" 안내
+- 존재 시 `phone_masked` (010\*\*\*\*5678) 반환 → UI에 표시
+
+**Step 2 — 코드 + 새 비밀번호**
+- 6자리 코드 + 새 비번 + 확인 입력
+- `POST /auth/reset-password { email, code, new_password }`
+- 서버 검증: `storedCode === code` && `expires_at > kstISOString()` && 새 비번 6자 이상 + 6자리 숫자
+- 성공 시 `password_hash` 갱신 + `reset_code`/`reset_code_expires_at` 클리어
+- UI: 로그인 화면 복귀, 이메일 자동 채움, 비번 칸에 포커스
+
+**Pabbly 웹훅 운영**
+- 환경변수 `PABBLY_RESET_WEBHOOK_URL` 우선, 없으면 기존 `PABBLY_WEBHOOK_URL` 폴백
+- **권장**: 비밀번호 재설정 전용 워크플로우(Webhook → SOLAPI) 별도 구성. ChatGPT 단계 우회 — 보안 코드가 변형될 위험과 발송 지연 차단
+- 페이로드: `{ template: 'password_reset', channel: 'sms', phone, custom_message: '[원페이지] 비밀번호 재설정 코드: 123456 (10분 유효)...' }`
+
 ---
 
 ### 암기 모음 모드 (챕터 내 ●)
@@ -504,11 +528,30 @@ https://onepage-study.vercel.app/?interest=수능&interest=한자
 
 | 동작 | 트리거 | 결과 | 저장 |
 |---|---|---|---|
-| **펼치기/접기** | 학습 카드 짧게 탭 | 내용 표시 (아코디언) | — |
-| **패스** | 목차 헤더의 **⤴ 패스** 버튼 | 맨 위 학습 카드가 이번 회에서 빠지고 다음 단어가 위로 올라옴 | localStorage (챕터 단위, 영구) |
-| **완료/다시 토글** | 학습 카드를 600ms 꾹누르기 | 학습완료 ● 표시 ↔ 미학습 토글 | DB (`op_understood`) |
+| **펼치기/접기** | 학습 카드 짧게 탭 | 내용 표시 (아코디언). 챕터 내 `everExpandedSet`에 기록됨 | — |
+| **패스** | 목차 헤더의 **⤴ 패스** 버튼 | 맨 위 학습 카드가 이번 회에서 빠짐 + 펼침 이력 따라 자동 ●/미암기 분류 | localStorage (챕터 단위, 영구) + 서버 |
+| **완료/다시 토글** | 학습 카드를 600ms 꾹누르기 | 학습완료 ● 표시 ↔ 미학습 토글 (수동) | DB (`op_understood`) |
 
 → 버튼 1개 + 꾹누르기 1개로 모든 학습 흐름 처리. 버튼은 단순하고 크게, 동작은 직관적으로.
+
+### 패스 버튼 자동 분류 (v2 핵심 UX)
+
+패스 버튼은 단순히 "건너뛰기"가 아니라 **챕터 안에서의 펼침 이력**을 보고 학습 상태를 자동 갱신합니다.
+
+| 현재 상태 | 챕터 내 펼친 적 | 패스 결과 |
+|---|---|---|
+| 미암기 | ✅ 있음 | 미암기 그대로 (다음 회에 다시 등장) |
+| 미암기 | ❌ 없음 | **자동 ● 암기** ("안다" 신호) |
+| ● 암기 | ✅ 있음 | **미암기로 전환** ("다시 봐야 했다", 다음 회에 다시 등장) |
+| ● 암기 | ❌ 없음 | ● 그대로 유지 |
+
+**구현 메커니즘:**
+- `state.everExpandedSet` (Set, 챕터 단위) — `subClick`의 펼침 분기에서 추가
+- `studyPass`가 호출되면 `wasOpened = everExpandedSet.has(subId)` 판정
+- `wasOpened === true` → `silentUnmarkUnderstood()` (펼친 → 미암기 자동)
+- `wasOpened === false` → `silentMarkUnderstood()` (안 펼친 → ● 자동)
+- 두 silent 함수 모두 화면 갱신·토스트 없이 백그라운드로 서버 동기화 (실패 시 롤백)
+- 챕터 진입 시(`enterChapter`) `everExpandedSet`이 새 Set으로 초기화 → 매 회 새 라운드
 
 ### 모두 패스 시 — 폭죽 축하 + 자동 재시작
 목차 안 **모든** 학습 카드를 패스(완료된 것도 포함)하면:
@@ -801,6 +844,39 @@ document.addEventListener('keydown', e => {
 
 ---
 
+## 15-B. 사용법 가이드 페이지 ([guide.html](onepage-user/guide.html))
+
+학생 앱 홈 헤더 우상단 **📖** 버튼 → 같은 탭에서 `/guide.html` 이동. ← 버튼으로 학생 앱 복귀 (`history.back()` + history 빈 경우 `/` 폴백). 학생 앱 상태는 localStorage에 있어 재진입 시 그대로 복원.
+
+### 구조 (위에서 아래로)
+1. **상단 sticky 진행 바** — 닫기 ← + "사용법 가이드" 타이틀 + 7개 도트(스크롤 따라 자동 강조, 클릭 점프)
+2. **⚡ 학습의 대원칙** 카드 — 슬로건 "현명한 반복은 당신을 천재로 만듭니다" + 4가지 원칙 (그라데이션 텍스트 + 셰이머 애니메이션)
+   - 반복 앞에서 안 외워지는 것은 없습니다
+   - 결국 목차도 외워져 있어야 합니다
+   - 다양함이 기억을 굳힙니다
+   - 콘텐츠는 계속 진화합니다
+3. **히어로** — "7가지만 알면 원페이지 학습 끝 · 1분이면 충분합니다"
+4. **👀 전체 보기** — 5개 화면 캡쳐 격자 (메인 / 학습 / 암기 모음 / 내 계정 / 포인트 사용). 사용자가 이미지 편집기에서 말풍선까지 합쳐 PNG 로 올리는 방식
+5. **STEP 1~7** — 각 단계 = 제목 + 영상(자동 재생 무음 루프) + 짧은 설명 + 팁 박스
+6. **하단 CTA** — "준비 완료! 앱으로 돌아가기 →"
+
+### 미디어 자산 (onepage-user/guide-media/)
+
+| 형식 | 권장 사양 | 자리 |
+|---|---|---|
+| MP4 (7편) | 720×1280 또는 1280×720, H.264, CRF 28, 무음, 3~6초 루프 | STEP 1~7 |
+| PNG (5장) | 본인 비율 그대로 (PC·태블릿·모바일 캡쳐 자유) | 전체 보기 |
+
+배포는 Vercel 정적 서빙 — `git push` 한 번이면 끝. CSS `aspect-ratio` 강제 없음 → 이미지 자기 비율 유지.
+
+### STEP 3 — 패스 버튼 똑똑한 분류 (특별 강조)
+STEP 3는 4분면 미니 매트릭스로 시각화:
+- 안 펼치고 패스 → 자동 ● 암기 (초록)
+- 펼친 뒤 패스 → 미암기로 자동 (주황, 원래 ●여도 풀림)
+챕터 나가면 펼친 기록은 초기화 — 매 회 새 라운드.
+
+---
+
 ## 16. 관리자 CRM 대시보드
 
 [onepage-crm/index.html](onepage-crm/index.html) — `role=teacher` 전용 통합 운영 콘솔. 5개 탭으로 사용자·매출·콘텐츠·캐페인·마케팅을 한 화면에서 관리.
@@ -835,6 +911,27 @@ document.addEventListener('keydown', e => {
 
 #### 🗑️ 권한 회수
 각 챕터 행의 🗑️ 버튼 → 확인 다이얼로그 → Worker `DELETE /admin/access/:phone/:chapter_id` → OnepageChapterAccess 행 즉시 삭제
+
+#### 🗑️ 회원 완전 삭제 (v2 신규)
+
+상세 모달 액션 영역의 **🗑️ 회원 삭제** 버튼 (teacher 계정에는 미노출) → 휴대폰 번호 재입력 확인 → Worker `DELETE /admin/user/:phone` → 연관 7곳 일괄 정리:
+
+| 저장소 | 테이블 | 키 |
+|---|---|---|
+| Airtable | `OnepageUsers` | phone |
+| Airtable | `OnepageChapterAccess` | user_phone |
+| Airtable | `OnepagePayments` | user_phone |
+| Airtable | `OnepagePointTx` | user_phone |
+| Airtable | `OnepageCampaignSends` | phone |
+| nocodebackend | `op_understood` | user_phone |
+| nocodebackend | `op_pings` | user_phone |
+
+- Worker가 6개 테이블에서 모든 관련 행을 병렬 조회 → 합계가 안전한도(30건) 초과 시 **413 Payload Too Large** + 수동 정리 안내
+- 한도 내면 10개씩 병렬 `atDelete`/`ncbDelete` → 마지막에 사용자 본인 → 완료 응답 `{ ok, total, deleted: { user, access, payments, point_tx, sends, understood, pings } }`
+- 자동 가드: `role === 'teacher'` 계정은 서버에서 403 거부
+- 가시화: alert 으로 각 테이블 삭제 건수 + 합계 표시 → 사용자 목록 자동 갱신
+
+**전화번호 수동 변경은 미보류** — 학습 이력이 op_understood 에 user_phone 으로 박혀 있어 헤비 유저(>40 이력)에서 청크 분할 호출이 필요. 별도 작업으로 분리.
 
 #### 식별 — `source` 컬럼으로 진짜 결제와 구분
 | `source` 값 | 의미 |
@@ -1064,9 +1161,14 @@ CRM 캠페인 탭 하단 **💰 전환 분석** 패널이 호출. 캐페인 발�
 
 ### 설정 (Worker 환경 변수)
 ```bash
+# 캐페인 발송용 (ChatGPT 라우팅 포함)
 wrangler secret put PABBLY_WEBHOOK_URL
-# Pabbly Connect 워크플로우 webhook URL 붙여넣기
+
+# 비밀번호 재설정 SMS 발송용 (ChatGPT 없는 별도 워크플로우 권장)
+wrangler secret put PABBLY_RESET_WEBHOOK_URL
 ```
+
+PABBLY_RESET_WEBHOOK_URL 이 설정돼 있으면 비밀번호 찾기 SMS 발송에 우선 사용. 미설정 시 PABBLY_WEBHOOK_URL 로 폴백. 자세한 내용은 §내 계정 모달 → 비밀번호 찾기 참조.
 
 ### Pabbly 측 별도 자격증명 (워크플로우 안에서 보관)
 - **ChatGPT**: OpenAI API Key (Pabbly Connection으로 보관)
@@ -1107,7 +1209,7 @@ wrangler secret put PABBLY_WEBHOOK_URL
 ## 20. 데이터 모델
 
 ### Airtable (사람·돈·캐페인·결제 폴백)
-- **OnepageUsers**: name, phone, email, password_hash, role, referral_code, referred_by_code, point, first_paid_at, **interests** (콤마 구분 과목 배열 — 가입 시 URL `?interest=` 캡쳐 또는 학생 앱 모달에서 편집), **utm_source, utm_medium, utm_campaign, utm_content, utm_term, landing_url, referrer_url** (UTM 7개 — 가입 시 한 번만 기록)
+- **OnepageUsers**: name, phone, email, password_hash, role, referral_code, referred_by_code, point, first_paid_at, **interests** (콤마 구분 과목 배열 — 가입 시 URL `?interest=` 캡쳐 또는 학생 앱 모달에서 편집), **utm_source, utm_medium, utm_campaign, utm_content, utm_term, landing_url, referrer_url** (UTM 7개 — 가입 시 한 번만 기록), **reset_code, reset_code_expires_at** (비밀번호 찾기 SMS 6자리 코드 + KST 만료시각 — 사용 후 자동 클리어)
 - **OnepageChapterAccess**: user_phone, chapter_id, chapter_title, expires_at, last_payment_id, source — Worker(`/payapp/webhook` 또는 `/admin/access/grant`) + C1 Automation이 갱신
 - **OnepagePayments**: mul_no, user_phone, user_email, chapter_id, chapter_title, amount, paid_at, raw, status — **Worker `/payapp/webhook`이 직접 채움** (v2부터)
 - **OnepagePointTx**: user_phone, delta, reason, balance_after, memo (감사 로그 + 관리자 지급 시 `[관리자:이름]` 접두)
@@ -1140,6 +1242,8 @@ wrangler secret put PABBLY_WEBHOOK_URL
 | `/auth/me` | GET | 내 정보 + 챕터 접근 맵 + interests 배열 |
 | `/auth/me/interests` | PUT | 관심 주제 편집 — `{interests: [...]}` 콤마 join하여 Airtable 갱신 |
 | `/auth/change-password` | POST | 비밀번호 변경 — `{old_password, new_password}`, 현재 비번 검증 후 PBKDF2 재해시 |
+| `/auth/forgot-password` | POST | 비밀번호 찾기 1단계 — `{email}` → 등록 휴대폰으로 SMS 6자리 코드. enumeration 차단 위해 미존재 시에도 200. 응답 `{ok, sent, phone_masked}` |
+| `/auth/reset-password` | POST | 비밀번호 찾기 2단계 — `{email, code, new_password}` → 코드+만료 검증 후 password_hash 갱신, reset_code 클리어 |
 | `/referral/info?code=` | GET | 추천 코드 유효성 (이름 마스킹) |
 | `/chapters` | GET | 챕터 목록 |
 | `/topics?chapter_id=` | GET | 목차 목록 + 동봉 subtopics |
@@ -1173,6 +1277,7 @@ wrangler secret put PABBLY_WEBHOOK_URL
 | `/admin/overview` | GET | 대시보드 KPI + 만료임박/최근결제/챕터TOP |
 | `/admin/users` | GET | 전체 사용자 + 구독·결제·포인트·최근 학습 집계 |
 | `/admin/user/:phone` | GET | 개별 사용자 전체 이력 (UTM 포함) |
+| **`/admin/user/:phone`** | **DELETE** | **회원 완전 삭제 — Airtable 5테이블 + nocodebackend 2테이블 일괄 정리. teacher 계정 403, 총 행 30건 초과 시 413** |
 | `/admin/points` | POST | 포인트 지급/차감 (자동 PointTx 기록) |
 | `/admin/webhook/send` | POST | Pabbly 웹훅 일괄 발송 + OnepageCampaignSends에 수신자별 결과 영구 저장 |
 | `/admin/campaign-sends?days=30` | GET | 캠페인 분석 — 일자/템플릿/채널별 발송량·성공률, 캠페인 히스토리 (campaign_id로 그룹) |
@@ -1244,3 +1349,10 @@ while (true) {
 ### 가격 변경
 - `op_chapters.monthly_price` 컬럼만 수정
 - 다음 결제부터 적용 (기존 활성 회원의 expires_at은 영향 X)
+
+### 마케팅·홍보 자료
+- [`marketing/scripts.md`](marketing/scripts.md) — Vrew + Filmora 15 워크플로용 마스터 영상 스크립트 5편 (후크 / 앱 소개 / 풀튜토리얼 / 패스 USP / CTA)
+  - 각 편 = Vrew 붙여넣기용 음성 텍스트(코드블록) + 화면 매칭 표 분리. ⚠️ Vrew 가 모든 텍스트를 음성으로 읽으니 `[브래킷]` 힌트는 본문에서 빼고 별도 표로 정리
+  - 화자는 한국어 여성 차분한 톤으로 통일 (브랜드 일관성)
+  - guide-media/*.mp4 의 7편 영상을 B-roll로 재활용
+  - 편당 30~90분 작업, 5편 총 4시간 → 한 달 분량 15~20편으로 확장
