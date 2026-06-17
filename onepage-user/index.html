@@ -2659,7 +2659,9 @@ function openReferralModal() {
 // 사용법 가이드 — 새 탭으로 열기 (정적 페이지)
 // ============================================================
 function openGuide() {
-  window.open('guide.html', '_blank', 'noopener');
+  // 같은 탭 이동 — 가이드의 ← 버튼이 history.back()으로 자연스럽게 복귀
+  // 학생 앱 상태는 localStorage에 있어서 재진입 시 그대로 복원됨
+  location.href = 'guide.html';
 }
 
 // ============================================================

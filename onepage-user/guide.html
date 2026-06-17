@@ -481,12 +481,11 @@
   updateDots();
 
   // ───────── 닫기 — 학생 앱으로 ─────────
-  // history.back()이 동작하면 그걸 사용 (앱에서 새 탭 열렸으면 탭 닫기 시도)
+  // 학생 앱에서 같은 탭으로 들어왔으면 history.back()으로 복귀.
+  // 가이드 URL로 직접 들어왔으면 (history 1개) 홈으로.
   function closeGuide() {
-    if (document.referrer && document.referrer.includes(location.host)) {
+    if (history.length > 1) {
       history.back();
-    } else if (window.opener) {
-      window.close();
     } else {
       location.href = '/';
     }
