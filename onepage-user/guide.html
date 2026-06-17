@@ -227,34 +227,53 @@
   <section class="step" id="s3">
     <div class="step-head">
       <div class="step-num">3</div>
-      <div class="step-title">⤴ 패스 — 다음 단어로</div>
+      <div class="step-title">⤴ 패스 — 똑똑한 자동 분류</div>
     </div>
     <p class="step-lead">
-      목차 오른쪽 <strong>⤴ 패스</strong>를 누르면 이번 회에서 해당 학습 카드를 건너뜁니다.
-      모두 패스하면 폭죽 🎉과 함께 자동으로 처음부터 다시 시작.
+      목차 오른쪽 <strong>⤴ 패스</strong>를 누르면 <strong>맨 위 카드가 사라져요</strong>.
+      그 카드는 "내가 챕터 안에서 한 번이라도 펼쳐봤는지"에 따라 자동으로 분류됩니다.
     </p>
     <div class="media wide">
       <video src="guide-media/03-pass.mp4"
              autoplay loop muted playsinline></video>
     </div>
-    <div class="tip"><b>팁</b> 마지막 위치는 자동 저장돼요. 앱을 닫았다 켜도 그 자리에서 계속.</div>
+
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin:14px 0;">
+      <div style="background:rgba(76,175,80,0.08);border:1px solid rgba(76,175,80,0.28);border-radius:10px;padding:14px 14px 12px;">
+        <div style="font-size:13px;color:#81c784;font-weight:800;margin-bottom:6px;">안 펼치고 패스</div>
+        <div style="font-size:12.5px;color:rgba(255,255,255,0.75);line-height:1.65;">"안다" 신호 → 자동으로 <b style="color:#81c784;">● 암기</b></div>
+      </div>
+      <div style="background:rgba(255,152,0,0.08);border:1px solid rgba(255,152,0,0.28);border-radius:10px;padding:14px 14px 12px;">
+        <div style="font-size:13px;color:#ffb74d;font-weight:800;margin-bottom:6px;">펼쳐본 뒤 패스</div>
+        <div style="font-size:12.5px;color:rgba(255,255,255,0.75);line-height:1.65;">"다시 봐야 했다" → <b style="color:#ffb74d;">미암기</b> (원래 ●여도 풀림)</div>
+      </div>
+    </div>
+
+    <div class="tip">
+      <b>모두 패스 → 🎉 자동 재시작</b> 미암기로 분류된 카드들만 다시 위로 올라와서 집중 복습할 수 있어요. 챕터를 나갔다 들어오면 "펼친 기록"은 초기화 — 늘 새로운 한 회로 시작합니다.
+    </div>
+    <div class="tip warn">
+      <b>다시 정리</b> "안 펼치고 패스 = 안다" / "펼친 뒤 패스 = 모른다" — 펼친 적 없는 카드는 ●를 유지(또는 ● 새로 받음), 펼친 적 있는 카드는 미암기로 다시 분류돼요.
+    </div>
   </section>
 
   <!-- ───────── STEP 4 ───────── -->
   <section class="step" id="s4">
     <div class="step-head">
       <div class="step-num">4</div>
-      <div class="step-title">꾹눌러서 ● 암기 표시</div>
+      <div class="step-title">꾹눌러서 ● 직접 표시</div>
     </div>
     <p class="step-lead">
-      학습 카드를 <strong>0.6초 이상 꾹누르면</strong> "● 이해 완료"로 표시됩니다.
+      학습 카드를 <strong>0.6초 이상 꾹누르면</strong> 바로 "● 암기"로 표시됩니다.
       다시 꾹누르면 해제. 휴대폰이 살짝 진동해서 표시된 걸 바로 알 수 있어요.
     </p>
     <div class="media wide">
       <video src="guide-media/04-press.mp4"
              autoplay loop muted playsinline></video>
     </div>
-    <div class="tip"><b>왜?</b> 진짜로 외운 것만 따로 모아서 다시 복습할 수 있어요 (STEP 5).</div>
+    <div class="tip">
+      <b>패스와 차이</b> 패스(STEP 3)는 펼침 여부를 보고 자동 분류 + 카드가 사라짐. 꾹누르기는 카드가 안 사라지고 ● 표시만 즉시 토글 — "이건 확실히 안다" 거나 "이건 다시 봐야 한다" 를 명시적으로 정할 때 쓰세요.
+    </div>
   </section>
 
   <!-- ───────── STEP 5 ───────── -->
