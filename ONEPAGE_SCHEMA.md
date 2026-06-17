@@ -391,15 +391,29 @@ Type 드롭다운에 보이는 옵션: `INT`, `BIGINT`, `VARCHAR(255)`, `DROPDOW
 
 ---
 
-### B5. `op_understood` (학생 이해 표시)
+### B5. `op_understood` (학생 ● 등록 + 간격 반복 스케줄)
 
 | 필드명 | 타입 | Not null | FK/Unique | Default | 비고 |
 |---|---|---|---|---|---|
 | `user_phone` | VARCHAR(255) | ✅ | — | — | 회원 phone (정규화) |
 | `subtopic_id` | INT | ✅ | **FK → op_subtopics.id (CASCADE)** | — | INT (Run SQL의 id에 맞춤) |
-| `marked_at` | DATETIME | ✅ | — | — | KST |
+| `marked_at` | DATETIME | ✅ | — | — | KST. 처음 ● 등록한 시각 |
+| **`review_box`** | **INT** | — | — | NULL | Leitner 박스 1~6. NULL = 옛 데이터(미스케줄) → 클라이언트가 1로 간주 |
+| **`next_review_at`** | **DATETIME** | — | — | NULL | 다음 다지기 due (KST wall-clock). NULL = "오늘 다지기" 로 분류 |
 
 **복합 유니크**: `(user_phone, subtopic_id)` — nocodebackend가 복합 유니크를 UI에서 지원하지 않으면 Worker가 upsert 전 검색으로 확인.
+
+**간격 반복 정책**:
+- 첫 ● 등록 → `review_box=1`, `next_review_at=내일`
+- `POST /understood/advance` 호출 시 → `review_box+1`, `next_review_at=오늘+intervals[new_box]`
+- 인터벌: `[_, 1, 2, 4, 8, 16, 32]` (Box 1~6 일)
+- Box 6 도달 → 계속 +32일 (졸업 박스)
+
+> **마이그레이션 (기존 설치)**:
+> ```sql
+> ALTER TABLE op_understood ADD COLUMN review_box INT NULL;
+> ALTER TABLE op_understood ADD COLUMN next_review_at DATETIME NULL;
+> ```
 
 ---
 
@@ -599,6 +613,12 @@ if (existing) {
 **nocodebackend 신규 컬럼** (`op_chapters`):
 ```sql
 ALTER TABLE op_chapters ADD COLUMN pay_url VARCHAR(255) NULL;
+```
+
+**nocodebackend 신규 컬럼** (`op_understood` — 간격 반복):
+```sql
+ALTER TABLE op_understood ADD COLUMN review_box INT NULL;
+ALTER TABLE op_understood ADD COLUMN next_review_at DATETIME NULL;
 ```
 
 ---

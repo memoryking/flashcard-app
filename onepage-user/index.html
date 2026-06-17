@@ -1059,9 +1059,9 @@ a { color: #4fc3f7; text-decoration: none; }
       </svg>
       <span class="cc-label">접기</span>
     </button>
-    <button class="icon-btn memorized-toggle" id="memorizedBtn" onclick="toggleMemorizedView()" title="암기 모음 보기">
+    <button class="icon-btn memorized-toggle" id="memorizedBtn" onclick="toggleMemorizedView()" title="다지기 보기 — 외운 카드 간격 반복">
       <span style="font-size:14px">●</span>
-      <span class="cc-label">암기</span>
+      <span class="cc-label">다지기</span>
     </button>
     <div class="spacer"></div>
     <span class="icon-btn" id="chStatus">D-30</span>
@@ -1798,7 +1798,7 @@ function renderMemorizedView(chapterId, hasAccess) {
     return `
       <div class="memo-empty">
         <div class="memo-icon">●</div>
-        <div>아직 암기 모음이 비어 있습니다.</div>
+        <div>아직 다지기 카드가 없습니다.</div>
         <div class="memo-hint">학습 카드를 꾹 누르면 여기로 모입니다.</div>
       </div>
     `;
@@ -1844,7 +1844,7 @@ function renderMemorizedView(chapterId, hasAccess) {
 
   const header = `
     <div class="memo-header">
-      <div class="memo-title">● 암기 모음</div>
+      <div class="memo-title">● 다지기</div>
       <span class="memo-count" title="오늘 due / 그 외">${todayCount}${restCount ? ` <span style="opacity:0.6">+${restCount}</span>` : ''}</span>
       <div class="study-controls">
         <button class="study-btn skip-big" onclick="memorizedPass(${current.id})" title="안 펼치고 패스 = 회상 성공(다음 박스로) / 펼친 뒤 패스 = 미암기로">⤴ 패스</button>
@@ -2466,9 +2466,9 @@ function dueTier(days) {
 }
 // 그룹 헤더 라벨 — 정확한 일수 표시
 function dueLabel(days) {
-  if (days <= 0) return '📍 오늘 복습';
-  if (days === 1) return '내일 복습';
-  return `${days}일 후 복습`;
+  if (days <= 0) return '📍 오늘 다지기';
+  if (days === 1) return '내일 다지기';
+  return `${days}일 후 다지기`;
 }
 
 // 암기 모음 모드 — 안 펼치고 패스하면 호출. 박스 진행 (Leitner advance)
@@ -2542,7 +2542,7 @@ async function toggleUnderstood(subId) {
   renderTree(state.currentChapter.id);
   try {
     await api('POST', '/understood', { subtopic_id: subId });
-    toast(had ? '이해 표시 해제' : '● 이해 완료');
+    toast(had ? '다지기 해제' : '● 다지기 추가');
   } catch (e) {
     // 롤백
     if (had) {

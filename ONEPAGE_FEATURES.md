@@ -488,20 +488,40 @@ https://onepage-study.vercel.app/?interest=수능&interest=한자
 
 ---
 
-### 암기 모음 모드 (챕터 내 ●)
+### 다지기 모드 — 간격 반복(Leitner SRS)
 
-챕터 헤더 우측 **● 암기** 버튼 → 챕터 전체에서 꾹눌러 암기 표시한(`understoodSet`) 학습 카드만 한 리스트로 모아보기.
+챕터 헤더 우측 **● 다지기** 버튼 → 챕터 전체에서 ● 등록한 학습 카드만 모아 보여주는 화면. 단순한 리스트가 아니라 **카드별 due 일정**으로 그룹화돼서 학습 흐름이 자연스럽게 가이드됩니다.
 
-- **꾹누른 시각(`marked_at`) 오름차순** — 오래된 것부터 위에서 아래로
-- 첫 항목 = 현재(주황 강조) → 상단의 큰 **⤴ 패스** 버튼이 이걸 패스 (정상 모드와 동일 `passedSet` 공유)
-- 항목 꾹누르기 → `toggleUnderstood` → 암기 해제 → 리스트에서 즉시 제거 (정상 모드의 원위치로 복귀)
-- 모두 패스되면 🎉 축하 폭죽 → 암기 항목들의 passedSet만 초기화하여 처음부터 다시
-- 챕터 진입 시 자동으로 정상 모드로 시작 (`state.memorizedView=false`)
+**Leitner 6박스 (간격 2배수 증가)**:
+| 박스 | 다음 due | 의미 |
+|---|---|---|
+| 1 | +1일 | 처음 ● 등록 |
+| 2 | +2일 | 1차 회상 성공 |
+| 3 | +4일 | 2차 |
+| 4 | +8일 | 3차 |
+| 5 | +16일 | 4차 |
+| 6 | +32일 | 졸업 박스 — Box 6 이상 진행 안 함 |
 
-**marked_at 출처**:
-- 서버: `op_understood` 테이블에 토글 시 `kstDateTime()` 값으로 기록 (`YYYY-MM-DD HH:MM:SS`)
-- 클라이언트: `/understood` 응답의 `items[]`에서 받아 `state.understoodMarkedAt[subId]`에 저장
-- 옛 데이터(빈 marked_at): 가장 오래된 것으로 취급 → 리스트 최상단
+**그룹 표시 (정확한 일수)**:
+- 📍 **오늘 다지기** (빨강 강조) — overdue + today
+- **내일 다지기** (주황)
+- **2일 후 다지기** (주황)
+- **N일 후 다지기** (3~7일=노랑, 8+=회색)
+- 비어 있는 일수는 출력 안 함
+
+**동작**:
+- 안 펼치고 ⤴ 패스 = 회상 성공 → `POST /understood/advance` → Box +1, next_review_at 갱신
+- 펼친 뒤 ⤴ 패스 = 회상 실패 → 기존 `silentUnmarkUnderstood` → 행 삭제 → 다음 챕터 회에서 미암기로 재등장
+- 진입 시 스냅샷(`memoSnapshotIds`)에 모든 ● 카드 고정 → 펼쳐서 미암기 처리돼도 이번 회 시각적 깜빡임 없음
+- 모두 패스되면 🎉 축하 폭죽 → snapshot 재빌드 + passedSet 정리 → 다음 회 시작
+
+**marked_at·review_box·next_review_at**:
+- 서버 `op_understood`: 토글 시 `marked_at=kstDateTime()`, `review_box=1`, `next_review_at=내일`
+- `/understood/advance`: 박스 진행 + due 갱신
+- 클라이언트 state: `understoodMarkedAt` / `understoodBox` / `understoodNextReview` 3 맵
+- 옛 데이터(NULL next_review_at): "오늘 다지기" 그룹으로 분류 → 처음 패스 시 정상 진행
+
+**꾹누르기 토스트**: "● 다지기 추가" / "다지기 해제" — 버튼·그룹 라벨과 일관성
 
 ## 8. 학습 인터페이스 — 플래시카드 모드
 
@@ -856,7 +876,7 @@ document.addEventListener('keydown', e => {
    - 다양함이 기억을 굳힙니다
    - 콘텐츠는 계속 진화합니다
 3. **히어로** — "7가지만 알면 원페이지 학습 끝 · 1분이면 충분합니다"
-4. **👀 전체 보기** — 5개 화면 캡쳐 격자 (메인 / 학습 / 암기 모음 / 내 계정 / 포인트 사용). 사용자가 이미지 편집기에서 말풍선까지 합쳐 PNG 로 올리는 방식
+4. **👀 전체 보기** — 5개 화면 캡쳐 격자 (메인 / 학습 / 다지기 / 내 계정 / 포인트 사용). 사용자가 이미지 편집기에서 말풍선까지 합쳐 PNG 로 올리는 방식
 5. **STEP 1~7** — 각 단계 = 제목 + 영상(자동 재생 무음 루프) + 짧은 설명 + 팁 박스
 6. **하단 CTA** — "준비 완료! 앱으로 돌아가기 →"
 
@@ -1225,7 +1245,7 @@ PABBLY_RESET_WEBHOOK_URL 이 설정돼 있으면 비밀번호 찾기 SMS 발송�
 - **op_items**: id, subtopic_id, kind (`text`/`image`/`link`), text, image_b64, caption, sort_order
   - `kind='link'`: `text` 컬럼에 URL 저장, `caption` 에 제목/설명
   - `kind='text'`: `caption` 으로 이미지처럼 작은 설명 표시 (선택)
-- **op_understood**: user_phone, subtopic_id, marked_at (꾹누르기 진도)
+- **op_understood**: user_phone, subtopic_id, marked_at, **review_box** (Leitner 1~6), **next_review_at** (다음 due KST) — 꾹누르기 진도 + 간격 반복(SRS) 스케줄
 - **op_pings**: user_phone, first_ping_today, last_ping_at (라이브 카운트)
 
 자세한 컬럼·타입·FK 설정은 [ONEPAGE_SCHEMA.md](ONEPAGE_SCHEMA.md) 참조.
@@ -1249,8 +1269,9 @@ PABBLY_RESET_WEBHOOK_URL 이 설정돼 있으면 비밀번호 찾기 SMS 발송�
 | `/topics?chapter_id=` | GET | 목차 목록 + 동봉 subtopics |
 | `/subtopics?topic_id=` | GET | 학습 카드 목록 |
 | `/items?subtopic_id=` | GET | 내용 블록 (구독 게이트 적용) |
-| `/understood` | POST | 꾹누르기 토글 |
-| `/understood?chapter_id=` | GET | 내 이해 표시 목록 |
+| `/understood` | POST | 꾹누르기 토글 — 첫 ● 시 review_box=1, next_review_at=내일 자동 세팅 |
+| `/understood/advance` | POST | 회상 성공(다지기 안 펼치고 패스) → Box +1, next_review_at 갱신 (Leitner 1·2·4·8·16·32일) |
+| `/understood?chapter_id=` | GET | 내 ● 등록 목록 + review_box + next_review_at |
 | `/stats/ping` | POST | 60초마다 학생이 호출 |
 | `/stats/learners-now` | GET | 오늘 학습자 수 |
 | `/access` | GET | 내 챕터별 접근 상태 |
