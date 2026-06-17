@@ -601,6 +601,18 @@ a { color: #4fc3f7; text-decoration: none; }
   border-color: rgba(76,175,80,0.45);
   background: linear-gradient(180deg, rgba(76,175,80,0.14) 0%, rgba(76,175,80,0.06) 100%);
 }
+/* 다지기에서 실패해 챕터 뷰로 돌아온 카드 — 청색 강조 + ↺ 배지 */
+.subtopic.failed-from-memo {
+  border-color: rgba(79,195,247,0.45);
+  background: linear-gradient(180deg, rgba(79,195,247,0.10) 0%, rgba(79,195,247,0.03) 100%);
+}
+.failed-memo-badge {
+  display: inline-flex; align-items: center; justify-content: center;
+  width: 18px; height: 18px; min-width: 18px;
+  background: rgba(79,195,247,0.85); color: #fff;
+  border-radius: 50%; font-size: 11px; font-weight: 700;
+  margin-right: 4px;
+}
 /* 펼친 학습 카드 — 테두리·그림자 강조로 다른 항목과 시각적 분리 (집중 학습) */
 .subtopic.opened {
   border-color: rgba(179,157,219,0.7);
@@ -1118,6 +1130,7 @@ const state = {
   memorizedView: false,       // 챕터 내 암기 모음 모드 (꾹누른 학습 카드만 모아보기)
   memoSnapshotIds: new Set(), // 암기 모음 진입 시 보여줄 학습 카드 스냅샷 — 펼친 항목이 미암기로 분류돼도 이번 회는 그대로 보이게
   everExpandedSet: new Set(), // 이 챕터 진입 후 한 번이라도 펼쳐본 학습 카드 — 패스 시 자동 ●/미암기 판정에 사용. 챕터 나가면 초기화
+  recentlyFailedFromMemo: new Set(), // 이번 챕터 진입 중 다지기에서 실패(펼침)해서 챕터 뷰로 돌아온 카드 — 챕터 뷰 정렬 시 맨 아래로
   expanded: { topic: new Set(), subtopic: new Set() },
   liveCount: 0,
   pingTimer: null,
@@ -1648,6 +1661,7 @@ async function enterChapter(chapterId) {
   state.memorizedView = false;
   state.memoSnapshotIds = new Set();
   state.everExpandedSet = new Set();   // 펼침 이력 초기화 — 챕터 단위로 유지
+  state.recentlyFailedFromMemo = new Set();  // 다지기 실패 → 챕터 뷰 복귀 표시 초기화
   const memoBtn = $('memorizedBtn');
   if (memoBtn) memoBtn.classList.remove('active');
   updateLiveChips(); // 캐시된 라이브 카운트 즉시 반영 (다음 폴링 기다리지 않음)
@@ -1983,29 +1997,44 @@ function renderTopic(t, hasAccess) {
       } else if (!subs.length) {
         body = '<div class="empty-state">학습 카드 없음</div>';
       } else {
-        // 자가 치유 — 이전 버전(↺ 버튼 있던 시절)에 모든 학습 카드가 패스된 채 저장된 경우,
-        // 펼치면 비어 있고 다시 시작할 수단도 없어 정지 상태가 됨. 조용히 패스 집합 초기화.
-        const allPassed = subs.every(s => state.passedSet.has(Number(s.id)));
-        if (allPassed) {
-          for (const s of subs) state.passedSet.delete(Number(s.id));
-          savePassed();
+        // 새 모델: 챕터 뷰는 "아직 못 외운 카드(미암기)"만 보여줌.
+        // ●(다지기 등록) 카드는 챕터 뷰에서 숨기고 다지기 모드에서 관리.
+        // 다지기에서 펼침=실패 한 카드는 챕터 뷰 맨 아래에 ↺ 표시로 복귀 → 재학습.
+
+        // 1단계: ●(understoodSet)는 챕터 뷰에서 제외
+        const unmastered = subs.filter(s => !state.understoodSet.has(Number(s.id)));
+
+        // 모든 카드가 ●  → 챕터 다 외움 (빈 상태 + 다지기 안내)
+        if (subs.length > 0 && unmastered.length === 0) {
+          body = `<div class="empty-state" style="padding:24px 16px;text-align:center;background:rgba(76,175,80,0.06);border-radius:10px;margin:8px;">
+            <div style="font-size:28px;margin-bottom:6px;">✨</div>
+            <div style="font-size:14px;color:rgba(255,255,255,0.85);font-weight:600;">이 목차의 모든 카드를 다지기로 보냈어요</div>
+            <div style="font-size:12px;color:rgba(255,255,255,0.55);margin-top:6px;">상단 <strong>● 다지기</strong> 버튼에서 일정대로 만나요</div>
+          </div>`;
+          topSubId = null;
+        } else {
+          // 2단계: passedSet 자가 치유 — 모든 미암기가 패스되었으면 초기화
+          const allUnmasteredPassed = unmastered.length > 0 && unmastered.every(s => state.passedSet.has(Number(s.id)));
+          if (allUnmasteredPassed) {
+            for (const s of unmastered) state.passedSet.delete(Number(s.id));
+            savePassed();
+          }
+          hasPassed = unmastered.some(s => state.passedSet.has(Number(s.id)));
+          const visible = unmastered.filter(s => !state.passedSet.has(Number(s.id)));
+
+          // 3단계: 정렬 — 일반 미암기 먼저, 다지기 실패 복귀 카드는 맨 아래로
+          const sortedSubs = [...visible].sort((a, b) => {
+            const aFailed = state.recentlyFailedFromMemo.has(Number(a.id)) ? 1 : 0;
+            const bFailed = state.recentlyFailedFromMemo.has(Number(b.id)) ? 1 : 0;
+            if (aFailed !== bFailed) return aFailed - bFailed;
+            return (Number(a.sort_order) || 0) - (Number(b.sort_order) || 0);
+          });
+
+          // 학습 대상 = 첫 항목
+          const target = sortedSubs[0];
+          topSubId = target ? Number(target.id) : null;
+          body = sortedSubs.map((s, i) => renderSubtopic(s, i === 0)).join('');
         }
-        // 패스된 건 안 보이게 필터 (이번 회 한정)
-        hasPassed = subs.some(s => state.passedSet.has(Number(s.id)));
-        const visible = subs.filter(s => !state.passedSet.has(Number(s.id)));
-        // 정렬: 미학습 먼저, 학습완료 아래로
-        const sortedSubs = [...visible].sort((a, b) => {
-          const aDone = state.understoodSet.has(Number(a.id)) ? 1 : 0;
-          const bDone = state.understoodSet.has(Number(b.id)) ? 1 : 0;
-          if (aDone !== bDone) return aDone - bDone;
-          return (Number(a.sort_order) || 0) - (Number(b.sort_order) || 0);
-        });
-        // 학습 대상 = 첫 미학습 (있으면), 없으면 첫 학습완료 (있으면)
-        // → 완료된 단어만 남아도 버튼이 사라지지 않고 "다시" 모드로 동작
-        const target = sortedSubs.find(s => !state.understoodSet.has(Number(s.id)))
-                    || sortedSubs[0];
-        topSubId = target ? Number(target.id) : null;
-        body = sortedSubs.map(s => renderSubtopic(s, Number(s.id) === topSubId && target && !state.understoodSet.has(Number(target.id)))).join('');
       }
     }
   }
@@ -2056,10 +2085,13 @@ function renderSubtopic(s, isCurrent) {
   // 정상 모드: understood면 current 강조 안 함 (이미 학습 완료)
   // 암기 모음 모드: understood여도 맨 위 항목은 current로 강조 (학습 대상)
   const showCurrent = isCurrent && (state.memorizedView || !understood);
+  // 다지기에서 실패해 챕터 뷰로 돌아온 카드 — ↺ 표시 (정상 모드만)
+  const failedFromMemo = !state.memorizedView && state.recentlyFailedFromMemo.has(Number(s.id));
   const cls = 'subtopic'
     + (opened ? ' opened' : '')
     + (understood ? ' understood' : '')
-    + (showCurrent ? ' current' : '');
+    + (showCurrent ? ' current' : '')
+    + (failedFromMemo ? ' failed-from-memo' : '');
   const hasImg = !!s.image_b64;
 
   // 항상 보이는 미리보기 (제목 아래)
@@ -2111,6 +2143,7 @@ function renderSubtopic(s, isCurrent) {
            ontouchcancel="pressEnd()">
         <div class="subtopic-dot"></div>
         <div class="subtopic-arrow">▶</div>
+        ${failedFromMemo ? `<span class="failed-memo-badge" title="다지기에서 다시 보고 싶다고 한 카드">↺</span>` : ''}
         <div class="subtopic-title">${escapeHtml(s.title)}</div>
         ${(/[a-zA-Z]/.test(s.title || '') && !/[가-힯ᄀ-ᇿ㄰-㆏]/.test(s.title || '')) ? `
         <button class="speak-btn"
@@ -2337,11 +2370,20 @@ function studyPass(subId, topicId) {
     silentMarkUnderstood(Number(subId));
   }
 
-  // 보이는 학습 카드가 1개라도 남았는지 확인 (완료된 단어도 패스해야 사라짐)
+  // 새 모델: ● 카드는 챕터 뷰에서 안 보이므로 stillVisible 도 ● 제외
+  // 미암기 카드만 기준으로 "다 패스했나" 판정 → 다 했으면 🎉 (재학습 사이클)
   const subs = state.subtopicsByTopic[topicId] || [];
-  const stillVisible = subs.filter(s => !state.passedSet.has(Number(s.id)));
+  const unmastered = subs.filter(s => !state.understoodSet.has(Number(s.id)));
+  const stillVisible = unmastered.filter(s => !state.passedSet.has(Number(s.id)));
 
   if (stillVisible.length === 0) {
+    // 미암기가 0개면 (모두 ●) celebrate 호출 안 함 — 빈 상태 안내가 그 자리를 채움
+    if (unmastered.length === 0) {
+      withTopicAnchor(topicId, () => {
+        if (state.currentChapter) renderTree(state.currentChapter.id);
+      });
+      return;
+    }
     celebrateAndReset(topicId);
     return;
   }
@@ -2495,6 +2537,8 @@ async function silentMarkUnderstood(subId) {
   // 클라이언트 KST 시각 — 서버 kstDateTime() 호환 정렬 키
   const d = new Date(Date.now() + 9 * 3600 * 1000);
   state.understoodMarkedAt[Number(subId)] = d.toISOString().replace('T', ' ').slice(0, 19);
+  // ●가 되면 "다지기 실패 복귀" 표시는 자동 해제 — 더 이상 미암기가 아니므로
+  state.recentlyFailedFromMemo.delete(Number(subId));
   try {
     const r = await api('POST', '/understood', { subtopic_id: subId });
     // 서버가 box=1, next_review_at=내일 자동 세팅 — 받은 값 반영
@@ -2509,18 +2553,22 @@ async function silentMarkUnderstood(subId) {
   }
 }
 
-// 암기 모음 모드 — 펼친 시점에 호출. 화면 갱신·토스트 없이 understoodSet/서버만 정리
+// 다지기 모드 — 펼친 시점에 호출. 화면 갱신·토스트 없이 understoodSet/서버만 정리.
 // (스냅샷이 이번 회 화면을 고정하므로 사용자 입장에선 즉시 사라지지 않음)
-// understoodMarkedAt은 정렬 키라서 건드리지 않음 — 이번 회 정렬 순서 유지
+// understoodMarkedAt 은 정렬 키라서 건드리지 않음 — 이번 회 정렬 순서 유지.
+// 다지기에서 실패한 카드는 챕터 뷰 맨 아래에 ↺ 표시로 다시 나타남 → 재학습 가능.
 async function silentUnmarkUnderstood(subId) {
   if (!state.user) return;
   if (!state.understoodSet.has(Number(subId))) return;
   state.understoodSet.delete(Number(subId));
+  // 다지기에서 호출됐을 때만 — 챕터 뷰 정렬에서 맨 아래로 보낼 식별
+  if (state.memorizedView) state.recentlyFailedFromMemo.add(Number(subId));
   try {
     await api('POST', '/understood', { subtopic_id: subId });
   } catch (e) {
     // 실패 시 롤백 — 다음 회에도 암기로 남음
     state.understoodSet.add(Number(subId));
+    state.recentlyFailedFromMemo.delete(Number(subId));
   }
 }
 
