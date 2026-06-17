@@ -55,6 +55,13 @@
     padding: 12px 18px; z-index: 999;
     border-top: 1px solid rgba(233,69,96,0.3);
     box-shadow: 0 -4px 20px rgba(0,0,0,0.3);
+    transition: transform 0.35s ease, opacity 0.25s ease;
+}
+/* 최종 CTA가 화면에 들어오면 sticky 숨김 — 중복 CTA 방지 */
+#opRoot .op-sticky.hide {
+    transform: translate(-50%, 100%);
+    opacity: 0;
+    pointer-events: none;
 }
 #opRoot .op-sticky-text {
     display: block; font-size: 13px; font-weight: 600; color: #fff;
@@ -1114,6 +1121,19 @@
 (function () {
     var root = document.getElementById('opRoot');
     if (!root) return;
+
+    // ── 최종 CTA 보일 때 sticky 바 자동 숨김 ──
+    try {
+        var sticky = root.querySelector('.op-sticky');
+        var finalCta = root.querySelector('.op-final');
+        if (sticky && finalCta && 'IntersectionObserver' in window) {
+            new IntersectionObserver(function (entries) {
+                entries.forEach(function (e) {
+                    sticky.classList.toggle('hide', e.isIntersecting);
+                });
+            }, { threshold: 0.15 }).observe(finalCta);
+        }
+    } catch (e) {}
 
     // ── 추천 코드 캡쳐 (?ref=CODE → localStorage) ──
     try {
