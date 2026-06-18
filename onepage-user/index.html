@@ -2077,6 +2077,10 @@ function toggleMemorizedView() {
     state.memorizedBoxOpen = {1:true, 2:false, 3:false, 4:false, 5:false, 6:false};
     // 다지기 펼침 이력 초기화 — 다지기 안에서 펼친 것만 패스 판정에 사용
     state.memorizedExpandedSet = new Set();
+    // 일반 모드/이전 세션에서 누적된 passedSet 잔여 항목 제거 — 다지기에서는 카드가 다 보여야 함
+    // (다지기 박스 안 카드들에 한해서만 클리어. 일반 모드의 다른 챕터/패스 이력은 보존)
+    for (const sid of state.memoSnapshotIds) state.passedSet.delete(sid);
+    savePassed();
     // 오늘 통계 KST 자정 지났을 수 있으니 다시 로드 (자동 리셋 포함)
     if (state.currentChapter) loadTodayStats(state.currentChapter.id);
   } else {
