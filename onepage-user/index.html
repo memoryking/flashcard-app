@@ -1240,7 +1240,8 @@ const state = {
   passedSet: new Set(),       // 이번 회 패스한 학습 카드 (세션만 — 새로고침 시 복원)
   memorizedView: false,       // 챕터 내 암기 모음 모드 (꾹누른 학습 카드만 모아보기)
   memoSnapshotIds: new Set(), // 암기 모음 진입 시 보여줄 학습 카드 스냅샷 — 펼친 항목이 미암기로 분류돼도 이번 회는 그대로 보이게
-  everExpandedSet: new Set(), // 이 챕터 진입 후 한 번이라도 펼쳐본 학습 카드 — 패스 시 자동 ●/미암기 판정에 사용. 챕터 나가면 초기화
+  everExpandedSet: new Set(), // 이 챕터 진입 후 한 번이라도 펼쳐본 학습 카드 — 일반 모드 패스 판정용. 챕터 나가면 초기화
+  memorizedExpandedSet: new Set(), // 다지기 모드 진입 후 펼친 카드 — 다지기 패스 판정용. 다지기 토글 ON 시 초기화
   recentlyFailedFromMemo: new Set(), // 이번 챕터 진입 중 다지기에서 실패(펼침)해서 챕터 뷰로 돌아온 카드 — 챕터 뷰 정렬 시 맨 아래로
   peekedPassedSet: new Set(), // 펼친 뒤 패스해서 "틀린 단어"로 확정된 카드 — 챕터 뷰 정렬·색 구분용. 펼치는 순간이 아니라 패스 후에야 추가
   expanded: { topic: new Set(), subtopic: new Set() },
@@ -1777,6 +1778,7 @@ async function enterChapter(chapterId) {
   state.memorizedView = false;
   state.memoSnapshotIds = new Set();
   state.everExpandedSet = new Set();   // 펼침 이력 초기화 — 챕터 단위로 유지
+  state.memorizedExpandedSet = new Set();  // 다지기 모드 펼침 이력도 초기화
   state.recentlyFailedFromMemo = new Set();  // 다지기 실패 → 챕터 뷰 복귀 표시 초기화
   state.peekedPassedSet = new Set();   // 펼친 뒤 패스 = "틀린 단어" 표시 초기화
   state.normalMode = 'new';            // 챕터 진입 시 new 탭 기본
@@ -2073,6 +2075,8 @@ function toggleMemorizedView() {
     prefetchMemoSnapshot();
     // 박스 펼침 기본 상태 (오늘만 펼침) — 매 진입 시 리셋
     state.memorizedBoxOpen = {1:true, 2:false, 3:false, 4:false, 5:false, 6:false};
+    // 다지기 펼침 이력 초기화 — 다지기 안에서 펼친 것만 패스 판정에 사용
+    state.memorizedExpandedSet = new Set();
     // 오늘 통계 KST 자정 지났을 수 있으니 다시 로드 (자동 리셋 포함)
     if (state.currentChapter) loadTodayStats(state.currentChapter.id);
   } else {
@@ -2087,9 +2091,10 @@ function toggleMemorizedView() {
 
 // 암기 모음 모드의 패스 — 현재 항목을 이번 회에서 제외
 function memorizedPass(subId) {
-  // v2 다지기 패스 — was_peeked 판정 (이 챕터 안에서 펼친 적 있는지)
+  // v2 다지기 패스 — was_peeked 판정은 '다지기 안에서 펼쳤는지'만 봄
+  // (다른 모드(new/별표/all)에서 펼친 이력은 무시 — 다지기 안에서 안 펼치고 패스하면 advance)
   const sid = Number(subId);
-  const wasPeeked = state.everExpandedSet.has(sid);
+  const wasPeeked = state.memorizedExpandedSet.has(sid);
 
   // 낙관적 박스/통계 갱신 — UI 즉시 반영, 서버 응답은 백그라운드
   if (state.understoodSet.has(sid)) {
@@ -2657,21 +2662,17 @@ function subClick(e, subId) {
     // 아코디언: 다른 학습 카드 모두 닫고 이것만 열기
     state.expanded.subtopic.clear();
     state.expanded.subtopic.add(subId);
-    // 이 챕터 안에서 한 번이라도 펼친 항목은 기억 — 패스 시 was_peeked 판정에 사용
+    // 이 챕터 안에서 한 번이라도 펼친 항목은 기억 — 일반 모드 패스 판정용
     // 같은 세션 내 같은 카드 중복 펼침은 1회만 count (중복 peek 방지)
     const firstExpand = !state.everExpandedSet.has(Number(subId));
     state.everExpandedSet.add(Number(subId));
+    // 다지기 모드에서 펼친 것은 별도 추적 — 다지기 패스 판정용 (다지기 진입 시 리셋)
+    if (state.memorizedView) state.memorizedExpandedSet.add(Number(subId));
 
     // v2: 행이 있는 카드 (별표/all/다지기에서 펼침) = miss_count +1 서버 동기화
     // 새 카드(no row, new 탭에서 펼침)는 client 상태만 — 패스 시점에 행 생성됨
     if (firstExpand && state.understoodSet.has(Number(subId))) {
       apiPeek(Number(subId));
-    }
-
-    // 암기 모음 모드에서 펼치는 순간 = "다시 봐야 한다" → 자동으로 미암기로 분류
-    // 스냅샷에는 남아 있어 이번 회 화면에서는 그대로 보이고, 다음 회 진입 시 빠짐
-    if (state.memorizedView && state.understoodSet.has(Number(subId))) {
-      silentUnmarkUnderstood(Number(subId));
     }
   }
   renderTree(state.currentChapter.id);
