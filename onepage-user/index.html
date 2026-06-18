@@ -1235,8 +1235,7 @@ const state = {
   understoodLastMovedAt: {},  // subtopic_id → last_moved_at (v2: 박스 이동 시각, 다지기 박스 안 정렬용)
   normalMode: 'new',          // v2: 'new' | 'star' | 'all' — 일반 모드 탭. 챕터 진입 시 'new' 기본
   memorizedBoxOpen: {1:true, 2:false, 3:false, 4:false, 5:false, 6:false}, // v2: 다지기 6박스 펼침 상태. 오늘만 기본 펼침
-  todayStatsEntered: 0,       // v2: 오늘 박스에 들어온 누적 카드 (klika 분모)
-  todayStatsCleared: 0,       // v2: 오늘 박스에서 내일 박스로 진급한 카드 (klika 분자)
+  todayStatsCleared: 0,       // v2: 오늘 박스에서 내일 박스로 진급한 카드 (분자). 분모는 동적 계산
   todayStatsDate: '',         // v2: KST 날짜 키 — 자정 지나면 자동 리셋
   passedSet: new Set(),       // 이번 회 패스한 학습 카드 (세션만 — 새로고침 시 복원)
   memorizedView: false,       // 챕터 내 암기 모음 모드 (꾹누른 학습 카드만 모아보기)
@@ -1965,9 +1964,10 @@ function renderMemorizedView(chapterId, hasAccess) {
     `;
   }
 
-  // 오늘 클리어율 — 분모: 오늘 박스 들어온 누적 / 분자: 오늘→내일 진급 카드
-  const entered = state.todayStatsEntered || 0;
+  // 오늘 클리어율 — 분모: 현재 오늘 박스 카드 수 + 오늘 cleared 누적 / 분자: cleared
   const cleared = state.todayStatsCleared || 0;
+  const currentBox1 = byBox[1].length;
+  const entered = currentBox1 + cleared;
   const pct = entered > 0 ? Math.round((cleared / entered) * 100) : 0;
   const clearBar = `
     <div class="srs-clear">
@@ -2738,7 +2738,7 @@ async function silentAdvanceUnderstood(subId) {
 // 챕터 단위 localStorage, KST 자정 지나면 자동 리셋
 function todayStatsKey(chapterId) { return 'op_today_stats_' + chapterId; }
 function kstTodayStr() { return new Date(Date.now() + 9*3600*1000).toISOString().slice(0,10); }
-// 현재 오늘 박스에 있는 카드 수 (effectiveBox=1) — entered 베이스라인 계산용
+// 현재 오늘 박스(effectiveBox=1) 카드 수 — 분모 동적 계산용
 function countTodayBoxCards(chapterId) {
   const topics = state.topicsByChapter[chapterId] || [];
   let count = 0;
@@ -2761,62 +2761,42 @@ function loadTodayStats(chapterId) {
     const j = raw ? JSON.parse(raw) : null;
     const today = kstTodayStr();
     if (j && j.date === today) {
-      // 같은 날 — 저장된 값 사용
-      state.todayStatsEntered = Number(j.entered) || 0;
       state.todayStatsCleared = Number(j.cleared) || 0;
       state.todayStatsDate = today;
     } else {
-      // 날짜 바뀜 또는 처음 — 현재 오늘 박스 카드 수를 entered 베이스라인으로
-      // (data가 아직 안 로드됐으면 0, ensureTodayStatsCurrent에서 다시 계산)
-      const baseline = countTodayBoxCards(chapterId);
-      state.todayStatsEntered = baseline;
       state.todayStatsCleared = 0;
       state.todayStatsDate = today;
       saveTodayStats(chapterId);
     }
   } catch {
-    state.todayStatsEntered = 0; state.todayStatsCleared = 0;
+    state.todayStatsCleared = 0;
     state.todayStatsDate = kstTodayStr();
   }
 }
 
-// 렌더 직전에 호출 — 데이터가 늦게 로드된 경우 베이스라인 재계산
+// 렌더 직전 호출 — 자정 지나면 cleared 자동 리셋
 function ensureTodayStatsCurrent(chapterId) {
   const today = kstTodayStr();
-  if (state.todayStatsDate !== today) {
-    loadTodayStats(chapterId);
-    return;
-  }
-  // 베이스라인이 0인데 실제로 오늘 박스에 카드가 있으면 (초기 데이터 로드 후) 갱신
-  if (state.todayStatsEntered === 0 && state.todayStatsCleared === 0) {
-    const baseline = countTodayBoxCards(chapterId);
-    if (baseline > 0) {
-      state.todayStatsEntered = baseline;
-      saveTodayStats(chapterId);
-    }
-  }
+  if (state.todayStatsDate !== today) loadTodayStats(chapterId);
 }
 function saveTodayStats(chapterId) {
   try {
     localStorage.setItem(todayStatsKey(chapterId), JSON.stringify({
       date: state.todayStatsDate || kstTodayStr(),
-      entered: state.todayStatsEntered,
       cleared: state.todayStatsCleared,
     }));
   } catch {}
 }
 // 카드의 박스 전이에 따라 통계 갱신
+// 분모는 동적으로 계산 (currentBox1 + cleared) — entered 별도 추적 안 함
 // prevBox=null (행이 없었음, new) / prevBox=N (기존 박스), newBox=새 박스
 function bumpTodayStats(prevBox, newBox) {
   if (!state.currentChapter) return;
   const cid = state.currentChapter.id;
-  // 일자 바뀌면 리셋 후 갱신
   const today = kstTodayStr();
   if (state.todayStatsDate !== today) {
-    state.todayStatsEntered = 0; state.todayStatsCleared = 0; state.todayStatsDate = today;
+    state.todayStatsCleared = 0; state.todayStatsDate = today;
   }
-  // 오늘 박스(1)로 들어옴 — 분모 +1 (단 이미 1이었으면 제외)
-  if (newBox === 1 && prevBox !== 1) state.todayStatsEntered++;
   // 오늘 박스(1)에서 내일 박스(2) 이상으로 진급 — 분자 +1
   if (prevBox === 1 && newBox >= 2) state.todayStatsCleared++;
   saveTodayStats(cid);
