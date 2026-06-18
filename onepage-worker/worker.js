@@ -1365,8 +1365,16 @@ async function handleUnderstoodPass(request, env) {
   const isDue = !nextReviewDate || nextReviewDate <= todayDate;
 
   if (isDue) {
-    // 오늘 박스 위치 (literal box=1 또는 미래 박스인데 due 됨) + 안 펼치고 패스 → advance
-    const newBox = Math.min(currentBox + 1, 6);
+    // 모델 C (하이브리드):
+    //  - literal box=1 + due + 안 펼침 → box=2 (내일) 로 advance (standard)
+    //  - literal box=2 + due + 안 펼침 → box=2 유지, next_review만 내일로 refresh
+    //  - literal box=3+ + due + 안 펼침 → box+1 advance (standard SRS)
+    let newBox;
+    if (currentBox === 2) {
+      newBox = 2; // 그대로 유지, next_review만 갱신
+    } else {
+      newBox = Math.min(currentBox + 1, 6);
+    }
     await ncbUpdate(env, 'op_understood', existing.id, {
       review_box: newBox,
       next_review_at: nextReviewForBox(newBox),
