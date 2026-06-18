@@ -364,21 +364,20 @@ a { color: #4fc3f7; text-decoration: none; }
   padding: 14px 18px 16px;
   text-align: center;
 }
-/* 일반 모드 3탭 — new / 별표 / all */
+/* 일반 모드 3탭 — new / 별표 / all (각 목차 안 학습 카드 위) */
 .mode-tabs {
-  display: flex; gap: 6px;
-  padding: 10px 14px 6px;
-  background: #0a0a1a;
-  border-bottom: 1px solid rgba(255,255,255,0.05);
+  display: flex; gap: 5px;
+  padding: 8px 10px 4px;
+  margin: 2px 4px 4px;
 }
 .mode-tabs.hide { display: none; }
 .mode-tab {
-  flex: 1; padding: 9px 8px;
+  flex: 1; padding: 7px 6px;
   background: rgba(255,255,255,0.04);
   color: rgba(255,255,255,0.55);
   border: 1px solid rgba(255,255,255,0.08);
-  border-radius: 10px;
-  font-size: 13px; font-weight: 700;
+  border-radius: 8px;
+  font-size: 12px; font-weight: 700;
   cursor: pointer; transition: all 0.18s ease;
 }
 .mode-tab:hover { background: rgba(255,255,255,0.07); color: rgba(255,255,255,0.8); }
@@ -386,7 +385,7 @@ a { color: #4fc3f7; text-decoration: none; }
   background: linear-gradient(135deg, rgba(233,69,96,0.18), rgba(83,52,131,0.12));
   border-color: rgba(233,69,96,0.5);
   color: #ff8a9e;
-  box-shadow: 0 2px 8px rgba(233,69,96,0.15);
+  box-shadow: 0 2px 6px rgba(233,69,96,0.15);
 }
 .chapter-header .ch-subj {
   display: inline-block;
@@ -1111,12 +1110,6 @@ a { color: #4fc3f7; text-decoration: none; }
     <div class="ch-subj" id="chSubj">수학</div>
     <div class="ch-name" id="chName">미분</div>
     <div class="ch-meta" id="chMeta"></div>
-  </div>
-  <!-- 일반 모드 3탭 (다지기 모드 ON일 땐 숨김) -->
-  <div class="mode-tabs" id="modeTabs">
-    <button class="mode-tab active" data-mode="new" onclick="switchNormalMode('new')">new</button>
-    <button class="mode-tab" data-mode="star" onclick="switchNormalMode('star')">★ 별표</button>
-    <button class="mode-tab" data-mode="all" onclick="switchNormalMode('all')">all</button>
   </div>
   <div class="chapter-tree" id="chapterTree"></div>
 </div>
@@ -2095,6 +2088,10 @@ function renderTopic(t, hasAccess) {
           topSubId = target ? Number(target.id) : null;
           body = sortedSubs.map(s => renderSubtopic(s, Number(s.id) === topSubId)).join('');
         }
+        // 일반 모드 — 학습 카드 위에 3탭 (다지기 ON일 땐 안 보임)
+        if (!state.memorizedView) {
+          body = renderModeTabs() + body;
+        }
       }
     }
   }
@@ -2598,15 +2595,15 @@ async function silentAdvanceUnderstood(subId) {
 }
 
 // ─── v2 학습 시스템 API 액션 ──────────────────────────────
-// 모드 탭 UI 갱신 (active 클래스 + 다지기 ON일 땐 탭 숨김)
-function refreshModeTabsUI() {
-  const tabs = $('modeTabs');
-  if (!tabs) return;
-  tabs.classList.toggle('hide', !!state.memorizedView);
-  for (const btn of tabs.querySelectorAll('.mode-tab')) {
-    btn.classList.toggle('active', btn.dataset.mode === state.normalMode);
-  }
+// 일반 모드 3탭 HTML 생성 — renderTopic이 body 위에 prepend
+function renderModeTabs() {
+  const cur = state.normalMode || 'new';
+  const mk = (m, label) => `<button class="mode-tab${cur === m ? ' active' : ''}" data-mode="${m}" onclick="event.stopPropagation();switchNormalMode('${m}')">${label}</button>`;
+  return `<div class="mode-tabs">${mk('new', 'new')}${mk('star', '★ 별표')}${mk('all', 'all')}</div>`;
 }
+
+// (구) refreshModeTabsUI — 현재는 renderTree 재호출로 충분. 무동작 stub.
+function refreshModeTabsUI() {}
 
 // 일반 모드 탭 전환 (new/star/all)
 function switchNormalMode(mode) {
@@ -2616,9 +2613,7 @@ function switchNormalMode(mode) {
   state.expanded.subtopic.clear();
   state.passedSet.clear();
   savePassed();
-  refreshModeTabsUI();
   if (state.currentChapter) renderTree(state.currentChapter.id);
-  window.scrollTo({ top: 0, behavior: 'smooth' });
 }
 
 // 펼친 시점 호출 — 행이 있으면 서버 miss_count +1
