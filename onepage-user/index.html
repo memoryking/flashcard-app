@@ -1930,6 +1930,8 @@ const SRS_BOX_META = [
 ];
 
 function renderMemorizedView(chapterId, hasAccess) {
+  // 통계 베이스라인 갱신 (데이터 로드 늦었거나 자정 지난 경우)
+  ensureTodayStatsCurrent(chapterId);
   const topics = state.topicsByChapter[chapterId] || [];
 
   // 스냅샷 안 카드들을 효과 박스(1~6)로 그룹화
@@ -1988,8 +1990,8 @@ function renderMemorizedView(chapterId, hasAccess) {
     const totalInBox = cards.length;
     const visibleCards = cards.filter(s => !state.passedSet.has(Number(s.id)));
 
-    // 박스가 비어있으면(0) 박스 자체 표시 안 함 — 필요하면 보여줄 수 있음 (현재는 숨김)
-    if (totalInBox === 0) continue;
+    // 오늘 학습 박스는 항상 표시 (사용자 진행 상태 확인). 다른 박스는 비어 있으면 숨김.
+    if (totalInBox === 0 && b !== 1) continue;
 
     // 모두 패스됐는데 박스 안 카드가 남아있으면 → 패스 자동 리셋 (다시 처음으로)
     if (visibleCards.length === 0 && totalInBox > 0) {
@@ -2084,14 +2086,36 @@ function toggleMemorizedView() {
 // 암기 모음 모드의 패스 — 현재 항목을 이번 회에서 제외
 function memorizedPass(subId) {
   // v2 다지기 패스 — was_peeked 판정 (이 챕터 안에서 펼친 적 있는지)
-  const wasPeeked = state.everExpandedSet.has(Number(subId));
-  // 박스 결정: 1=오늘 → 안 펼침 시 advance, 펼침 시 그대로
-  //          2~6 미래 → 안 펼침 시 그대로, 펼침 시 box=1 강등
-  // → 서버 apiPass 에 위임 (이미 box별 분기 처리됨)
-  apiPass(Number(subId), wasPeeked);
+  const sid = Number(subId);
+  const wasPeeked = state.everExpandedSet.has(sid);
 
-  state.passedSet.add(Number(subId));
-  state.expanded.subtopic.delete(Number(subId));
+  // 낙관적 박스/통계 갱신 — UI 즉시 반영, 서버 응답은 백그라운드
+  if (state.understoodSet.has(sid)) {
+    const cur = Number(state.understoodBox[sid]) || 1;
+    let nxt = cur;
+    if (wasPeeked) {
+      // 펼친 뒤 패스 → box=1 강등
+      nxt = 1;
+    } else if (cur === 1) {
+      // 오늘 박스 + 안 펼침 → advance
+      nxt = Math.min(cur + 1, 6);
+    }
+    // 미래 박스 + 안 펼침 → 변경 없음
+    if (nxt !== cur) {
+      state.understoodBox[sid] = nxt;
+      bumpTodayStats(cur, nxt);
+      // next_review_at 도 낙관적 계산
+      const BOX_DUE_DAYS = [null, 0, 1, 4, 8, 16, 32];
+      const days = BOX_DUE_DAYS[nxt] || 0;
+      const due = new Date(Date.now() + 9*3600*1000 + days*86400*1000);
+      state.understoodNextReview[sid] = due.toISOString().slice(0, 19).replace('T', ' ');
+    }
+  }
+  // 서버 동기화 (백그라운드, 통계는 이미 낙관적 처리됨 — apiPass 중복 호출 X)
+  api('POST', '/understood/pass', { subtopic_id: sid, was_peeked: wasPeeked }).catch(() => {});
+
+  state.passedSet.add(sid);
+  state.expanded.subtopic.delete(sid);
   savePassed();
 
   // 모두 검토 끝났는지 확인
@@ -2714,28 +2738,62 @@ async function silentAdvanceUnderstood(subId) {
 // 챕터 단위 localStorage, KST 자정 지나면 자동 리셋
 function todayStatsKey(chapterId) { return 'op_today_stats_' + chapterId; }
 function kstTodayStr() { return new Date(Date.now() + 9*3600*1000).toISOString().slice(0,10); }
+// 현재 오늘 박스에 있는 카드 수 (effectiveBox=1) — entered 베이스라인 계산용
+function countTodayBoxCards(chapterId) {
+  const topics = state.topicsByChapter[chapterId] || [];
+  let count = 0;
+  for (const t of topics) {
+    const subs = state.subtopicsByTopic[t.id] || [];
+    for (const s of subs) {
+      const sid = Number(s.id);
+      if (!state.understoodSet.has(sid)) continue;
+      const days = dueDaysLeft(state.understoodNextReview[sid]);
+      const box = days <= 0 ? 1 : (Number(state.understoodBox[sid]) || 1);
+      if (box === 1) count++;
+    }
+  }
+  return count;
+}
+
 function loadTodayStats(chapterId) {
   try {
     const raw = localStorage.getItem(todayStatsKey(chapterId));
-    if (!raw) {
-      state.todayStatsEntered = 0; state.todayStatsCleared = 0;
-      state.todayStatsDate = kstTodayStr();
-      return;
-    }
-    const j = JSON.parse(raw);
+    const j = raw ? JSON.parse(raw) : null;
     const today = kstTodayStr();
-    if (j.date !== today) {
-      state.todayStatsEntered = 0; state.todayStatsCleared = 0;
-      state.todayStatsDate = today;
-      saveTodayStats(chapterId);
-    } else {
+    if (j && j.date === today) {
+      // 같은 날 — 저장된 값 사용
       state.todayStatsEntered = Number(j.entered) || 0;
       state.todayStatsCleared = Number(j.cleared) || 0;
-      state.todayStatsDate = j.date;
+      state.todayStatsDate = today;
+    } else {
+      // 날짜 바뀜 또는 처음 — 현재 오늘 박스 카드 수를 entered 베이스라인으로
+      // (data가 아직 안 로드됐으면 0, ensureTodayStatsCurrent에서 다시 계산)
+      const baseline = countTodayBoxCards(chapterId);
+      state.todayStatsEntered = baseline;
+      state.todayStatsCleared = 0;
+      state.todayStatsDate = today;
+      saveTodayStats(chapterId);
     }
   } catch {
     state.todayStatsEntered = 0; state.todayStatsCleared = 0;
     state.todayStatsDate = kstTodayStr();
+  }
+}
+
+// 렌더 직전에 호출 — 데이터가 늦게 로드된 경우 베이스라인 재계산
+function ensureTodayStatsCurrent(chapterId) {
+  const today = kstTodayStr();
+  if (state.todayStatsDate !== today) {
+    loadTodayStats(chapterId);
+    return;
+  }
+  // 베이스라인이 0인데 실제로 오늘 박스에 카드가 있으면 (초기 데이터 로드 후) 갱신
+  if (state.todayStatsEntered === 0 && state.todayStatsCleared === 0) {
+    const baseline = countTodayBoxCards(chapterId);
+    if (baseline > 0) {
+      state.todayStatsEntered = baseline;
+      saveTodayStats(chapterId);
+    }
   }
 }
 function saveTodayStats(chapterId) {
