@@ -1242,7 +1242,8 @@ const state = {
   memoSnapshotIds: new Set(), // 암기 모음 진입 시 보여줄 학습 카드 스냅샷 — 펼친 항목이 미암기로 분류돼도 이번 회는 그대로 보이게
   everExpandedSet: new Set(), // 이 챕터 진입 후 한 번이라도 펼쳐본 학습 카드 — 일반 모드 패스 판정용. 챕터 나가면 초기화
   memorizedExpandedSet: new Set(), // 다지기 모드 진입 후 펼친 카드 — 다지기 패스 판정용. 다지기 토글 ON 시 초기화
-  memorizedAddressedSet: new Set(), // 다지기 모드 진입 후 한 번이라도 패스 처리한 카드 — celebration 판정용. 다지기 토글 ON 시 초기화
+  memorizedAddressedSet: new Set(), // 다지기 모드 진입 후 한 번이라도 패스 처리한 카드 — 통계/디버그용
+  memorizedClearedToday: false, // 이번 라운드에서 오늘 학습 카드를 한 번이라도 클리어(effPrev=1 → effNxt≠1)했는가
   celebrationActive: false, // celebration 애니메이션 진행 중 — 추가 패스가 또 celebration 발사하지 않게 가드
   recentlyFailedFromMemo: new Set(), // 이번 챕터 진입 중 다지기에서 실패(펼침)해서 챕터 뷰로 돌아온 카드 — 챕터 뷰 정렬 시 맨 아래로
   peekedPassedSet: new Set(), // 펼친 뒤 패스해서 "틀린 단어"로 확정된 카드 — 챕터 뷰 정렬·색 구분용. 펼치는 순간이 아니라 패스 후에야 추가
@@ -2090,6 +2091,7 @@ function toggleMemorizedView() {
     state.memorizedExpandedSet = new Set();
     // 다지기 처리 이력 초기화 — celebration 판정용
     state.memorizedAddressedSet = new Set();
+    state.memorizedClearedToday = false;
     // 일반 모드/이전 세션에서 누적된 passedSet 잔여 항목 제거 — 다지기에서는 카드가 다 보여야 함
     // (다지기 박스 안 카드들에 한해서만 클리어. 일반 모드의 다른 챕터/패스 이력은 보존)
     for (const sid of state.memoSnapshotIds) state.passedSet.delete(sid);
@@ -2156,6 +2158,10 @@ function memorizedPass(subId) {
     } else {
       state.passedSet.add(sid);
     }
+    // 오늘 학습에서 미래 박스로 이동(=실제 클리어) 추적 — celebration 트리거 조건
+    if (effPrev === 1 && effNxt !== 1) {
+      state.memorizedClearedToday = true;
+    }
   } else {
     // understoodSet에 없는 카드 (이론상 다지기에서는 없어야 함) — 기존 동작 유지
     state.passedSet.add(sid);
@@ -2170,25 +2176,21 @@ function memorizedPass(subId) {
   state.expanded.subtopic.delete(sid);
   savePassed();
 
-  // 모두 검토 끝났는지 확인 — 스냅샷 카드를 모두 한 번씩 처리했는가
+  // 라운드 완료 조건:
+  //  1) 오늘 학습(effective box=1) 박스가 비었음
+  //  2) 이번 라운드에서 오늘 학습 카드를 한 번이라도 클리어했음 (미래 박스 무한 사이클로 발사 안 함)
+  //  3) celebration 진행 중 아님
   const cid = state.currentChapter && state.currentChapter.id;
   if (!cid) return;
-  const topics = state.topicsByChapter[cid] || [];
-  const remaining = [];
-  for (const t of topics) {
-    const subs = state.subtopicsByTopic[t.id] || [];
-    for (const s of subs) {
-      if (state.memoSnapshotIds.has(Number(s.id)) && !state.memorizedAddressedSet.has(Number(s.id))) remaining.push(s);
-    }
-  }
+  const todayBoxCount = countTodayBoxCards(cid);
 
-  // celebration 중복 발사 방지: 이미 진행 중이면 추가 발사 안 함
-  // (단, 화면 갱신은 항상 — 2.2s celebration 동안 사용자 다음 액션이 시각적으로 반영되도록)
-  if (remaining.length === 0 && !state.celebrationActive) {
+  if (todayBoxCount === 0 && state.memorizedClearedToday && !state.celebrationActive) {
+    const topics = state.topicsByChapter[cid] || [];
     state.celebrationActive = true;
     showCelebration();
     setTimeout(() => {
       state.celebrationActive = false;
+      state.memorizedClearedToday = false; // 새 라운드 시작
       // 암기 모음 내 패스/처리 이력 정리 (정상 모드의 다른 챕터 패스는 건드리지 않음)
       //  + 펼침 이력도 초기화 — 새 라운드 시작이므로 이전에 펼친 카드도 "안 펼침" 상태로 리셋
       for (const t of topics) {
