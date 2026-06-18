@@ -2160,6 +2160,8 @@ function memorizedPass(subId) {
 
   // 다지기 처리 이력 — celebration 판정용 (박스 이동과 무관하게 "이번 라운드에서 처리한 카드")
   state.memorizedAddressedSet.add(sid);
+  // 펼침 이력은 이 pass로 소비됨 — 다음 pass는 fresh 평가 (peek+pass로 강등된 카드를 다시 anpel로 advance 가능)
+  state.memorizedExpandedSet.delete(sid);
   state.expanded.subtopic.delete(sid);
   savePassed();
 
