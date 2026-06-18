@@ -1993,30 +1993,35 @@ function renderMemorizedView(chapterId, hasAccess) {
     const meta = SRS_BOX_META[b];
     const isOpen = !!state.memorizedBoxOpen[b];
     const totalInBox = cards.length;
-    const visibleCards = cards.filter(s => !state.passedSet.has(Number(s.id)));
+    const unpassedCards = cards.filter(s => !state.passedSet.has(Number(s.id)));
 
     // 오늘 학습 박스는 항상 표시 (사용자 진행 상태 확인). 다른 박스는 비어 있으면 숨김.
     if (totalInBox === 0 && b !== 1) continue;
 
     // 모두 패스됐는데 박스 안 카드가 남아있으면 → 패스 자동 리셋 (다시 처음으로)
-    if (visibleCards.length === 0 && totalInBox > 0) {
+    if (unpassedCards.length === 0 && totalInBox > 0) {
       for (const s of cards) state.passedSet.delete(Number(s.id));
       savePassed();
-      visibleCards.push(...cards);
+      unpassedCards.push(...cards);
     }
+
+    // 박스 본문 표시 카드:
+    //  - 오늘 학습 (b=1): 패스된 카드 숨김 (리뷰 사이클 — 처리한 카드는 안 보이게)
+    //  - 미래 박스 (b>=2): 전체 표시 (인벤토리 뷰 — "이 박스에 어떤 카드가 있는지" 한눈에)
+    const displayCards = b === 1 ? unpassedCards : cards;
 
     // 펼침 상태일 때만 카드 HTML 생성
     let cardsHtml = '';
     if (isOpen) {
-      cardsHtml = visibleCards.map((s) => {
+      cardsHtml = displayCards.map((s) => {
         const isTop = (b === 1 && topIdx === 0);
         if (isTop) topIdx++;
         return renderSubtopic(s, isTop);
       }).join('');
     }
 
-    // 박스 패스 버튼은 첫 visible 카드를 패스 대상으로
-    const passTarget = visibleCards[0] ? visibleCards[0].id : null;
+    // 박스 패스 버튼은 첫 unpassed 카드를 패스 대상으로
+    const passTarget = unpassedCards[0] ? unpassedCards[0].id : null;
     const passBtnHtml = passTarget != null
       ? `<button class="srs-box-pass" onclick="event.stopPropagation();memorizedPass(${passTarget})" title="박스 첫 카드 패스">⤴ 패스</button>`
       : '';
