@@ -1243,6 +1243,7 @@ const state = {
   everExpandedSet: new Set(), // 이 챕터 진입 후 한 번이라도 펼쳐본 학습 카드 — 일반 모드 패스 판정용. 챕터 나가면 초기화
   memorizedExpandedSet: new Set(), // 다지기 모드 진입 후 펼친 카드 — 다지기 패스 판정용. 다지기 토글 ON 시 초기화
   memorizedAddressedSet: new Set(), // 다지기 모드 진입 후 한 번이라도 패스 처리한 카드 — celebration 판정용. 다지기 토글 ON 시 초기화
+  celebrationActive: false, // celebration 애니메이션 진행 중 — 추가 패스가 또 celebration 발사하지 않게 가드
   recentlyFailedFromMemo: new Set(), // 이번 챕터 진입 중 다지기에서 실패(펼침)해서 챕터 뷰로 돌아온 카드 — 챕터 뷰 정렬 시 맨 아래로
   peekedPassedSet: new Set(), // 펼친 뒤 패스해서 "틀린 단어"로 확정된 카드 — 챕터 뷰 정렬·색 구분용. 펼치는 순간이 아니라 패스 후에야 추가
   expanded: { topic: new Set(), subtopic: new Set() },
@@ -1999,8 +2000,12 @@ function renderMemorizedView(chapterId, hasAccess) {
     if (totalInBox === 0 && b !== 1) continue;
 
     // 모두 패스됐는데 박스 안 카드가 남아있으면 → 패스 자동 리셋 (다시 처음으로)
+    //  + 펼침 이력도 같이 청소 — 리셋된 카드는 fresh 상태로 다음 라운드 평가
     if (unpassedCards.length === 0 && totalInBox > 0) {
-      for (const s of cards) state.passedSet.delete(Number(s.id));
+      for (const s of cards) {
+        state.passedSet.delete(Number(s.id));
+        state.memorizedExpandedSet.delete(Number(s.id));
+      }
       savePassed();
       unpassedCards.push(...cards);
     }
@@ -2177,13 +2182,15 @@ function memorizedPass(subId) {
     }
   }
 
-  if (remaining.length === 0) {
+  // celebration 중복 발사 방지: 이미 진행 중이면 추가 발사 안 함
+  // (단, 화면 갱신은 항상 — 2.2s celebration 동안 사용자 다음 액션이 시각적으로 반영되도록)
+  if (remaining.length === 0 && !state.celebrationActive) {
+    state.celebrationActive = true;
     showCelebration();
     setTimeout(() => {
+      state.celebrationActive = false;
       // 암기 모음 내 패스/처리 이력 정리 (정상 모드의 다른 챕터 패스는 건드리지 않음)
       //  + 펼침 이력도 초기화 — 새 라운드 시작이므로 이전에 펼친 카드도 "안 펼침" 상태로 리셋
-      //    (그렇지 않으면 peek+pass로 box=1에 머문 카드가 새 라운드에서 anpel pass해도
-      //     wasPeeked=true로 판정되어 advance가 안 됨)
       for (const t of topics) {
         const subs = state.subtopicsByTopic[t.id] || [];
         for (const s of subs) {
@@ -2200,9 +2207,9 @@ function memorizedPass(subId) {
       prefetchMemoSnapshot();
       if (state.memorizedView && state.currentChapter) renderTree(state.currentChapter.id);
     }, 2200);
-    return;
   }
 
+  // 항상 화면 갱신 — celebration 진행 중에도 카드 이동을 즉시 반영
   if (state.currentChapter) renderTree(state.currentChapter.id);
 }
 
