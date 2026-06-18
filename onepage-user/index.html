@@ -364,6 +364,30 @@ a { color: #4fc3f7; text-decoration: none; }
   padding: 14px 18px 16px;
   text-align: center;
 }
+/* 일반 모드 3탭 — new / 별표 / all */
+.mode-tabs {
+  display: flex; gap: 6px;
+  padding: 10px 14px 6px;
+  background: #0a0a1a;
+  border-bottom: 1px solid rgba(255,255,255,0.05);
+}
+.mode-tabs.hide { display: none; }
+.mode-tab {
+  flex: 1; padding: 9px 8px;
+  background: rgba(255,255,255,0.04);
+  color: rgba(255,255,255,0.55);
+  border: 1px solid rgba(255,255,255,0.08);
+  border-radius: 10px;
+  font-size: 13px; font-weight: 700;
+  cursor: pointer; transition: all 0.18s ease;
+}
+.mode-tab:hover { background: rgba(255,255,255,0.07); color: rgba(255,255,255,0.8); }
+.mode-tab.active {
+  background: linear-gradient(135deg, rgba(233,69,96,0.18), rgba(83,52,131,0.12));
+  border-color: rgba(233,69,96,0.5);
+  color: #ff8a9e;
+  box-shadow: 0 2px 8px rgba(233,69,96,0.15);
+}
 .chapter-header .ch-subj {
   display: inline-block;
   font-size: 11px; color: rgba(255,255,255,0.6);
@@ -1088,6 +1112,12 @@ a { color: #4fc3f7; text-decoration: none; }
     <div class="ch-name" id="chName">미분</div>
     <div class="ch-meta" id="chMeta"></div>
   </div>
+  <!-- 일반 모드 3탭 (다지기 모드 ON일 땐 숨김) -->
+  <div class="mode-tabs" id="modeTabs">
+    <button class="mode-tab active" data-mode="new" onclick="switchNormalMode('new')">new</button>
+    <button class="mode-tab" data-mode="star" onclick="switchNormalMode('star')">★ 별표</button>
+    <button class="mode-tab" data-mode="all" onclick="switchNormalMode('all')">all</button>
+  </div>
   <div class="chapter-tree" id="chapterTree"></div>
 </div>
 
@@ -1129,8 +1159,11 @@ const state = {
   itemsBySubtopic: {},
   understoodSet: new Set(),
   understoodMarkedAt: {},     // subtopic_id → marked_at (YYYY-MM-DD HH:MM:SS) — 암기 모음 정렬용
-  understoodBox: {},          // subtopic_id → Leitner box 1~6 (간격 반복 단계)
-  understoodNextReview: {},   // subtopic_id → next_review_at (KST DATETIME) — 암기 모음에서 due 그룹핑
+  understoodBox: {},          // subtopic_id → Leitner box 1~6 (간격 반복 단계, v2: 1=오늘 2=내일 3=4일 4=8일 5=16일 6=32일)
+  understoodNextReview: {},   // subtopic_id → next_review_at (KST DATETIME) — 다지기 due 그룹핑
+  understoodMissCount: {},    // subtopic_id → miss_count (v2: 누적 펼친 횟수, 별표 표시용)
+  understoodLastMovedAt: {},  // subtopic_id → last_moved_at (v2: 박스 이동 시각, 다지기 박스 안 정렬용)
+  normalMode: 'new',          // v2: 'new' | 'star' | 'all' — 일반 모드 탭. 챕터 진입 시 'new' 기본
   passedSet: new Set(),       // 이번 회 패스한 학습 카드 (세션만 — 새로고침 시 복원)
   memorizedView: false,       // 챕터 내 암기 모음 모드 (꾹누른 학습 카드만 모아보기)
   memoSnapshotIds: new Set(), // 암기 모음 진입 시 보여줄 학습 카드 스냅샷 — 펼친 항목이 미암기로 분류돼도 이번 회는 그대로 보이게
@@ -1507,11 +1540,15 @@ async function loadUnderstood() {
     state.understoodMarkedAt = {};
     state.understoodBox = {};
     state.understoodNextReview = {};
+    state.understoodMissCount = {};
+    state.understoodLastMovedAt = {};
     for (const it of (r.items || [])) {
       const sid = Number(it.subtopic_id);
       state.understoodMarkedAt[sid] = it.marked_at || '';
       state.understoodBox[sid] = Number(it.review_box) || 1;
       state.understoodNextReview[sid] = it.next_review_at || '';
+      state.understoodMissCount[sid] = Number(it.miss_count) || 0;
+      state.understoodLastMovedAt[sid] = it.last_moved_at || '';
     }
   } catch {}
 }
@@ -1669,6 +1706,8 @@ async function enterChapter(chapterId) {
   state.everExpandedSet = new Set();   // 펼침 이력 초기화 — 챕터 단위로 유지
   state.recentlyFailedFromMemo = new Set();  // 다지기 실패 → 챕터 뷰 복귀 표시 초기화
   state.peekedPassedSet = new Set();   // 펼친 뒤 패스 = "틀린 단어" 표시 초기화
+  state.normalMode = 'new';            // 챕터 진입 시 new 탭 기본
+  refreshModeTabsUI();
   const memoBtn = $('memorizedBtn');
   if (memoBtn) memoBtn.classList.remove('active');
   updateLiveChips(); // 캐시된 라이브 카운트 즉시 반영 (다음 폴링 기다리지 않음)
@@ -1931,6 +1970,7 @@ function toggleMemorizedView() {
     // 다지기 → 챕터 모드 복귀 시: 학습하던 모든 목차 닫음 → 목차 화면으로
     state.expanded.topic.clear();
   }
+  refreshModeTabsUI();
   if (state.currentChapter) renderTree(state.currentChapter.id);
   window.scrollTo({ top: 0, behavior: 'smooth' });
 }
@@ -2006,39 +2046,50 @@ function renderTopic(t, hasAccess) {
       } else if (!subs.length) {
         body = '<div class="empty-state">학습 카드 없음</div>';
       } else {
-        // 챕터 뷰는 미암기 카드만 — ● 카드는 다지기에서 관리.
-        // 미암기 안에서:
-        //   0 = 안 펼침 (위, 학습 대상 = 첫 카드 주황 강조)
-        //   1 = 펼친 적 있음(= 틀린 단어) 또는 다지기 복귀 (아래, 색 다름)
-        const unmastered = subs.filter(s => !state.understoodSet.has(Number(s.id)));
+        // v2 일반 모드 — new / star / all 탭에 따라 다르게 렌더링
+        let pool;
+        if (state.normalMode === 'new') {
+          // new: 아직 학습 안 한 카드만 (op_understood 행 없음 = understoodSet 미포함)
+          pool = subs.filter(s => !state.understoodSet.has(Number(s.id)));
+        } else if (state.normalMode === 'star') {
+          // 별표: miss_count > 0 인 카드, 별표(miss) 많은 순
+          pool = subs.filter(s => (state.understoodMissCount[Number(s.id)] || 0) > 0);
+        } else {
+          // all: 모든 카드, 원순 (sort_order)
+          pool = subs.slice();
+        }
 
-        // 챕터의 모든 카드가 ● → 다지기에서 만나요
-        if (subs.length > 0 && unmastered.length === 0) {
-          body = `<div class="empty-state" style="padding:24px 16px;text-align:center;background:rgba(76,175,80,0.06);border-radius:10px;margin:8px;">
-            <div style="font-size:28px;margin-bottom:6px;">✨</div>
-            <div style="font-size:14px;color:rgba(255,255,255,0.85);font-weight:600;">이 목차의 모든 카드를 다지기로 보냈어요</div>
-            <div style="font-size:12px;color:rgba(255,255,255,0.55);margin-top:6px;">상단 <strong>● 다지기</strong> 버튼에서 일정대로 만나요</div>
-          </div>`;
+        if (pool.length === 0) {
+          const emptyMsg = state.normalMode === 'new'
+            ? '이 목차의 모든 카드가 학습 시작됨 — <strong>★ 별표</strong> 또는 <strong>all</strong> 탭에서 확인'
+            : state.normalMode === 'star'
+            ? '아직 틀린 카드 없음'
+            : '카드 없음';
+          body = `<div class="empty-state" style="padding:18px 14px;text-align:center;font-size:13px;color:rgba(255,255,255,0.55);">${emptyMsg}</div>`;
           topSubId = null;
         } else {
-          const allUnmasteredPassed = unmastered.length > 0 && unmastered.every(s => state.passedSet.has(Number(s.id)));
-          if (allUnmasteredPassed) {
-            for (const s of unmastered) state.passedSet.delete(Number(s.id));
+          const allPassed = pool.every(s => state.passedSet.has(Number(s.id)));
+          if (allPassed) {
+            for (const s of pool) state.passedSet.delete(Number(s.id));
             savePassed();
           }
-          hasPassed = unmastered.some(s => state.passedSet.has(Number(s.id)));
-          const visible = unmastered.filter(s => !state.passedSet.has(Number(s.id)));
+          hasPassed = pool.some(s => state.passedSet.has(Number(s.id)));
+          const visible = pool.filter(s => !state.passedSet.has(Number(s.id)));
 
-          const cat = (s) => {
-            // 펼친 직후가 아니라 "펼친 뒤 패스"한 카드만 아래로
-            if (state.peekedPassedSet.has(Number(s.id)) || state.recentlyFailedFromMemo.has(Number(s.id))) return 1;
-            return 0;
-          };
-          const sortedSubs = [...visible].sort((a, b) => {
-            const ac = cat(a), bc = cat(b);
-            if (ac !== bc) return ac - bc;
-            return (Number(a.sort_order) || 0) - (Number(b.sort_order) || 0);
-          });
+          let sortedSubs;
+          if (state.normalMode === 'star') {
+            sortedSubs = [...visible].sort((a, b) => {
+              const ma = state.understoodMissCount[Number(a.id)] || 0;
+              const mb = state.understoodMissCount[Number(b.id)] || 0;
+              if (ma !== mb) return mb - ma; // miss 많은 순
+              return (Number(a.sort_order) || 0) - (Number(b.sort_order) || 0);
+            });
+          } else {
+            // new 또는 all: sort_order 순
+            sortedSubs = [...visible].sort((a, b) =>
+              (Number(a.sort_order) || 0) - (Number(b.sort_order) || 0)
+            );
+          }
 
           const target = sortedSubs[0];
           topSubId = target ? Number(target.id) : null;
@@ -2361,29 +2412,23 @@ function withTopicAnchor(topicId, callback) {
   requestAnimationFrame(adjust);
 }
 
-// 패스: 맨 위 항목이 사라짐. 완료 포함 모든 학습 카드가 패스되어야 축하 → 자동 재시작
-// 자동 학습 상태 갱신 (이 챕터에 들어와서의 펼침 이력 기준):
-//   미암기 + 펼쳐봤음 → 미암기 그대로
-//   미암기 + 안 펼침   → 자동 ● 암기
-//   ●암기 + 펼쳐봤음   → 미암기로 전환
-//   ●암기 + 안 펼침   → ● 그대로
+// 패스 — 모드별로 다르게 동작:
+//   new: 펼쳤으면 box=1 강등(miss=1) / 안 펼쳤으면 box=2 진입
+//   별표/all: 서버 변화 없음 (펼침은 peek에서 이미 처리). 화면에서만 다음 카드로
+//   다지기 오늘/내일/4/8/16/32: was_peeked 기준 advance/강등/유지
 function studyPass(subId, topicId) {
-  // 챕터 단위로 누적된 펼침 이력으로 판정 (현재 펼쳐져 있는지가 아님)
   const wasOpened = state.everExpandedSet.has(Number(subId));
   state.passedSet.add(Number(subId));
   state.expanded.subtopic.delete(Number(subId));
-  // 같은 목차의 다른 펼쳐진 학습 카드들도 모두 닫음 → 다음 단어에 집중
   const sameTopicSubs = state.subtopicsByTopic[topicId] || [];
   for (const s of sameTopicSubs) state.expanded.subtopic.delete(Number(s.id));
   savePassed();
 
-  // 자동 학습 상태 갱신 — 화면 깜빡임 없이 백그라운드 서버 동기화
-  if (wasOpened) {
-    // 펼친 뒤 패스 = "틀린 단어"로 확정 → 정렬·색 구분용 마킹 (패스 시점에만)
-    state.peekedPassedSet.add(Number(subId));
-    silentUnmarkUnderstood(Number(subId));
-  } else {
-    silentMarkUnderstood(Number(subId));
+  // v2: 별표/all 탭은 서버 변화 없음. new 또는 다지기에서만 서버 호출.
+  // 다지기 모드는 memorizedView 분기로 별도 처리 (memorizedPass)
+  const skipServer = !state.memorizedView && (state.normalMode === 'star' || state.normalMode === 'all');
+  if (!skipServer) {
+    apiPass(Number(subId), wasOpened);
   }
 
   // ● 카드는 챕터 뷰에서 안 보이므로 미암기 기준으로 "다 패스했나" 판정
@@ -2474,8 +2519,17 @@ function subClick(e, subId) {
     // 아코디언: 다른 학습 카드 모두 닫고 이것만 열기
     state.expanded.subtopic.clear();
     state.expanded.subtopic.add(subId);
-    // 이 챕터 안에서 한 번이라도 펼친 항목은 기억 — 패스 시 미암기 판정에 사용
+    // 이 챕터 안에서 한 번이라도 펼친 항목은 기억 — 패스 시 was_peeked 판정에 사용
+    // 같은 세션 내 같은 카드 중복 펼침은 1회만 count (중복 peek 방지)
+    const firstExpand = !state.everExpandedSet.has(Number(subId));
     state.everExpandedSet.add(Number(subId));
+
+    // v2: 행이 있는 카드 (별표/all/다지기에서 펼침) = miss_count +1 서버 동기화
+    // 새 카드(no row, new 탭에서 펼침)는 client 상태만 — 패스 시점에 행 생성됨
+    if (firstExpand && state.understoodSet.has(Number(subId))) {
+      apiPeek(Number(subId));
+    }
+
     // 암기 모음 모드에서 펼치는 순간 = "다시 봐야 한다" → 자동으로 미암기로 분류
     // 스냅샷에는 남아 있어 이번 회 화면에서는 그대로 보이고, 다음 회 진입 시 빠짐
     if (state.memorizedView && state.understoodSet.has(Number(subId))) {
@@ -2543,6 +2597,75 @@ async function silentAdvanceUnderstood(subId) {
   }
 }
 
+// ─── v2 학습 시스템 API 액션 ──────────────────────────────
+// 모드 탭 UI 갱신 (active 클래스 + 다지기 ON일 땐 탭 숨김)
+function refreshModeTabsUI() {
+  const tabs = $('modeTabs');
+  if (!tabs) return;
+  tabs.classList.toggle('hide', !!state.memorizedView);
+  for (const btn of tabs.querySelectorAll('.mode-tab')) {
+    btn.classList.toggle('active', btn.dataset.mode === state.normalMode);
+  }
+}
+
+// 일반 모드 탭 전환 (new/star/all)
+function switchNormalMode(mode) {
+  if (state.normalMode === mode) return;
+  state.normalMode = mode;
+  // 탭 전환 시 펼친 항목·패스 모두 초기화 (혼선 방지)
+  state.expanded.subtopic.clear();
+  state.passedSet.clear();
+  savePassed();
+  refreshModeTabsUI();
+  if (state.currentChapter) renderTree(state.currentChapter.id);
+  window.scrollTo({ top: 0, behavior: 'smooth' });
+}
+
+// 펼친 시점 호출 — 행이 있으면 서버 miss_count +1
+async function apiPeek(subId) {
+  if (!state.user) return;
+  try {
+    const r = await api('POST', '/understood/peek', { subtopic_id: subId });
+    if (r && !r.skipped && typeof r.miss_count === 'number') {
+      state.understoodMissCount[Number(subId)] = r.miss_count;
+    }
+  } catch {}
+}
+
+// 패스 시점 호출 — 박스 상태 + was_peeked 기준 서버 분기
+async function apiPass(subId, wasPeeked) {
+  if (!state.user) return null;
+  try {
+    const r = await api('POST', '/understood/pass', { subtopic_id: subId, was_peeked: !!wasPeeked });
+    if (r && r.ok) {
+      const sid = Number(subId);
+      if (typeof r.review_box === 'number') {
+        state.understoodSet.add(sid);
+        state.understoodBox[sid] = r.review_box;
+      }
+      if (r.next_review_at) state.understoodNextReview[sid] = r.next_review_at;
+      if (typeof r.miss_count === 'number') state.understoodMissCount[sid] = r.miss_count;
+    }
+    return r;
+  } catch { return null; }
+}
+
+// 꾹누르기 — 무조건 다음 박스로 advance
+async function apiPromote(subId) {
+  if (!state.user) return null;
+  try {
+    const r = await api('POST', '/understood/promote', { subtopic_id: subId });
+    if (r && r.ok) {
+      const sid = Number(subId);
+      state.understoodSet.add(sid);
+      if (typeof r.review_box === 'number') state.understoodBox[sid] = r.review_box;
+      if (r.next_review_at) state.understoodNextReview[sid] = r.next_review_at;
+      if (typeof r.miss_count === 'number') state.understoodMissCount[sid] = r.miss_count;
+    }
+    return r;
+  } catch { return null; }
+}
+
 // 패스 — 안 펼치고 패스한 경우 자동 ● 암기로 설정 (정상 모드에서 사용)
 // 화면 갱신·토스트 없이 understoodSet 갱신 + 서버 동기화
 async function silentMarkUnderstood(subId) {
@@ -2595,42 +2718,18 @@ async function silentUnmarkUnderstood(subId) {
   }
 }
 
+// v2 꾹누르기 — 항상 다음 박스로 advance (= "안다" 신호)
+// new 카드면 box=2 (내일) 진입. 기존 카드면 현재 박스+1.
 async function toggleUnderstood(subId) {
   if (!state.user) return;
-  const had = state.understoodSet.has(Number(subId));
-  const prevMarkedAt = state.understoodMarkedAt[Number(subId)];
-  // 낙관적 업데이트
-  if (had) {
-    state.understoodSet.delete(Number(subId));
-    delete state.understoodMarkedAt[Number(subId)];
-  } else {
-    state.understoodSet.add(Number(subId));
-    // 클라이언트 시각 — 서버의 kstDateTime() 포맷과 호환되는 정렬키
-    const d = new Date(Date.now() + 9 * 3600 * 1000);
-    state.understoodMarkedAt[Number(subId)] =
-      d.toISOString().replace('T', ' ').slice(0, 19);
-  }
-  renderTree(state.currentChapter.id);
-  try {
-    await api('POST', '/understood', { subtopic_id: subId });
-    toast(had ? '다지기 해제' : '● 다지기 추가');
-  } catch (e) {
-    // 롤백
-    if (had) {
-      state.understoodSet.add(Number(subId));
-      if (prevMarkedAt !== undefined) state.understoodMarkedAt[Number(subId)] = prevMarkedAt;
-    } else {
-      state.understoodSet.delete(Number(subId));
-      delete state.understoodMarkedAt[Number(subId)];
-    }
+  const r = await apiPromote(Number(subId));
+  if (r && r.ok) {
+    const labels = ['', '오늘 학습', '내일 학습', '4일 후', '8일 후', '16일 후', '32일 후'];
+    const lbl = labels[Number(r.review_box) || 1] || `Box ${r.review_box}`;
+    toast(`✓ ${lbl} 으로 이동`);
     renderTree(state.currentChapter.id);
-    // 학습 카드가 이미 삭제된 경우 자동 새로고침
-    if (e.status === 500 || e.status === 404) {
-      toast('콘텐츠가 변경되었습니다. 새로고침합니다.', false);
-      refreshChapter();
-    } else {
-      toast(e.message, true);
-    }
+  } else {
+    toast('서버 통신 실패', true);
   }
 }
 
@@ -3323,6 +3422,7 @@ window.collapseAll = collapseAll;
 window.refreshChapter = refreshChapter;
 window.studyPass = studyPass;
 window.toggleMemorizedView = toggleMemorizedView;
+window.switchNormalMode = switchNormalMode;
 window.memorizedPass = memorizedPass;
 window.pressStart = pressStart;
 window.pressEnd = pressEnd;
