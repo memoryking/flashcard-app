@@ -2099,18 +2099,22 @@ function memorizedPass(subId) {
   // 낙관적 박스/통계 갱신 — UI 즉시 반영, 서버 응답은 백그라운드
   if (state.understoodSet.has(sid)) {
     const cur = Number(state.understoodBox[sid]) || 1;
+    // effective box: due 됐으면(시간 흘러 오늘 박스 위치) effective=1, 아니면 cur 그대로
+    const dueDays = dueDaysLeft(state.understoodNextReview[sid]);
+    const effPrev = dueDays <= 0 ? 1 : cur;
     let nxt = cur;
     if (wasPeeked) {
       // 펼친 뒤 패스 → box=1 강등
       nxt = 1;
-    } else if (cur === 1) {
-      // 오늘 박스 + 안 펼침 → advance
+    } else if (effPrev === 1) {
+      // 오늘 박스 위치(due) + 안 펼침 → 실제 박스 한 단계 advance
       nxt = Math.min(cur + 1, 6);
     }
-    // 미래 박스 + 안 펼침 → 변경 없음
+    // 미래 박스 (due 아직 안 됨) + 안 펼침 → 변경 없음
     if (nxt !== cur) {
       state.understoodBox[sid] = nxt;
-      bumpTodayStats(cur, nxt);
+      // 통계: 오늘 박스 위치(effPrev=1)에서 미래(nxt>=2)로 옮겨가면 cleared++
+      bumpTodayStats(effPrev, nxt);
       // next_review_at 도 낙관적 계산
       const BOX_DUE_DAYS = [null, 0, 1, 4, 8, 16, 32];
       const days = BOX_DUE_DAYS[nxt] || 0;
@@ -2842,14 +2846,19 @@ async function apiPeek(subId) {
 async function apiPass(subId, wasPeeked) {
   if (!state.user) return null;
   const sid = Number(subId);
-  const prevBox = state.understoodSet.has(sid) ? (state.understoodBox[sid] || 1) : null;
+  let prevEff = null;
+  if (state.understoodSet.has(sid)) {
+    const prevBox = Number(state.understoodBox[sid]) || 1;
+    const dueDays = dueDaysLeft(state.understoodNextReview[sid]);
+    prevEff = dueDays <= 0 ? 1 : prevBox;
+  }
   try {
     const r = await api('POST', '/understood/pass', { subtopic_id: subId, was_peeked: !!wasPeeked });
     if (r && r.ok) {
       if (typeof r.review_box === 'number') {
         state.understoodSet.add(sid);
         state.understoodBox[sid] = r.review_box;
-        bumpTodayStats(prevBox, r.review_box);
+        bumpTodayStats(prevEff, r.review_box);
       }
       if (r.next_review_at) state.understoodNextReview[sid] = r.next_review_at;
       if (typeof r.miss_count === 'number') state.understoodMissCount[sid] = r.miss_count;

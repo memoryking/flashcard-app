@@ -1359,8 +1359,13 @@ async function handleUnderstoodPass(request, env) {
   }
 
   const currentBox = Math.min(Math.max(Number(existing.review_box) || 1, 1), 6);
-  if (currentBox === 1) {
-    // 오늘 박스 + 안 펼치고 패스 → advance
+  // due 판정: next_review_at <= 오늘이면 effective 오늘 박스
+  const todayDate = kstDateTime().slice(0, 10);
+  const nextReviewDate = String(existing.next_review_at || '').slice(0, 10);
+  const isDue = !nextReviewDate || nextReviewDate <= todayDate;
+
+  if (isDue) {
+    // 오늘 박스 위치 (literal box=1 또는 미래 박스인데 due 됨) + 안 펼치고 패스 → advance
     const newBox = Math.min(currentBox + 1, 6);
     await ncbUpdate(env, 'op_understood', existing.id, {
       review_box: newBox,
@@ -1372,7 +1377,7 @@ async function handleUnderstoodPass(request, env) {
       miss_count: Number(existing.miss_count) || 0,
     }, 200, request);
   }
-  // 미래 박스 (2~6) + 안 펼치고 패스 → 변경 없음
+  // 미래 박스 (아직 due 아님) + 안 펼치고 패스 → 변경 없음
   return json({
     ok: true, skipped: true, review_box: currentBox,
     next_review_at: existing.next_review_at || '',
