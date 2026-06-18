@@ -2179,12 +2179,16 @@ function memorizedPass(subId) {
     showCelebration();
     setTimeout(() => {
       // 암기 모음 내 패스/처리 이력 정리 (정상 모드의 다른 챕터 패스는 건드리지 않음)
+      //  + 펼침 이력도 초기화 — 새 라운드 시작이므로 이전에 펼친 카드도 "안 펼침" 상태로 리셋
+      //    (그렇지 않으면 peek+pass로 box=1에 머문 카드가 새 라운드에서 anpel pass해도
+      //     wasPeeked=true로 판정되어 advance가 안 됨)
       for (const t of topics) {
         const subs = state.subtopicsByTopic[t.id] || [];
         for (const s of subs) {
           if (state.memoSnapshotIds.has(Number(s.id))) {
             state.passedSet.delete(Number(s.id));
             state.memorizedAddressedSet.delete(Number(s.id));
+            state.memorizedExpandedSet.delete(Number(s.id));
           }
         }
       }
