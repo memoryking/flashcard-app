@@ -1976,7 +1976,9 @@ function renderMemorizedView(chapterId, hasAccess) {
         <span class="srs-clear-num">${cleared} / ${entered}</span>
       </div>
       <div class="srs-clear-bar"><div class="srs-clear-fill" style="width:${Math.min(100, pct)}%"></div></div>
-      <div class="srs-clear-foot">${pct}% — 반 절 이상 학습이 목표</div>
+      <div class="srs-clear-foot">
+        <span style="opacity:0.7">분모 = 오늘 박스 ${currentBox1} + 이미 진급 ${cleared}</span> · ${pct}%
+      </div>
     </div>
   `;
 
