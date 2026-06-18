@@ -137,6 +137,83 @@ a { color: #4fc3f7; text-decoration: none; }
 .memo-empty .memo-icon { font-size: 48px; margin-bottom: 12px; opacity: 0.4; }
 .memo-empty .memo-hint { font-size: 12px; margin-top: 8px; color: rgba(255,255,255,0.35); }
 
+/* ── 다지기 v2 — 오늘 클리어율 진행바 ───────────────────── */
+.srs-clear {
+  margin: 10px 14px 14px;
+  padding: 12px 14px;
+  background: linear-gradient(135deg, rgba(233,69,96,0.10), rgba(83,52,131,0.10));
+  border: 1px solid rgba(233,69,96,0.28);
+  border-radius: 12px;
+}
+.srs-clear-head {
+  display: flex; align-items: center; justify-content: space-between;
+  font-size: 13px; font-weight: 700; color: #fff;
+  margin-bottom: 8px;
+}
+.srs-clear-num { color: #ffd180; font-variant-numeric: tabular-nums; }
+.srs-clear-bar {
+  height: 8px; background: rgba(255,255,255,0.06);
+  border-radius: 50px; overflow: hidden;
+  margin-bottom: 6px;
+}
+.srs-clear-fill {
+  height: 100%;
+  background: linear-gradient(90deg, #e94560 0%, #ff8a9e 100%);
+  border-radius: 50px;
+  transition: width 0.35s ease;
+}
+.srs-clear-foot { font-size: 11px; color: rgba(255,255,255,0.55); text-align: right; }
+
+/* ── 다지기 v2 — 6 박스 ────────────────────────────────── */
+.srs-box {
+  margin: 8px 14px;
+  border: 1px solid rgba(255,255,255,0.08);
+  border-radius: 12px;
+  background: rgba(255,255,255,0.03);
+  overflow: hidden;
+}
+.srs-box-head {
+  display: flex; align-items: center; gap: 8px;
+  padding: 12px 14px;
+  cursor: pointer; user-select: none;
+  font-size: 14px; font-weight: 700;
+  color: #fff;
+}
+.srs-box-head:hover { background: rgba(255,255,255,0.04); }
+.srs-box-arrow { font-size: 11px; color: rgba(255,255,255,0.45); width: 14px; }
+.srs-box-name { flex: 1; }
+.srs-box-count {
+  background: rgba(255,255,255,0.08);
+  color: #e5e7eb;
+  font-size: 12px; font-weight: 700;
+  padding: 3px 10px; border-radius: 50px;
+  font-variant-numeric: tabular-nums;
+}
+.srs-box-pass {
+  background: rgba(233,69,96,0.18);
+  color: #ff8a9e;
+  border: 1px solid rgba(233,69,96,0.4);
+  padding: 6px 12px; border-radius: 8px;
+  font-size: 12px; font-weight: 700; cursor: pointer;
+  transition: all 0.18s ease;
+}
+.srs-box-pass:hover { background: rgba(233,69,96,0.28); }
+.srs-box-body { display: none; padding: 0 8px 8px; }
+.srs-box.opened .srs-box-body { display: block; }
+/* 박스별 색조 — 오늘 빨강, 내일 주황, 4~32 점점 멀어짐 */
+.srs-box.srs-box-today  { border-color: rgba(233,69,96,0.40); background: rgba(233,69,96,0.06); }
+.srs-box.srs-box-today .srs-box-name { color: #ff8a9e; }
+.srs-box.srs-box-tomo   { border-color: rgba(255,152,0,0.32); background: rgba(255,152,0,0.04); }
+.srs-box.srs-box-tomo .srs-box-name { color: #ffb74d; }
+.srs-box.srs-box-d4     { border-color: rgba(255,213,79,0.28); }
+.srs-box.srs-box-d4 .srs-box-name { color: #ffe082; }
+.srs-box.srs-box-d8     { border-color: rgba(129,199,132,0.25); }
+.srs-box.srs-box-d8 .srs-box-name { color: #a5d6a7; }
+.srs-box.srs-box-d16    { border-color: rgba(79,195,247,0.25); }
+.srs-box.srs-box-d16 .srs-box-name { color: #81d4fa; }
+.srs-box.srs-box-d32    { border-color: rgba(176,190,197,0.25); }
+.srs-box.srs-box-d32 .srs-box-name { color: #cfd8dc; }
+
 /* ── 암기 모음 — due 그룹 (간격 반복) ─────────────────────── */
 .memo-group { margin-bottom: 18px; }
 .memo-group-head {
@@ -1157,6 +1234,10 @@ const state = {
   understoodMissCount: {},    // subtopic_id → miss_count (v2: 누적 펼친 횟수, 별표 표시용)
   understoodLastMovedAt: {},  // subtopic_id → last_moved_at (v2: 박스 이동 시각, 다지기 박스 안 정렬용)
   normalMode: 'new',          // v2: 'new' | 'star' | 'all' — 일반 모드 탭. 챕터 진입 시 'new' 기본
+  memorizedBoxOpen: {1:true, 2:false, 3:false, 4:false, 5:false, 6:false}, // v2: 다지기 6박스 펼침 상태. 오늘만 기본 펼침
+  todayStatsEntered: 0,       // v2: 오늘 박스에 들어온 누적 카드 (klika 분모)
+  todayStatsCleared: 0,       // v2: 오늘 박스에서 내일 박스로 진급한 카드 (klika 분자)
+  todayStatsDate: '',         // v2: KST 날짜 키 — 자정 지나면 자동 리셋
   passedSet: new Set(),       // 이번 회 패스한 학습 카드 (세션만 — 새로고침 시 복원)
   memorizedView: false,       // 챕터 내 암기 모음 모드 (꾹누른 학습 카드만 모아보기)
   memoSnapshotIds: new Set(), // 암기 모음 진입 시 보여줄 학습 카드 스냅샷 — 펼친 항목이 미암기로 분류돼도 이번 회는 그대로 보이게
@@ -1700,6 +1781,8 @@ async function enterChapter(chapterId) {
   state.recentlyFailedFromMemo = new Set();  // 다지기 실패 → 챕터 뷰 복귀 표시 초기화
   state.peekedPassedSet = new Set();   // 펼친 뒤 패스 = "틀린 단어" 표시 초기화
   state.normalMode = 'new';            // 챕터 진입 시 new 탭 기본
+  state.memorizedBoxOpen = {1:true, 2:false, 3:false, 4:false, 5:false, 6:false}; // 다지기 박스 펼침 초기화
+  loadTodayStats(chapterId);
   refreshModeTabsUI();
   const memoBtn = $('memorizedBtn');
   if (memoBtn) memoBtn.classList.remove('active');
@@ -1828,104 +1911,130 @@ function renderTree(chapterId) {
   $('chapterTree').innerHTML = topics.map(t => renderTopic(t, hasAccess)).join('');
 }
 
-// 암기 모음 모드 — 진입 시점 스냅샷의 학습 카드를 한 리스트로 (꾹누른 시각 오름차순)
-// 펼친 항목은 즉시 미암기로 분류되지만 스냅샷에는 남아 이번 회에는 그대로 보임 → 다음 회 진입 시 빠짐
-// 학습 모드의 topic-head처럼 상단에 헤더(좌: 제목, 우: ⤴ 패스)
+// 다지기 모드 v2 — 6박스 (오늘/내일/4/8/16/32일) + 오늘 클리어율 진행바
+// 카드의 효과적 박스 = next_review_at 가 이미 due면 box=1 로 자동 승급, 아니면 review_box
+function effectiveBox(subId) {
+  const days = dueDaysLeft(state.understoodNextReview[Number(subId)]);
+  if (days <= 0) return 1; // overdue/due = 오늘 학습
+  return Math.min(Math.max(Number(state.understoodBox[Number(subId)]) || 1, 1), 6);
+}
+
+const SRS_BOX_META = [
+  null,
+  { label: '오늘 학습',  tier: 'today',  defaultOpen: true  },
+  { label: '내일 학습',  tier: 'tomo',   defaultOpen: false },
+  { label: '4일 후',     tier: 'd4',     defaultOpen: false },
+  { label: '8일 후',     tier: 'd8',     defaultOpen: false },
+  { label: '16일 후',    tier: 'd16',    defaultOpen: false },
+  { label: '32일 후',    tier: 'd32',    defaultOpen: false },
+];
+
 function renderMemorizedView(chapterId, hasAccess) {
   const topics = state.topicsByChapter[chapterId] || [];
 
-  // 스냅샷에 든 모든 카드를 "정확한 due 일수"로 그룹화
-  // 키: dueDaysLeft 결과 (0=오늘, 1=내일, 2=2일 후, ...). 같은 일수는 같은 그룹.
-  const groupMap = new Map();   // days(int) → cards[]
+  // 스냅샷 안 카드들을 효과 박스(1~6)로 그룹화
+  const byBox = {1:[], 2:[], 3:[], 4:[], 5:[], 6:[]};
   for (const t of topics) {
     const subs = state.subtopicsByTopic[t.id] || [];
     for (const s of subs) {
       if (!state.memoSnapshotIds.has(Number(s.id))) continue;
-      const days = dueDaysLeft(state.understoodNextReview[Number(s.id)]);
-      if (!groupMap.has(days)) groupMap.set(days, []);
-      groupMap.get(days).push(s);
+      const box = effectiveBox(s.id);
+      byBox[box].push(s);
     }
   }
 
-  if (groupMap.size === 0) {
+  // 박스 안 정렬 — last_moved_at 오름차순(오래 기다린 카드 먼저), 동률이면 sort_order
+  const innerSort = (a, b) => {
+    const la = state.understoodLastMovedAt[Number(a.id)] || '';
+    const lb = state.understoodLastMovedAt[Number(b.id)] || '';
+    if (la !== lb) return la.localeCompare(lb);
+    return (Number(a.sort_order) || 0) - (Number(b.sort_order) || 0);
+  };
+  for (let i=1; i<=6; i++) byBox[i].sort(innerSort);
+
+  const totalCards = Object.values(byBox).reduce((sum, arr) => sum + arr.length, 0);
+  if (totalCards === 0) {
     return `
       <div class="memo-empty">
         <div class="memo-icon">●</div>
         <div>아직 다지기 카드가 없습니다.</div>
-        <div class="memo-hint">학습 카드를 꾹 누르면 여기로 모입니다.</div>
+        <div class="memo-hint">일반 모드에서 패스하면 여기로 모입니다.</div>
       </div>
     `;
   }
 
-  // 그룹 내 정렬 — next_review_at 오름차순, 동률이면 sort_order
-  const innerSort = (a, b) => {
-    const na = state.understoodNextReview[Number(a.id)] || '';
-    const nb = state.understoodNextReview[Number(b.id)] || '';
-    if (na !== nb) return na.localeCompare(nb);
-    return (Number(a.sort_order) || 0) - (Number(b.sort_order) || 0);
-  };
-  for (const [, arr] of groupMap) arr.sort(innerSort);
-
-  // 일수 키를 오름차순으로 (오늘 → 내일 → ...)
-  const sortedKeys = [...groupMap.keys()].sort((a, b) => a - b);
-
-  // passedSet 제외한 visible 카드 + 전체 visible 목록 (현재 타겟용)
-  const visibleByDays = new Map();
-  const allVisible = [];
-  for (const k of sortedKeys) {
-    const v = groupMap.get(k).filter(s => !state.passedSet.has(Number(s.id)));
-    if (v.length) {
-      visibleByDays.set(k, v);
-      for (const s of v) allVisible.push(s);
-    }
-  }
-
-  if (allVisible.length === 0) {
-    return `
-      <div class="memo-empty">
-        <div class="memo-icon">🎉</div>
-        <div>이번 회 모두 검토 완료!</div>
-        <div class="memo-hint">잠시 후 처음부터 다시 시작합니다.</div>
+  // 오늘 클리어율 — 분모: 오늘 박스 들어온 누적 / 분자: 오늘→내일 진급 카드
+  const entered = state.todayStatsEntered || 0;
+  const cleared = state.todayStatsCleared || 0;
+  const pct = entered > 0 ? Math.round((cleared / entered) * 100) : 0;
+  const clearBar = `
+    <div class="srs-clear">
+      <div class="srs-clear-head">
+        <span>📊 오늘 암기 클리어율</span>
+        <span class="srs-clear-num">${cleared} / ${entered}</span>
       </div>
-    `;
-  }
-
-  // 맨 위 카드가 ⤴ 패스의 대상 (현재 타겟)
-  const current = allVisible[0];
-  const todayCount = (visibleByDays.get(0) || []).length;
-  const restCount = allVisible.length - todayCount;
-
-  const header = `
-    <div class="memo-header">
-      <div class="memo-title">● 다지기</div>
-      <span class="memo-count" title="오늘 due / 그 외">${todayCount}${restCount ? ` <span style="opacity:0.6">+${restCount}</span>` : ''}</span>
-      <div class="study-controls">
-        <button class="study-btn skip-big" onclick="memorizedPass(${current.id})" title="안 펼치고 패스 = 회상 성공(다음 박스로) / 펼친 뒤 패스 = 미암기로">⤴ 패스</button>
-      </div>
+      <div class="srs-clear-bar"><div class="srs-clear-fill" style="width:${Math.min(100, pct)}%"></div></div>
+      <div class="srs-clear-foot">${pct}% — 반 절 이상 학습이 목표</div>
     </div>
   `;
 
-  // 그룹별 렌더 — 정확한 N일 라벨 + 일수 강도에 따른 시각 클래스
+  // 박스별 렌더
   let topIdx = 0;
-  const blocks = [];
-  for (const days of visibleByDays.keys()) {
-    const cards = visibleByDays.get(days);
-    const tier = dueTier(days);
-    const label = dueLabel(days);
-    const cardsHtml = cards.map(s => {
-      const isTop = (topIdx === 0);
-      topIdx++;
-      return renderSubtopic(s, isTop);
-    }).join('');
-    blocks.push(`
-      <div class="memo-group memo-grp-${tier}">
-        <div class="memo-group-head">${label} <span class="memo-group-count">${cards.length}</span></div>
-        ${cardsHtml}
+  const boxBlocks = [];
+  for (let b = 1; b <= 6; b++) {
+    const cards = byBox[b];
+    const meta = SRS_BOX_META[b];
+    const isOpen = !!state.memorizedBoxOpen[b];
+    const totalInBox = cards.length;
+    const visibleCards = cards.filter(s => !state.passedSet.has(Number(s.id)));
+
+    // 박스가 비어있으면(0) 박스 자체 표시 안 함 — 필요하면 보여줄 수 있음 (현재는 숨김)
+    if (totalInBox === 0) continue;
+
+    // 모두 패스됐는데 박스 안 카드가 남아있으면 → 패스 자동 리셋 (다시 처음으로)
+    if (visibleCards.length === 0 && totalInBox > 0) {
+      for (const s of cards) state.passedSet.delete(Number(s.id));
+      savePassed();
+      visibleCards.push(...cards);
+    }
+
+    // 펼침 상태일 때만 카드 HTML 생성
+    let cardsHtml = '';
+    if (isOpen) {
+      cardsHtml = visibleCards.map((s) => {
+        const isTop = (b === 1 && topIdx === 0);
+        if (isTop) topIdx++;
+        return renderSubtopic(s, isTop);
+      }).join('');
+    }
+
+    // 박스 패스 버튼은 첫 visible 카드를 패스 대상으로
+    const passTarget = visibleCards[0] ? visibleCards[0].id : null;
+    const passBtnHtml = passTarget != null
+      ? `<button class="srs-box-pass" onclick="event.stopPropagation();memorizedPass(${passTarget})" title="박스 첫 카드 패스">⤴ 패스</button>`
+      : '';
+
+    boxBlocks.push(`
+      <div class="srs-box srs-box-${meta.tier}${isOpen ? ' opened' : ''}">
+        <div class="srs-box-head" onclick="toggleSrsBox(${b})">
+          <span class="srs-box-arrow">${isOpen ? '▼' : '▶'}</span>
+          <span class="srs-box-name">${meta.label}</span>
+          <span class="srs-box-count">${visibleCards.length}</span>
+          ${passBtnHtml}
+        </div>
+        <div class="srs-box-body">${cardsHtml}</div>
       </div>
     `);
   }
 
-  return header + blocks.join('');
+  return clearBar + boxBlocks.join('');
+}
+
+// 다지기 박스 펼침 토글
+function toggleSrsBox(box) {
+  const b = Number(box);
+  state.memorizedBoxOpen[b] = !state.memorizedBoxOpen[b];
+  if (state.currentChapter) renderTree(state.currentChapter.id);
 }
 
 function rebuildMemoSnapshot() {
@@ -1958,6 +2067,10 @@ function toggleMemorizedView() {
   if (state.memorizedView) {
     rebuildMemoSnapshot();
     prefetchMemoSnapshot();
+    // 박스 펼침 기본 상태 (오늘만 펼침) — 매 진입 시 리셋
+    state.memorizedBoxOpen = {1:true, 2:false, 3:false, 4:false, 5:false, 6:false};
+    // 오늘 통계 KST 자정 지났을 수 있으니 다시 로드 (자동 리셋 포함)
+    if (state.currentChapter) loadTodayStats(state.currentChapter.id);
   } else {
     state.memoSnapshotIds = new Set();
     // 다지기 → 챕터 모드 복귀 시: 학습하던 모든 목차 닫음 → 목차 화면으로
@@ -1970,11 +2083,13 @@ function toggleMemorizedView() {
 
 // 암기 모음 모드의 패스 — 현재 항목을 이번 회에서 제외
 function memorizedPass(subId) {
-  // 회상 성공 = 안 펼치고 패스 (펼쳤다면 이미 silentUnmark 되어 understoodSet에서 빠짐)
-  // → 박스 진행 (간격 반복 advance)
-  if (state.understoodSet.has(Number(subId))) {
-    silentAdvanceUnderstood(Number(subId));
-  }
+  // v2 다지기 패스 — was_peeked 판정 (이 챕터 안에서 펼친 적 있는지)
+  const wasPeeked = state.everExpandedSet.has(Number(subId));
+  // 박스 결정: 1=오늘 → 안 펼침 시 advance, 펼침 시 그대로
+  //          2~6 미래 → 안 펼침 시 그대로, 펼침 시 box=1 강등
+  // → 서버 apiPass 에 위임 (이미 box별 분기 처리됨)
+  apiPass(Number(subId), wasPeeked);
+
   state.passedSet.add(Number(subId));
   state.expanded.subtopic.delete(Number(subId));
   savePassed();
@@ -2594,6 +2709,61 @@ async function silentAdvanceUnderstood(subId) {
   }
 }
 
+// ─── v2 오늘 클리어율 통계 ──────────────────────────────
+// 분모 = 오늘 박스(1)에 들어온 누적 카드 / 분자 = 오늘 박스에서 내일(2)로 진급한 카드
+// 챕터 단위 localStorage, KST 자정 지나면 자동 리셋
+function todayStatsKey(chapterId) { return 'op_today_stats_' + chapterId; }
+function kstTodayStr() { return new Date(Date.now() + 9*3600*1000).toISOString().slice(0,10); }
+function loadTodayStats(chapterId) {
+  try {
+    const raw = localStorage.getItem(todayStatsKey(chapterId));
+    if (!raw) {
+      state.todayStatsEntered = 0; state.todayStatsCleared = 0;
+      state.todayStatsDate = kstTodayStr();
+      return;
+    }
+    const j = JSON.parse(raw);
+    const today = kstTodayStr();
+    if (j.date !== today) {
+      state.todayStatsEntered = 0; state.todayStatsCleared = 0;
+      state.todayStatsDate = today;
+      saveTodayStats(chapterId);
+    } else {
+      state.todayStatsEntered = Number(j.entered) || 0;
+      state.todayStatsCleared = Number(j.cleared) || 0;
+      state.todayStatsDate = j.date;
+    }
+  } catch {
+    state.todayStatsEntered = 0; state.todayStatsCleared = 0;
+    state.todayStatsDate = kstTodayStr();
+  }
+}
+function saveTodayStats(chapterId) {
+  try {
+    localStorage.setItem(todayStatsKey(chapterId), JSON.stringify({
+      date: state.todayStatsDate || kstTodayStr(),
+      entered: state.todayStatsEntered,
+      cleared: state.todayStatsCleared,
+    }));
+  } catch {}
+}
+// 카드의 박스 전이에 따라 통계 갱신
+// prevBox=null (행이 없었음, new) / prevBox=N (기존 박스), newBox=새 박스
+function bumpTodayStats(prevBox, newBox) {
+  if (!state.currentChapter) return;
+  const cid = state.currentChapter.id;
+  // 일자 바뀌면 리셋 후 갱신
+  const today = kstTodayStr();
+  if (state.todayStatsDate !== today) {
+    state.todayStatsEntered = 0; state.todayStatsCleared = 0; state.todayStatsDate = today;
+  }
+  // 오늘 박스(1)로 들어옴 — 분모 +1 (단 이미 1이었으면 제외)
+  if (newBox === 1 && prevBox !== 1) state.todayStatsEntered++;
+  // 오늘 박스(1)에서 내일 박스(2) 이상으로 진급 — 분자 +1
+  if (prevBox === 1 && newBox >= 2) state.todayStatsCleared++;
+  saveTodayStats(cid);
+}
+
 // ─── v2 학습 시스템 API 액션 ──────────────────────────────
 // 일반 모드 3탭 HTML 생성 — renderTopic이 body 위에 prepend
 function renderModeTabs() {
@@ -2630,13 +2800,15 @@ async function apiPeek(subId) {
 // 패스 시점 호출 — 박스 상태 + was_peeked 기준 서버 분기
 async function apiPass(subId, wasPeeked) {
   if (!state.user) return null;
+  const sid = Number(subId);
+  const prevBox = state.understoodSet.has(sid) ? (state.understoodBox[sid] || 1) : null;
   try {
     const r = await api('POST', '/understood/pass', { subtopic_id: subId, was_peeked: !!wasPeeked });
     if (r && r.ok) {
-      const sid = Number(subId);
       if (typeof r.review_box === 'number') {
         state.understoodSet.add(sid);
         state.understoodBox[sid] = r.review_box;
+        bumpTodayStats(prevBox, r.review_box);
       }
       if (r.next_review_at) state.understoodNextReview[sid] = r.next_review_at;
       if (typeof r.miss_count === 'number') state.understoodMissCount[sid] = r.miss_count;
@@ -2648,12 +2820,16 @@ async function apiPass(subId, wasPeeked) {
 // 꾹누르기 — 무조건 다음 박스로 advance
 async function apiPromote(subId) {
   if (!state.user) return null;
+  const sid = Number(subId);
+  const prevBox = state.understoodSet.has(sid) ? (state.understoodBox[sid] || 1) : null;
   try {
     const r = await api('POST', '/understood/promote', { subtopic_id: subId });
     if (r && r.ok) {
-      const sid = Number(subId);
       state.understoodSet.add(sid);
-      if (typeof r.review_box === 'number') state.understoodBox[sid] = r.review_box;
+      if (typeof r.review_box === 'number') {
+        state.understoodBox[sid] = r.review_box;
+        bumpTodayStats(prevBox, r.review_box);
+      }
       if (r.next_review_at) state.understoodNextReview[sid] = r.next_review_at;
       if (typeof r.miss_count === 'number') state.understoodMissCount[sid] = r.miss_count;
     }
@@ -3418,6 +3594,7 @@ window.refreshChapter = refreshChapter;
 window.studyPass = studyPass;
 window.toggleMemorizedView = toggleMemorizedView;
 window.switchNormalMode = switchNormalMode;
+window.toggleSrsBox = toggleSrsBox;
 window.memorizedPass = memorizedPass;
 window.pressStart = pressStart;
 window.pressEnd = pressEnd;
