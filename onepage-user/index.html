@@ -2025,7 +2025,7 @@ function renderMemorizedView(chapterId, hasAccess) {
         <div class="srs-box-head" onclick="toggleSrsBox(${b})">
           <span class="srs-box-arrow">${isOpen ? '▼' : '▶'}</span>
           <span class="srs-box-name">${meta.label}</span>
-          <span class="srs-box-count">${visibleCards.length}</span>
+          <span class="srs-box-count" title="박스 전체 카드 수">${totalInBox}</span>
           ${passBtnHtml}
         </div>
         <div class="srs-box-body">${cardsHtml}</div>
@@ -2056,19 +2056,6 @@ function rebuildMemoSnapshot() {
   }
 }
 
-// 다지기 모드 진입 시 — 모든 목차의 학습 카드(subs) 데이터 한 번에 로드
-// 사용자가 안 열어본 목차의 카드도 다지기 박스 분류에 포함하기 위함
-async function ensureAllSubtopicsLoaded(chapterId) {
-  const topics = state.topicsByChapter[chapterId] || [];
-  const pending = [];
-  for (const t of topics) {
-    if (state.subtopicsByTopic[t.id] === undefined) {
-      pending.push(loadSubtopics(t.id).catch(() => {}));
-    }
-  }
-  if (pending.length) await Promise.all(pending);
-}
-
 // 암기 모음 스냅샷의 모든 items 백그라운드 프리페치 → 펼침 시 즉각 표시
 function prefetchMemoSnapshot() {
   for (const subId of state.memoSnapshotIds) {
@@ -2092,18 +2079,6 @@ function toggleMemorizedView() {
     state.memorizedExpandedSet = new Set();
     // 오늘 통계 KST 자정 지났을 수 있으니 다시 로드 (자동 리셋 포함)
     if (state.currentChapter) loadTodayStats(state.currentChapter.id);
-    // 모든 목차의 학습 카드를 백그라운드 로드 → 완료 후 snapshot 재빌드·재렌더
-    // (안 열어본 목차의 카드도 다지기 박스에 정상 표시되게)
-    if (state.currentChapter) {
-      const cid = state.currentChapter.id;
-      ensureAllSubtopicsLoaded(cid).then(() => {
-        if (state.memorizedView && state.currentChapter && state.currentChapter.id === cid) {
-          rebuildMemoSnapshot();
-          prefetchMemoSnapshot();
-          renderTree(cid);
-        }
-      });
-    }
   } else {
     state.memoSnapshotIds = new Set();
     // 다지기 → 챕터 모드 복귀 시: 학습하던 모든 목차 닫음 → 목차 화면으로
