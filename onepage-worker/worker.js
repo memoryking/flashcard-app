@@ -85,10 +85,19 @@ function addDays(iso, days) {
   return d.toISOString();
 }
 
-// ── 간격 반복 (Leitner) ─────────────────────────────────────
-// Box 1~6, 각 박스의 "다음 복습까지" 일수. 2배수 증가.
-// 처음 ● 표시 = Box 1. 회상 성공 시 다음 박스로. Box 6에 도달하면 그 자리 유지.
-const SRS_INTERVALS_DAYS = [0, 1, 2, 4, 8, 16, 32]; // 인덱스 0 미사용
+// ── 간격 반복 (Leitner) v2 ──────────────────────────────────
+// Box 1~6: 1=오늘, 2=내일, 3=4일 후, 4=8일 후, 5=16일 후, 6=32일 후
+// 박스 진입 시점에 today + BOX_DUE_DAYS[box] 가 next_review_at.
+const BOX_DUE_DAYS = [null, 0, 1, 4, 8, 16, 32]; // 인덱스 0 미사용
+function nextReviewForBox(box) {
+  const safeBox = Math.min(Math.max(Number(box) || 1, 1), 6);
+  const days = BOX_DUE_DAYS[safeBox];
+  const due = new Date(kstNow().getTime() + days * 24 * 3600 * 1000);
+  return kstDateTime(due);
+}
+
+// 이전 시스템 호환용 (handleUnderstoodToggle 와 handleUnderstoodAdvance 가 아직 사용 중)
+const SRS_INTERVALS_DAYS = [0, 1, 2, 4, 8, 16, 32];
 function srsNextReviewAt(box) {
   const safeBox = Math.min(Math.max(Number(box) || 1, 1), 6);
   const days = SRS_INTERVALS_DAYS[safeBox];
@@ -1277,6 +1286,134 @@ async function handleUnderstoodAdvance(request, env) {
   return json({ ok: true, review_box: newBox, next_review_at: nextReview }, 200, request);
 }
 
+// ============================================================
+// 학생 — 새 학습 시스템 (v2)
+// new / 별표 / all / 다지기 6박스 (오늘·내일·4·8·16·32일)
+// ============================================================
+
+// POST /understood/peek — 펼친 시점에 호출. miss_count +1.
+// 행이 없으면 no-op (new 모드에서는 클라이언트가 패스 시점에 행 생성)
+async function handleUnderstoodPeek(request, env) {
+  const auth = await verifyAuth(request, env);
+  if (!auth) return json({ error: 'unauthenticated' }, 401, request);
+  const b = await request.json().catch(() => ({}));
+  const subId = Number(b.subtopic_id);
+  if (!subId) return json({ error: 'subtopic_id required' }, 400, request);
+
+  const r = await ncbRead(env, 'op_understood',
+    `user_phone=${encodeURIComponent(auth.phone)}&subtopic_id=${subId}&limit=1`);
+  const existing = (r.data || [])[0];
+  if (!existing) {
+    return json({ ok: true, skipped: true, reason: 'no_row' }, 200, request);
+  }
+  const newMiss = (Number(existing.miss_count) || 0) + 1;
+  await ncbUpdate(env, 'op_understood', existing.id, { miss_count: newMiss });
+  return json({ ok: true, miss_count: newMiss, review_box: Number(existing.review_box) || 1 }, 200, request);
+}
+
+// POST /understood/pass — 패스 액션. body: { subtopic_id, was_peeked }
+// 행 상태 + was_peeked 조합으로 분기.
+async function handleUnderstoodPass(request, env) {
+  const auth = await verifyAuth(request, env);
+  if (!auth) return json({ error: 'unauthenticated' }, 401, request);
+  const b = await request.json().catch(() => ({}));
+  const subId = Number(b.subtopic_id);
+  if (!subId) return json({ error: 'subtopic_id required' }, 400, request);
+  const wasPeeked = Boolean(b.was_peeked);
+
+  const r = await ncbRead(env, 'op_understood',
+    `user_phone=${encodeURIComponent(auth.phone)}&subtopic_id=${subId}&limit=1`);
+  const existing = (r.data || [])[0];
+  const now = kstDateTime();
+
+  if (wasPeeked) {
+    // 펼치고 패스 → box=1 (오늘)로 강등
+    if (existing) {
+      await ncbUpdate(env, 'op_understood', existing.id, {
+        review_box: 1,
+        next_review_at: nextReviewForBox(1),
+        last_moved_at: now,
+      });
+      return json({
+        ok: true, review_box: 1, next_review_at: nextReviewForBox(1),
+        miss_count: Number(existing.miss_count) || 0,
+      }, 200, request);
+    } else {
+      // new + 펼치고 패스 → 새 행 box=1, miss=1
+      await ncbCreate(env, 'op_understood', {
+        user_phone: auth.phone, subtopic_id: subId, marked_at: now,
+        miss_count: 1, review_box: 1, next_review_at: nextReviewForBox(1), last_moved_at: now,
+      });
+      return json({ ok: true, review_box: 1, miss_count: 1 }, 200, request);
+    }
+  }
+
+  // 안 펼치고 패스
+  if (!existing) {
+    // new + 안 펼치고 패스 → box=2 (내일), miss=0
+    await ncbCreate(env, 'op_understood', {
+      user_phone: auth.phone, subtopic_id: subId, marked_at: now,
+      miss_count: 0, review_box: 2, next_review_at: nextReviewForBox(2), last_moved_at: now,
+    });
+    return json({ ok: true, review_box: 2, next_review_at: nextReviewForBox(2), miss_count: 0 }, 200, request);
+  }
+
+  const currentBox = Math.min(Math.max(Number(existing.review_box) || 1, 1), 6);
+  if (currentBox === 1) {
+    // 오늘 박스 + 안 펼치고 패스 → advance
+    const newBox = Math.min(currentBox + 1, 6);
+    await ncbUpdate(env, 'op_understood', existing.id, {
+      review_box: newBox,
+      next_review_at: nextReviewForBox(newBox),
+      last_moved_at: now,
+    });
+    return json({
+      ok: true, review_box: newBox, next_review_at: nextReviewForBox(newBox),
+      miss_count: Number(existing.miss_count) || 0,
+    }, 200, request);
+  }
+  // 미래 박스 (2~6) + 안 펼치고 패스 → 변경 없음
+  return json({
+    ok: true, skipped: true, review_box: currentBox,
+    next_review_at: existing.next_review_at || '',
+    miss_count: Number(existing.miss_count) || 0,
+  }, 200, request);
+}
+
+// POST /understood/promote — 꾹누르기. 무조건 다음 박스로 advance.
+async function handleUnderstoodPromote(request, env) {
+  const auth = await verifyAuth(request, env);
+  if (!auth) return json({ error: 'unauthenticated' }, 401, request);
+  const b = await request.json().catch(() => ({}));
+  const subId = Number(b.subtopic_id);
+  if (!subId) return json({ error: 'subtopic_id required' }, 400, request);
+
+  const r = await ncbRead(env, 'op_understood',
+    `user_phone=${encodeURIComponent(auth.phone)}&subtopic_id=${subId}&limit=1`);
+  const existing = (r.data || [])[0];
+  const now = kstDateTime();
+
+  if (existing) {
+    const currentBox = Math.min(Math.max(Number(existing.review_box) || 1, 1), 6);
+    const newBox = Math.min(currentBox + 1, 6);
+    await ncbUpdate(env, 'op_understood', existing.id, {
+      review_box: newBox,
+      next_review_at: nextReviewForBox(newBox),
+      last_moved_at: now,
+    });
+    return json({
+      ok: true, review_box: newBox, next_review_at: nextReviewForBox(newBox),
+      miss_count: Number(existing.miss_count) || 0,
+    }, 200, request);
+  }
+  // new 꾹누르기 → 행 생성 box=2 (내일), miss=0
+  await ncbCreate(env, 'op_understood', {
+    user_phone: auth.phone, subtopic_id: subId, marked_at: now,
+    miss_count: 0, review_box: 2, next_review_at: nextReviewForBox(2), last_moved_at: now,
+  });
+  return json({ ok: true, review_box: 2, next_review_at: nextReviewForBox(2), miss_count: 0 }, 200, request);
+}
+
 async function handleUnderstoodList(request, env) {
   const auth = await verifyAuth(request, env);
   if (!auth) return json({ error: 'unauthenticated' }, 401, request);
@@ -1291,8 +1428,10 @@ async function handleUnderstoodList(request, env) {
   const items = rows.map(x => ({
     subtopic_id: Number(x.subtopic_id),
     marked_at: x.marked_at || '',
-    review_box: Number(x.review_box) || 1,        // Leitner 박스 (1~6)
+    review_box: Number(x.review_box) || 1,        // Leitner 박스 (1~6, v2 의미: 1=오늘 2=내일 3=4일 4=8일 5=16일 6=32일)
     next_review_at: x.next_review_at || '',       // 다음 복습 due (KST DATETIME)
+    miss_count: Number(x.miss_count) || 0,        // v2: 누적 펼친 횟수
+    last_moved_at: x.last_moved_at || '',         // v2: 박스 이동 시각 (정렬용)
   }));
   return json({
     subtopic_ids: ids,
@@ -2798,6 +2937,9 @@ async function route(request, env) {
   // ── 학생 (로그인 필수) ──
   if (m === 'POST' && path === '/understood') return handleUnderstoodToggle(request, env);
   if (m === 'POST' && path === '/understood/advance') return handleUnderstoodAdvance(request, env);
+  if (m === 'POST' && path === '/understood/peek') return handleUnderstoodPeek(request, env);
+  if (m === 'POST' && path === '/understood/pass') return handleUnderstoodPass(request, env);
+  if (m === 'POST' && path === '/understood/promote') return handleUnderstoodPromote(request, env);
   if (m === 'GET' && path === '/access') return handleMyAccess(request, env);
   if (m === 'POST' && path === '/access/redeem') return handleRedeemPoints(request, env);
   if (m === 'POST' && path === '/payment/request') return handlePaymentRequest(request, env);
