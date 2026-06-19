@@ -713,6 +713,34 @@ a { color: #4fc3f7; text-decoration: none; }
   border-radius: 50%; font-size: 11px; font-weight: 700;
   margin-right: 4px;
 }
+/* 다지기 모드 미래 박스 → 오늘 학습 강등 시 부드러운 fade-out */
+.subtopic.srs-demoting {
+  animation: srsDemoteAnim 0.6s cubic-bezier(0.4, 0.0, 0.6, 1) forwards;
+  pointer-events: none;
+}
+@keyframes srsDemoteAnim {
+  0% {
+    opacity: 1;
+    transform: translateX(0) scale(1);
+    max-height: 200px;
+    margin-top: 10px;
+    margin-bottom: 0;
+  }
+  30% {
+    opacity: 1;
+    transform: translateX(0) scale(0.98);
+  }
+  100% {
+    opacity: 0;
+    transform: translateX(-24px) scale(0.94);
+    max-height: 0;
+    margin-top: 0;
+    margin-bottom: 0;
+    padding-top: 0;
+    padding-bottom: 0;
+    border-width: 0;
+  }
+}
 /* 챕터에서 펼친 미암기 카드 ("틀린 단어") — 앰버 톤 */
 .subtopic.peeked {
   border-color: rgba(255,193,7,0.45);
@@ -2722,9 +2750,19 @@ function subClick(e, subId) {
       const dueDays = dueDaysLeft(state.understoodNextReview[Number(subId)]);
       const effBox = dueDays <= 0 ? 1 : (Number(state.understoodBox[Number(subId)]) || 1);
       if (effBox !== 1) {
-        // memorizedExpandedSet에는 이미 들어가 있음 → memorizedPass에서 wasPeeked=true 판정
-        memorizedPass(subId);
-        return; // memorizedPass가 renderTree까지 호출
+        // 부드러운 강등 애니메이션:
+        //  1) 접힌 상태로 즉시 렌더 (사용자가 접힘을 인지)
+        //  2) 카드 DOM에 srs-demoting 클래스 추가 → 0.6초 fade-out + slide-out
+        //  3) 애니메이션 끝나면 memorizedPass 호출 → state 갱신 + 오늘 학습으로 이동
+        renderTree(state.currentChapter.id);
+        const cardEl = document.querySelector(`[data-sub="${subId}"]`);
+        if (cardEl) {
+          cardEl.classList.add('srs-demoting');
+          setTimeout(() => { memorizedPass(subId); }, 600);
+        } else {
+          memorizedPass(subId); // 안전망: DOM 못 찾으면 즉시
+        }
+        return;
       }
     }
   } else {
