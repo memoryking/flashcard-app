@@ -967,9 +967,17 @@ function openChapterModal(id) {
       </div>
       <div class="form-row"><label class="check"><input type="checkbox" id="m_freeAll" ${c?.is_all_free ? 'checked' : ''}> 챕터 전체 무료 (구독 없이 모든 내용 공개)</label></div>
       <div class="form-row"><label class="check"><input type="checkbox" id="m_published" ${c && (c.is_published == null || Number(c.is_published) !== 0) ? 'checked' : ''}> 🌐 학생에게 공개 (체크 해제 시 선생님만 볼 수 있는 비공개 상태)</label></div>
+      <div class="form-row" style="display:flex;gap:10px;align-items:center;">
+        <label class="check" style="flex:1;margin:0;"><input type="checkbox" id="m_voiceQuiz" ${c?.voice_quiz_enabled ? 'checked' : ''}> 🎤 음성 퀴즈 활성화 (제목→첫째 항목 정답)</label>
+        <select id="m_voiceLang" style="padding:6px 10px;border-radius:6px;background:rgba(255,255,255,0.08);color:#fff;border:1px solid rgba(255,255,255,0.15);">
+          <option value="ko-KR" ${(c?.voice_quiz_lang || 'ko-KR') === 'ko-KR' ? 'selected' : ''}>한국어</option>
+          <option value="en-US" ${c?.voice_quiz_lang === 'en-US' ? 'selected' : ''}>영어</option>
+        </select>
+      </div>
       <div style="margin-top:8px;padding:8px 10px;background:rgba(76,175,80,0.08);border-radius:6px;font-size:11px;color:rgba(255,255,255,0.55);line-height:1.5;">
         💡 결제 링크는 자동 생성됩니다. 페이앱 콘솔에 상품을 미리 만들 필요 없이 제목·가격만 입력하면 학생이 결제 시 동적으로 결제 페이지가 생성됩니다.<br>
-        💡 신규 챕터는 기본 <strong>비공개</strong>로 만들어집니다 — 콘텐츠 다 채운 후 체크해서 공개하세요.
+        💡 신규 챕터는 기본 <strong>비공개</strong>로 만들어집니다 — 콘텐츠 다 채운 후 체크해서 공개하세요.<br>
+        💡 음성 퀴즈: 학습 카드 본문 <strong>첫 번째 항목</strong>이 정답으로 사용됩니다. 한국사("세종대왕이 만든 문자는?"→"한글"), 영어단어("abundance"→"풍부함") 등 짧고 단답형 문제에 적합. 수학/과학식 답이 어려운 챕터는 OFF.
       </div>
     `,
     save: async () => {
@@ -982,6 +990,8 @@ function openChapterModal(id) {
         sort_order: Number($('m_order').value) || 0,
         is_all_free: $('m_freeAll').checked,
         is_published: $('m_published').checked,
+        voice_quiz_enabled: $('m_voiceQuiz').checked,
+        voice_quiz_lang: $('m_voiceLang').value,
         // pay_url 입력 칸은 제거됨 (Worker가 결제 시 동적 생성)
         // 기존 값은 DB에 그대로 보존 (fallback용 + 마이그레이션 안전)
       };

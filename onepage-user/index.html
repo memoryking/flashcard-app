@@ -279,6 +279,131 @@ a { color: #4fc3f7; text-decoration: none; }
   box-shadow: 0 0 18px rgba(233,69,96,0.35);
 }
 
+/* ── 음성 퀴즈 (Voice Quiz) ────────────────────────────── */
+.vq-toggle {
+  display: block;
+  width: calc(100% - 28px);
+  margin: 10px 14px 4px;
+  padding: 12px 16px;
+  border: none; border-radius: 12px;
+  font-size: 14px; font-weight: 800;
+  cursor: pointer; letter-spacing: 0.4px;
+  transition: transform 0.12s ease, box-shadow 0.18s ease;
+}
+.vq-toggle-start {
+  background: linear-gradient(135deg, rgba(79,195,247,0.92), rgba(38,150,210,0.92));
+  color: #fff;
+  box-shadow: 0 4px 14px rgba(79,195,247,0.35);
+}
+.vq-toggle-start:hover { transform: translateY(-1px); box-shadow: 0 6px 22px rgba(79,195,247,0.50); }
+.vq-toggle-stop {
+  background: rgba(233,69,96,0.20);
+  border: 1px solid rgba(233,69,96,0.50);
+  color: #ff8a9e;
+}
+.vq-card { min-height: 320px; }
+.vq-card .focus-title { margin-bottom: 24px; }
+
+.vq-listening {
+  display: flex; flex-direction: column;
+  align-items: center; justify-content: center;
+  padding: 20px 12px 28px;
+  flex: 1;
+}
+.vq-mic-ring {
+  width: 92px; height: 92px;
+  border-radius: 50%;
+  background: radial-gradient(circle, rgba(79,195,247,0.40), rgba(79,195,247,0.10));
+  display: flex; align-items: center; justify-content: center;
+  margin-bottom: 18px;
+  position: relative;
+  animation: vqMicPulse 1.2s ease-in-out infinite;
+  box-shadow: 0 0 0 0 rgba(79,195,247,0.5);
+}
+@keyframes vqMicPulse {
+  0%   { box-shadow: 0 0 0 0 rgba(79,195,247,0.55); transform: scale(1); }
+  70%  { box-shadow: 0 0 0 22px rgba(79,195,247,0); transform: scale(1.04); }
+  100% { box-shadow: 0 0 0 0 rgba(79,195,247,0); transform: scale(1); }
+}
+.vq-mic-icon { font-size: 44px; }
+.vq-hint {
+  font-size: 13px; font-weight: 700;
+  color: rgba(255,255,255,0.85);
+  letter-spacing: 1px;
+  margin-bottom: 18px;
+}
+.vq-timer-bar {
+  width: 80%; max-width: 280px;
+  height: 6px;
+  background: rgba(255,255,255,0.10);
+  border-radius: 50px;
+  overflow: hidden;
+}
+.vq-timer-fill {
+  width: 100%;
+  height: 100%;
+  background: linear-gradient(90deg, #81c784, #ffb74d, #ff8a9e);
+  border-radius: 50px;
+  transform-origin: left center;
+  animation: vqTimerShrink 2s linear forwards;
+}
+@keyframes vqTimerShrink { 0% { transform: scaleX(1); } 100% { transform: scaleX(0); } }
+
+.vq-result {
+  padding: 18px 14px 22px;
+  text-align: center;
+  flex: 1; display: flex; flex-direction: column;
+}
+.vq-result-icon {
+  font-size: 56px;
+  margin-bottom: 6px;
+  line-height: 1;
+}
+.vq-result-text {
+  font-size: 22px; font-weight: 900;
+  margin-bottom: 16px;
+  letter-spacing: 0.5px;
+}
+.vq-correct .vq-result-icon { color: #81c784; text-shadow: 0 0 24px rgba(129,199,132,0.6); animation: vqResultPop 0.4s cubic-bezier(0.34, 1.56, 0.64, 1) backwards; }
+.vq-correct .vq-result-text { color: #a5d6a7; }
+.vq-wrong .vq-result-icon { color: #ff8a9e; text-shadow: 0 0 24px rgba(233,69,96,0.6); animation: vqResultPop 0.4s cubic-bezier(0.34, 1.56, 0.64, 1) backwards; }
+.vq-wrong .vq-result-text { color: #ff8a9e; }
+@keyframes vqResultPop {
+  0% { transform: scale(0.5); opacity: 0; }
+  100% { transform: scale(1); opacity: 1; }
+}
+.vq-you-said, .vq-correct-answer {
+  font-size: 13px;
+  color: rgba(255,255,255,0.78);
+  margin: 4px 0;
+}
+.vq-correct-answer strong { color: #ffb74d; font-weight: 900; font-size: 15px; }
+.vq-explain {
+  margin-top: 14px;
+  padding: 12px 14px;
+  background: rgba(0,0,0,0.22);
+  border: 1px solid rgba(255,255,255,0.08);
+  border-radius: 10px;
+  text-align: left;
+  font-size: 13px;
+  color: rgba(255,255,255,0.85);
+  line-height: 1.65;
+  flex: 1;
+  overflow-y: auto;
+}
+.vq-correct .vq-explain { animation: vqExplainFade 0.4s ease backwards; }
+@keyframes vqExplainFade { 0% { opacity: 0; transform: translateY(4px); } 100% { opacity: 1; transform: translateY(0); } }
+.vq-next-btn {
+  margin-top: 16px;
+  padding: 12px 16px;
+  background: linear-gradient(135deg, rgba(186,156,245,0.95), rgba(149,117,219,0.95));
+  border: none; color: #fff;
+  font-size: 14px; font-weight: 800;
+  border-radius: 12px; cursor: pointer; letter-spacing: 0.4px;
+  box-shadow: 0 4px 16px rgba(149,117,219,0.40);
+}
+.vq-loading { padding: 30px; text-align: center; color: rgba(255,255,255,0.55); }
+
 /* ── 자정 넘김 안내 오버레이 ───────────────────────────── */
 .day-rollover-overlay {
   position: fixed; inset: 0;
@@ -1746,6 +1871,12 @@ const state = {
   activeRecallMode: false, // 능동 회상 모드 — 본문 블러 + "정답 보기" 강제 + 자기평가 (localStorage 영속화)
   activeRecallRevealed: new Set(), // 능동 회상에서 "정답 보기" 누른 카드 (블러 해제 + 평가 버튼 노출). 다지기 진입 시 리셋
   lastStudyDate: (() => { try { return localStorage.getItem('op_last_study_date') || ''; } catch { return ''; } })(), // 마지막 다지기 학습 KST 날짜 — 자정 넘김 안내용
+  voiceQuizActive: false,    // 음성 퀴즈 세션 진행 중
+  voiceQuizPhase: 'idle',    // 'idle' | 'listening' | 'correct-flash' | 'wrong-reveal' | 'timeout'
+  voiceQuizTranscript: '',   // 사용자가 말한 내용 (디버그/표시용)
+  voiceQuizExpected: '',     // 현재 카드의 정답 (items[0])
+  _voiceQuizRecognition: null, // SpeechRecognition 인스턴스
+  _voiceQuizTimer: null,     // 2초 타이머
   recentlyFailedFromMemo: new Set(), // 이번 챕터 진입 중 다지기에서 실패(펼침)해서 챕터 뷰로 돌아온 카드 — 챕터 뷰 정렬 시 맨 아래로
   peekedPassedSet: new Set(), // 펼친 뒤 패스해서 "틀린 단어"로 확정된 카드 — 챕터 뷰 정렬·색 구분용. 펼치는 순간이 아니라 패스 후에야 추가
   expanded: { topic: new Set(), subtopic: new Set() },
@@ -2505,7 +2636,10 @@ function renderMemorizedView(chapterId, hasAccess) {
   `;
 
   // 오늘 학습 (b=1): 단일 카드 스테이지로 렌더 (큰 카드 + 우상단 더미 시각화)
-  const todayStageHtml = renderTodayStage(byBox[1], hasAccess);
+  // 음성 퀴즈 활성 중이면 포커스 카드를 음성 모드 카드로 대체 (큐만 보임 + 마이크 + 타이머)
+  const todayStageHtml = state.voiceQuizActive
+    ? `<div class="srs-today-stage open vq-active"><div class="stage-head"><span class="srs-box-arrow">▼</span><span class="stage-name">🎤 음성 퀴즈</span><div class="srs-deck-stack"><div class="deck-count">${byBox[1].length}</div></div></div>${renderVoiceQuizCard(byBox[1])}</div>`
+    : renderTodayStage(byBox[1], hasAccess);
 
   // 미래 박스 (b=2~6): 인벤토리 리스트 — 전체 카드 표시, 패스 버튼 없음, 펼침→접음=강등
   const boxBlocks = [];
@@ -2534,7 +2668,16 @@ function renderMemorizedView(chapterId, hasAccess) {
     `);
   }
 
-  return clearBar + todayStageHtml + boxBlocks.join('');
+  // 음성 퀴즈 시작 버튼 — chapter.voice_quiz_enabled === 1 인 챕터만, 활성 중이면 종료 버튼
+  const c = state.currentChapter;
+  let voiceQuizBtnHtml = '';
+  if (c && Number(c.voice_quiz_enabled) === 1) {
+    voiceQuizBtnHtml = state.voiceQuizActive
+      ? `<button class="vq-toggle vq-toggle-stop" onclick="stopVoiceQuiz()">■ 음성 퀴즈 종료</button>`
+      : `<button class="vq-toggle vq-toggle-start" onclick="startVoiceQuiz()">🎤 음성 퀴즈 시작 (2초)</button>`;
+  }
+
+  return clearBar + voiceQuizBtnHtml + todayStageHtml + boxBlocks.join('');
 }
 
 // 다지기 박스 펼침 토글 — 아코디언 동작 (한 번에 한 박스만 펼침)
@@ -2597,6 +2740,187 @@ function todayStageJudge(subId, correct) {
   }
 }
 
+// ============================================================
+// 음성 퀴즈 (Voice Quiz) — chapter.voice_quiz_enabled 인 챕터에서만 사용
+// ============================================================
+const VOICE_QUIZ_TIME_LIMIT_MS = 2000;
+const VOICE_CORRECT_FLASH_MS = 1500;
+
+// 정답 텍스트 추출 — items[0]의 text 필드 사용 (컨벤션: 첫 항목 = 정답)
+function getCardAnswer(subId) {
+  const items = state.itemsBySubtopic[Number(subId)];
+  if (!items || !Array.isArray(items) || !items.length) return '';
+  const first = items[0];
+  // items[0].text 우선, 없으면 caption, 없으면 빈 문자열
+  return String(first.text || first.caption || '').trim();
+}
+
+// 정규화 + 단순 비교 (Phase 1)
+function voiceQuizNormalize(s) {
+  return String(s || '')
+    .replace(/[\s.,'"!?~()·、。:;\-_/]/g, '')
+    .toLowerCase()
+    .normalize('NFC');
+}
+function voiceQuizCompare(spoken, expected) {
+  const a = voiceQuizNormalize(spoken);
+  const b = voiceQuizNormalize(expected);
+  if (!a || !b) return false;
+  if (a === b) return true;
+  // 한 쪽이 다른 쪽을 포함하면 정답 (긴 답 중에 핵심어 있음)
+  if (a.includes(b) || b.includes(a)) return true;
+  return false;
+}
+
+// 현재 카드 정답 가져오기 (포커스 스테이지의 byBox[1][0])
+function voiceQuizCurrentCardId() {
+  if (!state.currentChapter) return null;
+  const topics = state.topicsByChapter[state.currentChapter.id] || [];
+  let oldest = null;
+  let oldestKey = '￿';
+  for (const t of topics) {
+    const subs = state.subtopicsByTopic[t.id] || [];
+    for (const s of subs) {
+      const sid = Number(s.id);
+      if (!state.memoSnapshotIds.has(sid)) continue;
+      const days = dueDaysLeft(state.understoodNextReview[sid]);
+      const effBox = days <= 0 ? 1 : (Number(state.understoodBox[sid]) || 1);
+      if (effBox !== 1) continue;
+      const key = (state.understoodLastMovedAt[sid] || '') + '#' + (Number(s.sort_order) || 0);
+      if (key < oldestKey) { oldestKey = key; oldest = s; }
+    }
+  }
+  return oldest ? Number(oldest.id) : null;
+}
+
+// 음성 퀴즈 세션 시작 — 다지기 모드 안에서 호출
+function startVoiceQuiz() {
+  // 브라우저 지원 확인
+  const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+  if (!SR) {
+    toast('이 브라우저는 음성 인식을 지원하지 않습니다 (Chrome/Edge/Safari 권장)', true);
+    return;
+  }
+  if (!state.memorizedView) {
+    toast('다지기 모드에서만 음성 퀴즈 가능', true);
+    return;
+  }
+  state.voiceQuizActive = true;
+  state.voiceQuizPhase = 'idle';
+  if (state.currentChapter) renderTree(state.currentChapter.id);
+  // 첫 카드로 진행
+  voiceQuizNextCard();
+}
+
+// 음성 퀴즈 세션 종료
+function stopVoiceQuiz() {
+  voiceQuizCleanup();
+  state.voiceQuizActive = false;
+  state.voiceQuizPhase = 'idle';
+  state.voiceQuizTranscript = '';
+  state.voiceQuizExpected = '';
+  if (state.currentChapter) renderTree(state.currentChapter.id);
+}
+
+function voiceQuizCleanup() {
+  if (state._voiceQuizTimer) { clearTimeout(state._voiceQuizTimer); state._voiceQuizTimer = null; }
+  if (state._voiceQuizRecognition) {
+    try { state._voiceQuizRecognition.abort(); } catch {}
+    state._voiceQuizRecognition = null;
+  }
+}
+
+// 다음 카드 진행 — 오늘 학습 박스 첫 카드를 큐로 음성 인식 시작
+function voiceQuizNextCard() {
+  voiceQuizCleanup();
+  const sid = voiceQuizCurrentCardId();
+  if (sid == null) {
+    // 오늘 학습 카드 없음 → 세션 종료
+    state.voiceQuizActive = false;
+    state.voiceQuizPhase = 'idle';
+    if (state.currentChapter) renderTree(state.currentChapter.id);
+    return;
+  }
+  state.voiceQuizExpected = getCardAnswer(sid);
+  state.voiceQuizTranscript = '';
+  state.voiceQuizPhase = 'listening';
+  if (state.currentChapter) renderTree(state.currentChapter.id);
+
+  // 본문 prefetch 보장 (이미 캐시면 즉시)
+  ensureItems(sid, false).then(() => {
+    state.voiceQuizExpected = getCardAnswer(sid);
+  }).catch(() => {});
+
+  // Web Speech API 시작
+  const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+  const rec = new SR();
+  const lang = (state.currentChapter && state.currentChapter.voice_quiz_lang) || 'ko-KR';
+  rec.lang = lang;
+  rec.interimResults = false;
+  rec.maxAlternatives = 3;
+  let resolved = false;
+
+  rec.onresult = (e) => {
+    if (resolved) return;
+    resolved = true;
+    const alternatives = [];
+    for (let i = 0; i < (e.results[0].length || 0); i++) {
+      alternatives.push(e.results[0][i].transcript);
+    }
+    state.voiceQuizTranscript = alternatives[0] || '';
+    // 어떤 후보든 정답과 매치되면 정답
+    const expected = state.voiceQuizExpected;
+    const matched = alternatives.some(alt => voiceQuizCompare(alt, expected));
+    voiceQuizResolve(sid, matched ? 'correct' : 'wrong');
+  };
+  rec.onerror = () => {
+    if (resolved) return;
+    resolved = true;
+    voiceQuizResolve(sid, 'timeout');
+  };
+  rec.onend = () => {
+    if (resolved) return;
+    resolved = true;
+    voiceQuizResolve(sid, 'timeout');
+  };
+
+  try { rec.start(); state._voiceQuizRecognition = rec; }
+  catch (err) { toast('마이크 권한을 확인하세요', true); stopVoiceQuiz(); return; }
+
+  // 2초 타이머 — 시간 초과시 강제 종료
+  state._voiceQuizTimer = setTimeout(() => {
+    if (resolved) return;
+    resolved = true;
+    try { rec.stop(); } catch {}
+    voiceQuizResolve(sid, 'timeout');
+  }, VOICE_QUIZ_TIME_LIMIT_MS);
+}
+
+// 결과 처리 — correct/wrong/timeout
+function voiceQuizResolve(sid, outcome) {
+  voiceQuizCleanup();
+  if (outcome === 'correct') {
+    // 짧은 flash → 자동 다음
+    state.voiceQuizPhase = 'correct-flash';
+    if (state.currentChapter) renderTree(state.currentChapter.id);
+    setTimeout(() => {
+      memorizedPass(sid, { forcePeeked: false });
+      // memorizedPass 후 renderTree가 일어남. 그 후 다음 카드로.
+      setTimeout(() => voiceQuizNextCard(), 50);
+    }, VOICE_CORRECT_FLASH_MS);
+  } else {
+    // 오답/타임아웃: 전체 공개 + 사용자 탭으로 다음
+    state.voiceQuizPhase = outcome === 'timeout' ? 'timeout' : 'wrong-reveal';
+    if (state.currentChapter) renderTree(state.currentChapter.id);
+  }
+}
+
+// 오답/타임아웃 후 "다음" 버튼
+function voiceQuizContinue(sid) {
+  memorizedPass(sid, { forcePeeked: true });
+  setTimeout(() => voiceQuizNextCard(), 50);
+}
+
 // 스테이지 포커스 카드 HTML — byBox[1]의 첫 번째 카드를 큰 카드로 렌더
 // items 미로드면 로딩 상태. 능동 회상 ON + 미공개면 블러 + 정답 보기 버튼.
 function renderFocusCard(s, remaining, hasAccess) {
@@ -2649,6 +2973,73 @@ function renderFocusCard(s, remaining, hasAccess) {
           <button class="recall-btn recall-correct" onclick="event.stopPropagation();todayStageJudge(${sid}, true)">✓ 맞췄어요</button>
         </div>
       ` : ''}
+    </div>
+  `;
+}
+
+// 음성 퀴즈 카드 — 큐만 보임 + 마이크 아이콘 + 타이머
+function renderVoiceQuizCard(byBox1) {
+  if (byBox1.length === 0) {
+    return `
+      <div class="stage-empty">
+        <div class="stage-empty-icon">🎉</div>
+        <div class="stage-empty-text">오늘 분량 완료!</div>
+      </div>
+    `;
+  }
+  const s = byBox1[0];
+  const sid = Number(s.id);
+  const phase = state.voiceQuizPhase || 'idle';
+  const isAlpha = /[a-zA-Z]/.test(s.title || '') && !/[가-힯ᄀ-ᇿ㄰-㆏]/.test(s.title || '');
+  const speakBtn = isAlpha
+    ? `<button class="speak-btn" onclick="event.stopPropagation();speakText(${JSON.stringify(s.title).replace(/"/g, '&quot;')})" title="발음 듣기">🔊</button>`
+    : '';
+
+  const items = state.itemsBySubtopic[sid] || [];
+  const itemsHtml = Array.isArray(items) && items.length
+    ? items.map(it => renderItem(it)).join('')
+    : '';
+  const answer = state.voiceQuizExpected || getCardAnswer(sid);
+
+  let bodyHtml = '';
+  if (phase === 'listening') {
+    bodyHtml = `
+      <div class="vq-listening">
+        <div class="vq-mic-ring"><div class="vq-mic-icon">🎤</div></div>
+        <div class="vq-hint">말로 답해보세요</div>
+        <div class="vq-timer-bar"><div class="vq-timer-fill"></div></div>
+      </div>
+    `;
+  } else if (phase === 'correct-flash') {
+    bodyHtml = `
+      <div class="vq-result vq-correct">
+        <div class="vq-result-icon">✓</div>
+        <div class="vq-result-text">정답!</div>
+        <div class="vq-explain">${itemsHtml}</div>
+      </div>
+    `;
+  } else if (phase === 'wrong-reveal' || phase === 'timeout') {
+    const youSaid = state.voiceQuizTranscript ? `<div class="vq-you-said">당신: "${escapeHtml(state.voiceQuizTranscript)}"</div>` : '';
+    const headIcon = phase === 'timeout' ? '⏰' : '✗';
+    const headText = phase === 'timeout' ? '시간 초과' : '다시';
+    bodyHtml = `
+      <div class="vq-result vq-wrong">
+        <div class="vq-result-icon">${headIcon}</div>
+        <div class="vq-result-text">${headText}</div>
+        ${youSaid}
+        <div class="vq-correct-answer">정답: <strong>${escapeHtml(answer)}</strong></div>
+        <div class="vq-explain">${itemsHtml}</div>
+        <button class="vq-next-btn" onclick="voiceQuizContinue(${sid})">다음 카드 →</button>
+      </div>
+    `;
+  } else {
+    bodyHtml = `<div class="vq-loading">준비 중…</div>`;
+  }
+
+  return `
+    <div class="focus-card vq-card vq-${phase}" data-sub="${sid}">
+      <div class="focus-title">${escapeHtml(s.title)}${speakBtn}</div>
+      ${bodyHtml}
     </div>
   `;
 }
@@ -4486,6 +4877,9 @@ window.toggleActiveRecall = toggleActiveRecall;
 window.activeRecallReveal = activeRecallReveal;
 window.activeRecallJudge = activeRecallJudge;
 window.todayStageJudge = todayStageJudge;
+window.startVoiceQuiz = startVoiceQuiz;
+window.stopVoiceQuiz = stopVoiceQuiz;
+window.voiceQuizContinue = voiceQuizContinue;
 window.pressStart = pressStart;
 window.pressEnd = pressEnd;
 window.subClick = subClick;

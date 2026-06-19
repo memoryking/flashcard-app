@@ -704,6 +704,8 @@ async function handleCreateChapter(request, env, user) {
     is_all_free: b.is_all_free ? 1 : 0,
     is_published: b.is_published ? 1 : 0,  // 신규 챕터 기본 비공개 (선생님이 명시적 공개)
     pay_url: String(b.pay_url || '').trim(),
+    voice_quiz_enabled: b.voice_quiz_enabled ? 1 : 0,
+    voice_quiz_lang: ['ko-KR', 'en-US'].includes(b.voice_quiz_lang) ? b.voice_quiz_lang : 'ko-KR',
     updated_at: kstDateTime(),
   };
   if (!data.subject || !data.title) return json({ error: 'subject, title 필수' }, 400, request);
@@ -723,6 +725,10 @@ async function handleUpdateChapter(request, env, user, id) {
   if (b.is_all_free !== undefined) patch.is_all_free = b.is_all_free ? 1 : 0;
   if (b.is_published !== undefined) patch.is_published = b.is_published ? 1 : 0;
   if (b.pay_url !== undefined) patch.pay_url = String(b.pay_url).trim();
+  if (b.voice_quiz_enabled !== undefined) patch.voice_quiz_enabled = b.voice_quiz_enabled ? 1 : 0;
+  if (b.voice_quiz_lang !== undefined) {
+    patch.voice_quiz_lang = ['ko-KR', 'en-US'].includes(b.voice_quiz_lang) ? b.voice_quiz_lang : 'ko-KR';
+  }
   patch.updated_at = kstDateTime();
   const r = await ncbUpdate(env, 'op_chapters', id, patch);
   return json({ ok: true, result: r }, 200, request);
