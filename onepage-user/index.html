@@ -2070,7 +2070,8 @@ const state = {
   firstLetterQuizChoices: [],   // [{char, isCorrect}] 2개, 셔플됨
   firstLetterQuizSelected: '',  // 사용자가 고른 글자
   firstLetterQuizExpected: '',  // 정답 텍스트 (items[0])
-  quizDoneSet: new Set(),       // 음성/첫글자 퀴즈에서 처리한 카드 — SRS 박스 변경 없이 카운트만 줄임. 다지기 진입 시 리셋
+  quizDoneSet: new Set(),       // 음성/첫글자 퀴즈에서 "정답"으로 클리어된 카드 — 오답은 추가 안 됨
+  quizLastWrongSid: null,       // 가장 최근 오답 카드 — 다음 카드 선택 시 후순위로 (반복적 노출 방지)
   recentlyFailedFromMemo: new Set(), // 이번 챕터 진입 중 다지기에서 실패(펼침)해서 챕터 뷰로 돌아온 카드 — 챕터 뷰 정렬 시 맨 아래로
   peekedPassedSet: new Set(), // 펼친 뒤 패스해서 "틀린 단어"로 확정된 카드 — 챕터 뷰 정렬·색 구분용. 펼치는 순간이 아니라 패스 후에야 추가
   expanded: { topic: new Set(), subtopic: new Set() },
@@ -2884,17 +2885,14 @@ function renderMemorizedView(chapterId, hasAccess) {
   const c = state.currentChapter;
   let quizBtnHtml = '';
   if (c && Number(c.voice_quiz_enabled) === 1 && !state.voiceQuizActive && !state.firstLetterQuizActive) {
-    const qs = quizStats();
-    if (qs.total > 0 && qs.pending === 0 && qs.done > 0) {
-      quizBtnHtml = renderQuizCleared(qs);
-    } else {
-      quizBtnHtml = renderVoiceQuizSettings() + `
-        <div class="vq-start-row">
-          <button class="vq-toggle vq-toggle-start vq-half" onclick="startVoiceQuiz()">🎤 음성 (4초)</button>
-          <button class="vq-toggle vq-toggle-fl vq-half" onclick="startFirstLetterQuiz()">✏️ 첫글자</button>
-        </div>
-      `;
-    }
+    // 모두 클리어 안내는 더 이상 자리 차지하는 카드로 표시하지 않음 — toast로 띄움
+    // (자동 종료 시 voiceQuizNextCard/firstLetterQuizNextCard에서, 시작 버튼 클릭 시 start 함수에서)
+    quizBtnHtml = renderVoiceQuizSettings() + `
+      <div class="vq-start-row">
+        <button class="vq-toggle vq-toggle-start vq-half" onclick="startVoiceQuiz()">🎤 음성 (4초)</button>
+        <button class="vq-toggle vq-toggle-fl vq-half" onclick="startFirstLetterQuiz()">✏️ 첫글자</button>
+      </div>
+    `;
   }
 
   return clearBar + quizBtnHtml + todayStageHtml + boxBlocks.join('');
@@ -2999,26 +2997,40 @@ function voiceQuizCompare(spoken, expected) {
   return false;
 }
 
-// 현재 카드 정답 가져오기 (포커스 스테이지의 오늘 학습 첫 카드, quizDoneSet 처리한 카드는 제외)
+// 다음 퀴즈 카드 선택:
+//  1. byBox[1] effective + 스냅샷 + 퀴즈에서 클리어 안 됨 후보 모음
+//  2. lastWrongSid는 다른 후보가 있으면 후순위 (반복 노출 방지)
+//  3. last_moved_at 오래된 순 + sort_order로 정렬
 function voiceQuizCurrentCardId() {
   if (!state.currentChapter) return null;
   const topics = state.topicsByChapter[state.currentChapter.id] || [];
-  let oldest = null;
-  let oldestKey = '￿';
+  const candidates = [];
   for (const t of topics) {
     const subs = state.subtopicsByTopic[t.id] || [];
     for (const s of subs) {
       const sid = Number(s.id);
       if (!state.memoSnapshotIds.has(sid)) continue;
-      if (state.quizDoneSet && state.quizDoneSet.has(sid)) continue; // 퀴즈에서 이미 처리된 카드 제외
+      if (state.quizDoneSet && state.quizDoneSet.has(sid)) continue;
       const days = dueDaysLeft(state.understoodNextReview[sid]);
       const effBox = days <= 0 ? 1 : (Number(state.understoodBox[sid]) || 1);
       if (effBox !== 1) continue;
-      const key = (state.understoodLastMovedAt[sid] || '') + '#' + (Number(s.sort_order) || 0);
-      if (key < oldestKey) { oldestKey = key; oldest = s; }
+      candidates.push(s);
     }
   }
-  return oldest ? Number(oldest.id) : null;
+  if (candidates.length === 0) return null;
+  // 다른 카드 있으면 lastWrongSid 제외 (방금 틀린 카드 바로 다시 보지 않게)
+  let filtered = candidates;
+  if (state.quizLastWrongSid != null && candidates.length > 1) {
+    const others = candidates.filter(s => Number(s.id) !== state.quizLastWrongSid);
+    if (others.length > 0) filtered = others;
+  }
+  filtered.sort((a, b) => {
+    const la = state.understoodLastMovedAt[Number(a.id)] || '';
+    const lb = state.understoodLastMovedAt[Number(b.id)] || '';
+    if (la !== lb) return la.localeCompare(lb);
+    return (Number(a.sort_order) || 0) - (Number(b.sort_order) || 0);
+  });
+  return Number(filtered[0].id);
 }
 
 // 모드 / 문제 읽기 토글 (localStorage 영속화)
@@ -3101,6 +3113,7 @@ function stopVoiceQuiz() {
   state.voiceQuizPhase = 'idle';
   state.voiceQuizTranscript = '';
   state.voiceQuizExpected = '';
+  state.quizLastWrongSid = null;
   if (state.currentChapter) renderTree(state.currentChapter.id);
 }
 
@@ -3117,9 +3130,14 @@ function voiceQuizNextCard() {
   voiceQuizCleanup();
   const sid = voiceQuizCurrentCardId();
   if (sid == null) {
-    // 오늘 학습 카드 없음 → 세션 종료
+    // 더 풀 카드 없음 → 세션 종료. quizDoneSet 기준 toast 안내
+    const qs = quizStats();
     state.voiceQuizActive = false;
     state.voiceQuizPhase = 'idle';
+    state.quizLastWrongSid = null;
+    if (qs.total > 0 && qs.done > 0 && qs.pending === 0) {
+      toast('🎉 퀴즈 클리어! 카드 터치로 깊은 학습을 진행하세요.', false);
+    }
     if (state.currentChapter) renderTree(state.currentChapter.id);
     return;
   }
@@ -3270,7 +3288,8 @@ function voiceQuizResolve(sid, outcome) {
     state.voiceQuizPhase = 'correct-flash';
     if (state.currentChapter) renderTree(state.currentChapter.id);
     const proceed = () => {
-      state.quizDoneSet.add(sid); // SRS 변경 없이 done 처리
+      state.quizDoneSet.add(sid);     // 정답만 done에 등록 → 카운트 감소
+      state.quizLastWrongSid = null;  // 정답이니 wrong 표시 해제
       setTimeout(() => voiceQuizNextCard(), 50);
     };
     if (isAuto && readAloud) {
@@ -3285,7 +3304,9 @@ function voiceQuizResolve(sid, outcome) {
 
     if (isAuto) {
       const proceed = () => {
-        state.quizDoneSet.add(sid); // SRS 변경 없이 done 처리
+        // 오답/타임아웃: done에 등록 안 함 — 풀에 남아 반복.
+        // lastWrongSid 기록 → 다음 카드 선택 시 후순위 (방금 본 카드 바로 다시 노출 방지)
+        state.quizLastWrongSid = sid;
         setTimeout(() => voiceQuizNextCard(), 50);
       };
       const answer = state.voiceQuizExpected;
@@ -3303,8 +3324,9 @@ function voiceQuizResolve(sid, outcome) {
 }
 
 // 오답/타임아웃 후 "다음" 버튼 (수동 모드 전용)
+//  → done에 등록 안 함, lastWrongSid 기록만
 function voiceQuizContinue(sid) {
-  state.quizDoneSet.add(sid);
+  state.quizLastWrongSid = sid;
   setTimeout(() => voiceQuizNextCard(), 50);
 }
 
@@ -3512,6 +3534,7 @@ function stopFirstLetterQuiz() {
   state.firstLetterQuizChoices = [];
   state.firstLetterQuizSelected = '';
   state.firstLetterQuizExpected = '';
+  state.quizLastWrongSid = null;
   if (state.currentChapter) renderTree(state.currentChapter.id);
 }
 
@@ -3519,8 +3542,13 @@ function firstLetterQuizNextCard() {
   if (state._voiceQuizTimer) { clearTimeout(state._voiceQuizTimer); state._voiceQuizTimer = null; }
   const sid = voiceQuizCurrentCardId();
   if (sid == null) {
+    const qs = quizStats();
     state.firstLetterQuizActive = false;
     state.firstLetterQuizPhase = 'idle';
+    state.quizLastWrongSid = null;
+    if (qs.total > 0 && qs.done > 0 && qs.pending === 0) {
+      toast('🎉 퀴즈 클리어! 카드 터치로 깊은 학습을 진행하세요.', false);
+    }
     if (state.currentChapter) renderTree(state.currentChapter.id);
     return;
   }
@@ -3595,6 +3623,7 @@ function firstLetterQuizResolve(sid, correct) {
     if (state.currentChapter) renderTree(state.currentChapter.id);
     const proceed = () => {
       state.quizDoneSet.add(sid);
+      state.quizLastWrongSid = null;
       setTimeout(() => firstLetterQuizNextCard(), 50);
     };
     if (isAuto && readAloud) {
@@ -3608,7 +3637,8 @@ function firstLetterQuizResolve(sid, correct) {
     if (state.currentChapter) renderTree(state.currentChapter.id);
     if (isAuto) {
       const proceed = () => {
-        state.quizDoneSet.add(sid);
+        // 오답: done에 등록 안 함, lastWrongSid만 기록
+        state.quizLastWrongSid = sid;
         setTimeout(() => firstLetterQuizNextCard(), 50);
       };
       const answer = state.firstLetterQuizExpected;
@@ -3624,7 +3654,7 @@ function firstLetterQuizResolve(sid, correct) {
 }
 
 function firstLetterQuizContinue(sid) {
-  state.quizDoneSet.add(sid);
+  state.quizLastWrongSid = sid;
   setTimeout(() => firstLetterQuizNextCard(), 50);
 }
 
@@ -3914,6 +3944,7 @@ function toggleMemorizedView() {
     state.voiceQuizActive = false;
     state.firstLetterQuizActive = false;
     state.quizDoneSet = new Set();
+    state.quizLastWrongSid = null;
     // 일반 모드/이전 세션에서 누적된 passedSet 잔여 항목 제거 — 다지기에서는 카드가 다 보여야 함
     // (다지기 박스 안 카드들에 한해서만 클리어. 일반 모드의 다른 챕터/패스 이력은 보존)
     for (const sid of state.memoSnapshotIds) state.passedSet.delete(sid);
