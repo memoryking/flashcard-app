@@ -164,6 +164,121 @@ a { color: #4fc3f7; text-decoration: none; }
 }
 .srs-clear-foot { font-size: 11px; color: rgba(255,255,255,0.55); text-align: right; }
 
+/* ── 능동 회상 (Active Recall) 토글 바 ─────────────────── */
+.recall-toggle-bar {
+  margin: 12px 14px 4px;
+  padding: 10px 14px;
+  background: rgba(255,255,255,0.04);
+  border: 1px solid rgba(255,255,255,0.10);
+  border-radius: 12px;
+  cursor: pointer;
+  user-select: none;
+  transition: background 0.18s ease, border-color 0.18s ease, box-shadow 0.18s ease;
+}
+.recall-toggle-bar:hover {
+  background: rgba(186,156,245,0.08);
+  border-color: rgba(186,156,245,0.30);
+}
+.recall-toggle-bar.on {
+  background: linear-gradient(135deg, rgba(186,156,245,0.16), rgba(149,117,219,0.10));
+  border-color: rgba(186,156,245,0.50);
+  box-shadow: 0 0 18px rgba(186,156,245,0.18);
+}
+.recall-toggle-inner {
+  display: flex; align-items: center; gap: 10px;
+}
+.recall-toggle-icon { font-size: 18px; line-height: 1; }
+.recall-toggle-label {
+  flex: 1; font-size: 13px; font-weight: 700;
+  color: rgba(255,255,255,0.85); letter-spacing: 0.2px;
+}
+.recall-toggle-bar.on .recall-toggle-label { color: #d1b3ff; }
+.recall-toggle-state {
+  font-size: 11px; font-weight: 800;
+  padding: 3px 10px; border-radius: 50px;
+  background: rgba(255,255,255,0.10); color: rgba(255,255,255,0.55);
+  letter-spacing: 0.5px;
+}
+.recall-toggle-bar.on .recall-toggle-state {
+  background: rgba(186,156,245,0.30); color: #fff;
+  box-shadow: 0 0 12px rgba(186,156,245,0.40);
+}
+.recall-toggle-hint {
+  margin-top: 8px; padding-top: 8px;
+  border-top: 1px dashed rgba(186,156,245,0.20);
+  font-size: 11.5px; color: rgba(209,179,255,0.75);
+  line-height: 1.5;
+}
+
+/* ── 능동 회상 — 본문 블러 + 정답 보기 버튼 ────────────── */
+.recall-blur-wrap {
+  position: relative;
+  min-height: 80px;
+}
+.recall-blurred {
+  filter: blur(9px);
+  opacity: 0.55;
+  user-select: none;
+  pointer-events: none;
+  transition: filter 0.4s ease, opacity 0.4s ease;
+}
+.recall-reveal-btn {
+  position: absolute;
+  top: 50%; left: 50%;
+  transform: translate(-50%, -50%);
+  background: linear-gradient(135deg, rgba(186,156,245,0.95), rgba(149,117,219,0.95));
+  border: none; color: #fff;
+  font-size: 14px; font-weight: 800;
+  padding: 12px 26px; border-radius: 30px;
+  cursor: pointer; letter-spacing: 0.4px;
+  box-shadow: 0 6px 20px rgba(149,117,219,0.45), 0 0 0 4px rgba(186,156,245,0.18);
+  transition: transform 0.15s ease, box-shadow 0.15s ease;
+  white-space: nowrap;
+}
+.recall-reveal-btn:hover {
+  transform: translate(-50%, -50%) scale(1.05);
+  box-shadow: 0 8px 28px rgba(149,117,219,0.55), 0 0 0 6px rgba(186,156,245,0.22);
+}
+.recall-reveal-btn:active {
+  transform: translate(-50%, -50%) scale(0.98);
+}
+
+/* ── 능동 회상 — 자기평가 바 ───────────────────────────── */
+.recall-assess-bar {
+  display: flex; gap: 10px;
+  padding: 12px 14px 14px;
+  margin-top: 10px;
+  border-top: 1px solid rgba(255,255,255,0.08);
+}
+.recall-btn {
+  flex: 1;
+  padding: 13px 8px;
+  border-radius: 12px;
+  border: 1.5px solid;
+  font-size: 14px; font-weight: 800;
+  cursor: pointer; letter-spacing: 0.3px;
+  transition: transform 0.12s ease, box-shadow 0.18s ease, background 0.18s ease;
+}
+.recall-btn:active { transform: scale(0.96); }
+.recall-correct {
+  background: rgba(76,175,80,0.12);
+  border-color: rgba(76,175,80,0.45);
+  color: #a5d6a7;
+}
+.recall-correct:hover {
+  background: rgba(76,175,80,0.22);
+  box-shadow: 0 0 18px rgba(76,175,80,0.35);
+}
+.recall-wrong {
+  background: rgba(233,69,96,0.12);
+  border-color: rgba(233,69,96,0.45);
+  color: #ff8a9e;
+}
+.recall-wrong:hover {
+  background: rgba(233,69,96,0.22);
+  box-shadow: 0 0 18px rgba(233,69,96,0.35);
+}
+
 /* ── 다지기 v2 — 6 박스 ────────────────────────────────── */
 .srs-box {
   margin: 8px 14px;
@@ -1340,6 +1455,8 @@ const state = {
   memorizedAddressedSet: new Set(), // 다지기 모드 진입 후 한 번이라도 패스 처리한 카드 — 통계/디버그용
   memorizedClearedToday: false, // 이번 라운드에서 오늘 학습 카드를 한 번이라도 클리어(effPrev=1 → effNxt≠1)했는가
   celebrationActive: false, // celebration 애니메이션 진행 중 — 추가 패스가 또 celebration 발사하지 않게 가드
+  activeRecallMode: false, // 능동 회상 모드 — 본문 블러 + "정답 보기" 강제 + 자기평가 (localStorage 영속화)
+  activeRecallRevealed: new Set(), // 능동 회상에서 "정답 보기" 누른 카드 (블러 해제 + 평가 버튼 노출). 다지기 진입 시 리셋
   recentlyFailedFromMemo: new Set(), // 이번 챕터 진입 중 다지기에서 실패(펼침)해서 챕터 뷰로 돌아온 카드 — 챕터 뷰 정렬 시 맨 아래로
   peekedPassedSet: new Set(), // 펼친 뒤 패스해서 "틀린 단어"로 확정된 카드 — 챕터 뷰 정렬·색 구분용. 펼치는 순간이 아니라 패스 후에야 추가
   expanded: { topic: new Set(), subtopic: new Set() },
@@ -2082,6 +2199,19 @@ function renderMemorizedView(chapterId, hasAccess) {
     </div>
   `;
 
+  // 능동 회상 토글 — 학습 과학 모드. ON이면 본문 블러 + 정답 보기 + 자기평가 흐름
+  const recallOn = !!state.activeRecallMode;
+  const recallToggle = `
+    <div class="recall-toggle-bar ${recallOn ? 'on' : ''}" onclick="toggleActiveRecall()" title="능동 회상 — 회상 시도 후 정답 보기">
+      <div class="recall-toggle-inner">
+        <span class="recall-toggle-icon">🧠</span>
+        <span class="recall-toggle-label">능동 회상</span>
+        <span class="recall-toggle-state">${recallOn ? 'ON' : 'OFF'}</span>
+      </div>
+      ${recallOn ? '<div class="recall-toggle-hint">제목만 보고 머릿속으로 답을 떠올린 뒤 카드를 펼치세요</div>' : ''}
+    </div>
+  `;
+
   // 박스별 렌더
   let topIdx = 0;
   const boxBlocks = [];
@@ -2124,7 +2254,8 @@ function renderMemorizedView(chapterId, hasAccess) {
     // 박스 패스 버튼:
     //  - 오늘 학습 (b=1): unpassedCards[0]를 타겟 — 툭툭 누르며 단어를 다음 박스로 빠르게 advance
     //  - 미래 박스 (b≥2): 버튼 없음. 펼침→접음 인터랙션으로 오늘 학습 강등 (subClick에서 처리)
-    const passTarget = b === 1 && unpassedCards[0] ? unpassedCards[0].id : null;
+    //  - 능동 회상 ON: 모든 박스에서 버튼 숨김 (회상 사이클을 우회하는 단축키 차단)
+    const passTarget = (b === 1 && !recallOn && unpassedCards[0]) ? unpassedCards[0].id : null;
     const passBtnHtml = passTarget != null
       ? `<button class="srs-box-pass" onclick="event.stopPropagation();memorizedPass(${passTarget})" title="박스 첫 카드 패스">⤴ 패스</button>`
       : '';
@@ -2142,7 +2273,7 @@ function renderMemorizedView(chapterId, hasAccess) {
     `);
   }
 
-  return clearBar + boxBlocks.join('');
+  return clearBar + recallToggle + boxBlocks.join('');
 }
 
 // 다지기 박스 펼침 토글
@@ -2150,6 +2281,40 @@ function toggleSrsBox(box) {
   const b = Number(box);
   state.memorizedBoxOpen[b] = !state.memorizedBoxOpen[b];
   if (state.currentChapter) renderTree(state.currentChapter.id);
+}
+
+// ============================================================
+// 능동 회상 (Active Recall) — 다지기 모드 토글
+// ============================================================
+// 학습 과학 핵심: 본문을 강제로 회상한 뒤 공개 → 자기평가 → SRS 신호
+// 사용자 토글 OFF면 기존 빠른 패스 흐름 유지.
+function toggleActiveRecall() {
+  state.activeRecallMode = !state.activeRecallMode;
+  try { localStorage.setItem('op_active_recall_v1', state.activeRecallMode ? '1' : '0'); } catch {}
+  // 모드 전환 → 펼침/공개 진행상태 모두 정리 (새 모드로 fresh 시작)
+  state.activeRecallRevealed = new Set();
+  state.expanded.subtopic.clear();
+  if (state.currentChapter) renderTree(state.currentChapter.id);
+}
+
+// "정답 보기" 버튼: 본문 블러 해제 + 평가 버튼 노출
+function activeRecallReveal(subId) {
+  const sid = Number(subId);
+  state.activeRecallRevealed.add(sid);
+  if (state.currentChapter) renderTree(state.currentChapter.id);
+}
+
+// 자기평가 결과 → memorizedPass로 SRS 진행
+//  - correct=true  → forcePeeked=false → anpel 흐름 (effPrev=1이면 advance)
+//  - correct=false → forcePeeked=true  → peek+pass 흐름 (오늘 학습 강등, miss_count +1)
+function activeRecallJudge(subId, correct) {
+  const sid = Number(subId);
+  // 평가 완료 → reveal 진행상태 정리, 카드 닫음 (memorizedPass도 닫지만 명시적으로)
+  state.activeRecallRevealed.delete(sid);
+  state.expanded.subtopic.delete(sid);
+  // memorizedExpandedSet은 memorizedPass 끝에서 cleanup되므로 그대로 둠
+  // forcePeeked로 wasPeeked 명시 오버라이드 (자기평가가 진실 신호)
+  memorizedPass(sid, { forcePeeked: !correct });
 }
 
 function rebuildMemoSnapshot() {
@@ -2189,6 +2354,9 @@ function toggleMemorizedView() {
     // 다지기 처리 이력 초기화 — celebration 판정용
     state.memorizedAddressedSet = new Set();
     state.memorizedClearedToday = false;
+    // 능동 회상: 사용자 선호도(localStorage)로 토글 상태 복원, reveal 진행상태는 매 진입마다 리셋
+    try { state.activeRecallMode = localStorage.getItem('op_active_recall_v1') === '1'; } catch {}
+    state.activeRecallRevealed = new Set();
     // 일반 모드/이전 세션에서 누적된 passedSet 잔여 항목 제거 — 다지기에서는 카드가 다 보여야 함
     // (다지기 박스 안 카드들에 한해서만 클리어. 일반 모드의 다른 챕터/패스 이력은 보존)
     for (const sid of state.memoSnapshotIds) state.passedSet.delete(sid);
@@ -2206,11 +2374,14 @@ function toggleMemorizedView() {
 }
 
 // 암기 모음 모드의 패스 — 현재 항목을 이번 회에서 제외
-function memorizedPass(subId) {
+function memorizedPass(subId, options) {
   // v2 다지기 패스 — was_peeked 판정은 '다지기 안에서 펼쳤는지'만 봄
   // (다른 모드(new/별표/all)에서 펼친 이력은 무시 — 다지기 안에서 안 펼치고 패스하면 advance)
+  // options.forcePeeked: 능동 회상 모드에서 사용자 명시 자기평가(맞춤/틀림)로 wasPeeked 오버라이드
   const sid = Number(subId);
-  const wasPeeked = state.memorizedExpandedSet.has(sid);
+  const wasPeeked = options && typeof options.forcePeeked === 'boolean'
+    ? options.forcePeeked
+    : state.memorizedExpandedSet.has(sid);
 
   // 낙관적 박스/통계 갱신 — UI 즉시 반영, 서버 응답은 백그라운드
   if (state.understoodSet.has(sid)) {
@@ -2497,6 +2668,41 @@ function renderSubtopic(s, isCurrent) {
       body = '<div class="empty-state">아직 내용이 없습니다.</div>';
     } else {
       body = items.map(it => renderItem(it)).join('');
+    }
+
+    // 능동 회상 모드 (다지기 안에서만, 학습 카드일 때, 로딩/잠금/오류 아닐 때):
+    // 정답 보기 전 = 본문 블러 + "정답 보기" 버튼. 본 후 = 본문 + "맞췄어요/틀렸어요" 평가 바.
+    const recallEligible = state.activeRecallMode && state.memorizedView
+                        && items !== undefined && !items.locked && !items.error && items.length;
+    if (recallEligible) {
+      const revealed = state.activeRecallRevealed.has(Number(s.id));
+      if (!revealed) {
+        // 블러 + 정답 보기
+        body = `
+          <div class="recall-blur-wrap">
+            <div class="recall-blurred">${body}</div>
+            <button class="recall-reveal-btn"
+                    onclick="event.stopPropagation();activeRecallReveal(${s.id})">
+              🔍 정답 보기
+            </button>
+          </div>
+        `;
+      } else {
+        // 본문 + 평가 바
+        body = `
+          ${body}
+          <div class="recall-assess-bar">
+            <button class="recall-btn recall-correct"
+                    onclick="event.stopPropagation();activeRecallJudge(${s.id}, true)">
+              ✓ 맞췄어요
+            </button>
+            <button class="recall-btn recall-wrong"
+                    onclick="event.stopPropagation();activeRecallJudge(${s.id}, false)">
+              ✗ 틀렸어요
+            </button>
+          </div>
+        `;
+      }
     }
   }
 
@@ -2838,9 +3044,14 @@ function subClick(e, subId) {
   if (state.expanded.subtopic.has(subId)) {
     // 이미 펼쳐진 거 다시 누름 = 접기
     state.expanded.subtopic.delete(subId);
+    // 능동 회상 모드: 닫기는 순수 닫기 (평가 안 함). reveal 상태도 정리해서 다음 펼침은 처음부터
+    if (state.activeRecallMode) {
+      state.activeRecallRevealed.delete(subId);
+    }
     // 다지기 모드 + 미래 박스(effective box ≥ 2) 카드 → 접음 = 자동 peek+pass (오늘 학습 강등)
     // "내용 살짝 확인해 보니 모르더라" 신호. 패스 버튼 없으니 이 인터랙션이 유일한 강등 경로.
-    if (state.memorizedView && state.understoodSet.has(Number(subId))) {
+    // 단, 능동 회상 모드에서는 명시 평가(✓/✗ 버튼)가 결정 — 자동 강등 안 함
+    if (state.memorizedView && !state.activeRecallMode && state.understoodSet.has(Number(subId))) {
       const dueDays = dueDaysLeft(state.understoodNextReview[Number(subId)]);
       const effBox = dueDays <= 0 ? 1 : (Number(state.understoodBox[Number(subId)]) || 1);
       if (effBox !== 1) {
@@ -3843,6 +4054,9 @@ window.toggleMemorizedView = toggleMemorizedView;
 window.switchNormalMode = switchNormalMode;
 window.toggleSrsBox = toggleSrsBox;
 window.memorizedPass = memorizedPass;
+window.toggleActiveRecall = toggleActiveRecall;
+window.activeRecallReveal = activeRecallReveal;
+window.activeRecallJudge = activeRecallJudge;
 window.pressStart = pressStart;
 window.pressEnd = pressEnd;
 window.subClick = subClick;
