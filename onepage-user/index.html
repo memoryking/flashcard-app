@@ -279,6 +279,77 @@ a { color: #4fc3f7; text-decoration: none; }
   box-shadow: 0 0 18px rgba(233,69,96,0.35);
 }
 
+/* ── 자정 넘김 안내 오버레이 ───────────────────────────── */
+.day-rollover-overlay {
+  position: fixed; inset: 0;
+  background: rgba(10, 6, 24, 0.75);
+  backdrop-filter: blur(14px);
+  -webkit-backdrop-filter: blur(14px);
+  z-index: 9999;
+  display: flex; align-items: center; justify-content: center;
+  animation: rolloverFadeIn 0.35s ease forwards;
+}
+.day-rollover-overlay.fade-out { animation: rolloverFadeOut 0.4s ease forwards; }
+@keyframes rolloverFadeIn  { from { opacity: 0; } to { opacity: 1; } }
+@keyframes rolloverFadeOut { from { opacity: 1; } to { opacity: 0; } }
+.day-rollover-card {
+  background:
+    linear-gradient(180deg, rgba(70,45,120,0.52), rgba(35,20,68,0.72)),
+    radial-gradient(ellipse at 30% 0%, rgba(186,156,245,0.30), transparent 65%);
+  border: 1.5px solid rgba(186,156,245,0.55);
+  border-radius: 22px;
+  padding: 32px 30px 26px;
+  text-align: center;
+  max-width: 320px;
+  width: calc(100% - 56px);
+  box-shadow:
+    0 24px 64px rgba(0,0,0,0.55),
+    0 0 0 1px rgba(186,156,245,0.22),
+    inset 0 1px 0 rgba(255,255,255,0.14);
+  animation: rolloverCardPop 0.55s cubic-bezier(0.34, 1.56, 0.64, 1) backwards;
+}
+@keyframes rolloverCardPop {
+  0%   { transform: scale(0.72) translateY(20px); opacity: 0; }
+  100% { transform: scale(1)    translateY(0);    opacity: 1; }
+}
+.day-rollover-icon {
+  font-size: 56px;
+  margin-bottom: 14px;
+  display: block;
+  animation: rolloverIconFloat 2.5s ease-in-out infinite;
+}
+@keyframes rolloverIconFloat {
+  0%, 100% { transform: translateY(0); }
+  50%      { transform: translateY(-6px); }
+}
+.day-rollover-title {
+  font-size: 17px; font-weight: 800;
+  color: #d1b3ff;
+  letter-spacing: 0.6px;
+  margin-bottom: 12px;
+}
+.day-rollover-body {
+  font-size: 14px;
+  color: rgba(255,255,255,0.88);
+  line-height: 1.7;
+  margin-bottom: 18px;
+}
+.day-rollover-body strong {
+  color: #ffb74d;
+  font-size: 18px;
+  font-weight: 900;
+}
+.day-rollover-hint {
+  font-size: 11.5px;
+  color: rgba(255,255,255,0.45);
+  letter-spacing: 1.2px;
+  animation: rolloverHintBlink 1.4s ease-in-out infinite;
+}
+@keyframes rolloverHintBlink {
+  0%, 100% { opacity: 0.45; }
+  50%      { opacity: 0.85; }
+}
+
 /* ── 단일 카드 스테이지 (오늘 학습 박스 대체) ───────────── */
 .srs-today-stage {
   margin: 14px 14px 18px;
@@ -1674,6 +1745,7 @@ const state = {
   celebrationActive: false, // celebration 애니메이션 진행 중 — 추가 패스가 또 celebration 발사하지 않게 가드
   activeRecallMode: false, // 능동 회상 모드 — 본문 블러 + "정답 보기" 강제 + 자기평가 (localStorage 영속화)
   activeRecallRevealed: new Set(), // 능동 회상에서 "정답 보기" 누른 카드 (블러 해제 + 평가 버튼 노출). 다지기 진입 시 리셋
+  lastStudyDate: (() => { try { return localStorage.getItem('op_last_study_date') || ''; } catch { return ''; } })(), // 마지막 다지기 학습 KST 날짜 — 자정 넘김 안내용
   recentlyFailedFromMemo: new Set(), // 이번 챕터 진입 중 다지기에서 실패(펼침)해서 챕터 뷰로 돌아온 카드 — 챕터 뷰 정렬 시 맨 아래로
   peekedPassedSet: new Set(), // 펼친 뒤 패스해서 "틀린 단어"로 확정된 카드 — 챕터 뷰 정렬·색 구분용. 펼치는 순간이 아니라 패스 후에야 추가
   expanded: { topic: new Set(), subtopic: new Set() },
@@ -2626,6 +2698,78 @@ function renderTodayStage(byBox1, hasAccess) {
   `;
 }
 
+// ============================================================
+// 자정 넘김 (day rollover) — 마지막 학습 KST 날짜와 다르면 안내 + 자동 정렬
+// ============================================================
+// 미래 박스(literal box≥2)인데 next_review_at <= 오늘인 카드 수 = 오늘로 흘러내려온 카드
+function countNewlyDueCards() {
+  if (!state.currentChapter) return 0;
+  const cid = state.currentChapter.id;
+  const topics = state.topicsByChapter[cid] || [];
+  let count = 0;
+  for (const t of topics) {
+    const subs = state.subtopicsByTopic[t.id] || [];
+    for (const s of subs) {
+      const sid = Number(s.id);
+      if (!state.understoodSet.has(sid)) continue;
+      const literalBox = Number(state.understoodBox[sid]) || 1;
+      if (literalBox === 1) continue; // 이미 오늘 박스 — 카운트 대상 아님
+      const dueDays = dueDaysLeft(state.understoodNextReview[sid]);
+      if (dueDays <= 0) count++;
+    }
+  }
+  return count;
+}
+
+// 다지기 진입 시 호출. 마지막 학습이 어제 이전이면 안내 모달 노출.
+function maybeShowDayRollover() {
+  if (!state.currentChapter) return;
+  const today = kstTodayDate();
+  const last = state.lastStudyDate;
+
+  // 첫 진입: 그냥 기록 (안내 안 함)
+  if (!last) {
+    state.lastStudyDate = today;
+    try { localStorage.setItem('op_last_study_date', today); } catch {}
+    return;
+  }
+  // 같은 날: 통과
+  if (last === today) return;
+
+  // 날짜 바뀜 — 기록 갱신 (중복 안내 방지)
+  state.lastStudyDate = today;
+  try { localStorage.setItem('op_last_study_date', today); } catch {}
+
+  // 이동된 카드 카운트. 0장이면 안내 안 함 (학습 시작에 방해)
+  const count = countNewlyDueCards();
+  if (count === 0) return;
+  showDayRolloverNotice(count);
+}
+
+// 자정 넘김 안내 오버레이 — 2.5초 후 자동 사라짐 + render
+function showDayRolloverNotice(count) {
+  const overlay = document.createElement('div');
+  overlay.className = 'day-rollover-overlay';
+  overlay.innerHTML = `
+    <div class="day-rollover-card">
+      <div class="day-rollover-icon">🌅</div>
+      <div class="day-rollover-title">새로운 학습 일정</div>
+      <div class="day-rollover-body">
+        <strong>${count}장</strong>의 카드가<br>오늘 학습으로 도착했습니다
+      </div>
+      <div class="day-rollover-hint">잠시 후 시작합니다…</div>
+    </div>
+  `;
+  document.body.appendChild(overlay);
+  setTimeout(() => {
+    overlay.classList.add('fade-out');
+    setTimeout(() => {
+      overlay.remove();
+      if (state.currentChapter && state.memorizedView) renderTree(state.currentChapter.id);
+    }, 400);
+  }, 2500);
+}
+
 function rebuildMemoSnapshot() {
   state.memoSnapshotIds = new Set();
   const cid = state.currentChapter && state.currentChapter.id;
@@ -2672,6 +2816,8 @@ function toggleMemorizedView() {
     savePassed();
     // 오늘 통계 KST 자정 지났을 수 있으니 다시 로드 (자동 리셋 포함)
     if (state.currentChapter) loadTodayStats(state.currentChapter.id);
+    // 자정 넘김 안내 — 어제 이후 카드 자동 이동된 게 있으면 잠깐 모달
+    maybeShowDayRollover();
   } else {
     state.memoSnapshotIds = new Set();
     // 다지기 → 챕터 모드 복귀 시: 학습하던 모든 목차 닫음 → 목차 화면으로
