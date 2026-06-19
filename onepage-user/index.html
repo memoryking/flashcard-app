@@ -346,6 +346,64 @@ a { color: #4fc3f7; text-decoration: none; }
   border: 1px solid rgba(233,69,96,0.50);
   color: #ff8a9e;
 }
+/* 시작 버튼 row — 음성 퀴즈 + 첫글자 퀴즈 나란히 */
+.vq-start-row {
+  display: flex; gap: 8px;
+  margin: 4px 14px 6px;
+}
+.vq-half {
+  flex: 1;
+  width: auto !important;
+  margin: 0 !important;
+  font-size: 13.5px;
+  padding: 12px 10px;
+}
+.vq-toggle-fl {
+  background: linear-gradient(135deg, rgba(186,156,245,0.92), rgba(149,117,219,0.92));
+  color: #fff;
+  box-shadow: 0 4px 14px rgba(149,117,219,0.35);
+}
+.vq-toggle-fl:hover { transform: translateY(-1px); box-shadow: 0 6px 22px rgba(149,117,219,0.55); }
+
+/* 첫글자 퀴즈 — 선택지 큰 버튼 */
+.fl-card { min-height: 320px; }
+.fl-choices {
+  display: flex; gap: 16px;
+  justify-content: center; align-items: center;
+  padding: 26px 8px 18px;
+  flex: 1;
+}
+.fl-choice {
+  flex: 1; max-width: 140px;
+  padding: 32px 12px;
+  font-size: 42px; font-weight: 900;
+  color: #fff;
+  background: linear-gradient(135deg, rgba(186,156,245,0.30), rgba(149,117,219,0.18));
+  border: 2px solid rgba(186,156,245,0.55);
+  border-radius: 18px;
+  cursor: pointer;
+  letter-spacing: 0.5px;
+  transition: transform 0.12s ease, box-shadow 0.18s ease, border-color 0.18s ease, background 0.18s ease;
+  box-shadow: 0 6px 18px rgba(0,0,0,0.32), inset 0 1px 0 rgba(255,255,255,0.10);
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Noto Sans KR', sans-serif;
+  text-shadow: 0 2px 10px rgba(0,0,0,0.40);
+}
+.fl-choice:hover {
+  transform: translateY(-3px);
+  border-color: rgba(186,156,245,0.85);
+  background: linear-gradient(135deg, rgba(186,156,245,0.42), rgba(149,117,219,0.26));
+  box-shadow: 0 12px 28px rgba(149,117,219,0.45), inset 0 1px 0 rgba(255,255,255,0.15);
+}
+.fl-choice:active { transform: scale(0.96); }
+.fl-hint {
+  text-align: center;
+  font-size: 12px;
+  color: rgba(255,255,255,0.55);
+  letter-spacing: 2px;
+  margin-top: 6px;
+  padding-bottom: 16px;
+  animation: tapHintPulse 2s ease-in-out infinite;
+}
 .vq-card { min-height: 320px; }
 .vq-card .focus-title { margin-bottom: 24px; }
 
@@ -1942,6 +2000,11 @@ const state = {
   voiceQuizReadAloud: (() => { try { return localStorage.getItem('op_voice_quiz_read') === '1'; } catch { return false; } })(), // 문제(제목) TTS 읽어주기
   _voiceQuizRecognition: null, // SpeechRecognition 인스턴스
   _voiceQuizTimer: null,     // 4초 타이머 등
+  firstLetterQuizActive: false, // 첫글자 퀴즈 세션 진행 중
+  firstLetterQuizPhase: 'idle', // 'idle' | 'reading' | 'choosing' | 'correct-flash' | 'wrong-reveal'
+  firstLetterQuizChoices: [],   // [{char, isCorrect}] 2개, 셔플됨
+  firstLetterQuizSelected: '',  // 사용자가 고른 글자
+  firstLetterQuizExpected: '',  // 정답 텍스트 (items[0])
   recentlyFailedFromMemo: new Set(), // 이번 챕터 진입 중 다지기에서 실패(펼침)해서 챕터 뷰로 돌아온 카드 — 챕터 뷰 정렬 시 맨 아래로
   peekedPassedSet: new Set(), // 펼친 뒤 패스해서 "틀린 단어"로 확정된 카드 — 챕터 뷰 정렬·색 구분용. 펼치는 순간이 아니라 패스 후에야 추가
   expanded: { topic: new Set(), subtopic: new Set() },
@@ -2701,10 +2764,15 @@ function renderMemorizedView(chapterId, hasAccess) {
   `;
 
   // 오늘 학습 (b=1): 단일 카드 스테이지로 렌더 (큰 카드 + 우상단 더미 시각화)
-  // 음성 퀴즈 활성 중이면 포커스 카드를 음성 모드 카드로 대체 (큐만 보임 + 마이크 + 타이머)
-  const todayStageHtml = state.voiceQuizActive
-    ? `<div class="srs-today-stage open vq-active"><div class="stage-head"><span class="srs-box-arrow">▼</span><span class="stage-name">🎤 음성 퀴즈</span><div class="srs-deck-stack"><div class="deck-count">${byBox[1].length}</div></div></div>${renderVoiceQuizCard(byBox[1])}</div>`
-    : renderTodayStage(byBox[1], hasAccess);
+  // 음성 퀴즈 또는 첫글자 퀴즈 활성 시 포커스 카드를 해당 모드 카드로 대체
+  let todayStageHtml;
+  if (state.voiceQuizActive) {
+    todayStageHtml = `<div class="srs-today-stage open vq-active"><div class="stage-head"><span class="srs-box-arrow">▼</span><span class="stage-name">🎤 음성 퀴즈</span><div class="srs-deck-stack"><div class="deck-count">${byBox[1].length}</div></div></div>${renderVoiceQuizCard(byBox[1])}</div>`;
+  } else if (state.firstLetterQuizActive) {
+    todayStageHtml = `<div class="srs-today-stage open fl-active"><div class="stage-head"><span class="srs-box-arrow">▼</span><span class="stage-name">✏️ 첫글자 퀴즈</span><div class="srs-deck-stack"><div class="deck-count">${byBox[1].length}</div></div></div>${renderFirstLetterQuizCard(byBox[1])}</div>`;
+  } else {
+    todayStageHtml = renderTodayStage(byBox[1], hasAccess);
+  }
 
   // 미래 박스 (b=2~6): 인벤토리 리스트 — 전체 카드 표시, 패스 버튼 없음, 펼침→접음=강등
   const boxBlocks = [];
@@ -2733,18 +2801,25 @@ function renderMemorizedView(chapterId, hasAccess) {
     `);
   }
 
-  // 음성 퀴즈 시작 버튼 + 설정 (chapter.voice_quiz_enabled === 1 인 챕터만)
+  // 퀴즈 시작 버튼 + 설정 (chapter.voice_quiz_enabled === 1 인 챕터만)
   const c = state.currentChapter;
-  let voiceQuizBtnHtml = '';
+  let quizBtnHtml = '';
   if (c && Number(c.voice_quiz_enabled) === 1) {
     if (state.voiceQuizActive) {
-      voiceQuizBtnHtml = `<button class="vq-toggle vq-toggle-stop" onclick="stopVoiceQuiz()">■ 음성 퀴즈 종료</button>`;
+      quizBtnHtml = `<button class="vq-toggle vq-toggle-stop" onclick="stopVoiceQuiz()">■ 음성 퀴즈 종료</button>`;
+    } else if (state.firstLetterQuizActive) {
+      quizBtnHtml = `<button class="vq-toggle vq-toggle-stop" onclick="stopFirstLetterQuiz()">■ 첫글자 퀴즈 종료</button>`;
     } else {
-      voiceQuizBtnHtml = renderVoiceQuizSettings() + `<button class="vq-toggle vq-toggle-start" onclick="startVoiceQuiz()">🎤 음성 퀴즈 시작 (4초)</button>`;
+      quizBtnHtml = renderVoiceQuizSettings() + `
+        <div class="vq-start-row">
+          <button class="vq-toggle vq-toggle-start vq-half" onclick="startVoiceQuiz()">🎤 음성 (4초)</button>
+          <button class="vq-toggle vq-toggle-fl vq-half" onclick="startFirstLetterQuiz()">✏️ 첫글자</button>
+        </div>
+      `;
     }
   }
 
-  return clearBar + voiceQuizBtnHtml + todayStageHtml + boxBlocks.join('');
+  return clearBar + quizBtnHtml + todayStageHtml + boxBlocks.join('');
 }
 
 // 다지기 박스 펼침 토글 — 아코디언 동작 (한 번에 한 박스만 펼침)
@@ -2916,6 +2991,10 @@ function startVoiceQuiz() {
   }
   if (!state.memorizedView) {
     toast('다지기 모드에서만 음성 퀴즈 가능', true);
+    return;
+  }
+  if (state.firstLetterQuizActive) {
+    toast('첫글자 퀴즈를 먼저 종료하세요', true);
     return;
   }
   state.voiceQuizActive = true;
@@ -3273,6 +3352,252 @@ function renderVoiceQuizCard(byBox1) {
 
   return `
     <div class="focus-card vq-card vq-${phase}" data-sub="${sid}">
+      <div class="focus-title">${escapeHtml(s.title)}${speakBtn}</div>
+      ${bodyHtml}
+    </div>
+  `;
+}
+
+// ============================================================
+// 첫글자 퀴즈 — 음성 퀴즈와 같은 큐, 정답 첫 글자 + distractor 2개 중 선택
+// ============================================================
+// 텍스트의 첫 글자 추출 (영문은 대문자화)
+function getFirstChar(text) {
+  if (!text) return '';
+  const t = String(text).trim();
+  if (!t) return '';
+  const ch = t.charAt(0);
+  return /[a-z]/.test(ch) ? ch.toUpperCase() : ch;
+}
+
+// 같은 챕터의 다른 카드 items[0] 첫 글자 풀에서 랜덤 distractor 선택.
+// 풀 부족시 기본 풀로 폴백.
+function generateDistractor(correctChar, chapterId) {
+  const pool = new Set();
+  const topics = state.topicsByChapter[chapterId] || [];
+  for (const t of topics) {
+    const subs = state.subtopicsByTopic[t.id] || [];
+    for (const s of subs) {
+      const sid = Number(s.id);
+      const items = state.itemsBySubtopic[sid];
+      if (items && items.length && items[0] && (items[0].text || items[0].caption)) {
+        const ch = getFirstChar(items[0].text || items[0].caption);
+        if (ch && ch !== correctChar) pool.add(ch);
+      }
+    }
+  }
+  let candidates = Array.from(pool);
+  if (candidates.length === 0) {
+    if (/[가-힯]/.test(correctChar)) {
+      candidates = ['가','나','다','라','마','바','사','아','자','차','카','타','파','하','강','김','이','박','최','정'];
+    } else if (/[A-Z]/.test(correctChar)) {
+      candidates = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ'.split('');
+    } else {
+      candidates = ['?'];
+    }
+    candidates = candidates.filter(c => c !== correctChar);
+  }
+  return candidates[Math.floor(Math.random() * candidates.length)] || '?';
+}
+
+function startFirstLetterQuiz() {
+  if (!state.memorizedView) { toast('다지기 모드에서만 가능', true); return; }
+  if (state.voiceQuizActive) { toast('음성 퀴즈를 먼저 종료하세요', true); return; }
+  state.firstLetterQuizActive = true;
+  state.firstLetterQuizPhase = 'idle';
+  if (state.currentChapter) renderTree(state.currentChapter.id);
+  firstLetterQuizNextCard();
+}
+
+function stopFirstLetterQuiz() {
+  if (state._voiceQuizTimer) { clearTimeout(state._voiceQuizTimer); state._voiceQuizTimer = null; }
+  try { speechSynthesis.cancel(); } catch {}
+  state.firstLetterQuizActive = false;
+  state.firstLetterQuizPhase = 'idle';
+  state.firstLetterQuizChoices = [];
+  state.firstLetterQuizSelected = '';
+  state.firstLetterQuizExpected = '';
+  if (state.currentChapter) renderTree(state.currentChapter.id);
+}
+
+function firstLetterQuizNextCard() {
+  if (state._voiceQuizTimer) { clearTimeout(state._voiceQuizTimer); state._voiceQuizTimer = null; }
+  const sid = voiceQuizCurrentCardId();
+  if (sid == null) {
+    state.firstLetterQuizActive = false;
+    state.firstLetterQuizPhase = 'idle';
+    if (state.currentChapter) renderTree(state.currentChapter.id);
+    return;
+  }
+  state.firstLetterQuizSelected = '';
+  state.firstLetterQuizChoices = [];
+
+  // 카드 제목 찾기
+  let cardTitle = '';
+  const topics = state.topicsByChapter[state.currentChapter.id] || [];
+  for (const t of topics) {
+    const subs = state.subtopicsByTopic[t.id] || [];
+    const found = subs.find(x => Number(x.id) === sid);
+    if (found) { cardTitle = found.title || ''; break; }
+  }
+
+  const lang = (state.currentChapter && state.currentChapter.voice_quiz_lang) || 'ko-KR';
+  const questionLang = detectVoiceQuizLang(cardTitle) || lang;
+
+  // items 로드 보장 후 진행
+  ensureItems(sid, false).then(() => {
+    if (!state.firstLetterQuizActive) return;
+    if (state.voiceQuizReadAloud && cardTitle) {
+      state.firstLetterQuizPhase = 'reading';
+      if (state.currentChapter) renderTree(state.currentChapter.id);
+      speakVoiceQuiz(cardTitle, questionLang, () => {
+        if (!state.firstLetterQuizActive) return;
+        showFirstLetterChoices(sid);
+      });
+    } else {
+      showFirstLetterChoices(sid);
+    }
+  }).catch(() => {
+    if (state.firstLetterQuizActive) showFirstLetterChoices(sid);
+  });
+}
+
+function showFirstLetterChoices(sid) {
+  const answer = getCardAnswer(sid);
+  state.firstLetterQuizExpected = answer;
+  const correctChar = getFirstChar(answer);
+  if (!correctChar) {
+    // 정답 추출 실패 — 한 카드 스킵
+    toast('정답을 찾을 수 없는 카드입니다', true);
+    memorizedPass(sid, { forcePeeked: false });
+    setTimeout(() => firstLetterQuizNextCard(), 200);
+    return;
+  }
+  const distractor = generateDistractor(correctChar, state.currentChapter.id);
+  const correctFirst = Math.random() < 0.5;
+  state.firstLetterQuizChoices = correctFirst
+    ? [{ char: correctChar, isCorrect: true }, { char: distractor, isCorrect: false }]
+    : [{ char: distractor, isCorrect: false }, { char: correctChar, isCorrect: true }];
+  state.firstLetterQuizPhase = 'choosing';
+  if (state.currentChapter) renderTree(state.currentChapter.id);
+}
+
+function firstLetterQuizSelect(sid, char) {
+  if (state.firstLetterQuizPhase !== 'choosing') return;
+  state.firstLetterQuizSelected = char;
+  const chosen = state.firstLetterQuizChoices.find(c => c.char === char);
+  const correct = !!(chosen && chosen.isCorrect);
+  firstLetterQuizResolve(sid, correct);
+}
+
+function firstLetterQuizResolve(sid, correct) {
+  const isAuto = state.voiceQuizMode === 'auto';
+  const lang = (state.currentChapter && state.currentChapter.voice_quiz_lang) || 'ko-KR';
+  const readAloud = !!state.voiceQuizReadAloud;
+  if (correct) {
+    state.firstLetterQuizPhase = 'correct-flash';
+    if (state.currentChapter) renderTree(state.currentChapter.id);
+    const proceed = () => {
+      memorizedPass(sid, { forcePeeked: false });
+      setTimeout(() => firstLetterQuizNextCard(), 50);
+    };
+    if (isAuto && readAloud) {
+      const announcement = lang === 'en-US' ? 'Correct' : '정답';
+      speakVoiceQuiz(announcement, lang, proceed);
+    } else {
+      setTimeout(proceed, VOICE_CORRECT_FLASH_MS);
+    }
+  } else {
+    state.firstLetterQuizPhase = 'wrong-reveal';
+    if (state.currentChapter) renderTree(state.currentChapter.id);
+    if (isAuto) {
+      const proceed = () => {
+        memorizedPass(sid, { forcePeeked: true });
+        setTimeout(() => firstLetterQuizNextCard(), 50);
+      };
+      const answer = state.firstLetterQuizExpected;
+      if (readAloud && answer) {
+        const announcement = lang === 'en-US' ? 'The answer is ' + answer : '정답은 ' + answer;
+        speakVoiceQuiz(announcement, lang, () => setTimeout(proceed, 600));
+      } else {
+        setTimeout(proceed, VOICE_AUTO_WRONG_DISPLAY_MS);
+      }
+    }
+    // 수동 모드: 사용자 탭 대기
+  }
+}
+
+function firstLetterQuizContinue(sid) {
+  memorizedPass(sid, { forcePeeked: true });
+  setTimeout(() => firstLetterQuizNextCard(), 50);
+}
+
+// 첫글자 퀴즈 카드 렌더
+function renderFirstLetterQuizCard(byBox1) {
+  if (byBox1.length === 0) {
+    return `<div class="stage-empty"><div class="stage-empty-icon">🎉</div><div class="stage-empty-text">오늘 분량 완료!</div></div>`;
+  }
+  const s = byBox1[0];
+  const sid = Number(s.id);
+  const phase = state.firstLetterQuizPhase || 'idle';
+  const isAuto = state.voiceQuizMode === 'auto';
+  const items = state.itemsBySubtopic[sid] || [];
+  const allItemsHtml = Array.isArray(items) && items.length
+    ? items.map(it => renderItem(it)).join('')
+    : '';
+  const briefItemsHtml = Array.isArray(items) && items.length
+    ? renderItem(items[0])
+    : '';
+  const explainHtml = isAuto ? briefItemsHtml : allItemsHtml;
+  const answer = state.firstLetterQuizExpected || getCardAnswer(sid);
+  const isAlpha = /[a-zA-Z]/.test(s.title || '') && !/[가-힯ᄀ-ᇿ㄰-㆏]/.test(s.title || '');
+  const speakBtn = isAlpha
+    ? `<button class="speak-btn" onclick="event.stopPropagation();speakText(${JSON.stringify(s.title).replace(/"/g, '&quot;')})" title="발음 듣기">🔊</button>`
+    : '';
+
+  let bodyHtml = '';
+  if (phase === 'reading') {
+    bodyHtml = `<div class="vq-listening"><div class="vq-mic-ring vq-reading-ring"><div class="vq-mic-icon">🔊</div></div><div class="vq-hint">문제 읽는 중…</div></div>`;
+  } else if (phase === 'choosing') {
+    const choices = state.firstLetterQuizChoices || [];
+    bodyHtml = `
+      <div class="fl-choices">
+        ${choices.map(c => `
+          <button class="fl-choice" onclick="firstLetterQuizSelect(${sid}, ${JSON.stringify(c.char).replace(/"/g, '&quot;')})">${escapeHtml(c.char)}</button>
+        `).join('')}
+      </div>
+      <div class="fl-hint">정답의 첫 글자를 고르세요</div>
+    `;
+  } else if (phase === 'correct-flash') {
+    bodyHtml = `
+      <div class="vq-result vq-correct">
+        <div class="vq-result-icon">✓</div>
+        <div class="vq-result-text">정답!</div>
+        <div class="vq-correct-answer">정답: <strong>${escapeHtml(answer)}</strong></div>
+        <div class="vq-explain">${explainHtml}</div>
+      </div>
+    `;
+  } else if (phase === 'wrong-reveal') {
+    const yourPick = state.firstLetterQuizSelected ? `<div class="vq-you-said">선택: "${escapeHtml(state.firstLetterQuizSelected)}"</div>` : '';
+    const nextBtn = isAuto
+      ? `<div class="vq-auto-next-hint">자동으로 다음 카드…</div>`
+      : `<button class="vq-next-btn" onclick="firstLetterQuizContinue(${sid})">다음 카드 →</button>`;
+    bodyHtml = `
+      <div class="vq-result vq-wrong">
+        <div class="vq-result-icon">✗</div>
+        <div class="vq-result-text">다시</div>
+        ${yourPick}
+        <div class="vq-correct-answer">정답: <strong>${escapeHtml(answer)}</strong></div>
+        <div class="vq-explain">${explainHtml}</div>
+        ${nextBtn}
+      </div>
+    `;
+  } else {
+    bodyHtml = `<div class="vq-loading">준비 중…</div>`;
+  }
+
+  return `
+    <div class="focus-card vq-card fl-card vq-${phase}" data-sub="${sid}">
       <div class="focus-title">${escapeHtml(s.title)}${speakBtn}</div>
       ${bodyHtml}
     </div>
@@ -5134,6 +5459,10 @@ window.stopVoiceQuiz = stopVoiceQuiz;
 window.voiceQuizContinue = voiceQuizContinue;
 window.setVoiceQuizMode = setVoiceQuizMode;
 window.toggleVoiceQuizRead = toggleVoiceQuizRead;
+window.startFirstLetterQuiz = startFirstLetterQuiz;
+window.stopFirstLetterQuiz = stopFirstLetterQuiz;
+window.firstLetterQuizSelect = firstLetterQuizSelect;
+window.firstLetterQuizContinue = firstLetterQuizContinue;
 window.pressStart = pressStart;
 window.pressEnd = pressEnd;
 window.subClick = subClick;
