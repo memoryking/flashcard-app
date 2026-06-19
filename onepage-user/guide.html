@@ -377,15 +377,18 @@
     <div class="principle-badge" style="background: rgba(79,195,247,0.18); color: #4fc3f7;">● 다지기 시스템</div>
     <h2 class="principle-slogan" style="font-size: 19px;">외운 카드를 잊지 않는<br><em style="background:linear-gradient(90deg,#81c784,#4fc3f7);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;">간격 반복 시스템</em></h2>
     <p style="font-size: 13px; color: rgba(255,255,255,0.7); line-height: 1.7; margin-bottom: 14px;">
-      ● 등록한 카드는 자동으로 <strong style="color:#fff;">1·2·4·8·16·32일</strong> 간격으로 등장. 망각 곡선이 가파른 시점에 정확히 한 번씩 만나서 단기 → 장기 기억으로 변환됩니다.
+      한 번 본 단어는 <strong style="color:#fff;">오늘 → 내일 → 4일 후 → 8일 후 → 16일 후 → 32일 후</strong> 6단계로 자동 이동. 잊기 직전에 정확히 한 번씩 다시 만나서 단기 → 장기 기억으로 변환됩니다.
     </p>
     <div style="display:grid;grid-template-columns:repeat(6,1fr);gap:6px;margin:14px 0 4px;">
-      <div style="text-align:center;padding:8px 2px;background:rgba(233,69,96,0.18);border-radius:6px;font-size:10px;color:#ff8a9e;font-weight:700;">+1일</div>
-      <div style="text-align:center;padding:8px 2px;background:rgba(255,152,0,0.15);border-radius:6px;font-size:10px;color:#ffb74d;font-weight:700;">+2일</div>
-      <div style="text-align:center;padding:8px 2px;background:rgba(255,213,79,0.12);border-radius:6px;font-size:10px;color:#ffe082;font-weight:700;">+4일</div>
-      <div style="text-align:center;padding:8px 2px;background:rgba(176,190,197,0.10);border-radius:6px;font-size:10px;color:#b0bec5;font-weight:700;">+8일</div>
-      <div style="text-align:center;padding:8px 2px;background:rgba(176,190,197,0.10);border-radius:6px;font-size:10px;color:#b0bec5;font-weight:700;">+16일</div>
-      <div style="text-align:center;padding:8px 2px;background:rgba(76,175,80,0.12);border-radius:6px;font-size:10px;color:#81c784;font-weight:700;">+32일</div>
+      <div style="text-align:center;padding:8px 2px;background:rgba(233,69,96,0.18);border-radius:6px;font-size:10px;color:#ff8a9e;font-weight:700;">오늘</div>
+      <div style="text-align:center;padding:8px 2px;background:rgba(255,138,0,0.18);border-radius:6px;font-size:10px;color:#ffb74d;font-weight:700;">내일</div>
+      <div style="text-align:center;padding:8px 2px;background:rgba(255,213,79,0.15);border-radius:6px;font-size:10px;color:#ffe082;font-weight:700;">4일 후</div>
+      <div style="text-align:center;padding:8px 2px;background:rgba(129,199,132,0.15);border-radius:6px;font-size:10px;color:#a5d6a7;font-weight:700;">8일 후</div>
+      <div style="text-align:center;padding:8px 2px;background:rgba(79,195,247,0.15);border-radius:6px;font-size:10px;color:#81d4fa;font-weight:700;">16일 후</div>
+      <div style="text-align:center;padding:8px 2px;background:rgba(186,156,245,0.18);border-radius:6px;font-size:10px;color:#d1b3ff;font-weight:700;">32일 후</div>
+    </div>
+    <div style="font-size:11px;color:rgba(255,255,255,0.5);text-align:center;margin-top:8px;">
+      한 단어가 6단계까지: 약 두 달 (0→1→5→13→29→61일)
     </div>
   </section>
 
@@ -527,7 +530,17 @@
       </div>
       <div style="background:rgba(255,152,0,0.08);border:1px solid rgba(255,152,0,0.28);border-radius:10px;padding:14px 14px 12px;">
         <div style="font-size:13px;color:#ffb74d;font-weight:800;margin-bottom:6px;">펼쳐본 뒤 패스</div>
-        <div style="font-size:12.5px;color:rgba(255,255,255,0.75);line-height:1.65;">"다시 봐야 했다" → <b style="color:#ffb74d;">미암기</b> (원래 ●여도 풀림)</div>
+        <div style="font-size:12.5px;color:rgba(255,255,255,0.75);line-height:1.65;">"다시 봐야 했다" → <b style="color:#ffb74d;">미암기</b> (★ 표시 누적)</div>
+      </div>
+    </div>
+
+    <!-- 3탭 안내 -->
+    <div style="background:rgba(179,157,219,0.08);border:1px solid rgba(179,157,219,0.28);border-radius:10px;padding:14px;margin:14px 0;">
+      <div style="font-size:13px;color:#d1c4e9;font-weight:800;margin-bottom:8px;">📑 목차 안에 3개 탭 — 같은 카드를 다른 시각으로</div>
+      <div style="display:grid;gap:8px;font-size:12px;color:rgba(255,255,255,0.75);line-height:1.6;">
+        <div><b style="color:#81c784;">new</b> — 아직 ● 등록 안 한 카드만. 처음 학습용</div>
+        <div><b style="color:#ffd54f;">★ 별표</b> — 한 번이라도 틀렸던 카드 (★ 많은 순). 약점 집중</div>
+        <div><b style="color:#81d4fa;">all</b> — 모든 카드 + 박스 위치 라벨 (오늘/내일/4일/...). 전체 점검용</div>
       </div>
     </div>
 
@@ -535,7 +548,7 @@
       <b>모두 패스 → 🎉 자동 재시작</b> 미암기로 분류된 카드들만 다시 위로 올라와서 집중 복습할 수 있어요. 챕터를 나갔다 들어오면 "펼친 기록"은 초기화 — 늘 새로운 한 회로 시작합니다.
     </div>
     <div class="tip warn">
-      <b>다시 정리</b> "안 펼치고 패스 = 안다" / "펼친 뒤 패스 = 모른다" — 펼친 적 없는 카드는 ●를 유지(또는 ● 새로 받음), 펼친 적 있는 카드는 미암기로 다시 분류돼요.
+      <b>다시 정리</b> "안 펼치고 패스 = 안다" / "펼친 뒤 패스 = 모른다". 펼친 적 있는 카드는 ★ 별표 탭에 누적돼서 약점만 모아 복습 가능.
     </div>
   </section>
 
@@ -562,20 +575,47 @@
   <section class="step" id="s5">
     <div class="step-head">
       <div class="step-num">5</div>
-      <div class="step-title">● 다지기 — 외운 카드 간격 반복</div>
+      <div class="step-title">● 다지기 — 6박스 자동 간격 반복</div>
     </div>
     <p class="step-lead">
-      챕터 상단 <strong>● 다지기</strong> 버튼을 누르면 ● 등록한 학습 카드를 모아 보여줍니다.
-      <strong>오늘 다지기·내일 다지기·N일 후 다지기</strong> 로 자동 정렬돼서
-      위에서부터 자연스럽게 진행하면 됩니다.
+      챕터 상단 <strong>● 다지기</strong> 버튼을 누르면 ● 등록한 카드를 6개 박스로 보여줍니다.
+      <strong>오늘 학습</strong> 박스만 펼쳐져 있고, 위에서부터 차례로 진행하면 됩니다.
     </p>
     <div class="media wide">
       <video src="guide-media/05-memorized.mp4"
              autoplay loop muted playsinline></video>
     </div>
+
+    <!-- 박스 구조 시각화 -->
+    <div style="background:rgba(0,0,0,0.25);border:1px solid rgba(255,255,255,0.08);border-radius:12px;padding:14px;margin:14px 0;">
+      <div style="font-size:13px;font-weight:800;color:#fff;margin-bottom:10px;">📦 6박스 구조</div>
+      <div style="display:grid;gap:6px;font-size:12px;line-height:1.5;color:rgba(255,255,255,0.78);">
+        <div><span style="display:inline-block;width:60px;color:#ff8a9e;font-weight:700;">오늘 학습</span> 오늘 봐야 할 카드 (기본 펼침). 패스로 위로 올림</div>
+        <div><span style="display:inline-block;width:60px;color:#ffb74d;font-weight:700;">내일 학습</span> 1일 후에 다시 오늘 학습으로 자동 등장</div>
+        <div><span style="display:inline-block;width:60px;color:#ffe082;font-weight:700;">4일 후</span> 4일 후에 자동 등장</div>
+        <div><span style="display:inline-block;width:60px;color:#a5d6a7;font-weight:700;">8일 후</span> 8일 후에 자동 등장</div>
+        <div><span style="display:inline-block;width:60px;color:#81d4fa;font-weight:700;">16일 후</span> 16일 후에 자동 등장</div>
+        <div><span style="display:inline-block;width:60px;color:#d1b3ff;font-weight:700;">32일 후</span> 32일 후 — 거의 다 외운 단계</div>
+      </div>
+    </div>
+
+    <!-- 2가지 인터랙션 -->
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin:14px 0;">
+      <div style="background:rgba(76,175,80,0.08);border:1px solid rgba(76,175,80,0.28);border-radius:10px;padding:14px;">
+        <div style="font-size:13px;color:#81c784;font-weight:800;margin-bottom:6px;">⤴ 오늘 학습 패스</div>
+        <div style="font-size:12px;color:rgba(255,255,255,0.75);line-height:1.6;">안 펼치고 패스 → 다음 박스로 자동 진급 (오늘 → 내일 → 4일 → 8일 → 16일 → 32일)</div>
+      </div>
+      <div style="background:rgba(186,156,245,0.08);border:1px solid rgba(186,156,245,0.28);border-radius:10px;padding:14px;">
+        <div style="font-size:13px;color:#d1b3ff;font-weight:800;margin-bottom:6px;">✨ 미래 박스: 펼침→접음</div>
+        <div style="font-size:12px;color:rgba(255,255,255,0.75);line-height:1.6;">"확인해보니 모름" 신호. 보랏빛 dissolve 후 오늘 학습으로 강등 → 처음부터</div>
+      </div>
+    </div>
+
     <div class="tip">
-      <b>간격 반복 (Leitner)</b> 안 펼치고 패스 = 회상 성공 → 다음 박스로 (1→2→4→8→16→32일 간격).
-      펼친 뒤 패스 = 다시 봐야 한다 → 다지기에서 빠지고 챕터 학습으로 복귀.
+      <b>📊 오늘 암기 클리어율</b> 화면 상단에 오늘 진급한 카드 수가 실시간으로 표시됩니다 — 오늘 박스가 0이 되면 🎉
+    </div>
+    <div class="tip">
+      <b>🕛 자정 자동 정렬</b> 내일 학습/4일 후 등 모든 미래 박스 카드는 next_review 날짜가 되면 자동으로 오늘 학습 박스에 나타납니다. DB 변경 없이 즉시 노출.
     </div>
     <div class="tip"><b>영어 단어는 🔊 발음 듣기</b> 학습 카드 제목 옆 🔊 버튼으로 바로 들을 수 있어요.</div>
   </section>
