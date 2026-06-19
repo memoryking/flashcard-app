@@ -713,26 +713,66 @@ a { color: #4fc3f7; text-decoration: none; }
   border-radius: 50%; font-size: 11px; font-weight: 700;
   margin-right: 4px;
 }
-/* 다지기 모드 미래 박스 → 오늘 학습 강등 시 부드러운 fade-out */
+/* 다지기 모드 미래 박스 → 오늘 학습 강등 시 신비로운 dissolve */
+/*  카드가 살짝 떠오르며 보랏빛 글로우가 차오르고, blur로 흩어지며 사라짐 */
 .subtopic.srs-demoting {
-  animation: srsDemoteAnim 0.6s cubic-bezier(0.4, 0.0, 0.6, 1) forwards;
+  animation: srsDemoteAnim 1.4s cubic-bezier(0.45, 0.05, 0.55, 0.95) forwards;
   pointer-events: none;
+  position: relative;
+  z-index: 1;
+}
+.subtopic.srs-demoting::before {
+  content: '';
+  position: absolute;
+  inset: -4px;
+  border-radius: 14px;
+  background: radial-gradient(ellipse at center,
+    rgba(186, 156, 245, 0.55) 0%,
+    rgba(149, 117, 219, 0.25) 40%,
+    transparent 70%);
+  opacity: 0;
+  animation: srsDemoteHalo 1.4s ease-out forwards;
+  pointer-events: none;
+  z-index: -1;
+  filter: blur(8px);
 }
 @keyframes srsDemoteAnim {
   0% {
     opacity: 1;
-    transform: translateX(0) scale(1);
-    max-height: 200px;
-    margin-top: 10px;
-    margin-bottom: 0;
+    transform: translateY(0) scale(1);
+    filter: blur(0) brightness(1) saturate(1);
+    box-shadow: 0 0 0 rgba(186, 156, 245, 0);
+    max-height: 240px;
   }
-  30% {
+  18% {
     opacity: 1;
-    transform: translateX(0) scale(0.98);
+    transform: translateY(-2px) scale(1.015);
+    filter: blur(0) brightness(1.18) saturate(1.2);
+    box-shadow:
+      0 0 18px 2px rgba(186, 156, 245, 0.55),
+      0 0 48px 8px rgba(149, 117, 219, 0.32);
+  }
+  45% {
+    opacity: 0.85;
+    transform: translateY(-6px) scale(1.0);
+    filter: blur(1.5px) brightness(1.22) saturate(1.25);
+    box-shadow:
+      0 0 32px 6px rgba(186, 156, 245, 0.6),
+      0 0 80px 16px rgba(149, 117, 219, 0.4);
+  }
+  70% {
+    opacity: 0.45;
+    transform: translateY(-12px) scale(0.96);
+    filter: blur(5px) brightness(1.15) saturate(1.15);
+    box-shadow:
+      0 0 40px 8px rgba(186, 156, 245, 0.42),
+      0 0 90px 24px rgba(149, 117, 219, 0.28);
   }
   100% {
     opacity: 0;
-    transform: translateX(-24px) scale(0.94);
+    transform: translateY(-20px) scale(0.88);
+    filter: blur(14px) brightness(1) saturate(1);
+    box-shadow: 0 0 0 rgba(186, 156, 245, 0);
     max-height: 0;
     margin-top: 0;
     margin-bottom: 0;
@@ -740,6 +780,12 @@ a { color: #4fc3f7; text-decoration: none; }
     padding-bottom: 0;
     border-width: 0;
   }
+}
+@keyframes srsDemoteHalo {
+  0%   { opacity: 0; transform: scale(0.9); }
+  30%  { opacity: 0.9; transform: scale(1.05); }
+  60%  { opacity: 0.7; transform: scale(1.15); }
+  100% { opacity: 0; transform: scale(1.35); }
 }
 /* 챕터에서 펼친 미암기 카드 ("틀린 단어") — 앰버 톤 */
 .subtopic.peeked {
@@ -2758,7 +2804,7 @@ function subClick(e, subId) {
         const cardEl = document.querySelector(`[data-sub="${subId}"]`);
         if (cardEl) {
           cardEl.classList.add('srs-demoting');
-          setTimeout(() => { memorizedPass(subId); }, 600);
+          setTimeout(() => { memorizedPass(subId); }, 1400);
         } else {
           memorizedPass(subId); // 안전망: DOM 못 찾으면 즉시
         }
