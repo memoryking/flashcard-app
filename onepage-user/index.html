@@ -373,10 +373,14 @@ a { color: #4fc3f7; text-decoration: none; }
 .focus-body-wrap {
   flex: 1;
   position: relative;
-  padding-bottom: 68px; /* assess bar 공간 */
-  min-height: 120px;
+  display: flex;
+  align-items: center;       /* 본문 세로 중앙 정렬 */
+  justify-content: center;
+  padding-bottom: 68px;      /* 하단 바 공간 */
+  min-height: 140px;
 }
 .focus-body {
+  width: 100%;
   font-size: 13.5px;
   color: rgba(255,255,255,0.85);
   line-height: 1.65;
@@ -388,25 +392,8 @@ a { color: #4fc3f7; text-decoration: none; }
   pointer-events: none;
   transition: filter 0.4s ease, opacity 0.4s ease;
 }
-.focus-reveal-btn {
-  position: absolute;
-  top: 50%; left: 50%;
-  transform: translate(-50%, -50%);
-  background: linear-gradient(135deg, rgba(186,156,245,0.95), rgba(149,117,219,0.95));
-  border: none; color: #fff;
-  font-size: 14px; font-weight: 800;
-  padding: 13px 26px; border-radius: 30px;
-  cursor: pointer; letter-spacing: 0.4px;
-  box-shadow: 0 6px 20px rgba(149,117,219,0.45), 0 0 0 4px rgba(186,156,245,0.18);
-  z-index: 3; white-space: nowrap;
-  transition: transform 0.15s ease, box-shadow 0.15s ease;
-}
-.focus-reveal-btn:hover {
-  transform: translate(-50%, -50%) scale(1.05);
-  box-shadow: 0 8px 28px rgba(149,117,219,0.55), 0 0 0 6px rgba(186,156,245,0.22);
-}
-.focus-reveal-btn:active { transform: translate(-50%, -50%) scale(0.98); }
-.focus-assess-bar {
+/* 하단 통합 바 — 정답 보기 단일 버튼 또는 평가 2버튼 모두 같은 자리 */
+.focus-bottom-bar {
   position: absolute;
   bottom: 0; left: 0; right: 0;
   background: rgba(0,0,0,0.30);
@@ -415,10 +402,25 @@ a { color: #4fc3f7; text-decoration: none; }
   padding: 11px 12px;
   display: flex; gap: 10px;
 }
-.focus-assess-bar .recall-btn {
+.focus-bottom-bar .recall-btn {
   flex: 1; padding: 12px 8px;
   font-size: 14px;
 }
+.focus-reveal-cta {
+  flex: 1;
+  background: linear-gradient(135deg, rgba(186,156,245,0.95), rgba(149,117,219,0.95));
+  border: none; color: #fff;
+  font-size: 14px; font-weight: 800;
+  padding: 13px 14px; border-radius: 12px;
+  cursor: pointer; letter-spacing: 0.4px;
+  box-shadow: 0 4px 16px rgba(149,117,219,0.40);
+  transition: transform 0.15s ease, box-shadow 0.15s ease;
+}
+.focus-reveal-cta:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 6px 22px rgba(149,117,219,0.55);
+}
+.focus-reveal-cta:active { transform: translateY(0); }
 /* 스테이지 빈 상태 (오늘 분량 끝) */
 .stage-empty {
   text-align: center;
@@ -2405,7 +2407,7 @@ function renderMemorizedView(chapterId, hasAccess) {
     `);
   }
 
-  return clearBar + recallToggle + todayStageHtml + boxBlocks.join('');
+  return clearBar + todayStageHtml + boxBlocks.join('');
 }
 
 // 다지기 박스 펼침 토글
@@ -2504,14 +2506,18 @@ function renderFocusCard(s, remaining, hasAccess) {
       <div class="focus-title">${escapeHtml(s.title)}${speakBtn}</div>
       <div class="focus-body-wrap">
         <div class="focus-body${showRevealBtn ? ' blurred' : ''}">${body}</div>
-        ${showRevealBtn ? `<button class="focus-reveal-btn" onclick="activeRecallReveal(${sid})">🔍 정답 보기</button>` : ''}
-        ${showAssessBar ? `
-          <div class="focus-assess-bar">
-            <button class="recall-btn recall-wrong" onclick="todayStageJudge(${sid}, false)">✗ 틀렸어요</button>
-            <button class="recall-btn recall-correct" onclick="todayStageJudge(${sid}, true)">✓ 맞췄어요</button>
-          </div>
-        ` : ''}
       </div>
+      ${showRevealBtn ? `
+        <div class="focus-bottom-bar">
+          <button class="focus-reveal-cta" onclick="activeRecallReveal(${sid})">🔍 정답 보기</button>
+        </div>
+      ` : ''}
+      ${showAssessBar ? `
+        <div class="focus-bottom-bar">
+          <button class="recall-btn recall-wrong" onclick="todayStageJudge(${sid}, false)">✗ 틀렸어요</button>
+          <button class="recall-btn recall-correct" onclick="todayStageJudge(${sid}, true)">✓ 맞췄어요</button>
+        </div>
+      ` : ''}
     </div>
   `;
 }
@@ -2589,8 +2595,8 @@ function toggleMemorizedView() {
     // 다지기 처리 이력 초기화 — celebration 판정용
     state.memorizedAddressedSet = new Set();
     state.memorizedClearedToday = false;
-    // 능동 회상: 사용자 선호도(localStorage)로 토글 상태 복원, reveal 진행상태는 매 진입마다 리셋
-    try { state.activeRecallMode = localStorage.getItem('op_active_recall_v1') === '1'; } catch {}
+    // 능동 회상: 학습 효과 핵심이라 항상 ON. reveal 진행상태는 매 진입마다 리셋
+    state.activeRecallMode = true;
     state.activeRecallRevealed = new Set();
     // 일반 모드/이전 세션에서 누적된 passedSet 잔여 항목 제거 — 다지기에서는 카드가 다 보여야 함
     // (다지기 박스 안 카드들에 한해서만 클리어. 일반 모드의 다른 챕터/패스 이력은 보존)
