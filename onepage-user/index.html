@@ -2026,20 +2026,12 @@ function renderMemorizedView(chapterId, hasAccess) {
       }).join('');
     }
 
-    // 박스 패스 버튼 타겟:
-    //  - 오늘 학습 (b=1): unpassedCards[0] — anpel pass로 다음 박스 advance (정상 학습 진행)
-    //  - 미래 박스 (b≥2): 펼쳐진 카드만 타겟 — peek+pass로 오늘 학습 강등 (시간 경과 없는 anpel advance 차단)
-    //    펼쳐진 카드 없으면 패스 버튼 자체를 숨김 → UX 모호함 제거
-    let passTarget = null;
-    if (b === 1) {
-      passTarget = unpassedCards[0] ? unpassedCards[0].id : null;
-    } else {
-      const expandedInBox = cards.find(s => state.expanded.subtopic.has(Number(s.id)));
-      passTarget = expandedInBox ? expandedInBox.id : null;
-    }
-    const passBtnTitle = b === 1 ? '박스 첫 카드 패스' : '펼친 카드를 오늘 학습으로 보냄';
+    // 박스 패스 버튼:
+    //  - 오늘 학습 (b=1): unpassedCards[0]를 타겟 — 툭툭 누르며 단어를 다음 박스로 빠르게 advance
+    //  - 미래 박스 (b≥2): 버튼 없음. 펼침→접음 인터랙션으로 오늘 학습 강등 (subClick에서 처리)
+    const passTarget = b === 1 && unpassedCards[0] ? unpassedCards[0].id : null;
     const passBtnHtml = passTarget != null
-      ? `<button class="srs-box-pass" onclick="event.stopPropagation();memorizedPass(${passTarget})" title="${passBtnTitle}">⤴ 패스</button>`
+      ? `<button class="srs-box-pass" onclick="event.stopPropagation();memorizedPass(${passTarget})" title="박스 첫 카드 패스">⤴ 패스</button>`
       : '';
 
     boxBlocks.push(`
@@ -2724,6 +2716,17 @@ function subClick(e, subId) {
   if (state.expanded.subtopic.has(subId)) {
     // 이미 펼쳐진 거 다시 누름 = 접기
     state.expanded.subtopic.delete(subId);
+    // 다지기 모드 + 미래 박스(effective box ≥ 2) 카드 → 접음 = 자동 peek+pass (오늘 학습 강등)
+    // "내용 살짝 확인해 보니 모르더라" 신호. 패스 버튼 없으니 이 인터랙션이 유일한 강등 경로.
+    if (state.memorizedView && state.understoodSet.has(Number(subId))) {
+      const dueDays = dueDaysLeft(state.understoodNextReview[Number(subId)]);
+      const effBox = dueDays <= 0 ? 1 : (Number(state.understoodBox[Number(subId)]) || 1);
+      if (effBox !== 1) {
+        // memorizedExpandedSet에는 이미 들어가 있음 → memorizedPass에서 wasPeeked=true 판정
+        memorizedPass(subId);
+        return; // memorizedPass가 renderTree까지 호출
+      }
+    }
   } else {
     // 아코디언: 다른 학습 카드 모두 닫고 이것만 열기
     state.expanded.subtopic.clear();
