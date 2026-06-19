@@ -2026,10 +2026,20 @@ function renderMemorizedView(chapterId, hasAccess) {
       }).join('');
     }
 
-    // 박스 패스 버튼은 첫 unpassed 카드를 패스 대상으로
-    const passTarget = unpassedCards[0] ? unpassedCards[0].id : null;
+    // 박스 패스 버튼 타겟:
+    //  - 오늘 학습 (b=1): unpassedCards[0] — anpel pass로 다음 박스 advance (정상 학습 진행)
+    //  - 미래 박스 (b≥2): 펼쳐진 카드만 타겟 — peek+pass로 오늘 학습 강등 (시간 경과 없는 anpel advance 차단)
+    //    펼쳐진 카드 없으면 패스 버튼 자체를 숨김 → UX 모호함 제거
+    let passTarget = null;
+    if (b === 1) {
+      passTarget = unpassedCards[0] ? unpassedCards[0].id : null;
+    } else {
+      const expandedInBox = cards.find(s => state.expanded.subtopic.has(Number(s.id)));
+      passTarget = expandedInBox ? expandedInBox.id : null;
+    }
+    const passBtnTitle = b === 1 ? '박스 첫 카드 패스' : '펼친 카드를 오늘 학습으로 보냄';
     const passBtnHtml = passTarget != null
-      ? `<button class="srs-box-pass" onclick="event.stopPropagation();memorizedPass(${passTarget})" title="박스 첫 카드 패스">⤴ 패스</button>`
+      ? `<button class="srs-box-pass" onclick="event.stopPropagation();memorizedPass(${passTarget})" title="${passBtnTitle}">⤴ 패스</button>`
       : '';
 
     boxBlocks.push(`
