@@ -2878,6 +2878,19 @@ function toggleVoiceQuizRead() {
   if (state.currentChapter) renderTree(state.currentChapter.id);
 }
 
+// 음성 퀴즈용 텍스트 언어 감지 — 한국어 우선 (한국어 TTS가 한영 혼용 더 잘 읽음)
+//  - 한글 있음 → ko-KR
+//  - 라틴 only → en-US
+//  - 둘 다 없음 → null (호출자가 default 사용)
+function detectVoiceQuizLang(text) {
+  if (!text) return null;
+  const hasKorean = /[가-힯ᄀ-ᇿ㄰-㆏]/.test(text);
+  const hasLatin = /[a-zA-Z]/.test(text);
+  if (hasKorean) return 'ko-KR';
+  if (hasLatin) return 'en-US';
+  return null;
+}
+
 // TTS — 문제 읽어주기. onDone 콜백은 발화 끝났을 때 또는 오류/타임아웃 시 호출.
 function speakVoiceQuiz(text, lang, onDone) {
   if (!text || !('speechSynthesis' in window)) { if (onDone) onDone(); return; }
@@ -2963,12 +2976,15 @@ function voiceQuizNextCard() {
   }
 
   const lang = (state.currentChapter && state.currentChapter.voice_quiz_lang) || 'ko-KR';
+  // 문제 TTS 언어는 제목 텍스트 기반으로 동적 결정 (영어 단어 = en-US, 한국어 문제 = ko-KR)
+  // STT(학생 답 인식) 언어는 챕터 lang 유지 — 학생이 어떤 언어로 답하는지에 따름
+  const questionLang = detectVoiceQuizLang(cardTitle) || lang;
 
   // 문제 읽기 ON이면 TTS 후 listening, OFF면 즉시
   if (state.voiceQuizReadAloud && cardTitle) {
     state.voiceQuizPhase = 'reading';
     if (state.currentChapter) renderTree(state.currentChapter.id);
-    speakVoiceQuiz(cardTitle, lang, () => {
+    speakVoiceQuiz(cardTitle, questionLang, () => {
       if (!state.voiceQuizActive) return; // 사이에 종료됐으면 무시
       voiceQuizStartListening(sid, lang);
     });
