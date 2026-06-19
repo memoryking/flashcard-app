@@ -280,10 +280,55 @@ a { color: #4fc3f7; text-decoration: none; }
 }
 
 /* ── 음성 퀴즈 (Voice Quiz) ────────────────────────────── */
+.vq-settings {
+  display: flex; gap: 8px;
+  margin: 10px 14px 6px;
+  align-items: stretch;
+}
+.vq-seg {
+  display: inline-flex;
+  background: rgba(255,255,255,0.06);
+  border: 1px solid rgba(255,255,255,0.10);
+  border-radius: 10px;
+  padding: 3px;
+  flex-shrink: 0;
+}
+.vq-seg-btn {
+  background: transparent; border: none;
+  color: rgba(255,255,255,0.55);
+  padding: 7px 14px;
+  font-size: 12.5px; font-weight: 700;
+  cursor: pointer; border-radius: 7px;
+  transition: background 0.18s ease, color 0.18s ease;
+}
+.vq-seg-btn.on {
+  background: linear-gradient(135deg, rgba(79,195,247,0.85), rgba(38,150,210,0.85));
+  color: #fff;
+  box-shadow: 0 2px 8px rgba(79,195,247,0.40);
+}
+.vq-read-btn {
+  flex: 1;
+  background: rgba(255,255,255,0.06);
+  border: 1px solid rgba(255,255,255,0.10);
+  color: rgba(255,255,255,0.65);
+  padding: 8px 12px;
+  font-size: 12.5px; font-weight: 700;
+  cursor: pointer; border-radius: 10px;
+  display: flex; align-items: center; justify-content: center; gap: 6px;
+  transition: background 0.18s ease, border-color 0.18s ease, color 0.18s ease;
+}
+.vq-read-btn.on {
+  background: linear-gradient(135deg, rgba(255,138,0,0.20), rgba(233,69,96,0.18));
+  border-color: rgba(255,138,0,0.50);
+  color: #ffb74d;
+  box-shadow: 0 2px 10px rgba(255,138,0,0.30);
+}
+.vq-read-btn.on strong { color: #fff; }
+
 .vq-toggle {
   display: block;
   width: calc(100% - 28px);
-  margin: 10px 14px 4px;
+  margin: 4px 14px 4px;
   padding: 12px 16px;
   border: none; border-radius: 12px;
   font-size: 14px; font-weight: 800;
@@ -345,9 +390,31 @@ a { color: #4fc3f7; text-decoration: none; }
   background: linear-gradient(90deg, #81c784, #ffb74d, #ff8a9e);
   border-radius: 50px;
   transform-origin: left center;
-  animation: vqTimerShrink 2s linear forwards;
+  animation: vqTimerShrink 4s linear forwards;
 }
 @keyframes vqTimerShrink { 0% { transform: scaleX(1); } 100% { transform: scaleX(0); } }
+/* 문제 읽기 단계 — 마이크 대신 스피커 아이콘, 다른 색조 */
+.vq-reading-ring {
+  background: radial-gradient(circle, rgba(255,138,0,0.40), rgba(255,138,0,0.10));
+}
+.vq-reading-ring { animation: vqReadingPulse 1.0s ease-in-out infinite; }
+@keyframes vqReadingPulse {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(255,138,0,0.55); transform: scale(1); }
+  50%      { box-shadow: 0 0 0 18px rgba(255,138,0,0); transform: scale(1.06); }
+}
+/* 자동 모드 진행 안내 */
+.vq-auto-next-hint {
+  margin-top: 14px;
+  font-size: 12px;
+  color: rgba(255,255,255,0.5);
+  letter-spacing: 1px;
+  text-align: center;
+  animation: vqAutoNextBlink 1.2s ease-in-out infinite;
+}
+@keyframes vqAutoNextBlink {
+  0%, 100% { opacity: 0.5; }
+  50%      { opacity: 1; }
+}
 
 .vq-result {
   padding: 18px 14px 22px;
@@ -1872,11 +1939,13 @@ const state = {
   activeRecallRevealed: new Set(), // 능동 회상에서 "정답 보기" 누른 카드 (블러 해제 + 평가 버튼 노출). 다지기 진입 시 리셋
   lastStudyDate: (() => { try { return localStorage.getItem('op_last_study_date') || ''; } catch { return ''; } })(), // 마지막 다지기 학습 KST 날짜 — 자정 넘김 안내용
   voiceQuizActive: false,    // 음성 퀴즈 세션 진행 중
-  voiceQuizPhase: 'idle',    // 'idle' | 'listening' | 'correct-flash' | 'wrong-reveal' | 'timeout'
+  voiceQuizPhase: 'idle',    // 'idle' | 'reading' | 'listening' | 'correct-flash' | 'wrong-reveal' | 'timeout'
   voiceQuizTranscript: '',   // 사용자가 말한 내용 (디버그/표시용)
   voiceQuizExpected: '',     // 현재 카드의 정답 (items[0])
+  voiceQuizMode: (() => { try { return localStorage.getItem('op_voice_quiz_mode') || 'manual'; } catch { return 'manual'; } })(), // 'manual' | 'auto' — 자동은 hands-free
+  voiceQuizReadAloud: (() => { try { return localStorage.getItem('op_voice_quiz_read') === '1'; } catch { return false; } })(), // 문제(제목) TTS 읽어주기
   _voiceQuizRecognition: null, // SpeechRecognition 인스턴스
-  _voiceQuizTimer: null,     // 2초 타이머
+  _voiceQuizTimer: null,     // 4초 타이머 등
   recentlyFailedFromMemo: new Set(), // 이번 챕터 진입 중 다지기에서 실패(펼침)해서 챕터 뷰로 돌아온 카드 — 챕터 뷰 정렬 시 맨 아래로
   peekedPassedSet: new Set(), // 펼친 뒤 패스해서 "틀린 단어"로 확정된 카드 — 챕터 뷰 정렬·색 구분용. 펼치는 순간이 아니라 패스 후에야 추가
   expanded: { topic: new Set(), subtopic: new Set() },
@@ -2668,13 +2737,15 @@ function renderMemorizedView(chapterId, hasAccess) {
     `);
   }
 
-  // 음성 퀴즈 시작 버튼 — chapter.voice_quiz_enabled === 1 인 챕터만, 활성 중이면 종료 버튼
+  // 음성 퀴즈 시작 버튼 + 설정 (chapter.voice_quiz_enabled === 1 인 챕터만)
   const c = state.currentChapter;
   let voiceQuizBtnHtml = '';
   if (c && Number(c.voice_quiz_enabled) === 1) {
-    voiceQuizBtnHtml = state.voiceQuizActive
-      ? `<button class="vq-toggle vq-toggle-stop" onclick="stopVoiceQuiz()">■ 음성 퀴즈 종료</button>`
-      : `<button class="vq-toggle vq-toggle-start" onclick="startVoiceQuiz()">🎤 음성 퀴즈 시작 (2초)</button>`;
+    if (state.voiceQuizActive) {
+      voiceQuizBtnHtml = `<button class="vq-toggle vq-toggle-stop" onclick="stopVoiceQuiz()">■ 음성 퀴즈 종료</button>`;
+    } else {
+      voiceQuizBtnHtml = renderVoiceQuizSettings() + `<button class="vq-toggle vq-toggle-start" onclick="startVoiceQuiz()">🎤 음성 퀴즈 시작 (4초)</button>`;
+    }
   }
 
   return clearBar + voiceQuizBtnHtml + todayStageHtml + boxBlocks.join('');
@@ -2743,8 +2814,9 @@ function todayStageJudge(subId, correct) {
 // ============================================================
 // 음성 퀴즈 (Voice Quiz) — chapter.voice_quiz_enabled 인 챕터에서만 사용
 // ============================================================
-const VOICE_QUIZ_TIME_LIMIT_MS = 2000;
+const VOICE_QUIZ_TIME_LIMIT_MS = 4000;
 const VOICE_CORRECT_FLASH_MS = 1500;
+const VOICE_AUTO_WRONG_DISPLAY_MS = 2500; // 자동 모드 오답/타임아웃 노출 시간 (auto-advance 전)
 
 // 정답 텍스트 추출 — items[0]의 text 필드 사용 (컨벤션: 첫 항목 = 정답)
 function getCardAnswer(subId) {
@@ -2793,6 +2865,38 @@ function voiceQuizCurrentCardId() {
   return oldest ? Number(oldest.id) : null;
 }
 
+// 모드 / 문제 읽기 토글 (localStorage 영속화)
+function setVoiceQuizMode(mode) {
+  if (mode !== 'manual' && mode !== 'auto') return;
+  state.voiceQuizMode = mode;
+  try { localStorage.setItem('op_voice_quiz_mode', mode); } catch {}
+  if (state.currentChapter) renderTree(state.currentChapter.id);
+}
+function toggleVoiceQuizRead() {
+  state.voiceQuizReadAloud = !state.voiceQuizReadAloud;
+  try { localStorage.setItem('op_voice_quiz_read', state.voiceQuizReadAloud ? '1' : '0'); } catch {}
+  if (state.currentChapter) renderTree(state.currentChapter.id);
+}
+
+// TTS — 문제 읽어주기. onDone 콜백은 발화 끝났을 때 또는 오류/타임아웃 시 호출.
+function speakVoiceQuiz(text, lang, onDone) {
+  if (!text || !('speechSynthesis' in window)) { if (onDone) onDone(); return; }
+  try {
+    speechSynthesis.cancel(); // 이전 발화 중단
+    const utt = new SpeechSynthesisUtterance(String(text));
+    utt.lang = lang || 'ko-KR';
+    utt.rate = 1.0;
+    utt.pitch = 1.0;
+    let done = false;
+    const fire = () => { if (done) return; done = true; if (onDone) onDone(); };
+    utt.onend = fire;
+    utt.onerror = fire;
+    // 안전망: 5초 내 이벤트 없으면 강제 진행
+    setTimeout(fire, 5000);
+    speechSynthesis.speak(utt);
+  } catch { if (onDone) onDone(); }
+}
+
 // 음성 퀴즈 세션 시작 — 다지기 모드 안에서 호출
 function startVoiceQuiz() {
   // 브라우저 지원 확인
@@ -2830,7 +2934,7 @@ function voiceQuizCleanup() {
   }
 }
 
-// 다음 카드 진행 — 오늘 학습 박스 첫 카드를 큐로 음성 인식 시작
+// 다음 카드 진행 — 오늘 학습 박스 첫 카드를 큐로. 문제 읽기 ON이면 TTS 후 listening.
 function voiceQuizNextCard() {
   voiceQuizCleanup();
   const sid = voiceQuizCurrentCardId();
@@ -2843,18 +2947,44 @@ function voiceQuizNextCard() {
   }
   state.voiceQuizExpected = getCardAnswer(sid);
   state.voiceQuizTranscript = '';
-  state.voiceQuizPhase = 'listening';
-  if (state.currentChapter) renderTree(state.currentChapter.id);
 
   // 본문 prefetch 보장 (이미 캐시면 즉시)
   ensureItems(sid, false).then(() => {
     state.voiceQuizExpected = getCardAnswer(sid);
   }).catch(() => {});
 
+  // 카드 제목 찾기 (TTS 읽기용)
+  let cardTitle = '';
+  const topics = state.topicsByChapter[state.currentChapter.id] || [];
+  for (const t of topics) {
+    const subs = state.subtopicsByTopic[t.id] || [];
+    const found = subs.find(x => Number(x.id) === sid);
+    if (found) { cardTitle = found.title || ''; break; }
+  }
+
+  const lang = (state.currentChapter && state.currentChapter.voice_quiz_lang) || 'ko-KR';
+
+  // 문제 읽기 ON이면 TTS 후 listening, OFF면 즉시
+  if (state.voiceQuizReadAloud && cardTitle) {
+    state.voiceQuizPhase = 'reading';
+    if (state.currentChapter) renderTree(state.currentChapter.id);
+    speakVoiceQuiz(cardTitle, lang, () => {
+      if (!state.voiceQuizActive) return; // 사이에 종료됐으면 무시
+      voiceQuizStartListening(sid, lang);
+    });
+  } else {
+    voiceQuizStartListening(sid, lang);
+  }
+}
+
+// 실제 음성 인식 시작 — TTS 끝난 후 (또는 직접) 호출
+function voiceQuizStartListening(sid, lang) {
+  state.voiceQuizPhase = 'listening';
+  if (state.currentChapter) renderTree(state.currentChapter.id);
+
   // Web Speech API 시작
   const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
   const rec = new SR();
-  const lang = (state.currentChapter && state.currentChapter.voice_quiz_lang) || 'ko-KR';
   rec.lang = lang;
   rec.interimResults = false;
   rec.maxAlternatives = 5;
@@ -2949,23 +3079,49 @@ function voiceQuizNextCard() {
 // 결과 처리 — correct/wrong/timeout
 function voiceQuizResolve(sid, outcome) {
   voiceQuizCleanup();
+  const isAuto = state.voiceQuizMode === 'auto';
+  const lang = (state.currentChapter && state.currentChapter.voice_quiz_lang) || 'ko-KR';
+  const readAloud = !!state.voiceQuizReadAloud;
+
   if (outcome === 'correct') {
-    // 짧은 flash → 자동 다음
     state.voiceQuizPhase = 'correct-flash';
     if (state.currentChapter) renderTree(state.currentChapter.id);
-    setTimeout(() => {
+    const proceed = () => {
       memorizedPass(sid, { forcePeeked: false });
-      // memorizedPass 후 renderTree가 일어남. 그 후 다음 카드로.
       setTimeout(() => voiceQuizNextCard(), 50);
-    }, VOICE_CORRECT_FLASH_MS);
+    };
+    if (isAuto && readAloud) {
+      // 자동 + 읽기: TTS "정답" 짧게 → 진행
+      const announcement = lang === 'en-US' ? 'Correct' : '정답';
+      speakVoiceQuiz(announcement, lang, proceed);
+    } else {
+      setTimeout(proceed, VOICE_CORRECT_FLASH_MS);
+    }
   } else {
-    // 오답/타임아웃: 전체 공개 + 사용자 탭으로 다음
     state.voiceQuizPhase = outcome === 'timeout' ? 'timeout' : 'wrong-reveal';
     if (state.currentChapter) renderTree(state.currentChapter.id);
+
+    if (isAuto) {
+      // 자동 모드: 정답 보여주고 (필요시 TTS) auto-advance
+      const proceed = () => {
+        memorizedPass(sid, { forcePeeked: true });
+        setTimeout(() => voiceQuizNextCard(), 50);
+      };
+      const answer = state.voiceQuizExpected;
+      if (readAloud && answer) {
+        const announcement = lang === 'en-US'
+          ? 'The answer is ' + answer
+          : '정답은 ' + answer;
+        speakVoiceQuiz(announcement, lang, () => setTimeout(proceed, 600));
+      } else {
+        setTimeout(proceed, VOICE_AUTO_WRONG_DISPLAY_MS);
+      }
+    }
+    // 수동 모드: 사용자 탭 대기 (voiceQuizContinue)
   }
 }
 
-// 오답/타임아웃 후 "다음" 버튼
+// 오답/타임아웃 후 "다음" 버튼 (수동 모드 전용)
 function voiceQuizContinue(sid) {
   memorizedPass(sid, { forcePeeked: true });
   setTimeout(() => voiceQuizNextCard(), 50);
@@ -3027,7 +3183,7 @@ function renderFocusCard(s, remaining, hasAccess) {
   `;
 }
 
-// 음성 퀴즈 카드 — 큐만 보임 + 마이크 아이콘 + 타이머
+// 음성 퀴즈 카드 — 큐만 보임 + 마이크 + 타이머 + (모드별 결과 표시)
 function renderVoiceQuizCard(byBox1) {
   if (byBox1.length === 0) {
     return `
@@ -3040,19 +3196,32 @@ function renderVoiceQuizCard(byBox1) {
   const s = byBox1[0];
   const sid = Number(s.id);
   const phase = state.voiceQuizPhase || 'idle';
+  const isAuto = state.voiceQuizMode === 'auto';
   const isAlpha = /[a-zA-Z]/.test(s.title || '') && !/[가-힯ᄀ-ᇿ㄰-㆏]/.test(s.title || '');
   const speakBtn = isAlpha
     ? `<button class="speak-btn" onclick="event.stopPropagation();speakText(${JSON.stringify(s.title).replace(/"/g, '&quot;')})" title="발음 듣기">🔊</button>`
     : '';
 
   const items = state.itemsBySubtopic[sid] || [];
-  const itemsHtml = Array.isArray(items) && items.length
+  const allItemsHtml = Array.isArray(items) && items.length
     ? items.map(it => renderItem(it)).join('')
     : '';
+  // 자동 모드: items[0]만 (뜻만). 수동 모드: 전체 (해설 포함)
+  const briefItemsHtml = Array.isArray(items) && items.length
+    ? renderItem(items[0])
+    : '';
+  const explainHtml = isAuto ? briefItemsHtml : allItemsHtml;
   const answer = state.voiceQuizExpected || getCardAnswer(sid);
 
   let bodyHtml = '';
-  if (phase === 'listening') {
+  if (phase === 'reading') {
+    bodyHtml = `
+      <div class="vq-listening">
+        <div class="vq-mic-ring vq-reading-ring"><div class="vq-mic-icon">🔊</div></div>
+        <div class="vq-hint">문제 읽는 중…</div>
+      </div>
+    `;
+  } else if (phase === 'listening') {
     bodyHtml = `
       <div class="vq-listening">
         <div class="vq-mic-ring"><div class="vq-mic-icon">🎤</div></div>
@@ -3065,21 +3234,25 @@ function renderVoiceQuizCard(byBox1) {
       <div class="vq-result vq-correct">
         <div class="vq-result-icon">✓</div>
         <div class="vq-result-text">정답!</div>
-        <div class="vq-explain">${itemsHtml}</div>
+        <div class="vq-explain">${explainHtml}</div>
       </div>
     `;
   } else if (phase === 'wrong-reveal' || phase === 'timeout') {
     const youSaid = state.voiceQuizTranscript ? `<div class="vq-you-said">당신: "${escapeHtml(state.voiceQuizTranscript)}"</div>` : '';
     const headIcon = phase === 'timeout' ? '⏰' : '✗';
     const headText = phase === 'timeout' ? '시간 초과' : '다시';
+    // 자동 모드는 사용자 탭 없이 진행, 수동 모드만 버튼 노출
+    const nextBtn = isAuto
+      ? `<div class="vq-auto-next-hint">자동으로 다음 카드…</div>`
+      : `<button class="vq-next-btn" onclick="voiceQuizContinue(${sid})">다음 카드 →</button>`;
     bodyHtml = `
       <div class="vq-result vq-wrong">
         <div class="vq-result-icon">${headIcon}</div>
         <div class="vq-result-text">${headText}</div>
         ${youSaid}
         <div class="vq-correct-answer">정답: <strong>${escapeHtml(answer)}</strong></div>
-        <div class="vq-explain">${itemsHtml}</div>
-        <button class="vq-next-btn" onclick="voiceQuizContinue(${sid})">다음 카드 →</button>
+        <div class="vq-explain">${explainHtml}</div>
+        ${nextBtn}
       </div>
     `;
   } else {
@@ -3090,6 +3263,23 @@ function renderVoiceQuizCard(byBox1) {
     <div class="focus-card vq-card vq-${phase}" data-sub="${sid}">
       <div class="focus-title">${escapeHtml(s.title)}${speakBtn}</div>
       ${bodyHtml}
+    </div>
+  `;
+}
+
+// 음성 퀴즈 설정 바 (모드 + 문제 읽기 토글) — 시작 버튼 위에 표시
+function renderVoiceQuizSettings() {
+  const mode = state.voiceQuizMode || 'manual';
+  const read = !!state.voiceQuizReadAloud;
+  return `
+    <div class="vq-settings">
+      <div class="vq-seg">
+        <button class="vq-seg-btn ${mode === 'manual' ? 'on' : ''}" onclick="setVoiceQuizMode('manual')">수동</button>
+        <button class="vq-seg-btn ${mode === 'auto' ? 'on' : ''}" onclick="setVoiceQuizMode('auto')">자동</button>
+      </div>
+      <button class="vq-read-btn ${read ? 'on' : ''}" onclick="toggleVoiceQuizRead()">
+        <span style="font-size:14px;">🔊</span> 문제 읽기 <strong>${read ? 'ON' : 'OFF'}</strong>
+      </button>
     </div>
   `;
 }
@@ -4930,6 +5120,8 @@ window.todayStageJudge = todayStageJudge;
 window.startVoiceQuiz = startVoiceQuiz;
 window.stopVoiceQuiz = stopVoiceQuiz;
 window.voiceQuizContinue = voiceQuizContinue;
+window.setVoiceQuizMode = setVoiceQuizMode;
+window.toggleVoiceQuizRead = toggleVoiceQuizRead;
 window.pressStart = pressStart;
 window.pressEnd = pressEnd;
 window.subClick = subClick;
