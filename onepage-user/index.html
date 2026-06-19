@@ -365,6 +365,52 @@ a { color: #4fc3f7; text-decoration: none; }
 }
 .vq-toggle-fl:hover { transform: translateY(-1px); box-shadow: 0 6px 22px rgba(149,117,219,0.55); }
 
+/* 퀴즈 모두 클리어 안내 — 시작 버튼 자리에 대체 표시 */
+.quiz-cleared-notice {
+  margin: 10px 14px 6px;
+  padding: 22px 22px 24px;
+  background:
+    linear-gradient(180deg, rgba(76,175,80,0.20), rgba(76,175,80,0.06)),
+    radial-gradient(ellipse at 30% 0%, rgba(129,199,132,0.18), transparent 70%);
+  border: 1.5px solid rgba(76,175,80,0.50);
+  border-radius: 16px;
+  text-align: center;
+  box-shadow:
+    0 10px 28px rgba(76,175,80,0.18),
+    inset 0 1px 0 rgba(255,255,255,0.10);
+  animation: quizClearedPop 0.55s cubic-bezier(0.34, 1.56, 0.64, 1) backwards;
+}
+@keyframes quizClearedPop {
+  0%   { transform: scale(0.88) translateY(8px); opacity: 0; }
+  100% { transform: scale(1)    translateY(0);    opacity: 1; }
+}
+.qc-icon {
+  font-size: 44px;
+  margin-bottom: 10px;
+  display: block;
+  animation: qcIconBounce 2s ease-in-out infinite;
+}
+@keyframes qcIconBounce {
+  0%, 100% { transform: translateY(0) rotate(0); }
+  50%      { transform: translateY(-5px) rotate(-3deg); }
+}
+.qc-title {
+  font-size: 17px; font-weight: 900;
+  color: #a5d6a7;
+  letter-spacing: 0.6px;
+  margin-bottom: 12px;
+  text-shadow: 0 0 16px rgba(76,175,80,0.40);
+}
+.qc-body {
+  font-size: 13px;
+  color: rgba(255,255,255,0.82);
+  line-height: 1.75;
+}
+.qc-body strong {
+  color: #ffb74d;
+  font-weight: 800;
+}
+
 /* 첫글자 퀴즈 — 선택지 큰 버튼 */
 .fl-card { min-height: 320px; }
 .fl-choices {
@@ -2812,6 +2858,7 @@ function renderMemorizedView(chapterId, hasAccess) {
   }
 
   // 퀴즈 시작 버튼 + 설정 (chapter.voice_quiz_enabled === 1 인 챕터만)
+  // 모두 클리어 상태이면 시작 버튼 대신 "퀴즈 클리어!" 안내 카드로 대체
   const c = state.currentChapter;
   let quizBtnHtml = '';
   if (c && Number(c.voice_quiz_enabled) === 1) {
@@ -2820,12 +2867,18 @@ function renderMemorizedView(chapterId, hasAccess) {
     } else if (state.firstLetterQuizActive) {
       quizBtnHtml = `<button class="vq-toggle vq-toggle-stop" onclick="stopFirstLetterQuiz()">■ 첫글자 퀴즈 종료</button>`;
     } else {
-      quizBtnHtml = renderVoiceQuizSettings() + `
-        <div class="vq-start-row">
-          <button class="vq-toggle vq-toggle-start vq-half" onclick="startVoiceQuiz()">🎤 음성 (4초)</button>
-          <button class="vq-toggle vq-toggle-fl vq-half" onclick="startFirstLetterQuiz()">✏️ 첫글자</button>
-        </div>
-      `;
+      const qs = quizStats();
+      if (qs.total > 0 && qs.pending === 0 && qs.done > 0) {
+        // 모두 클리어 — 시작 버튼 숨김, 터치학습 안내
+        quizBtnHtml = renderQuizCleared(qs);
+      } else {
+        quizBtnHtml = renderVoiceQuizSettings() + `
+          <div class="vq-start-row">
+            <button class="vq-toggle vq-toggle-start vq-half" onclick="startVoiceQuiz()">🎤 음성 (4초)</button>
+            <button class="vq-toggle vq-toggle-fl vq-half" onclick="startFirstLetterQuiz()">✏️ 첫글자</button>
+          </div>
+        `;
+      }
     }
   }
 
@@ -3006,6 +3059,11 @@ function startVoiceQuiz() {
   }
   if (state.firstLetterQuizActive) {
     toast('첫글자 퀴즈를 먼저 종료하세요', true);
+    return;
+  }
+  const qs = quizStats();
+  if (qs.total > 0 && qs.pending === 0) {
+    toast('퀴즈는 모두 풀었어요. 카드 터치 학습으로 진행하세요.', true);
     return;
   }
   state.voiceQuizActive = true;
@@ -3414,6 +3472,11 @@ function generateDistractor(correctChar, chapterId) {
 function startFirstLetterQuiz() {
   if (!state.memorizedView) { toast('다지기 모드에서만 가능', true); return; }
   if (state.voiceQuizActive) { toast('음성 퀴즈를 먼저 종료하세요', true); return; }
+  const qs = quizStats();
+  if (qs.total > 0 && qs.pending === 0) {
+    toast('퀴즈는 모두 풀었어요. 카드 터치 학습으로 진행하세요.', true);
+    return;
+  }
   state.firstLetterQuizActive = true;
   state.firstLetterQuizPhase = 'idle';
   if (state.currentChapter) renderTree(state.currentChapter.id);
@@ -3612,6 +3675,42 @@ function renderFirstLetterQuizCard(byBox1) {
     <div class="focus-card vq-card fl-card vq-${phase}" data-sub="${sid}">
       <div class="focus-title">${escapeHtml(s.title)}${speakBtn}</div>
       ${bodyHtml}
+    </div>
+  `;
+}
+
+// 오늘 학습 박스의 퀴즈 통계 — {total, done, pending}. byBox[1] effective 카드 기준.
+function quizStats() {
+  if (!state.currentChapter) return { total: 0, done: 0, pending: 0 };
+  const topics = state.topicsByChapter[state.currentChapter.id] || [];
+  let total = 0, done = 0;
+  for (const t of topics) {
+    const subs = state.subtopicsByTopic[t.id] || [];
+    for (const s of subs) {
+      const sid = Number(s.id);
+      if (!state.memoSnapshotIds.has(sid)) continue;
+      const days = dueDaysLeft(state.understoodNextReview[sid]);
+      const effBox = days <= 0 ? 1 : (Number(state.understoodBox[sid]) || 1);
+      if (effBox !== 1) continue;
+      total++;
+      if (state.quizDoneSet.has(sid)) done++;
+    }
+  }
+  return { total, done, pending: total - done };
+}
+
+// 퀴즈 모두 클리어 안내 카드 — 시작 버튼 자리에 대체 노출
+function renderQuizCleared(stats) {
+  return `
+    <div class="quiz-cleared-notice">
+      <div class="qc-icon">🎉</div>
+      <div class="qc-title">퀴즈 클리어!</div>
+      <div class="qc-body">
+        <strong>${stats.done}개</strong>의 카드를 모두 빠르게 확인했어요.<br>
+        이제 <strong>카드를 터치</strong>해서 본문을 읽고<br>
+        ✓ 맞췄어요 / ✗ 틀렸어요로<br>
+        <strong>깊은 학습</strong>을 진행하세요.
+      </div>
     </div>
   `;
 }
