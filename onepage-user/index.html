@@ -2917,40 +2917,9 @@ function renderSubtopic(s, isCurrent) {
       body = items.map(it => renderItem(it)).join('');
     }
 
-    // 능동 회상 모드 (다지기 안에서만, 학습 카드일 때, 로딩/잠금/오류 아닐 때):
-    // 정답 보기 전 = 본문 블러 + "정답 보기" 버튼. 본 후 = 본문 + "맞췄어요/틀렸어요" 평가 바.
-    const recallEligible = state.activeRecallMode && state.memorizedView
-                        && items !== undefined && !items.locked && !items.error && items.length;
-    if (recallEligible) {
-      const revealed = state.activeRecallRevealed.has(Number(s.id));
-      if (!revealed) {
-        // 블러 + 정답 보기
-        body = `
-          <div class="recall-blur-wrap">
-            <div class="recall-blurred">${body}</div>
-            <button class="recall-reveal-btn"
-                    onclick="event.stopPropagation();activeRecallReveal(${s.id})">
-              🔍 정답 보기
-            </button>
-          </div>
-        `;
-      } else {
-        // 본문 + 평가 바
-        body = `
-          ${body}
-          <div class="recall-assess-bar">
-            <button class="recall-btn recall-correct"
-                    onclick="event.stopPropagation();activeRecallJudge(${s.id}, true)">
-              ✓ 맞췄어요
-            </button>
-            <button class="recall-btn recall-wrong"
-                    onclick="event.stopPropagation();activeRecallJudge(${s.id}, false)">
-              ✗ 틀렸어요
-            </button>
-          </div>
-        `;
-      }
-    }
+    // 미래 박스 인벤토리에서는 능동 회상 흐름 사용 안 함 — 본문 즉시 노출 후
+    // 카드 접으면 자동 강등(subClick의 신비로운 dissolve)으로 처리.
+    // 능동 회상은 오늘 학습 스테이지(renderFocusCard)에만 적용.
   }
 
   return `
@@ -3291,14 +3260,12 @@ function subClick(e, subId) {
   if (state.expanded.subtopic.has(subId)) {
     // 이미 펼쳐진 거 다시 누름 = 접기
     state.expanded.subtopic.delete(subId);
-    // 능동 회상 모드: 닫기는 순수 닫기 (평가 안 함). reveal 상태도 정리해서 다음 펼침은 처음부터
-    if (state.activeRecallMode) {
-      state.activeRecallRevealed.delete(subId);
-    }
+    // reveal 진행상태 정리 — 다음 펼침은 fresh로 (스테이지에서 사용)
+    state.activeRecallRevealed.delete(subId);
     // 다지기 모드 + 미래 박스(effective box ≥ 2) 카드 → 접음 = 자동 peek+pass (오늘 학습 강등)
-    // "내용 살짝 확인해 보니 모르더라" 신호. 패스 버튼 없으니 이 인터랙션이 유일한 강등 경로.
-    // 단, 능동 회상 모드에서는 명시 평가(✓/✗ 버튼)가 결정 — 자동 강등 안 함
-    if (state.memorizedView && !state.activeRecallMode && state.understoodSet.has(Number(subId))) {
+    // "내용 살짝 확인해 보니 모르더라" 신호. 미래 박스 인벤토리는 이 인터랙션이 유일한 강등 경로.
+    // 오늘 학습 스테이지 카드는 단일 카드 뷰이므로 이 분기 안 탐 (focus-card는 .subtopic이 아님).
+    if (state.memorizedView && state.understoodSet.has(Number(subId))) {
       const dueDays = dueDaysLeft(state.understoodNextReview[Number(subId)]);
       const effBox = dueDays <= 0 ? 1 : (Number(state.understoodBox[Number(subId)]) || 1);
       if (effBox !== 1) {
