@@ -2857,43 +2857,93 @@ function voiceQuizNextCard() {
   const lang = (state.currentChapter && state.currentChapter.voice_quiz_lang) || 'ko-KR';
   rec.lang = lang;
   rec.interimResults = false;
-  rec.maxAlternatives = 3;
+  rec.maxAlternatives = 5;
+  rec.continuous = false;
+
   let resolved = false;
+  let timerStarted = false;     // 실제 listening 시작 여부 — onstart/onaudiostart에서 true
+  let userIsSpeaking = false;   // onspeechstart 후 onspeechend 전 = 발화 중
+  let fallbackTimer = null;     // onstart 이벤트가 안 와도 안전망 1초 후 강제 시작
+
+  const resolveOnce = (outcome) => {
+    if (resolved) return;
+    resolved = true;
+    voiceQuizResolve(sid, outcome);
+  };
+
+  const startTimer = () => {
+    if (timerStarted || resolved) return;
+    timerStarted = true;
+    if (fallbackTimer) { clearTimeout(fallbackTimer); fallbackTimer = null; }
+    // 실제 listening 시작 시점부터 2초 카운트
+    state._voiceQuizTimer = setTimeout(() => {
+      if (resolved) return;
+      // 사용자가 말하는 중이면 끝맺기까지 800ms 추가 grace
+      if (userIsSpeaking) {
+        state._voiceQuizTimer = setTimeout(() => {
+          if (resolved) return;
+          try { rec.stop(); } catch {}
+          // stop() 후 onresult/onend가 자연스럽게 fire 되도록 잠시 대기
+          setTimeout(() => resolveOnce('timeout'), 800);
+        }, 800);
+      } else {
+        try { rec.stop(); } catch {}
+        setTimeout(() => resolveOnce('timeout'), 800);
+      }
+    }, VOICE_QUIZ_TIME_LIMIT_MS);
+  };
+
+  // 어떤 이벤트가 먼저 와도 OK — 첫 번째 도착에서 타이머 시작
+  rec.onstart = startTimer;
+  rec.onaudiostart = startTimer;
+  rec.onspeechstart = () => { userIsSpeaking = true; };
+  rec.onspeechend = () => { userIsSpeaking = false; };
 
   rec.onresult = (e) => {
     if (resolved) return;
-    resolved = true;
+    if (state._voiceQuizTimer) { clearTimeout(state._voiceQuizTimer); state._voiceQuizTimer = null; }
     const alternatives = [];
     for (let i = 0; i < (e.results[0].length || 0); i++) {
       alternatives.push(e.results[0][i].transcript);
     }
     state.voiceQuizTranscript = alternatives[0] || '';
-    // 어떤 후보든 정답과 매치되면 정답
     const expected = state.voiceQuizExpected;
     const matched = alternatives.some(alt => voiceQuizCompare(alt, expected));
-    voiceQuizResolve(sid, matched ? 'correct' : 'wrong');
+    resolveOnce(matched ? 'correct' : 'wrong');
   };
-  rec.onerror = () => {
+  rec.onerror = (e) => {
     if (resolved) return;
-    resolved = true;
-    voiceQuizResolve(sid, 'timeout');
+    const err = (e && e.error) || '';
+    // 명시적 실패는 사용자에게 알림
+    if (err === 'not-allowed' || err === 'service-not-allowed') {
+      toast('마이크 권한이 거부되었습니다 — 브라우저 설정에서 허용해주세요', true);
+      stopVoiceQuiz(); return;
+    }
+    if (err === 'audio-capture') {
+      toast('마이크 장치를 인식할 수 없습니다', true);
+      stopVoiceQuiz(); return;
+    }
+    // no-speech / aborted / network 등 → timeout 처리
+    resolveOnce('timeout');
   };
   rec.onend = () => {
     if (resolved) return;
-    resolved = true;
-    voiceQuizResolve(sid, 'timeout');
+    resolveOnce('timeout');
   };
 
-  try { rec.start(); state._voiceQuizRecognition = rec; }
-  catch (err) { toast('마이크 권한을 확인하세요', true); stopVoiceQuiz(); return; }
+  try {
+    rec.start();
+    state._voiceQuizRecognition = rec;
+  } catch (err) {
+    toast('마이크 시작 실패: ' + (err && err.message ? err.message : ''), true);
+    stopVoiceQuiz();
+    return;
+  }
 
-  // 2초 타이머 — 시간 초과시 강제 종료
-  state._voiceQuizTimer = setTimeout(() => {
-    if (resolved) return;
-    resolved = true;
-    try { rec.stop(); } catch {}
-    voiceQuizResolve(sid, 'timeout');
-  }, VOICE_QUIZ_TIME_LIMIT_MS);
+  // 안전망: onstart/onaudiostart가 1초 내 발생 안 하면 강제로 타이머 시작
+  fallbackTimer = setTimeout(() => {
+    if (!timerStarted && !resolved) startTimer();
+  }, 1000);
 }
 
 // 결과 처리 — correct/wrong/timeout
