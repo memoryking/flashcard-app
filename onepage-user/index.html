@@ -346,6 +346,25 @@ a { color: #4fc3f7; text-decoration: none; }
   border: 1px solid rgba(233,69,96,0.50);
   color: #ff8a9e;
 }
+/* 작은 중단 버튼 — 퀴즈 stage-head 안에 배치 */
+.vq-stop-small {
+  background: rgba(233,69,96,0.18);
+  border: 1px solid rgba(233,69,96,0.45);
+  color: #ff8a9e;
+  font-size: 11px; font-weight: 700;
+  padding: 5px 10px;
+  border-radius: 8px;
+  cursor: pointer;
+  letter-spacing: 0.3px;
+  flex-shrink: 0;
+  transition: background 0.15s ease, border-color 0.15s ease, transform 0.1s ease;
+  -webkit-tap-highlight-color: transparent;
+}
+.vq-stop-small:hover {
+  background: rgba(233,69,96,0.30);
+  border-color: rgba(233,69,96,0.65);
+}
+.vq-stop-small:active { transform: scale(0.94); }
 /* 시작 버튼 row — 음성 퀴즈 + 첫글자 퀴즈 나란히 */
 .vq-start-row {
   display: flex; gap: 8px;
@@ -2821,10 +2840,12 @@ function renderMemorizedView(chapterId, hasAccess) {
     const deckCardsHtml = Array(stackLayers).fill('<div class="deck-back-card"></div>').join('');
     const countColor = pendingCount === 0 ? 'style="color:rgba(255,255,255,0.35)"' : '';
     const deckStackHtml = `<div class="srs-deck-stack">${deckCardsHtml}<div class="deck-count" ${countColor}>${pendingCount}</div></div>`;
+    const stopFn = state.voiceQuizActive ? 'stopVoiceQuiz' : 'stopFirstLetterQuiz';
+    const stopBtnHtml = `<button class="vq-stop-small" onclick="event.stopPropagation();${stopFn}()" title="퀴즈 중단">× 중단</button>`;
     if (state.voiceQuizActive) {
-      todayStageHtml = `<div class="srs-today-stage open vq-active"><div class="stage-head"><span class="srs-box-arrow">▼</span><span class="stage-name">🎤 음성 퀴즈</span>${deckStackHtml}</div>${renderVoiceQuizCard(pendingCards)}</div>`;
+      todayStageHtml = `<div class="srs-today-stage open vq-active"><div class="stage-head"><span class="srs-box-arrow">▼</span><span class="stage-name">🎤 음성 퀴즈</span>${stopBtnHtml}${deckStackHtml}</div>${renderVoiceQuizCard(pendingCards)}</div>`;
     } else {
-      todayStageHtml = `<div class="srs-today-stage open fl-active"><div class="stage-head"><span class="srs-box-arrow">▼</span><span class="stage-name">✏️ 첫글자 퀴즈</span>${deckStackHtml}</div>${renderFirstLetterQuizCard(pendingCards)}</div>`;
+      todayStageHtml = `<div class="srs-today-stage open fl-active"><div class="stage-head"><span class="srs-box-arrow">▼</span><span class="stage-name">✏️ 첫글자 퀴즈</span>${stopBtnHtml}${deckStackHtml}</div>${renderFirstLetterQuizCard(pendingCards)}</div>`;
     }
   } else {
     todayStageHtml = renderTodayStage(byBox[1], hasAccess);
@@ -2858,27 +2879,21 @@ function renderMemorizedView(chapterId, hasAccess) {
   }
 
   // 퀴즈 시작 버튼 + 설정 (chapter.voice_quiz_enabled === 1 인 챕터만)
-  // 모두 클리어 상태이면 시작 버튼 대신 "퀴즈 클리어!" 안내 카드로 대체
+  // 퀴즈 활성 중에는 stage-head 안에 작은 [× 중단] 버튼 (아래 stage 렌더에서 처리).
+  // 비활성 + 모두 클리어 → "퀴즈 클리어!" 안내. 비활성 + 미클리어 → 시작 버튼.
   const c = state.currentChapter;
   let quizBtnHtml = '';
-  if (c && Number(c.voice_quiz_enabled) === 1) {
-    if (state.voiceQuizActive) {
-      quizBtnHtml = `<button class="vq-toggle vq-toggle-stop" onclick="stopVoiceQuiz()">■ 음성 퀴즈 종료</button>`;
-    } else if (state.firstLetterQuizActive) {
-      quizBtnHtml = `<button class="vq-toggle vq-toggle-stop" onclick="stopFirstLetterQuiz()">■ 첫글자 퀴즈 종료</button>`;
+  if (c && Number(c.voice_quiz_enabled) === 1 && !state.voiceQuizActive && !state.firstLetterQuizActive) {
+    const qs = quizStats();
+    if (qs.total > 0 && qs.pending === 0 && qs.done > 0) {
+      quizBtnHtml = renderQuizCleared(qs);
     } else {
-      const qs = quizStats();
-      if (qs.total > 0 && qs.pending === 0 && qs.done > 0) {
-        // 모두 클리어 — 시작 버튼 숨김, 터치학습 안내
-        quizBtnHtml = renderQuizCleared(qs);
-      } else {
-        quizBtnHtml = renderVoiceQuizSettings() + `
-          <div class="vq-start-row">
-            <button class="vq-toggle vq-toggle-start vq-half" onclick="startVoiceQuiz()">🎤 음성 (4초)</button>
-            <button class="vq-toggle vq-toggle-fl vq-half" onclick="startFirstLetterQuiz()">✏️ 첫글자</button>
-          </div>
-        `;
-      }
+      quizBtnHtml = renderVoiceQuizSettings() + `
+        <div class="vq-start-row">
+          <button class="vq-toggle vq-toggle-start vq-half" onclick="startVoiceQuiz()">🎤 음성 (4초)</button>
+          <button class="vq-toggle vq-toggle-fl vq-half" onclick="startFirstLetterQuiz()">✏️ 첫글자</button>
+        </div>
+      `;
     }
   }
 
@@ -2934,14 +2949,20 @@ function activeRecallJudge(subId, correct) {
 function todayStageJudge(subId, correct) {
   const sid = Number(subId);
   state.activeRecallRevealed.delete(sid);
+  const finalize = () => {
+    memorizedPass(sid, { forcePeeked: !correct });
+    // 퀴즈 풀과 sync:
+    //  - ✓ 맞췄어요 → 퀴즈 풀에서 제외 (이미 안다는 신호)
+    //  - ✗ 틀렸어요 → 퀴즈 풀에 등재 (빠른 단어-뜻 연결 다시 확인 필요)
+    if (correct) state.quizDoneSet.add(sid);
+    else state.quizDoneSet.delete(sid);
+  };
   const cardEl = document.querySelector('.focus-card[data-sub="' + sid + '"]');
   if (cardEl) {
     cardEl.classList.add(correct ? 'flying-correct' : 'flying-wrong');
-    setTimeout(() => {
-      memorizedPass(sid, { forcePeeked: !correct });
-    }, 500);
+    setTimeout(finalize, 500);
   } else {
-    memorizedPass(sid, { forcePeeked: !correct });
+    finalize();
   }
 }
 
@@ -4574,9 +4595,14 @@ function subClick(e, subId) {
         const cardEl = document.querySelector(`[data-sub="${subId}"]`);
         if (cardEl) {
           cardEl.classList.add('srs-demoting');
-          setTimeout(() => { memorizedPass(subId); }, 1400);
+          setTimeout(() => {
+            memorizedPass(subId);
+            // 미래 박스 카드가 오늘로 demote → 퀴즈 풀에 fresh 등재
+            state.quizDoneSet.delete(Number(subId));
+          }, 1400);
         } else {
           memorizedPass(subId); // 안전망: DOM 못 찾으면 즉시
+          state.quizDoneSet.delete(Number(subId));
         }
         return;
       }
