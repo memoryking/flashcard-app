@@ -2223,10 +2223,13 @@ async function loadItems(subtopicId) {
 }
 
 // 같은 학습 카드의 동시 중복 fetch 방지 + prefetch 일 때는 강제 리렌더 안 함
-const _itemsLoading = new Map();   // subtopicId → Promise
+const _itemsLoading = new Map();    // subtopicId → Promise
+const _itemsNeedRerender = new Set(); // foreground 호출자가 있는 subtopicId — 완료 시 리렌더 보장
 async function ensureItems(subId, isPrefetch) {
   const existing = state.itemsBySubtopic[subId];
   if (existing !== undefined) return existing;
+  // foreground 호출 표시 — prefetch가 먼저 시작됐어도 완료 시 리렌더되도록
+  if (!isPrefetch) _itemsNeedRerender.add(Number(subId));
   if (_itemsLoading.has(subId)) return _itemsLoading.get(subId);
 
   const p = (async () => {
@@ -2251,10 +2254,10 @@ async function ensureItems(subId, isPrefetch) {
     } finally {
       _itemsLoading.delete(subId);
     }
-    // 현재 펼쳐진 학습 카드일 때만 리렌더 (백그라운드 prefetch는 조용히)
-    if (!isPrefetch || state.expanded.subtopic.has(Number(subId))) {
-      if (state.currentChapter) renderTree(state.currentChapter.id);
-    }
+    // 리렌더 조건: foreground 호출이 있었거나 펼쳐진 카드 (스테이지 포커스 카드 포함)
+    const needRerender = _itemsNeedRerender.has(Number(subId)) || state.expanded.subtopic.has(Number(subId));
+    _itemsNeedRerender.delete(Number(subId));
+    if (needRerender && state.currentChapter) renderTree(state.currentChapter.id);
   })();
   _itemsLoading.set(subId, p);
   return p;
