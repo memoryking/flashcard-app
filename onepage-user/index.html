@@ -287,12 +287,19 @@ a { color: #4fc3f7; text-decoration: none; }
   border-radius: 16px;
   padding: 18px 16px 16px;
   position: relative;
-  min-height: 360px;
   display: flex; flex-direction: column;
 }
+.srs-today-stage.open { min-height: 360px; }
+.srs-today-stage.closed { padding-bottom: 14px; }
+.srs-today-stage.closed .stage-head { margin-bottom: 0; }
 .stage-head {
   display: flex; align-items: center; gap: 10px;
   margin-bottom: 12px;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+.stage-head .srs-box-arrow {
+  font-size: 11px; color: rgba(233,69,96,0.70); width: 14px;
 }
 .stage-name {
   font-size: 13px; font-weight: 800;
@@ -2413,10 +2420,14 @@ function renderMemorizedView(chapterId, hasAccess) {
   return clearBar + todayStageHtml + boxBlocks.join('');
 }
 
-// 다지기 박스 펼침 토글
+// 다지기 박스 펼침 토글 — 아코디언 동작 (한 번에 한 박스만 펼침)
+//  - 닫혀 있었음 → 다 닫고 이것만 펼침
+//  - 열려 있었음 → 그냥 닫기
 function toggleSrsBox(box) {
   const b = Number(box);
-  state.memorizedBoxOpen[b] = !state.memorizedBoxOpen[b];
+  const wasOpen = !!state.memorizedBoxOpen[b];
+  state.memorizedBoxOpen = {1:false, 2:false, 3:false, 4:false, 5:false, 6:false};
+  state.memorizedBoxOpen[b] = !wasOpen;
   if (state.currentChapter) renderTree(state.currentChapter.id);
 }
 
@@ -2526,37 +2537,46 @@ function renderFocusCard(s, remaining, hasAccess) {
 }
 
 // 스테이지 전체 HTML (헤더 + 더미 + 포커스 카드 OR 빈 상태)
+//  - 헤더 클릭으로 펼침/접힘 (다른 박스와 아코디언 동작)
+//  - 닫혀 있으면 헤더만 (더미 카운트는 그대로 보임)
 function renderTodayStage(byBox1, hasAccess) {
   const remaining = byBox1.length;
-  if (remaining === 0) {
-    return `
-      <div class="srs-today-stage">
-        <div class="stage-head">
-          <div class="stage-name">오늘 학습</div>
-          <div class="srs-deck-stack"><div class="deck-count" style="color:rgba(255,255,255,0.35)">0</div></div>
-        </div>
-        <div class="stage-empty">
-          <div class="stage-empty-icon">🎉</div>
-          <div class="stage-empty-text">오늘 분량 완료!</div>
-          <div class="stage-empty-hint">미래 박스를 살펴보거나 새 단어를 추가하세요</div>
-        </div>
-      </div>
-    `;
-  }
-  // 더미 카드 개수: 최대 4장까지만 시각 표현 (remaining = 1 → 한 장, ≥4 → 4장 + 카운트)
-  const stackLayers = Math.min(remaining, 4);
+  const isOpen = !!state.memorizedBoxOpen[1];
+
+  // 더미 카드 시각화 — 펼침/접힘 상관없이 항상 보임
+  const stackLayers = remaining > 0 ? Math.min(remaining, 4) : 0;
   const deckCardsHtml = Array(stackLayers).fill('<div class="deck-back-card"></div>').join('');
-  const currentCard = byBox1[0];
-  return `
-    <div class="srs-today-stage">
-      <div class="stage-head">
-        <div class="stage-name">오늘 학습</div>
-        <div class="srs-deck-stack">
-          ${deckCardsHtml}
-          <div class="deck-count">${remaining}</div>
-        </div>
+  const countColor = remaining === 0 ? 'style="color:rgba(255,255,255,0.35)"' : '';
+  const head = `
+    <div class="stage-head" onclick="toggleSrsBox(1)">
+      <span class="srs-box-arrow">${isOpen ? '▼' : '▶'}</span>
+      <span class="stage-name">오늘 학습</span>
+      <div class="srs-deck-stack">
+        ${deckCardsHtml}
+        <div class="deck-count" ${countColor}>${remaining}</div>
       </div>
-      ${renderFocusCard(currentCard, remaining, hasAccess)}
+    </div>
+  `;
+
+  if (!isOpen) {
+    return `<div class="srs-today-stage closed">${head}</div>`;
+  }
+
+  // 펼침 상태: 본문 (포커스 카드 또는 빈 상태)
+  const bodyHtml = remaining === 0
+    ? `
+      <div class="stage-empty">
+        <div class="stage-empty-icon">🎉</div>
+        <div class="stage-empty-text">오늘 분량 완료!</div>
+        <div class="stage-empty-hint">미래 박스를 살펴보거나 새 단어를 추가하세요</div>
+      </div>
+    `
+    : renderFocusCard(byBox1[0], remaining, hasAccess);
+
+  return `
+    <div class="srs-today-stage open">
+      ${head}
+      ${bodyHtml}
     </div>
   `;
 }
