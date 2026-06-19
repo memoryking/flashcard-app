@@ -2005,6 +2005,7 @@ const state = {
   firstLetterQuizChoices: [],   // [{char, isCorrect}] 2개, 셔플됨
   firstLetterQuizSelected: '',  // 사용자가 고른 글자
   firstLetterQuizExpected: '',  // 정답 텍스트 (items[0])
+  quizDoneSet: new Set(),       // 음성/첫글자 퀴즈에서 처리한 카드 — SRS 박스 변경 없이 카운트만 줄임. 다지기 진입 시 리셋
   recentlyFailedFromMemo: new Set(), // 이번 챕터 진입 중 다지기에서 실패(펼침)해서 챕터 뷰로 돌아온 카드 — 챕터 뷰 정렬 시 맨 아래로
   peekedPassedSet: new Set(), // 펼친 뒤 패스해서 "틀린 단어"로 확정된 카드 — 챕터 뷰 정렬·색 구분용. 펼치는 순간이 아니라 패스 후에야 추가
   expanded: { topic: new Set(), subtopic: new Set() },
@@ -2764,12 +2765,21 @@ function renderMemorizedView(chapterId, hasAccess) {
   `;
 
   // 오늘 학습 (b=1): 단일 카드 스테이지로 렌더 (큰 카드 + 우상단 더미 시각화)
-  // 음성 퀴즈 또는 첫글자 퀴즈 활성 시 포커스 카드를 해당 모드 카드로 대체
+  // 음성 퀴즈 또는 첫글자 퀴즈 활성 시 포커스 카드를 해당 모드 카드로 대체.
+  // 퀴즈는 SRS 박스 변경 없이 quizDoneSet에만 추가 → 우상단 카운트만 줄어듦
   let todayStageHtml;
-  if (state.voiceQuizActive) {
-    todayStageHtml = `<div class="srs-today-stage open vq-active"><div class="stage-head"><span class="srs-box-arrow">▼</span><span class="stage-name">🎤 음성 퀴즈</span><div class="srs-deck-stack"><div class="deck-count">${byBox[1].length}</div></div></div>${renderVoiceQuizCard(byBox[1])}</div>`;
-  } else if (state.firstLetterQuizActive) {
-    todayStageHtml = `<div class="srs-today-stage open fl-active"><div class="stage-head"><span class="srs-box-arrow">▼</span><span class="stage-name">✏️ 첫글자 퀴즈</span><div class="srs-deck-stack"><div class="deck-count">${byBox[1].length}</div></div></div>${renderFirstLetterQuizCard(byBox[1])}</div>`;
+  if (state.voiceQuizActive || state.firstLetterQuizActive) {
+    const pendingCards = byBox[1].filter(s => !state.quizDoneSet.has(Number(s.id)));
+    const pendingCount = pendingCards.length;
+    const stackLayers = pendingCount > 0 ? Math.min(pendingCount, 4) : 0;
+    const deckCardsHtml = Array(stackLayers).fill('<div class="deck-back-card"></div>').join('');
+    const countColor = pendingCount === 0 ? 'style="color:rgba(255,255,255,0.35)"' : '';
+    const deckStackHtml = `<div class="srs-deck-stack">${deckCardsHtml}<div class="deck-count" ${countColor}>${pendingCount}</div></div>`;
+    if (state.voiceQuizActive) {
+      todayStageHtml = `<div class="srs-today-stage open vq-active"><div class="stage-head"><span class="srs-box-arrow">▼</span><span class="stage-name">🎤 음성 퀴즈</span>${deckStackHtml}</div>${renderVoiceQuizCard(pendingCards)}</div>`;
+    } else {
+      todayStageHtml = `<div class="srs-today-stage open fl-active"><div class="stage-head"><span class="srs-box-arrow">▼</span><span class="stage-name">✏️ 첫글자 퀴즈</span>${deckStackHtml}</div>${renderFirstLetterQuizCard(pendingCards)}</div>`;
+    }
   } else {
     todayStageHtml = renderTodayStage(byBox[1], hasAccess);
   }
@@ -2915,7 +2925,7 @@ function voiceQuizCompare(spoken, expected) {
   return false;
 }
 
-// 현재 카드 정답 가져오기 (포커스 스테이지의 byBox[1][0])
+// 현재 카드 정답 가져오기 (포커스 스테이지의 오늘 학습 첫 카드, quizDoneSet 처리한 카드는 제외)
 function voiceQuizCurrentCardId() {
   if (!state.currentChapter) return null;
   const topics = state.topicsByChapter[state.currentChapter.id] || [];
@@ -2926,6 +2936,7 @@ function voiceQuizCurrentCardId() {
     for (const s of subs) {
       const sid = Number(s.id);
       if (!state.memoSnapshotIds.has(sid)) continue;
+      if (state.quizDoneSet && state.quizDoneSet.has(sid)) continue; // 퀴즈에서 이미 처리된 카드 제외
       const days = dueDaysLeft(state.understoodNextReview[sid]);
       const effBox = days <= 0 ? 1 : (Number(state.understoodBox[sid]) || 1);
       if (effBox !== 1) continue;
@@ -3168,6 +3179,8 @@ function voiceQuizStartListening(sid, lang) {
 }
 
 // 결과 처리 — correct/wrong/timeout
+// SRS 박스는 변경하지 않음 (퀴즈는 단순 단어-뜻 빠른 연결 확인 — 깊은 학습 아님).
+// 처리된 카드는 quizDoneSet에 추가 → 카드 우상단 카운트만 줄어듦. 0이 되면 세션 종료.
 function voiceQuizResolve(sid, outcome) {
   voiceQuizCleanup();
   const isAuto = state.voiceQuizMode === 'auto';
@@ -3178,11 +3191,10 @@ function voiceQuizResolve(sid, outcome) {
     state.voiceQuizPhase = 'correct-flash';
     if (state.currentChapter) renderTree(state.currentChapter.id);
     const proceed = () => {
-      memorizedPass(sid, { forcePeeked: false });
+      state.quizDoneSet.add(sid); // SRS 변경 없이 done 처리
       setTimeout(() => voiceQuizNextCard(), 50);
     };
     if (isAuto && readAloud) {
-      // 자동 + 읽기: TTS "정답" 짧게 → 진행
       const announcement = lang === 'en-US' ? 'Correct' : '정답';
       speakVoiceQuiz(announcement, lang, proceed);
     } else {
@@ -3193,9 +3205,8 @@ function voiceQuizResolve(sid, outcome) {
     if (state.currentChapter) renderTree(state.currentChapter.id);
 
     if (isAuto) {
-      // 자동 모드: 정답 보여주고 (필요시 TTS) auto-advance
       const proceed = () => {
-        memorizedPass(sid, { forcePeeked: true });
+        state.quizDoneSet.add(sid); // SRS 변경 없이 done 처리
         setTimeout(() => voiceQuizNextCard(), 50);
       };
       const answer = state.voiceQuizExpected;
@@ -3214,7 +3225,7 @@ function voiceQuizResolve(sid, outcome) {
 
 // 오답/타임아웃 후 "다음" 버튼 (수동 모드 전용)
 function voiceQuizContinue(sid) {
-  memorizedPass(sid, { forcePeeked: true });
+  state.quizDoneSet.add(sid);
   setTimeout(() => voiceQuizNextCard(), 50);
 }
 
@@ -3467,9 +3478,9 @@ function showFirstLetterChoices(sid) {
   state.firstLetterQuizExpected = answer;
   const correctChar = getFirstChar(answer);
   if (!correctChar) {
-    // 정답 추출 실패 — 한 카드 스킵
+    // 정답 추출 실패 — 한 카드 스킵 (quizDoneSet에 추가하여 무한 루프 방지)
     toast('정답을 찾을 수 없는 카드입니다', true);
-    memorizedPass(sid, { forcePeeked: false });
+    state.quizDoneSet.add(sid);
     setTimeout(() => firstLetterQuizNextCard(), 200);
     return;
   }
@@ -3491,6 +3502,7 @@ function firstLetterQuizSelect(sid, char) {
 }
 
 function firstLetterQuizResolve(sid, correct) {
+  // 음성 퀴즈와 동일 — SRS 박스 변경 없이 quizDoneSet에만 추가.
   const isAuto = state.voiceQuizMode === 'auto';
   const lang = (state.currentChapter && state.currentChapter.voice_quiz_lang) || 'ko-KR';
   const readAloud = !!state.voiceQuizReadAloud;
@@ -3498,7 +3510,7 @@ function firstLetterQuizResolve(sid, correct) {
     state.firstLetterQuizPhase = 'correct-flash';
     if (state.currentChapter) renderTree(state.currentChapter.id);
     const proceed = () => {
-      memorizedPass(sid, { forcePeeked: false });
+      state.quizDoneSet.add(sid);
       setTimeout(() => firstLetterQuizNextCard(), 50);
     };
     if (isAuto && readAloud) {
@@ -3512,7 +3524,7 @@ function firstLetterQuizResolve(sid, correct) {
     if (state.currentChapter) renderTree(state.currentChapter.id);
     if (isAuto) {
       const proceed = () => {
-        memorizedPass(sid, { forcePeeked: true });
+        state.quizDoneSet.add(sid);
         setTimeout(() => firstLetterQuizNextCard(), 50);
       };
       const answer = state.firstLetterQuizExpected;
@@ -3528,7 +3540,7 @@ function firstLetterQuizResolve(sid, correct) {
 }
 
 function firstLetterQuizContinue(sid) {
-  memorizedPass(sid, { forcePeeked: true });
+  state.quizDoneSet.add(sid);
   setTimeout(() => firstLetterQuizNextCard(), 50);
 }
 
@@ -3778,6 +3790,10 @@ function toggleMemorizedView() {
     // 능동 회상: 학습 효과 핵심이라 항상 ON. reveal 진행상태는 매 진입마다 리셋
     state.activeRecallMode = true;
     state.activeRecallRevealed = new Set();
+    // 퀴즈 세션 상태 리셋 — 다지기 새 진입마다 0부터 시작
+    state.voiceQuizActive = false;
+    state.firstLetterQuizActive = false;
+    state.quizDoneSet = new Set();
     // 일반 모드/이전 세션에서 누적된 passedSet 잔여 항목 제거 — 다지기에서는 카드가 다 보여야 함
     // (다지기 박스 안 카드들에 한해서만 클리어. 일반 모드의 다른 챕터/패스 이력은 보존)
     for (const sid of state.memoSnapshotIds) state.passedSet.delete(sid);
