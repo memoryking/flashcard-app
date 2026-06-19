@@ -279,6 +279,169 @@ a { color: #4fc3f7; text-decoration: none; }
   box-shadow: 0 0 18px rgba(233,69,96,0.35);
 }
 
+/* ── 단일 카드 스테이지 (오늘 학습 박스 대체) ───────────── */
+.srs-today-stage {
+  margin: 14px 14px 18px;
+  background: linear-gradient(180deg, rgba(233,69,96,0.06), rgba(233,69,96,0.02));
+  border: 1px solid rgba(233,69,96,0.30);
+  border-radius: 16px;
+  padding: 18px 16px 16px;
+  position: relative;
+  min-height: 360px;
+  display: flex; flex-direction: column;
+}
+.stage-head {
+  display: flex; align-items: center; gap: 10px;
+  margin-bottom: 12px;
+}
+.stage-name {
+  font-size: 13px; font-weight: 800;
+  color: #ff8a9e; letter-spacing: 0.5px; flex: 1;
+}
+/* 우상단 카드 더미 시각화 */
+.srs-deck-stack {
+  position: relative;
+  width: 48px; height: 64px;
+  flex-shrink: 0;
+}
+.deck-back-card {
+  position: absolute;
+  inset: 0;
+  border-radius: 8px;
+  background: linear-gradient(135deg, rgba(233,69,96,0.30), rgba(233,69,96,0.18));
+  border: 1.5px solid rgba(233,69,96,0.45);
+  box-shadow: 0 2px 6px rgba(0,0,0,0.25);
+}
+.deck-back-card:nth-child(1) { transform: translate(7px, 7px) rotate(4deg); opacity: 0.55; }
+.deck-back-card:nth-child(2) { transform: translate(4px, 4px) rotate(2deg); opacity: 0.75; }
+.deck-back-card:nth-child(3) { transform: translate(2px, 2px) rotate(1deg); opacity: 0.90; }
+.deck-back-card:nth-child(4) { /* 맨 위 카드 — 정위치 */ }
+.deck-count {
+  position: absolute;
+  inset: 0;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 18px; font-weight: 900;
+  color: #fff;
+  text-shadow: 0 1px 4px rgba(0,0,0,0.6);
+  z-index: 5;
+}
+
+/* 중앙 포커스 카드 */
+.focus-card {
+  background: linear-gradient(180deg, rgba(83,52,131,0.30) 0%, rgba(83,52,131,0.18) 100%);
+  border: 1.5px solid rgba(179,157,219,0.45);
+  border-radius: 14px;
+  padding: 24px 18px 0;
+  position: relative;
+  min-height: 280px;
+  display: flex; flex-direction: column;
+  box-shadow: 0 10px 28px rgba(0,0,0,0.32), 0 0 0 1px rgba(186,156,245,0.18);
+  animation: focusCardEnter 0.42s cubic-bezier(0.22, 0.95, 0.30, 1.12) backwards;
+}
+@keyframes focusCardEnter {
+  0% { transform: translateY(-24px) scale(0.92) rotate(-2deg); opacity: 0; }
+  100% { transform: translateY(0) scale(1) rotate(0); opacity: 1; }
+}
+.focus-card.flying-correct {
+  animation: focusCardFlyRight 0.5s cubic-bezier(0.55, 0, 0.55, 1) forwards;
+  pointer-events: none;
+}
+.focus-card.flying-wrong {
+  animation: focusCardFlyLeft 0.5s cubic-bezier(0.55, 0, 0.55, 1) forwards;
+  pointer-events: none;
+}
+@keyframes focusCardFlyRight {
+  0%   { transform: translateX(0) rotate(0); opacity: 1; }
+  100% { transform: translateX(140vw) rotate(28deg); opacity: 0; }
+}
+@keyframes focusCardFlyLeft {
+  0%   { transform: translateX(0) rotate(0); opacity: 1; }
+  100% { transform: translateX(-140vw) rotate(-28deg); opacity: 0; }
+}
+.focus-title {
+  font-size: 26px; font-weight: 900;
+  color: #fff;
+  text-align: center;
+  margin-bottom: 18px;
+  letter-spacing: 0.5px;
+  line-height: 1.3;
+  word-break: break-word;
+}
+.focus-title .speak-btn {
+  margin-left: 8px; vertical-align: middle;
+}
+.focus-body-wrap {
+  flex: 1;
+  position: relative;
+  padding-bottom: 68px; /* assess bar 공간 */
+  min-height: 120px;
+}
+.focus-body {
+  font-size: 13.5px;
+  color: rgba(255,255,255,0.85);
+  line-height: 1.65;
+}
+.focus-body.blurred {
+  filter: blur(10px);
+  opacity: 0.55;
+  user-select: none;
+  pointer-events: none;
+  transition: filter 0.4s ease, opacity 0.4s ease;
+}
+.focus-reveal-btn {
+  position: absolute;
+  top: 50%; left: 50%;
+  transform: translate(-50%, -50%);
+  background: linear-gradient(135deg, rgba(186,156,245,0.95), rgba(149,117,219,0.95));
+  border: none; color: #fff;
+  font-size: 14px; font-weight: 800;
+  padding: 13px 26px; border-radius: 30px;
+  cursor: pointer; letter-spacing: 0.4px;
+  box-shadow: 0 6px 20px rgba(149,117,219,0.45), 0 0 0 4px rgba(186,156,245,0.18);
+  z-index: 3; white-space: nowrap;
+  transition: transform 0.15s ease, box-shadow 0.15s ease;
+}
+.focus-reveal-btn:hover {
+  transform: translate(-50%, -50%) scale(1.05);
+  box-shadow: 0 8px 28px rgba(149,117,219,0.55), 0 0 0 6px rgba(186,156,245,0.22);
+}
+.focus-reveal-btn:active { transform: translate(-50%, -50%) scale(0.98); }
+.focus-assess-bar {
+  position: absolute;
+  bottom: 0; left: 0; right: 0;
+  background: rgba(0,0,0,0.30);
+  border-top: 1px solid rgba(255,255,255,0.08);
+  border-radius: 0 0 14px 14px;
+  padding: 11px 12px;
+  display: flex; gap: 10px;
+}
+.focus-assess-bar .recall-btn {
+  flex: 1; padding: 12px 8px;
+  font-size: 14px;
+}
+/* 스테이지 빈 상태 (오늘 분량 끝) */
+.stage-empty {
+  text-align: center;
+  padding: 50px 18px 30px;
+  flex: 1;
+  display: flex; flex-direction: column;
+  align-items: center; justify-content: center;
+}
+.stage-empty-icon { font-size: 56px; margin-bottom: 14px; animation: stageEmptyPulse 2.5s ease-in-out infinite; }
+@keyframes stageEmptyPulse {
+  0%, 100% { transform: scale(1); }
+  50% { transform: scale(1.10); }
+}
+.stage-empty-text {
+  font-size: 18px; font-weight: 800; color: #ff8a9e;
+  letter-spacing: 0.5px;
+  margin-bottom: 6px;
+}
+.stage-empty-hint {
+  font-size: 12.5px; color: rgba(255,255,255,0.55);
+  line-height: 1.6;
+}
+
 /* ── 다지기 v2 — 6 박스 ────────────────────────────────── */
 .srs-box {
   margin: 8px 14px;
@@ -2212,52 +2375,22 @@ function renderMemorizedView(chapterId, hasAccess) {
     </div>
   `;
 
-  // 박스별 렌더
-  let topIdx = 0;
+  // 오늘 학습 (b=1): 단일 카드 스테이지로 렌더 (큰 카드 + 우상단 더미 시각화)
+  const todayStageHtml = renderTodayStage(byBox[1], hasAccess);
+
+  // 미래 박스 (b=2~6): 인벤토리 리스트 — 전체 카드 표시, 패스 버튼 없음, 펼침→접음=강등
   const boxBlocks = [];
-  for (let b = 1; b <= 6; b++) {
+  for (let b = 2; b <= 6; b++) {
     const cards = byBox[b];
     const meta = SRS_BOX_META[b];
     const isOpen = !!state.memorizedBoxOpen[b];
     const totalInBox = cards.length;
-    const unpassedCards = cards.filter(s => !state.passedSet.has(Number(s.id)));
 
-    // 오늘 학습 박스는 항상 표시 (사용자 진행 상태 확인). 다른 박스는 비어 있으면 숨김.
-    if (totalInBox === 0 && b !== 1) continue;
+    if (totalInBox === 0) continue;
 
-    // 모두 패스됐는데 박스 안 카드가 남아있으면 → 패스 자동 리셋 (다시 처음으로)
-    //  + 펼침 이력도 같이 청소 — 리셋된 카드는 fresh 상태로 다음 라운드 평가
-    if (unpassedCards.length === 0 && totalInBox > 0) {
-      for (const s of cards) {
-        state.passedSet.delete(Number(s.id));
-        state.memorizedExpandedSet.delete(Number(s.id));
-      }
-      savePassed();
-      unpassedCards.push(...cards);
-    }
-
-    // 박스 본문 표시 카드:
-    //  - 오늘 학습 (b=1): 패스된 카드 숨김 (리뷰 사이클 — 처리한 카드는 안 보이게)
-    //  - 미래 박스 (b>=2): 전체 표시 (인벤토리 뷰 — "이 박스에 어떤 카드가 있는지" 한눈에)
-    const displayCards = b === 1 ? unpassedCards : cards;
-
-    // 펼침 상태일 때만 카드 HTML 생성
-    let cardsHtml = '';
-    if (isOpen) {
-      cardsHtml = displayCards.map((s) => {
-        const isTop = (b === 1 && topIdx === 0);
-        if (isTop) topIdx++;
-        return renderSubtopic(s, isTop);
-      }).join('');
-    }
-
-    // 박스 패스 버튼:
-    //  - 오늘 학습 (b=1): unpassedCards[0]를 타겟 — 툭툭 누르며 단어를 다음 박스로 빠르게 advance
-    //  - 미래 박스 (b≥2): 버튼 없음. 펼침→접음 인터랙션으로 오늘 학습 강등 (subClick에서 처리)
-    //  - 능동 회상 ON: 모든 박스에서 버튼 숨김 (회상 사이클을 우회하는 단축키 차단)
-    const passTarget = (b === 1 && !recallOn && unpassedCards[0]) ? unpassedCards[0].id : null;
-    const passBtnHtml = passTarget != null
-      ? `<button class="srs-box-pass" onclick="event.stopPropagation();memorizedPass(${passTarget})" title="박스 첫 카드 패스">⤴ 패스</button>`
+    // 펼침 상태일 때만 카드 HTML 생성 (전체 카드 표시 — 미래 박스는 인벤토리 뷰)
+    const cardsHtml = isOpen
+      ? cards.map(s => renderSubtopic(s, false)).join('')
       : '';
 
     boxBlocks.push(`
@@ -2266,14 +2399,13 @@ function renderMemorizedView(chapterId, hasAccess) {
           <span class="srs-box-arrow">${isOpen ? '▼' : '▶'}</span>
           <span class="srs-box-name">${meta.label}</span>
           <span class="srs-box-count" title="박스 전체 카드 수">${totalInBox}</span>
-          ${passBtnHtml}
         </div>
         <div class="srs-box-body">${cardsHtml}</div>
       </div>
     `);
   }
 
-  return clearBar + recallToggle + boxBlocks.join('');
+  return clearBar + recallToggle + todayStageHtml + boxBlocks.join('');
 }
 
 // 다지기 박스 펼침 토글
@@ -2315,6 +2447,109 @@ function activeRecallJudge(subId, correct) {
   // memorizedExpandedSet은 memorizedPass 끝에서 cleanup되므로 그대로 둠
   // forcePeeked로 wasPeeked 명시 오버라이드 (자기평가가 진실 신호)
   memorizedPass(sid, { forcePeeked: !correct });
+}
+
+// 단일 카드 스테이지(오늘 학습) 평가 — fly-out 애니메이션 후 memorizedPass
+function todayStageJudge(subId, correct) {
+  const sid = Number(subId);
+  state.activeRecallRevealed.delete(sid);
+  const cardEl = document.querySelector('.focus-card[data-sub="' + sid + '"]');
+  if (cardEl) {
+    cardEl.classList.add(correct ? 'flying-correct' : 'flying-wrong');
+    setTimeout(() => {
+      memorizedPass(sid, { forcePeeked: !correct });
+    }, 500);
+  } else {
+    memorizedPass(sid, { forcePeeked: !correct });
+  }
+}
+
+// 스테이지 포커스 카드 HTML — byBox[1]의 첫 번째 카드를 큰 카드로 렌더
+// items 미로드면 로딩 상태. 능동 회상 ON + 미공개면 블러 + 정답 보기 버튼.
+function renderFocusCard(s, remaining, hasAccess) {
+  const sid = Number(s.id);
+  const items = state.itemsBySubtopic[sid];
+  let body = '';
+  let bodyReady = false;
+  if (items === undefined) {
+    loadItems(sid);
+    body = '<div class="empty-state" style="padding:30px 10px;">로딩…</div>';
+  } else if (items.locked) {
+    body = `
+      <div class="locked-banner">
+        <h4>🔒 구독 후 볼 수 있습니다</h4>
+        <button onclick="event.stopPropagation();openPayModal(${items.chapter_id})">구독하기 →</button>
+      </div>`;
+  } else if (items.error) {
+    body = `<div class="empty-state">오류: ${escapeHtml(items.error)}</div>`;
+  } else if (!items.length) {
+    body = '<div class="empty-state">아직 내용이 없습니다.</div>';
+  } else {
+    body = items.map(it => renderItem(it)).join('');
+    bodyReady = true;
+  }
+
+  const recallOn = !!state.activeRecallMode;
+  const revealed = state.activeRecallRevealed.has(sid);
+  const showRevealBtn = recallOn && bodyReady && !revealed;
+  const showAssessBar = bodyReady && (!recallOn || revealed);
+
+  const isAlpha = /[a-zA-Z]/.test(s.title || '') && !/[가-힯ᄀ-ᇿ㄰-㆏]/.test(s.title || '');
+  const speakBtn = isAlpha
+    ? `<button class="speak-btn" onclick="event.stopPropagation();speakText(${JSON.stringify(s.title).replace(/"/g, '&quot;')})" title="발음 듣기">🔊</button>`
+    : '';
+
+  return `
+    <div class="focus-card" data-sub="${sid}">
+      <div class="focus-title">${escapeHtml(s.title)}${speakBtn}</div>
+      <div class="focus-body-wrap">
+        <div class="focus-body${showRevealBtn ? ' blurred' : ''}">${body}</div>
+        ${showRevealBtn ? `<button class="focus-reveal-btn" onclick="activeRecallReveal(${sid})">🔍 정답 보기</button>` : ''}
+        ${showAssessBar ? `
+          <div class="focus-assess-bar">
+            <button class="recall-btn recall-wrong" onclick="todayStageJudge(${sid}, false)">✗ 틀렸어요</button>
+            <button class="recall-btn recall-correct" onclick="todayStageJudge(${sid}, true)">✓ 맞췄어요</button>
+          </div>
+        ` : ''}
+      </div>
+    </div>
+  `;
+}
+
+// 스테이지 전체 HTML (헤더 + 더미 + 포커스 카드 OR 빈 상태)
+function renderTodayStage(byBox1, hasAccess) {
+  const remaining = byBox1.length;
+  if (remaining === 0) {
+    return `
+      <div class="srs-today-stage">
+        <div class="stage-head">
+          <div class="stage-name">오늘 학습</div>
+          <div class="srs-deck-stack"><div class="deck-count" style="color:rgba(255,255,255,0.35)">0</div></div>
+        </div>
+        <div class="stage-empty">
+          <div class="stage-empty-icon">🎉</div>
+          <div class="stage-empty-text">오늘 분량 완료!</div>
+          <div class="stage-empty-hint">미래 박스를 살펴보거나 새 단어를 추가하세요</div>
+        </div>
+      </div>
+    `;
+  }
+  // 더미 카드 개수: 최대 4장까지만 시각 표현 (remaining = 1 → 한 장, ≥4 → 4장 + 카운트)
+  const stackLayers = Math.min(remaining, 4);
+  const deckCardsHtml = Array(stackLayers).fill('<div class="deck-back-card"></div>').join('');
+  const currentCard = byBox1[0];
+  return `
+    <div class="srs-today-stage">
+      <div class="stage-head">
+        <div class="stage-name">오늘 학습</div>
+        <div class="srs-deck-stack">
+          ${deckCardsHtml}
+          <div class="deck-count">${remaining}</div>
+        </div>
+      </div>
+      ${renderFocusCard(currentCard, remaining, hasAccess)}
+    </div>
+  `;
 }
 
 function rebuildMemoSnapshot() {
@@ -2411,6 +2646,12 @@ function memorizedPass(subId, options) {
       const days = BOX_DUE_DAYS[nxt] || 0;
       const due = new Date(Date.now() + 9*3600*1000 + days*86400*1000);
       state.understoodNextReview[sid] = due.toISOString().slice(0, 19).replace('T', ' ');
+    }
+    // last_moved_at 클라이언트 동기화 — 단일 카드 스테이지에서 "방금 본 카드가
+    // 또 맨 위에 오는" 정렬 버그 차단 (peek+pass로 같은 박스에 머무는 경우 특히 필요)
+    if (nxt !== cur || wasPeeked) {
+      const nowKst = new Date(Date.now() + 9*3600*1000);
+      state.understoodLastMovedAt[sid] = nowKst.toISOString().slice(0, 19).replace('T', ' ');
     }
     // 갱신 후의 effective box (state 반영 직후 재계산)
     const effNxt = dueDaysLeft(state.understoodNextReview[sid]) <= 0 ? 1 : (Number(state.understoodBox[sid]) || 1);
@@ -4057,6 +4298,7 @@ window.memorizedPass = memorizedPass;
 window.toggleActiveRecall = toggleActiveRecall;
 window.activeRecallReveal = activeRecallReveal;
 window.activeRecallJudge = activeRecallJudge;
+window.todayStageJudge = todayStageJudge;
 window.pressStart = pressStart;
 window.pressEnd = pressEnd;
 window.subClick = subClick;
