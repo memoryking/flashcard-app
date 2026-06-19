@@ -2198,24 +2198,19 @@ function memorizedPass(subId) {
     const dueDays = dueDaysLeft(state.understoodNextReview[sid]);
     const effPrev = dueDays <= 0 ? 1 : cur;
     let nxt = cur;
-    let refreshOnly = false; // 모델 C: box=2 due 카드의 next_review만 갱신 (literal box 유지)
     if (wasPeeked) {
       // 펼친 뒤 패스 → box=1 강등
       nxt = 1;
     } else if (effPrev === 1) {
-      // 모델 C (하이브리드):
-      //  - literal box=1 + due + 안 펼침 → box=2 (내일) advance
-      //  - literal box=2 + due + 안 펼침 → box=2 유지, next_review만 내일로 refresh
-      //  - literal box=3+ + due + 안 펼침 → box+1 advance (standard SRS)
-      if (cur === 2) {
-        nxt = 2;
-        refreshOnly = true;
-      } else {
-        nxt = Math.min(cur + 1, 6);
-      }
+      // Model A (standard SRS): due 됐고 안 펼침 패스 → 다음 박스로 advance
+      //  - box=1 → box=2 (내일)
+      //  - box=2 → box=3 (4일 후)
+      //  - box=3 → box=4 (8일 후)
+      //  - ...
+      nxt = Math.min(cur + 1, 6);
     }
     // 미래 박스 (due 아직 안 됨) + 안 펼침 → 변경 없음
-    if (nxt !== cur || refreshOnly) {
+    if (nxt !== cur) {
       state.understoodBox[sid] = nxt;
       // 통계: 오늘 박스 위치(effPrev=1)에서 미래(nxt>=2 or refresh)로 옮겨가면 cleared++
       bumpTodayStats(effPrev, nxt);
