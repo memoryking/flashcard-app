@@ -3584,8 +3584,8 @@ function renderFocusCard(s, remaining, hasAccess) {
       </div>
       ${showAssessBar ? `
         <div class="focus-bottom-bar">
-          <button class="recall-btn recall-wrong" onclick="event.stopPropagation();todayStageJudge(${sid}, false)">✗ 틀렸어요</button>
-          <button class="recall-btn recall-correct" onclick="event.stopPropagation();todayStageJudge(${sid}, true)">✓ 맞췄어요</button>
+          <button class="recall-btn recall-wrong" onclick="event.stopPropagation();todayStageJudge(${sid}, false)">✗ 더 학습</button>
+          <button class="recall-btn recall-correct" onclick="event.stopPropagation();todayStageJudge(${sid}, true)">✓ 학습 OK</button>
         </div>
       ` : ''}
     </div>
@@ -3941,7 +3941,7 @@ function renderQuizCleared(stats) {
       <div class="qc-body">
         <strong>${stats.done}개</strong>의 카드를 모두 빠르게 확인했어요.<br>
         이제 <strong>카드를 터치</strong>해서 본문을 읽고<br>
-        ✓ 맞췄어요 / ✗ 틀렸어요로<br>
+        ✓ 학습 OK / ✗ 더 학습으로<br>
         <strong>깊은 학습</strong>을 진행하세요.
       </div>
     </div>

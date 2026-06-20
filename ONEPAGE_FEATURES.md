@@ -1393,8 +1393,8 @@ while (true) {
 
 ### 23.2 카드 터치 학습 (깊은 학습)
 오늘 학습 카드 1장이 중앙에 보임. 본문은 블러됨 → 카드 터치 → 본문 공개 → 평가 바.
-- **✓ 맞췄어요** → `memorizedPass(sid, {forcePeeked: false})` → 다음 박스로 advance (Box+1)
-- **✗ 틀렸어요** → `memorizedPass(sid, {forcePeeked: true})` → 오늘 박스 유지 + `miss_count+=1`
+- **✓ 학습 OK** → `memorizedPass(sid, {forcePeeked: false})` → 다음 박스로 advance (Box+1)
+- **✗ 더 학습** → `memorizedPass(sid, {forcePeeked: true})` → 오늘 박스 유지 + `miss_count+=1`
 - 정답/오답 시 카드가 좌/우로 fly-out 32° 회전 (CSS animation)
 
 ### 23.3 미래 박스 펼침→접음 = 신비로운 dissolve 강등
