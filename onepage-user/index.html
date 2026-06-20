@@ -3107,8 +3107,18 @@ function speakVoiceQuiz(text, lang, onDone) {
   } catch { if (onDone) onDone(); }
 }
 
+// 마이크 장치 존재 여부 사전 체크 — enumerateDevices로 audioinput 검색
+// 반환: true=있음, false=없음, null=확인 불가 (체크 시도)
+async function checkMicrophoneAvailable() {
+  if (!navigator.mediaDevices || !navigator.mediaDevices.enumerateDevices) return null;
+  try {
+    const devices = await navigator.mediaDevices.enumerateDevices();
+    return devices.some(d => d.kind === 'audioinput');
+  } catch { return null; }
+}
+
 // 음성 퀴즈 세션 시작 — 다지기 모드 안에서 호출
-function startVoiceQuiz() {
+async function startVoiceQuiz() {
   // 브라우저 지원 확인
   const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
   if (!SR) {
@@ -3126,6 +3136,12 @@ function startVoiceQuiz() {
   const qs = quizStats();
   if (qs.total > 0 && qs.pending === 0) {
     toast('퀴즈는 모두 풀었어요. 카드 터치 학습으로 진행하세요.', true);
+    return;
+  }
+  // 마이크 장치 사전 체크 — 없으면 깔끔하게 첫글자 퀴즈 안내
+  const hasMic = await checkMicrophoneAvailable();
+  if (hasMic === false) {
+    toast('마이크가 연결되어 있지 않습니다. 첫글자 퀴즈(✏️)를 이용해주세요.', true);
     return;
   }
   state.voiceQuizActive = true;
