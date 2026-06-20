@@ -2858,8 +2858,12 @@ function renderMemorizedView(chapterId, hasAccess) {
   // 퀴즈는 SRS 박스 변경 없이 quizDoneSet에만 추가 → 우상단 카운트만 줄어듦
   let todayStageHtml;
   if (state.voiceQuizActive || state.firstLetterQuizActive) {
+    // pendingCards: 카운트(badge/스택)용 — quizDoneSet만 제외
     const pendingCards = byBox[1].filter(s => !state.quizDoneSet.has(Number(s.id)));
     const pendingCount = pendingCards.length;
+    // 표시할 현재 카드는 voiceQuizCurrentCardId() 결과 — quizDoneSet + lastWrongSid 후순위까지 반영
+    // → TTS가 읽는 카드와 표시되는 카드가 항상 일치
+    const currentQuizSid = voiceQuizCurrentCardId();
     const stackLayers = pendingCount > 0 ? Math.min(pendingCount, 4) : 0;
     const deckCardsHtml = Array(stackLayers).fill('<div class="deck-back-card"></div>').join('');
     const countColor = pendingCount === 0 ? 'style="color:rgba(255,255,255,0.35)"' : '';
@@ -2867,9 +2871,9 @@ function renderMemorizedView(chapterId, hasAccess) {
     const stopFn = state.voiceQuizActive ? 'stopVoiceQuiz' : 'stopFirstLetterQuiz';
     const stopBtnHtml = `<button class="vq-stop-small" onclick="event.stopPropagation();${stopFn}()" title="퀴즈 중단">× 중단</button>`;
     if (state.voiceQuizActive) {
-      todayStageHtml = `<div class="srs-today-stage open vq-active"><div class="stage-head"><span class="srs-box-arrow">▼</span><span class="stage-name">🎤 음성 퀴즈</span>${stopBtnHtml}${deckStackHtml}</div>${renderVoiceQuizCard(pendingCards)}</div>`;
+      todayStageHtml = `<div class="srs-today-stage open vq-active"><div class="stage-head"><span class="srs-box-arrow">▼</span><span class="stage-name">🎤 음성 퀴즈</span>${stopBtnHtml}${deckStackHtml}</div>${renderVoiceQuizCard(pendingCards, currentQuizSid)}</div>`;
     } else {
-      todayStageHtml = `<div class="srs-today-stage open fl-active"><div class="stage-head"><span class="srs-box-arrow">▼</span><span class="stage-name">✏️ 첫글자 퀴즈</span>${stopBtnHtml}${deckStackHtml}</div>${renderFirstLetterQuizCard(pendingCards)}</div>`;
+      todayStageHtml = `<div class="srs-today-stage open fl-active"><div class="stage-head"><span class="srs-box-arrow">▼</span><span class="stage-name">✏️ 첫글자 퀴즈</span>${stopBtnHtml}${deckStackHtml}</div>${renderFirstLetterQuizCard(pendingCards, currentQuizSid)}</div>`;
     }
   } else {
     todayStageHtml = renderTodayStage(byBox[1], hasAccess);
@@ -3432,8 +3436,9 @@ function renderFocusCard(s, remaining, hasAccess) {
 }
 
 // 음성 퀴즈 카드 — 큐만 보임 + 마이크 + 타이머 + (모드별 결과 표시)
-function renderVoiceQuizCard(byBox1) {
-  if (byBox1.length === 0) {
+// currentSid: voiceQuizCurrentCardId() 결과. quizDoneSet + lastWrongSid 후순위 반영 → TTS와 표시 일치
+function renderVoiceQuizCard(byBox1, currentSid) {
+  if (byBox1.length === 0 || currentSid == null) {
     return `
       <div class="stage-empty">
         <div class="stage-empty-icon">🎉</div>
@@ -3441,7 +3446,7 @@ function renderVoiceQuizCard(byBox1) {
       </div>
     `;
   }
-  const s = byBox1[0];
+  const s = byBox1.find(x => Number(x.id) === currentSid) || byBox1[0];
   const sid = Number(s.id);
   const phase = state.voiceQuizPhase || 'idle';
   const isAuto = state.voiceQuizMode === 'auto';
@@ -3704,11 +3709,12 @@ function firstLetterQuizContinue(sid) {
 }
 
 // 첫글자 퀴즈 카드 렌더
-function renderFirstLetterQuizCard(byBox1) {
-  if (byBox1.length === 0) {
+// currentSid: voiceQuizCurrentCardId() 결과 — quizDoneSet + lastWrongSid 후순위 반영
+function renderFirstLetterQuizCard(byBox1, currentSid) {
+  if (byBox1.length === 0 || currentSid == null) {
     return `<div class="stage-empty"><div class="stage-empty-icon">🎉</div><div class="stage-empty-text">오늘 분량 완료!</div></div>`;
   }
-  const s = byBox1[0];
+  const s = byBox1.find(x => Number(x.id) === currentSid) || byBox1[0];
   const sid = Number(s.id);
   const phase = state.firstLetterQuizPhase || 'idle';
   const isAuto = state.voiceQuizMode === 'auto';
