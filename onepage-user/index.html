@@ -3456,14 +3456,10 @@ function renderVoiceQuizCard(byBox1, currentSid) {
     : '';
 
   const items = state.itemsBySubtopic[sid] || [];
-  const allItemsHtml = Array.isArray(items) && items.length
-    ? items.map(it => renderItem(it)).join('')
-    : '';
-  // 자동 모드: items[0]만 (뜻만). 수동 모드: 전체 (해설 포함)
-  const briefItemsHtml = Array.isArray(items) && items.length
+  // 퀴즈는 단어와 뜻 빠른 연결에만 집중 — items[0](정답)만 표시. 자동/수동 모드 무관.
+  const explainHtml = Array.isArray(items) && items.length
     ? renderItem(items[0])
     : '';
-  const explainHtml = isAuto ? briefItemsHtml : allItemsHtml;
   const answer = state.voiceQuizExpected || getCardAnswer(sid);
 
   let bodyHtml = '';
@@ -3719,13 +3715,10 @@ function renderFirstLetterQuizCard(byBox1, currentSid) {
   const phase = state.firstLetterQuizPhase || 'idle';
   const isAuto = state.voiceQuizMode === 'auto';
   const items = state.itemsBySubtopic[sid] || [];
-  const allItemsHtml = Array.isArray(items) && items.length
-    ? items.map(it => renderItem(it)).join('')
-    : '';
-  const briefItemsHtml = Array.isArray(items) && items.length
+  // 퀴즈는 단어와 뜻 빠른 연결에만 집중 — items[0](정답)만 표시
+  const explainHtml = Array.isArray(items) && items.length
     ? renderItem(items[0])
     : '';
-  const explainHtml = isAuto ? briefItemsHtml : allItemsHtml;
   const answer = state.firstLetterQuizExpected || getCardAnswer(sid);
   const isAlpha = /[a-zA-Z]/.test(s.title || '') && !/[가-힯ᄀ-ᇿ㄰-㆏]/.test(s.title || '');
   const speakBtn = isAlpha
