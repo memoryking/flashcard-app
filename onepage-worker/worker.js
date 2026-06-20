@@ -706,6 +706,7 @@ async function handleCreateChapter(request, env, user) {
     pay_url: String(b.pay_url || '').trim(),
     voice_quiz_enabled: b.voice_quiz_enabled ? 1 : 0,
     voice_quiz_lang: ['ko-KR', 'en-US'].includes(b.voice_quiz_lang) ? b.voice_quiz_lang : 'ko-KR',
+    voice_quiz_read_question: b.voice_quiz_read_question === undefined ? 1 : (b.voice_quiz_read_question ? 1 : 0),
     updated_at: kstDateTime(),
   };
   if (!data.subject || !data.title) return json({ error: 'subject, title 필수' }, 400, request);
@@ -729,6 +730,7 @@ async function handleUpdateChapter(request, env, user, id) {
   if (b.voice_quiz_lang !== undefined) {
     patch.voice_quiz_lang = ['ko-KR', 'en-US'].includes(b.voice_quiz_lang) ? b.voice_quiz_lang : 'ko-KR';
   }
+  if (b.voice_quiz_read_question !== undefined) patch.voice_quiz_read_question = b.voice_quiz_read_question ? 1 : 0;
   patch.updated_at = kstDateTime();
   const r = await ncbUpdate(env, 'op_chapters', id, patch);
   return json({ ok: true, result: r }, 200, request);

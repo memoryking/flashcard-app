@@ -3342,16 +3342,16 @@ function voiceQuizNextCard() {
   }
 
   const lang = (state.currentChapter && state.currentChapter.voice_quiz_lang) || 'ko-KR';
-  // 문제 TTS 언어는 제목 텍스트 기반으로 동적 결정 (영어 단어 = en-US, 한국어 문제 = ko-KR)
-  // STT(학생 답 인식) 언어는 챕터 lang 유지 — 학생이 어떤 언어로 답하는지에 따름
+  // 챕터가 "문제 읽기 가능" 설정인지 확인 (1=가능, 0=한자·국기 등 읽기 불가 콘텐츠)
+  const canReadQuestion = !state.currentChapter || Number(state.currentChapter.voice_quiz_read_question == null ? 1 : state.currentChapter.voice_quiz_read_question) === 1;
   const questionLang = detectVoiceQuizLang(cardTitle) || lang;
 
-  // 문제 읽기 ON이면 TTS 후 listening, OFF면 즉시
-  if (state.voiceQuizReadAloud && cardTitle) {
+  // 문제 읽기 ON + 챕터가 읽기 가능이면 TTS 후 listening, 그 외엔 즉시 listening
+  if (state.voiceQuizReadAloud && canReadQuestion && cardTitle) {
     state.voiceQuizPhase = 'reading';
     if (state.currentChapter) renderTree(state.currentChapter.id);
     speakVoiceQuiz(cardTitle, questionLang, () => {
-      if (!state.voiceQuizActive) return; // 사이에 종료됐으면 무시
+      if (!state.voiceQuizActive) return;
       voiceQuizStartListening(sid, lang);
     });
   } else {
@@ -3735,12 +3735,13 @@ function firstLetterQuizNextCard() {
   }
 
   const lang = (state.currentChapter && state.currentChapter.voice_quiz_lang) || 'ko-KR';
+  const canReadQuestion = !state.currentChapter || Number(state.currentChapter.voice_quiz_read_question == null ? 1 : state.currentChapter.voice_quiz_read_question) === 1;
   const questionLang = detectVoiceQuizLang(cardTitle) || lang;
 
   // items 로드 보장 후 진행
   ensureItems(sid, false).then(() => {
     if (!state.firstLetterQuizActive) return;
-    if (state.voiceQuizReadAloud && cardTitle) {
+    if (state.voiceQuizReadAloud && canReadQuestion && cardTitle) {
       state.firstLetterQuizPhase = 'reading';
       if (state.currentChapter) renderTree(state.currentChapter.id);
       speakVoiceQuiz(cardTitle, questionLang, () => {
@@ -3922,6 +3923,13 @@ function renderQuizCleared(stats) {
   `;
 }
 
+// 토글 라벨: 챕터가 "문제 읽기 가능" 인지에 따라 "문제 읽기"/"정답 뜻 읽기"로 분기
+function voiceQuizReadToggleLabel() {
+  const c = state.currentChapter;
+  const canReadQ = !c || Number(c.voice_quiz_read_question == null ? 1 : c.voice_quiz_read_question) === 1;
+  return canReadQ ? '문제 읽기' : '정답 뜻 읽기';
+}
+
 // 음성 퀴즈 설정 바 (모드 + 문제 읽기 토글) — 시작 버튼 위에 표시
 function renderVoiceQuizSettings() {
   const mode = state.voiceQuizMode || 'manual';
@@ -3932,8 +3940,8 @@ function renderVoiceQuizSettings() {
         <button class="vq-seg-btn ${mode === 'manual' ? 'on' : ''}" onclick="setVoiceQuizMode('manual')">수동</button>
         <button class="vq-seg-btn ${mode === 'auto' ? 'on' : ''}" onclick="setVoiceQuizMode('auto')">자동</button>
       </div>
-      <button class="vq-read-btn ${read ? 'on' : ''}" onclick="toggleVoiceQuizRead()">
-        <span style="font-size:14px;">🔊</span> 문제 읽기 <strong>${read ? 'ON' : 'OFF'}</strong>
+      <button class="vq-read-btn ${read ? 'on' : ''}" onclick="toggleVoiceQuizRead()" title="${voiceQuizReadToggleLabel() === '정답 뜻 읽기' ? '이 챕터는 문제 제목 읽기 불가 — 정답 뜻만 읽힘' : '문제 제목과 정답 뜻 모두 읽기'}">
+        <span style="font-size:14px;">🔊</span> ${voiceQuizReadToggleLabel()} <strong>${read ? 'ON' : 'OFF'}</strong>
       </button>
     </div>
   `;

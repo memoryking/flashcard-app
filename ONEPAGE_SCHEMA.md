@@ -318,6 +318,7 @@ Type 드롭다운에 보이는 옵션: `INT`, `BIGINT`, `VARCHAR(255)`, `DROPDOW
 | `pay_url` | VARCHAR(255) | — | — | — | **(deprecated v2)** 옛 정적 QR 링크 저장용. v2 (Worker REST)부터 사용 안 함 — Worker가 결제 시 동적으로 PayApp 세션 생성. 컬럼은 fallback·마이그레이션 안전을 위해 보존. |
 | **`voice_quiz_enabled`** | **TINYINT** | — | — | `0` | 1이면 다지기에서 🎤 음성 / ✏️ 첫글자 퀴즈 사용 가능. 콘텐츠가 단답형 (제목→items[0]=정답)일 때만 활성화. 수학·식이 답인 챕터는 OFF. |
 | **`voice_quiz_lang`** | **VARCHAR(10)** | — | — | `'ko-KR'` | 학생이 답하는 언어(STT) + "정답은…" 안내 TTS 언어. 화이트리스트: `ko-KR`, `en-US`. |
+| **`voice_quiz_read_question`** | **TINYINT** | — | — | `1` | 1=문제(제목) TTS 읽기 가능 (영단어·한국사 등). 0=한자·국기처럼 읽을 수 없는 콘텐츠 → 학생 UI에서 토글 라벨 "정답 뜻 읽기"로 표시되고 제목 TTS 건너뜀. |
 | `updated_at` | DATETIME | — | — | — | Worker가 갱신 |
 
 > **주의 — `order`는 MySQL 예약어**: 모든 테이블의 `sort_order` 컬럼은 처음부터 `sort_order`로 만들어야 합니다 — `order`로 만들면 REST API의 `?order=` 파라미터와 충돌. 이미 `order`로 만드셨으면:
@@ -334,6 +335,7 @@ Type 드롭다운에 보이는 옵션: `INT`, `BIGINT`, `VARCHAR(255)`, `DROPDOW
 > ```sql
 > ALTER TABLE op_chapters ADD COLUMN voice_quiz_enabled TINYINT NOT NULL DEFAULT 0;
 > ALTER TABLE op_chapters ADD COLUMN voice_quiz_lang VARCHAR(10) NOT NULL DEFAULT 'ko-KR';
+> ALTER TABLE op_chapters ADD COLUMN voice_quiz_read_question TINYINT NOT NULL DEFAULT 1;
 > ```
 
 > **마이그레이션 (`is_published`)**: 기존 챕터를 모두 공개로 유지하려면

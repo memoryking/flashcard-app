@@ -974,6 +974,7 @@ function openChapterModal(id) {
           <option value="en-US" ${c?.voice_quiz_lang === 'en-US' ? 'selected' : ''}>영어</option>
         </select>
       </div>
+      <div class="form-row"><label class="check"><input type="checkbox" id="m_voiceReadQ" ${(c?.voice_quiz_read_question === undefined ? true : Number(c.voice_quiz_read_question) === 1) ? 'checked' : ''}> 🔊 문제(제목) 음성 읽기 가능 (한자·국기처럼 읽을 수 없는 콘텐츠는 OFF)</label></div>
       <div style="margin-top:8px;padding:8px 10px;background:rgba(76,175,80,0.08);border-radius:6px;font-size:11px;color:rgba(255,255,255,0.55);line-height:1.5;">
         💡 결제 링크는 자동 생성됩니다. 페이앱 콘솔에 상품을 미리 만들 필요 없이 제목·가격만 입력하면 학생이 결제 시 동적으로 결제 페이지가 생성됩니다.<br>
         💡 신규 챕터는 기본 <strong>비공개</strong>로 만들어집니다 — 콘텐츠 다 채운 후 체크해서 공개하세요.<br>
@@ -992,6 +993,7 @@ function openChapterModal(id) {
         is_published: $('m_published').checked,
         voice_quiz_enabled: $('m_voiceQuiz').checked,
         voice_quiz_lang: $('m_voiceLang').value,
+        voice_quiz_read_question: $('m_voiceReadQ').checked,
         // pay_url 입력 칸은 제거됨 (Worker가 결제 시 동적 생성)
         // 기존 값은 DB에 그대로 보존 (fallback용 + 마이그레이션 안전)
       };
