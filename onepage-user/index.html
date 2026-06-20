@@ -923,6 +923,24 @@ a { color: #4fc3f7; text-decoration: none; }
   line-height: 1.7;
   text-align: center;        /* 본문 가로 중앙 정렬 */
 }
+/* 포커스 카드 대표 이미지 (subtopic.image_b64) — 본문 위에 노출 */
+.focus-preview {
+  margin: 0 0 14px 0;
+  text-align: center;
+}
+.focus-preview img {
+  max-width: 100%;
+  max-height: 260px;
+  border-radius: 10px;
+  display: inline-block;
+  box-shadow: 0 6px 18px rgba(0,0,0,0.35), 0 0 0 1px rgba(255,255,255,0.06);
+}
+.focus-preview-cap {
+  font-size: 12px;
+  color: rgba(255,255,255,0.65);
+  margin-top: 8px;
+  font-style: italic;
+}
 .focus-body.blurred {
   filter: blur(13px);
   opacity: 0.40;
@@ -3516,11 +3534,16 @@ function voiceQuizContinue(sid) {
 function renderFocusCard(s, remaining, hasAccess) {
   const sid = Number(s.id);
   const items = state.itemsBySubtopic[sid];
+  // 학습 카드 대표 이미지 (subtopic.image_b64) — 본문 맨 위에 노출
+  const hasImg = !!s.image_b64;
+  const previewHtml = hasImg
+    ? `<div class="focus-preview"><img src="${escapeHtml(s.image_b64)}" alt="" oncontextmenu="return false">${s.caption ? `<div class="focus-preview-cap">${escapeHtml(s.caption)}</div>` : ''}</div>`
+    : '';
   let body = '';
   let bodyReady = false;
   if (items === undefined) {
     loadItems(sid);
-    body = '<div class="empty-state" style="padding:30px 10px;">로딩…</div>';
+    body = previewHtml + '<div class="empty-state" style="padding:30px 10px;">로딩…</div>';
   } else if (items.locked) {
     body = `
       <div class="locked-banner">
@@ -3530,9 +3553,11 @@ function renderFocusCard(s, remaining, hasAccess) {
   } else if (items.error) {
     body = `<div class="empty-state">오류: ${escapeHtml(items.error)}</div>`;
   } else if (!items.length) {
-    body = '<div class="empty-state">아직 내용이 없습니다.</div>';
+    // 이미지만 있고 items 없는 경우도 학습 가능하게 처리
+    if (hasImg) { body = previewHtml; bodyReady = true; }
+    else body = '<div class="empty-state">아직 내용이 없습니다.</div>';
   } else {
-    body = items.map(it => renderItem(it)).join('');
+    body = previewHtml + items.map(it => renderItem(it)).join('');
     bodyReady = true;
   }
 
