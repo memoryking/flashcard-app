@@ -1239,13 +1239,14 @@ PABBLY_RESET_WEBHOOK_URL 이 설정돼 있으면 비밀번호 찾기 SMS 발송�
 - **FailedPayments**: mul_no, goodname, phone, email, amount, raw, error_message, retry_count, created_at (Created time auto), resolved — Pabbly 라우터의 안전망 (Airtable 쓰기 실패 시)
 
 ### nocodebackend (콘텐츠)
-- **op_chapters**: id, subject, title, sort_order, icon, description, monthly_price, is_all_free, **is_published** (0=비공개/draft — 학생 숨김), **pay_url** (페이앱 결제 링크)
+- **op_chapters**: id, subject, title, sort_order, icon, description, monthly_price, is_all_free, **is_published** (0=비공개/draft — 학생 숨김), **pay_url** (페이앱 결제 링크), **voice_quiz_enabled** (v2 음성/첫글자 퀴즈 활성), **voice_quiz_lang** (`ko-KR`/`en-US`)
 - **op_topics**: id, chapter_id, title, sort_order, is_free
 - **op_subtopics**: id, topic_id, title, sort_order, image_b64, caption
 - **op_items**: id, subtopic_id, kind (`text`/`image`/`link`), text, image_b64, caption, sort_order
   - `kind='link'`: `text` 컬럼에 URL 저장, `caption` 에 제목/설명
   - `kind='text'`: `caption` 으로 이미지처럼 작은 설명 표시 (선택)
-- **op_understood**: user_phone, subtopic_id, marked_at, **review_box** (Leitner 1~6), **next_review_at** (다음 due KST) — 꾹누르기 진도 + 간격 반복(SRS) 스케줄
+  - **v2 컨벤션**: `items[0].text` = 학습 카드 정답 (제목→items[0] = 큐→정답)
+- **op_understood**: user_phone, subtopic_id, marked_at, **review_box** (Leitner 1~6), **next_review_at** (다음 due KST), **miss_count** (★ 누적), **last_moved_at** (박스 안 정렬 키) — 꾹누르기 진도 + Standard SRS 스케줄
 - **op_pings**: user_phone, first_ping_today, last_ping_at (라이브 카운트)
 
 자세한 컬럼·타입·FK 설정은 [ONEPAGE_SCHEMA.md](ONEPAGE_SCHEMA.md) 참조.
@@ -1377,3 +1378,62 @@ while (true) {
   - 화자는 한국어 여성 차분한 톤으로 통일 (브랜드 일관성)
   - guide-media/*.mp4 의 7편 영상을 B-roll로 재활용
   - 편당 30~90분 작업, 5편 총 4시간 → 한 달 분량 15~20편으로 확장
+
+---
+
+## 23. v2 학습 시스템 (단일 카드 + 퀴즈)
+
+### 23.1 다지기 모드 — 6박스 SRS + 단일 카드 스테이지
+- **6박스**: 오늘 학습 / 내일 학습 / 4일 후 / 8일 후 / 16일 후 / 32일 후
+- **인터벌**: `[null, 0, 1, 4, 8, 16, 32]` (Box 1~6 일)
+- **오늘 학습**은 단일 카드 스테이지 — 큰 카드 1장 중앙 + 우상단 stacked 카드 더미 + 카운트
+- **미래 박스**는 인벤토리 리스트 — 펼치면 카드 모두 표시
+- **자정 자동 정렬**: `next_review_at <= 오늘` 인 카드는 자동으로 effectiveBox=1 → 오늘 학습에 등장
+- **자정 넘김 안내**: 다지기 진입 시 `lastStudyDate`(localStorage) 비교 → 다르면 모달 "🌅 N장의 카드가 오늘 학습으로 도착했습니다"
+
+### 23.2 카드 터치 학습 (깊은 학습)
+오늘 학습 카드 1장이 중앙에 보임. 본문은 블러됨 → 카드 터치 → 본문 공개 → 평가 바.
+- **✓ 맞췄어요** → `memorizedPass(sid, {forcePeeked: false})` → 다음 박스로 advance (Box+1)
+- **✗ 틀렸어요** → `memorizedPass(sid, {forcePeeked: true})` → 오늘 박스 유지 + `miss_count+=1`
+- 정답/오답 시 카드가 좌/우로 fly-out 32° 회전 (CSS animation)
+
+### 23.3 미래 박스 펼침→접음 = 신비로운 dissolve 강등
+- 미래 박스(b≥2) 카드를 펼쳤다가 다시 탭 → "확인해보니 모르더라" 신호
+- 1.4초 동안 보랏빛 halo + blur + 위로 떠오르며 dissolve 후 오늘 학습으로 강등 (peek+pass)
+
+### 23.4 음성 퀴즈 / 첫글자 퀴즈 (단어-뜻 빠른 연결)
+**전제**: `op_chapters.voice_quiz_enabled=1` 인 챕터. items[0] = 정답.
+
+**🎤 음성 퀴즈** (4초 타이머):
+- Web Speech API SpeechRecognition (브라우저 STT)
+- 카드 등장 → (선택) TTS 제목 → 마이크 4초 listening
+- STT 결과 vs items[0] 정규화 비교 (한국어/영어 + 후보 5개 중 매칭)
+- 마이크 미연결 PC: enumerateDevices() 사전 체크 + 안내 toast
+
+**✏️ 첫글자 퀴즈** (객관식 2지선다):
+- 정답의 첫 글자 + 같은 챕터 다른 카드들의 첫 글자 풀에서 random distractor
+- "안다고 착각" 차단 — 가벼운 commitment 강제
+
+**공통 설정** (localStorage 영속):
+- 수동/자동 모드 — 자동은 hands-free (오답도 자동 진행)
+- 🔊 문제 읽기 ON/OFF — TTS 제목 + 결과 뜻 읽기
+- 시작 버튼 옆 **남은 카드 수 badge** (주황: 진행 중, 초록: 클리어)
+
+**중요 결정**: 퀴즈는 **SRS 박스 변경 안 함** — 단순 단어-뜻 연결 확인용
+- 정답 → `state.quizDoneSet.add(sid)` → 카운트 -1
+- 오답 → `state.quizLastWrongSid = sid` (후순위로 다시 보임 — 무한 반복)
+- 카드 터치 학습 ✓ → 자동으로 box+1 → quizDoneSet에서 자연 제외
+- 카드 터치 학습 ✗ → `quizDoneSet.delete(sid)` → 퀴즈 풀에 재등재
+
+### 23.5 사진 스냅샷 결과 + 띵동/삑 신호음
+정답/오답 시 카드 전체가 색상으로 변하고 단어/뜻이 크게 위·아래로 표시 (사진 찍히듯).
+- 텍스트 라벨("정답!"/"다시"/"시간 초과") 모두 제거 — 집중 방해
+- 색상만 — 초록(정답) / 빨강(오답·타임아웃)
+- 흰 플래시 0.45s 오버레이 (카메라 셔터 느낌)
+- 음성: 말 "정답"/"정답은 X" 제거. **띵동(sine 2-tone 상승) / 삑(square 하강) Web Audio 신호음** + 뜻만 TTS
+
+### 23.6 일반 모드 3탭 (new / 별표 / all)
+챕터 안 학습 카드를 3가지 관점으로:
+- **new**: 아직 학습 안 한 카드만 (op_understood 행 없음)
+- **★ 별표**: `miss_count > 0` 인 카드, miss 많은 순 정렬. ★ 1-2=1개, 3-4=2개, 5-6=3개, 7-8=4개, 9+=5개
+- **all**: 모든 카드 + 박스 위치 라벨 (오늘/내일/4일/8일/16일/32일) + ★ 누적

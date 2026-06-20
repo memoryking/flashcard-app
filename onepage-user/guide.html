@@ -620,6 +620,57 @@
     <div class="tip"><b>영어 단어는 🔊 발음 듣기</b> 학습 카드 제목 옆 🔊 버튼으로 바로 들을 수 있어요.</div>
   </section>
 
+  <!-- ───────── STEP 5-B (음성/첫글자 퀴즈) ───────── -->
+  <section class="step" id="s5b">
+    <div class="step-head">
+      <div class="step-num">5+</div>
+      <div class="step-title">🎤 음성 / ✏️ 첫글자 퀴즈 — 단어와 뜻을 빠르게 각인</div>
+    </div>
+    <p class="step-lead">
+      특정 챕터(한국사·영단어처럼 짧은 답이 있는)에서는 다지기 상단에 <strong>두 가지 퀴즈 모드</strong>가 나타납니다. 카드 터치 학습 전에 가볍게 단어-뜻 연결을 확인해보세요.
+    </p>
+
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin:14px 0;">
+      <div style="background:rgba(79,195,247,0.10);border:1px solid rgba(79,195,247,0.32);border-radius:10px;padding:14px;">
+        <div style="font-size:13.5px;color:#81d4fa;font-weight:800;margin-bottom:6px;">🎤 음성 퀴즈 (4초)</div>
+        <div style="font-size:12.5px;color:rgba(255,255,255,0.75);line-height:1.65;">제목을 본 뒤 4초 안에 <b>말로 답</b>. 브라우저 음성 인식이 자동 채점. 차에서·걷기·집안일 중에도 가능.</div>
+      </div>
+      <div style="background:rgba(186,156,245,0.10);border:1px solid rgba(186,156,245,0.32);border-radius:10px;padding:14px;">
+        <div style="font-size:13.5px;color:#d1b3ff;font-weight:800;margin-bottom:6px;">✏️ 첫글자 퀴즈</div>
+        <div style="font-size:12.5px;color:rgba(255,255,255,0.75);line-height:1.65;">정답의 첫 글자와 가짜 글자 2개 중 선택. "안다고 착각" 차단 — 가벼운 commitment 강제.</div>
+      </div>
+    </div>
+
+    <div style="background:rgba(0,0,0,0.30);border-radius:12px;padding:16px;margin:14px 0;font-size:12.5px;color:rgba(255,255,255,0.80);line-height:1.7;">
+      <div style="font-weight:800;color:#fff;margin-bottom:8px;">📸 사진 스냅샷 결과</div>
+      정답/오답 시 카드 전체가 <b style="color:#a5d6a7;">초록</b> 또는 <b style="color:#ff8a9e;">빨강</b>으로 변하고, <b style="color:#fff;">단어와 뜻이 크게 위·아래로</b> 표시됩니다. 글자 라벨 없이 색깔만 — 단어-뜻 페어가 사진처럼 머리에 각인.
+    </div>
+
+    <div style="background:rgba(0,0,0,0.30);border-radius:12px;padding:16px;margin:14px 0;font-size:12.5px;color:rgba(255,255,255,0.80);line-height:1.7;">
+      <div style="font-weight:800;color:#fff;margin-bottom:8px;">🔊 음성 모드 (자동 + 문제 읽기 ON)</div>
+      차에서·운동 중에 <b>핸즈프리</b>로 학습 가능:
+      <div style="margin-top:8px;padding-left:14px;">
+        <div>📢 TTS가 제목 읽음 → 🎤 4초 listening → 답</div>
+        <div>🎵 <b>띵동</b>(정답) / <b>삑</b>(오답) 신호음</div>
+        <div>📢 TTS가 <b>뜻만 명확히</b> 발음 → 단어-뜻 페어 청각 각인</div>
+        <div>➡️ 자동으로 다음 카드</div>
+      </div>
+    </div>
+
+    <div class="tip">
+      <b>퀴즈는 SRS 박스 변경 안 함</b> 단순 단어-뜻 빠른 연결 확인용. 박스 진급은 카드 터치 학습 ✓/✗로만. 우상단 카운트가 줄어 0이 되면 "퀴즈 클리어!" toast.
+    </div>
+    <div class="tip">
+      <b>오답은 반복</b> 정답만 카운트 감소. 틀린 카드는 다시 풀에 남아 다음 번에 또 등장 (방금 본 카드는 후순위).
+    </div>
+    <div class="tip">
+      <b>퀴즈 ↔ 터치 학습 sync</b> 카드 터치로 ✗ 누르면 그 단어가 다시 퀴즈 풀에 등재. ✓ 누르면 풀에서 제외 (advance). 한 번 클리어로 끝나지 않고 깊은 학습과 연동.
+    </div>
+    <div class="tip warn">
+      <b>활성 챕터에만 노출</b> 선생님이 콘텐츠 만들 때 "🎤 음성 퀴즈 활성화" 체크한 챕터만. 컨벤션: <b>학습 카드 첫 번째 항목 = 정답</b> (예: "abundance" → 첫 항목 "풍부함").
+    </div>
+  </section>
+
   <!-- ───────── STEP 6 ───────── -->
   <section class="step" id="s6">
     <div class="step-head">
@@ -666,6 +717,7 @@
 <script>
   // ───────── 진행 도트 ─────────
   // 7개 스텝 도트를 만들고, 현재 화면에 가까운 스텝을 강조
+  // 메인 스텝 7개 + s5b(다지기 보조 — 음성/첫글자 퀴즈)는 도트 없이 본문에만 노출
   const TOTAL = 7;
   const dots = document.getElementById('dots');
   for (let i = 1; i <= TOTAL; i++) {

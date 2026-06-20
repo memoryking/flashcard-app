@@ -316,6 +316,8 @@ Type 드롭다운에 보이는 옵션: `INT`, `BIGINT`, `VARCHAR(255)`, `DROPDOW
 | `is_all_free` | BOOLEAN | ✅ | — | `0` | 1이면 챕터 전체 무료 |
 | `is_published` | BOOLEAN | — | — | `1` | **0이면 비공개(draft)** — 학생 `/chapters` 응답에서 제외. 선생님 앱은 모두 노출. 신규 챕터는 선생님 앱에서 0으로 생성. 컬럼이 없거나 NULL이면 공개로 간주 (기존 데이터 호환). |
 | `pay_url` | VARCHAR(255) | — | — | — | **(deprecated v2)** 옛 정적 QR 링크 저장용. v2 (Worker REST)부터 사용 안 함 — Worker가 결제 시 동적으로 PayApp 세션 생성. 컬럼은 fallback·마이그레이션 안전을 위해 보존. |
+| **`voice_quiz_enabled`** | **TINYINT** | — | — | `0` | 1이면 다지기에서 🎤 음성 / ✏️ 첫글자 퀴즈 사용 가능. 콘텐츠가 단답형 (제목→items[0]=정답)일 때만 활성화. 수학·식이 답인 챕터는 OFF. |
+| **`voice_quiz_lang`** | **VARCHAR(10)** | — | — | `'ko-KR'` | 학생이 답하는 언어(STT) + "정답은…" 안내 TTS 언어. 화이트리스트: `ko-KR`, `en-US`. |
 | `updated_at` | DATETIME | — | — | — | Worker가 갱신 |
 
 > **주의 — `order`는 MySQL 예약어**: 모든 테이블의 `sort_order` 컬럼은 처음부터 `sort_order`로 만들어야 합니다 — `order`로 만들면 REST API의 `?order=` 파라미터와 충돌. 이미 `order`로 만드셨으면:
@@ -326,6 +328,12 @@ Type 드롭다운에 보이는 옵션: `INT`, `BIGINT`, `VARCHAR(255)`, `DROPDOW
 > **마이그레이션 (`pay_url`)**: 기존 테이블이면
 > ```sql
 > ALTER TABLE op_chapters ADD COLUMN pay_url VARCHAR(255) NULL;
+> ```
+
+> **마이그레이션 (`voice_quiz_*` — v2 음성/첫글자 퀴즈)**:
+> ```sql
+> ALTER TABLE op_chapters ADD COLUMN voice_quiz_enabled TINYINT NOT NULL DEFAULT 0;
+> ALTER TABLE op_chapters ADD COLUMN voice_quiz_lang VARCHAR(10) NOT NULL DEFAULT 'ko-KR';
 > ```
 
 > **마이그레이션 (`is_published`)**: 기존 챕터를 모두 공개로 유지하려면
@@ -400,19 +408,24 @@ Type 드롭다운에 보이는 옵션: `INT`, `BIGINT`, `VARCHAR(255)`, `DROPDOW
 | `marked_at` | DATETIME | ✅ | — | — | KST. 처음 ● 등록한 시각 |
 | **`review_box`** | **INT** | — | — | NULL | Leitner 박스 1~6. NULL = 옛 데이터(미스케줄) → 클라이언트가 1로 간주 |
 | **`next_review_at`** | **DATETIME** | — | — | NULL | 다음 다지기 due (KST wall-clock). NULL = "오늘 다지기" 로 분류 |
+| **`miss_count`** | **INT** | — | — | 0 | 펼친 뒤 패스 누적 횟수. 별표 모드 정렬 + 카드 ★ 시각화 |
+| **`last_moved_at`** | **DATETIME** | — | — | NULL | 박스 이동 또는 peek+pass 시각. 박스 안 정렬 키 (오래 기다린 카드 먼저) |
 
 **복합 유니크**: `(user_phone, subtopic_id)` — nocodebackend가 복합 유니크를 UI에서 지원하지 않으면 Worker가 upsert 전 검색으로 확인.
 
-**간격 반복 정책**:
-- 첫 ● 등록 → `review_box=1`, `next_review_at=내일`
-- `POST /understood/advance` 호출 시 → `review_box+1`, `next_review_at=오늘+intervals[new_box]`
-- 인터벌: `[_, 1, 2, 4, 8, 16, 32]` (Box 1~6 일)
+**v2 간격 반복 정책 (Standard SRS — Model A)**:
+- 인터벌: `[_, 0, 1, 4, 8, 16, 32]` (Box 1~6 일)
+  - Box 1: 오늘, Box 2: 내일, Box 3: 4일 후, Box 4: 8일 후, Box 5: 16일 후, Box 6: 32일 후
+- 안 펼치고 패스 (due 카드): `review_box+1` → `next_review_at = 오늘 + intervals[new_box]`
+- 펼친 뒤 패스 (peek+pass): `review_box=1` → 오늘 학습으로 강등 + `miss_count+=1`
 - Box 6 도달 → 계속 +32일 (졸업 박스)
 
-> **마이그레이션 (기존 설치)**:
+> **마이그레이션 (전체 — v1 → v2)**:
 > ```sql
 > ALTER TABLE op_understood ADD COLUMN review_box INT NULL;
 > ALTER TABLE op_understood ADD COLUMN next_review_at DATETIME NULL;
+> ALTER TABLE op_understood ADD COLUMN miss_count INT NULL DEFAULT 0;
+> ALTER TABLE op_understood ADD COLUMN last_moved_at DATETIME NULL;
 > ```
 
 ---

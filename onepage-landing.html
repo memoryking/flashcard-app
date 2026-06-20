@@ -885,6 +885,62 @@
     </div>
 </section>
 
+<!-- ========== v2 신기능: 음성/첫글자 퀴즈 + 사진 각인 ========== -->
+<section class="op-section">
+    <span class="op-section-tag">v2 신기능</span>
+    <h2>말로 답하고, 사진처럼<br><em style="color:#ffb347;font-style:normal">머리에 각인</em>됩니다</h2>
+    <p class="op-section-lead">짧은 단답형 콘텐츠(영단어·한국사 등)에서 추가로 활성화되는 두 가지 빠른 확인 모드.</p>
+
+    <div style="max-width:780px;margin:24px auto 0;display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:14px;">
+
+        <!-- 음성 퀴즈 -->
+        <div style="background:linear-gradient(180deg,rgba(79,195,247,0.10),rgba(79,195,247,0.04));border:1px solid rgba(79,195,247,0.35);border-radius:16px;padding:22px 20px;">
+            <div style="font-size:36px;margin-bottom:10px;">🎤</div>
+            <div style="font-size:16px;font-weight:900;color:#81d4fa;margin-bottom:10px;">음성 퀴즈</div>
+            <div style="font-size:13px;color:rgba(255,255,255,0.78);line-height:1.7;">
+                제목 보고 <b style="color:#fff;">4초 안에 말로 답</b>. 브라우저 음성 인식이 자동 채점. <b style="color:#fff;">차에서·운동 중에도</b> 핸즈프리로 학습.
+            </div>
+        </div>
+
+        <!-- 첫글자 퀴즈 -->
+        <div style="background:linear-gradient(180deg,rgba(186,156,245,0.10),rgba(186,156,245,0.04));border:1px solid rgba(186,156,245,0.35);border-radius:16px;padding:22px 20px;">
+            <div style="font-size:36px;margin-bottom:10px;">✏️</div>
+            <div style="font-size:16px;font-weight:900;color:#d1b3ff;margin-bottom:10px;">첫글자 퀴즈</div>
+            <div style="font-size:13px;color:rgba(255,255,255,0.78);line-height:1.7;">
+                정답의 <b style="color:#fff;">첫 글자 1개 vs 가짜 1개</b> 중 선택. "안다고 착각" 차단 — 가벼운 commitment로 진짜 회상 강제.
+            </div>
+        </div>
+
+        <!-- 사진 스냅샷 -->
+        <div style="background:linear-gradient(180deg,rgba(255,193,7,0.10),rgba(255,193,7,0.04));border:1px solid rgba(255,193,7,0.35);border-radius:16px;padding:22px 20px;">
+            <div style="font-size:36px;margin-bottom:10px;">📸</div>
+            <div style="font-size:16px;font-weight:900;color:#ffd54f;margin-bottom:10px;">사진 각인 결과</div>
+            <div style="font-size:13px;color:rgba(255,255,255,0.78);line-height:1.7;">
+                정답·오답 시 <b style="color:#a5d6a7;">초록</b>/<b style="color:#ff8a9e;">빨강</b> 카드 + 흰 플래시 + 단어/뜻 큰 글자. 글자 라벨 없이 <b style="color:#fff;">색깔만</b> — 사진처럼 머리에 각인.
+            </div>
+        </div>
+    </div>
+
+    <!-- 음성 모드 흐름 -->
+    <div style="max-width:680px;margin:28px auto 0;background:rgba(0,0,0,0.30);border:1px solid rgba(255,255,255,0.10);border-radius:16px;padding:22px 20px;">
+        <div style="font-size:14px;font-weight:800;color:#fff;text-align:center;margin-bottom:14px;letter-spacing:0.4px;">🔊 음성 + 자동 모드: 완전 핸즈프리</div>
+        <div style="display:grid;gap:10px;font-size:13px;color:rgba(255,255,255,0.85);line-height:1.65;">
+            <div>📢 TTS가 문제 읽음 <span style="color:#888">("abundance")</span></div>
+            <div>🎤 4초 듣기 → 사용자 <b style="color:#fff;">"풍부함"</b></div>
+            <div>🎵 <b style="color:#a5d6a7;">띵동</b>(정답) / <b style="color:#ff8a9e;">삑</b>(오답) 신호음</div>
+            <div>📢 TTS가 <b style="color:#fff;">뜻만 명확히</b> 발음 <span style="color:#888">("풍부함")</span></div>
+            <div>➡️ 자동으로 다음 카드</div>
+        </div>
+        <div style="margin-top:14px;padding-top:14px;border-top:1px dashed rgba(255,255,255,0.15);font-size:11.5px;color:rgba(255,255,255,0.55);line-height:1.6;text-align:center;">
+            "정답"이라는 말도 안 함 — 신호음 + 뜻만. <b style="color:#fff;">청각으로 단어-뜻 페어가 각인</b>.
+        </div>
+    </div>
+
+    <p style="text-align:center;font-size:13px;color:rgba(255,255,255,0.55);margin-top:22px;max-width:600px;margin-left:auto;margin-right:auto;line-height:1.7;">
+        퀴즈는 SRS 박스를 변경하지 않고 단어-뜻 빠른 연결만 확인. <b style="color:#fff;">깊은 학습(박스 진급)은 카드 터치로</b> 별도 진행 — 둘이 동적으로 연동.
+    </p>
+</section>
+
 <!-- ========== 다른 앱과 비교 ========== -->
 <section class="op-section">
     <span class="op-section-tag">왜 원페이지인가</span>
@@ -919,6 +975,18 @@
                     <td style="padding:12px;text-align:center;border-bottom:1px solid #eee;color:#666;">"알아요/몰라요" 버튼</td>
                     <td style="padding:12px;text-align:center;border-bottom:1px solid #eee;color:#666;">"다시/어려움/<br>괜찮음/쉬움"<br>4단계 버튼</td>
                     <td style="padding:12px;text-align:center;border-bottom:1px solid #eee;background:rgba(233,69,96,0.03);color:#1a1a2e;font-weight:600;">펼침/접음만으로<br>자동 판정 ✨<br><span style="font-size:11px;color:#666;font-weight:400;">(버튼 고민 zero)</span></td>
+                </tr>
+                <tr>
+                    <td style="padding:12px;border-bottom:1px solid #eee;font-weight:600;color:#333;">핸즈프리 학습</td>
+                    <td style="padding:12px;text-align:center;border-bottom:1px solid #eee;color:#999;">없음</td>
+                    <td style="padding:12px;text-align:center;border-bottom:1px solid #eee;color:#999;">없음</td>
+                    <td style="padding:12px;text-align:center;border-bottom:1px solid #eee;background:rgba(233,69,96,0.03);color:#1a1a2e;font-weight:600;">🎤 음성 퀴즈 ✓<br><span style="font-size:11px;color:#666;font-weight:400;">차·운동·집안일 중</span></td>
+                </tr>
+                <tr>
+                    <td style="padding:12px;border-bottom:1px solid #eee;font-weight:600;color:#333;">단어 각인 효과</td>
+                    <td style="padding:12px;text-align:center;border-bottom:1px solid #eee;color:#666;">반복 노출만</td>
+                    <td style="padding:12px;text-align:center;border-bottom:1px solid #eee;color:#666;">간격 반복</td>
+                    <td style="padding:12px;text-align:center;border-bottom:1px solid #eee;background:rgba(233,69,96,0.03);color:#1a1a2e;font-weight:600;">📸 사진 스냅샷<br><span style="font-size:11px;color:#666;font-weight:400;">색상+신호음+뜻 발음</span></td>
                 </tr>
                 <tr>
                     <td style="padding:12px;border-bottom:1px solid #eee;font-weight:600;color:#333;">콘텐츠 업데이트</td>
