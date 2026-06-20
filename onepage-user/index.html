@@ -3158,6 +3158,7 @@ async function startVoiceQuiz() {
 // 음성 퀴즈 세션 종료
 function stopVoiceQuiz() {
   voiceQuizCleanup();
+  try { speechSynthesis.cancel(); } catch {} // 진행 중인 TTS 발음 즉시 중단
   state.voiceQuizActive = false;
   state.voiceQuizPhase = 'idle';
   state.voiceQuizTranscript = '';
@@ -3176,6 +3177,7 @@ function voiceQuizCleanup() {
 
 // 다음 카드 진행 — 오늘 학습 박스 첫 카드를 큐로. 문제 읽기 ON이면 TTS 후 listening.
 function voiceQuizNextCard() {
+  if (!state.voiceQuizActive) return; // 중단된 세션은 더 진행 안 함
   voiceQuizCleanup();
   const sid = voiceQuizCurrentCardId();
   if (sid == null) {
@@ -3227,6 +3229,7 @@ function voiceQuizNextCard() {
 
 // 실제 음성 인식 시작 — TTS 끝난 후 (또는 직접) 호출
 function voiceQuizStartListening(sid, lang) {
+  if (!state.voiceQuizActive) return; // 중단된 세션은 마이크 켜지 않음
   state.voiceQuizPhase = 'listening';
   if (state.currentChapter) renderTree(state.currentChapter.id);
 
@@ -3337,8 +3340,9 @@ function voiceQuizResolve(sid, outcome) {
     state.voiceQuizPhase = 'correct-flash';
     if (state.currentChapter) renderTree(state.currentChapter.id);
     const proceed = () => {
-      state.quizDoneSet.add(sid);     // 정답만 done에 등록 → 카운트 감소
-      state.quizLastWrongSid = null;  // 정답이니 wrong 표시 해제
+      if (!state.voiceQuizActive) return; // 중단된 세션은 진행 안 함
+      state.quizDoneSet.add(sid);
+      state.quizLastWrongSid = null;
       setTimeout(() => voiceQuizNextCard(), 50);
     };
     if (isAuto && readAloud) {
@@ -3353,8 +3357,7 @@ function voiceQuizResolve(sid, outcome) {
 
     if (isAuto) {
       const proceed = () => {
-        // 오답/타임아웃: done에 등록 안 함 — 풀에 남아 반복.
-        // lastWrongSid 기록 → 다음 카드 선택 시 후순위 (방금 본 카드 바로 다시 노출 방지)
+        if (!state.voiceQuizActive) return; // 중단된 세션은 진행 안 함
         state.quizLastWrongSid = sid;
         setTimeout(() => voiceQuizNextCard(), 50);
       };
@@ -3585,6 +3588,7 @@ function stopFirstLetterQuiz() {
 }
 
 function firstLetterQuizNextCard() {
+  if (!state.firstLetterQuizActive) return; // 중단된 세션은 더 진행 안 함
   if (state._voiceQuizTimer) { clearTimeout(state._voiceQuizTimer); state._voiceQuizTimer = null; }
   const sid = voiceQuizCurrentCardId();
   if (sid == null) {
@@ -3632,6 +3636,7 @@ function firstLetterQuizNextCard() {
 }
 
 function showFirstLetterChoices(sid) {
+  if (!state.firstLetterQuizActive) return; // 중단된 세션은 선택지 안 띄움
   const answer = getCardAnswer(sid);
   state.firstLetterQuizExpected = answer;
   const correctChar = getFirstChar(answer);
@@ -3668,6 +3673,7 @@ function firstLetterQuizResolve(sid, correct) {
     state.firstLetterQuizPhase = 'correct-flash';
     if (state.currentChapter) renderTree(state.currentChapter.id);
     const proceed = () => {
+      if (!state.firstLetterQuizActive) return; // 중단된 세션은 진행 안 함
       state.quizDoneSet.add(sid);
       state.quizLastWrongSid = null;
       setTimeout(() => firstLetterQuizNextCard(), 50);
@@ -3683,7 +3689,7 @@ function firstLetterQuizResolve(sid, correct) {
     if (state.currentChapter) renderTree(state.currentChapter.id);
     if (isAuto) {
       const proceed = () => {
-        // 오답: done에 등록 안 함, lastWrongSid만 기록
+        if (!state.firstLetterQuizActive) return; // 중단된 세션은 진행 안 함
         state.quizLastWrongSid = sid;
         setTimeout(() => firstLetterQuizNextCard(), 50);
       };
