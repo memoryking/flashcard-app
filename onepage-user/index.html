@@ -617,6 +617,94 @@ a { color: #4fc3f7; text-decoration: none; }
 }
 .vq-loading { padding: 30px; text-align: center; color: rgba(255,255,255,0.55); }
 
+/* 결과 phase — 사진 찍히듯 단어+뜻 각인 스냅샷 */
+.vq-card.vq-correct-flash {
+  background:
+    linear-gradient(180deg, rgba(76,175,80,0.32) 0%, rgba(76,175,80,0.14) 100%),
+    radial-gradient(ellipse at 50% 30%, rgba(129,199,132,0.30), transparent 70%);
+  border-color: rgba(76,175,80,0.75) !important;
+  box-shadow:
+    0 0 50px rgba(76,175,80,0.42),
+    0 0 0 1.5px rgba(76,175,80,0.40),
+    inset 0 0 40px rgba(76,175,80,0.18);
+}
+.vq-card.vq-wrong-reveal,
+.vq-card.vq-timeout {
+  background:
+    linear-gradient(180deg, rgba(233,69,96,0.32) 0%, rgba(233,69,96,0.14) 100%),
+    radial-gradient(ellipse at 50% 30%, rgba(255,138,158,0.30), transparent 70%);
+  border-color: rgba(233,69,96,0.75) !important;
+  box-shadow:
+    0 0 50px rgba(233,69,96,0.42),
+    0 0 0 1.5px rgba(233,69,96,0.40),
+    inset 0 0 40px rgba(233,69,96,0.18);
+}
+.vq-snapshot {
+  position: relative;
+  flex: 1;
+  display: flex; flex-direction: column;
+  align-items: center; justify-content: center;
+  padding: 32px 20px 28px;
+  text-align: center;
+  animation: vqSnapPop 0.45s cubic-bezier(0.22, 0.95, 0.30, 1.12) backwards;
+}
+@keyframes vqSnapPop {
+  0%   { transform: scale(0.92); opacity: 0; }
+  100% { transform: scale(1);    opacity: 1; }
+}
+/* 사진 플래시 효과 — 처음 0.4초 동안 흰빛이 사라짐 */
+.vq-snap-flash {
+  position: absolute; inset: 0;
+  background: rgba(255,255,255,0.55);
+  border-radius: inherit;
+  pointer-events: none;
+  animation: vqSnapFlash 0.45s ease-out backwards;
+}
+@keyframes vqSnapFlash {
+  0%   { opacity: 1; }
+  60%  { opacity: 0.35; }
+  100% { opacity: 0; }
+}
+.vq-snap-word {
+  font-size: 40px; font-weight: 900;
+  color: #fff;
+  letter-spacing: 0.5px;
+  line-height: 1.18;
+  margin-bottom: 22px;
+  word-break: break-word;
+  text-shadow: 0 0 28px rgba(255,255,255,0.36), 0 2px 14px rgba(0,0,0,0.40);
+  z-index: 1;
+}
+.vq-snap-divider {
+  width: 64px; height: 2px;
+  background: rgba(255,255,255,0.55);
+  margin-bottom: 22px;
+  border-radius: 2px;
+  box-shadow: 0 0 12px rgba(255,255,255,0.40);
+  z-index: 1;
+}
+.vq-snap-meaning {
+  font-size: 30px; font-weight: 800;
+  color: #fff;
+  letter-spacing: 0.3px;
+  line-height: 1.32;
+  word-break: break-word;
+  text-shadow: 0 0 22px rgba(255,255,255,0.30), 0 2px 12px rgba(0,0,0,0.40);
+  z-index: 1;
+}
+.vq-snap-next {
+  margin-top: 22px;
+  background: rgba(255,255,255,0.18);
+  color: #fff;
+  border: 1.5px solid rgba(255,255,255,0.42);
+  box-shadow: 0 4px 14px rgba(0,0,0,0.30);
+  z-index: 1;
+}
+.vq-snap-next:hover {
+  background: rgba(255,255,255,0.28);
+  border-color: rgba(255,255,255,0.60);
+}
+
 /* ── 자정 넘김 안내 오버레이 ───────────────────────────── */
 .day-rollover-overlay {
   position: fixed; inset: 0;
@@ -3092,6 +3180,50 @@ function detectVoiceQuizLang(text) {
   return null;
 }
 
+// 정답/오답 신호음 — Web Audio API로 짧고 명확한 톤 생성
+let _quizAudioCtx = null;
+function getQuizAudioCtx() {
+  if (_quizAudioCtx) return _quizAudioCtx;
+  try { _quizAudioCtx = new (window.AudioContext || window.webkitAudioContext)(); } catch {}
+  return _quizAudioCtx;
+}
+// 띵동 — 정답 (상승 2음, sine)
+function playDingCorrect() {
+  const ctx = getQuizAudioCtx(); if (!ctx) return;
+  try {
+    const tones = [880, 1175]; // A5, D6
+    for (let i = 0; i < tones.length; i++) {
+      const osc = ctx.createOscillator();
+      const g = ctx.createGain();
+      osc.connect(g); g.connect(ctx.destination);
+      const t = ctx.currentTime + i * 0.13;
+      osc.type = 'sine';
+      osc.frequency.setValueAtTime(tones[i], t);
+      g.gain.setValueAtTime(0.0, t);
+      g.gain.linearRampToValueAtTime(0.25, t + 0.01);
+      g.gain.exponentialRampToValueAtTime(0.001, t + 0.28);
+      osc.start(t); osc.stop(t + 0.30);
+    }
+  } catch {}
+}
+// 삑 — 오답 (하행 톤, square)
+function playBuzzWrong() {
+  const ctx = getQuizAudioCtx(); if (!ctx) return;
+  try {
+    const osc = ctx.createOscillator();
+    const g = ctx.createGain();
+    osc.connect(g); g.connect(ctx.destination);
+    osc.type = 'square';
+    osc.frequency.setValueAtTime(180, ctx.currentTime);
+    osc.frequency.linearRampToValueAtTime(110, ctx.currentTime + 0.35);
+    g.gain.setValueAtTime(0.0, ctx.currentTime);
+    g.gain.linearRampToValueAtTime(0.14, ctx.currentTime + 0.02);
+    g.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.42);
+    osc.start();
+    osc.stop(ctx.currentTime + 0.42);
+  } catch {}
+}
+
 // TTS — 문제 읽어주기. onDone 콜백은 발화 끝났을 때 또는 오류/타임아웃 시 호출.
 function speakVoiceQuiz(text, lang, onDone) {
   if (!text || !('speechSynthesis' in window)) { if (onDone) onDone(); return; }
@@ -3328,50 +3460,47 @@ function voiceQuizStartListening(sid, lang) {
 }
 
 // 결과 처리 — correct/wrong/timeout
-// SRS 박스는 변경하지 않음 (퀴즈는 단순 단어-뜻 빠른 연결 확인 — 깊은 학습 아님).
-// 처리된 카드는 quizDoneSet에 추가 → 카드 우상단 카운트만 줄어듦. 0이 되면 세션 종료.
+// SRS 박스는 변경하지 않음 (퀴즈는 단순 단어-뜻 빠른 연결 확인).
+// 시각: 색상으로만 정답/오답 구분 (글자 라벨 없음). 청각: 띵동/삑 + 뜻 발음.
 function voiceQuizResolve(sid, outcome) {
   voiceQuizCleanup();
   const isAuto = state.voiceQuizMode === 'auto';
   const lang = (state.currentChapter && state.currentChapter.voice_quiz_lang) || 'ko-KR';
   const readAloud = !!state.voiceQuizReadAloud;
+  const isCorrect = outcome === 'correct';
 
-  if (outcome === 'correct') {
-    state.voiceQuizPhase = 'correct-flash';
-    if (state.currentChapter) renderTree(state.currentChapter.id);
-    const proceed = () => {
-      if (!state.voiceQuizActive) return; // 중단된 세션은 진행 안 함
-      state.quizDoneSet.add(sid);
-      state.quizLastWrongSid = null;
-      setTimeout(() => voiceQuizNextCard(), 50);
-    };
-    if (isAuto && readAloud) {
-      const announcement = lang === 'en-US' ? 'Correct' : '정답';
-      speakVoiceQuiz(announcement, lang, proceed);
-    } else {
-      setTimeout(proceed, VOICE_CORRECT_FLASH_MS);
-    }
+  state.voiceQuizPhase = isCorrect ? 'correct-flash' : (outcome === 'timeout' ? 'timeout' : 'wrong-reveal');
+  if (state.currentChapter) renderTree(state.currentChapter.id);
+
+  // 신호음 (시각 효과와 즉시 동기) — 항상 재생
+  if (isCorrect) playDingCorrect(); else playBuzzWrong();
+
+  const proceed = () => {
+    if (!state.voiceQuizActive) return;
+    if (isCorrect) { state.quizDoneSet.add(sid); state.quizLastWrongSid = null; }
+    else { state.quizLastWrongSid = sid; }
+    setTimeout(() => voiceQuizNextCard(), 50);
+  };
+
+  const meaning = state.voiceQuizExpected;
+  const advanceAuto = isAuto || isCorrect; // 자동 모드 또는 정답이면 자동 진행
+
+  if (readAloud && meaning) {
+    // 신호음 끝나고 TTS 뜻 발음 → 끝나면 진행 (수동 오답은 대기)
+    const meaningLang = detectVoiceQuizLang(meaning) || lang;
+    setTimeout(() => {
+      if (!state.voiceQuizActive) return;
+      speakVoiceQuiz(meaning, meaningLang, () => {
+        if (advanceAuto) setTimeout(proceed, isCorrect ? 100 : 500);
+        // 수동 오답: 사용자 탭 대기
+      });
+    }, 350);
   } else {
-    state.voiceQuizPhase = outcome === 'timeout' ? 'timeout' : 'wrong-reveal';
-    if (state.currentChapter) renderTree(state.currentChapter.id);
-
-    if (isAuto) {
-      const proceed = () => {
-        if (!state.voiceQuizActive) return; // 중단된 세션은 진행 안 함
-        state.quizLastWrongSid = sid;
-        setTimeout(() => voiceQuizNextCard(), 50);
-      };
-      const answer = state.voiceQuizExpected;
-      if (readAloud && answer) {
-        const announcement = lang === 'en-US'
-          ? 'The answer is ' + answer
-          : '정답은 ' + answer;
-        speakVoiceQuiz(announcement, lang, () => setTimeout(proceed, 600));
-      } else {
-        setTimeout(proceed, VOICE_AUTO_WRONG_DISPLAY_MS);
-      }
+    // readAloud OFF: 시각/신호음만, 시간 후 진행
+    if (advanceAuto) {
+      setTimeout(proceed, isCorrect ? VOICE_CORRECT_FLASH_MS : VOICE_AUTO_WRONG_DISPLAY_MS);
     }
-    // 수동 모드: 사용자 탭 대기 (voiceQuizContinue)
+    // 수동 오답: 사용자 탭 대기
   }
 }
 
@@ -3465,6 +3594,8 @@ function renderVoiceQuizCard(byBox1, currentSid) {
     : '';
   const answer = state.voiceQuizExpected || getCardAnswer(sid);
 
+  const isResult = phase === 'correct-flash' || phase === 'wrong-reveal' || phase === 'timeout';
+
   let bodyHtml = '';
   if (phase === 'reading') {
     bodyHtml = `
@@ -3481,29 +3612,17 @@ function renderVoiceQuizCard(byBox1, currentSid) {
         <div class="vq-timer-bar"><div class="vq-timer-fill"></div></div>
       </div>
     `;
-  } else if (phase === 'correct-flash') {
+  } else if (isResult) {
+    // 사진 찍히듯이 — 단어와 뜻을 크게 위/아래로. 색상으로만 정답/오답 구분.
+    const nextBtn = !isAuto
+      ? `<button class="vq-next-btn vq-snap-next" onclick="voiceQuizContinue(${sid})">다음 카드 →</button>`
+      : '';
     bodyHtml = `
-      <div class="vq-result vq-correct">
-        <div class="vq-result-icon">✓</div>
-        <div class="vq-result-text">정답!</div>
-        <div class="vq-explain">${explainHtml}</div>
-      </div>
-    `;
-  } else if (phase === 'wrong-reveal' || phase === 'timeout') {
-    const youSaid = state.voiceQuizTranscript ? `<div class="vq-you-said">당신: "${escapeHtml(state.voiceQuizTranscript)}"</div>` : '';
-    const headIcon = phase === 'timeout' ? '⏰' : '✗';
-    const headText = phase === 'timeout' ? '시간 초과' : '다시';
-    // 자동 모드는 사용자 탭 없이 진행, 수동 모드만 버튼 노출
-    const nextBtn = isAuto
-      ? `<div class="vq-auto-next-hint">자동으로 다음 카드…</div>`
-      : `<button class="vq-next-btn" onclick="voiceQuizContinue(${sid})">다음 카드 →</button>`;
-    bodyHtml = `
-      <div class="vq-result vq-wrong">
-        <div class="vq-result-icon">${headIcon}</div>
-        <div class="vq-result-text">${headText}</div>
-        ${youSaid}
-        <div class="vq-correct-answer">정답: <strong>${escapeHtml(answer)}</strong></div>
-        <div class="vq-explain">${explainHtml}</div>
+      <div class="vq-snapshot">
+        <div class="vq-snap-flash"></div>
+        <div class="vq-snap-word">${escapeHtml(s.title)}</div>
+        <div class="vq-snap-divider"></div>
+        <div class="vq-snap-meaning">${escapeHtml(answer)}</div>
         ${nextBtn}
       </div>
     `;
@@ -3511,9 +3630,10 @@ function renderVoiceQuizCard(byBox1, currentSid) {
     bodyHtml = `<div class="vq-loading">준비 중…</div>`;
   }
 
+  // 결과 phase에선 상단 제목 숨김 (스냅샷이 단어 자체를 크게 보여줌)
   return `
     <div class="focus-card vq-card vq-${phase}" data-sub="${sid}">
-      <div class="focus-title">${escapeHtml(s.title)}${speakBtn}</div>
+      ${isResult ? '' : `<div class="focus-title">${escapeHtml(s.title)}${speakBtn}</div>`}
       ${bodyHtml}
     </div>
   `;
@@ -3665,43 +3785,38 @@ function firstLetterQuizSelect(sid, char) {
 }
 
 function firstLetterQuizResolve(sid, correct) {
-  // 음성 퀴즈와 동일 — SRS 박스 변경 없이 quizDoneSet에만 추가.
+  // 음성 퀴즈와 동일 흐름 — 색상 시각화 + 띵동/삑 + 뜻 발음.
   const isAuto = state.voiceQuizMode === 'auto';
   const lang = (state.currentChapter && state.currentChapter.voice_quiz_lang) || 'ko-KR';
   const readAloud = !!state.voiceQuizReadAloud;
-  if (correct) {
-    state.firstLetterQuizPhase = 'correct-flash';
-    if (state.currentChapter) renderTree(state.currentChapter.id);
-    const proceed = () => {
-      if (!state.firstLetterQuizActive) return; // 중단된 세션은 진행 안 함
-      state.quizDoneSet.add(sid);
-      state.quizLastWrongSid = null;
-      setTimeout(() => firstLetterQuizNextCard(), 50);
-    };
-    if (isAuto && readAloud) {
-      const announcement = lang === 'en-US' ? 'Correct' : '정답';
-      speakVoiceQuiz(announcement, lang, proceed);
-    } else {
-      setTimeout(proceed, VOICE_CORRECT_FLASH_MS);
-    }
+
+  state.firstLetterQuizPhase = correct ? 'correct-flash' : 'wrong-reveal';
+  if (state.currentChapter) renderTree(state.currentChapter.id);
+
+  if (correct) playDingCorrect(); else playBuzzWrong();
+
+  const proceed = () => {
+    if (!state.firstLetterQuizActive) return;
+    if (correct) { state.quizDoneSet.add(sid); state.quizLastWrongSid = null; }
+    else { state.quizLastWrongSid = sid; }
+    setTimeout(() => firstLetterQuizNextCard(), 50);
+  };
+
+  const meaning = state.firstLetterQuizExpected;
+  const advanceAuto = isAuto || correct;
+
+  if (readAloud && meaning) {
+    const meaningLang = detectVoiceQuizLang(meaning) || lang;
+    setTimeout(() => {
+      if (!state.firstLetterQuizActive) return;
+      speakVoiceQuiz(meaning, meaningLang, () => {
+        if (advanceAuto) setTimeout(proceed, correct ? 100 : 500);
+      });
+    }, 350);
   } else {
-    state.firstLetterQuizPhase = 'wrong-reveal';
-    if (state.currentChapter) renderTree(state.currentChapter.id);
-    if (isAuto) {
-      const proceed = () => {
-        if (!state.firstLetterQuizActive) return; // 중단된 세션은 진행 안 함
-        state.quizLastWrongSid = sid;
-        setTimeout(() => firstLetterQuizNextCard(), 50);
-      };
-      const answer = state.firstLetterQuizExpected;
-      if (readAloud && answer) {
-        const announcement = lang === 'en-US' ? 'The answer is ' + answer : '정답은 ' + answer;
-        speakVoiceQuiz(announcement, lang, () => setTimeout(proceed, 600));
-      } else {
-        setTimeout(proceed, VOICE_AUTO_WRONG_DISPLAY_MS);
-      }
+    if (advanceAuto) {
+      setTimeout(proceed, correct ? VOICE_CORRECT_FLASH_MS : VOICE_AUTO_WRONG_DISPLAY_MS);
     }
-    // 수동 모드: 사용자 탭 대기
   }
 }
 
@@ -3731,6 +3846,8 @@ function renderFirstLetterQuizCard(byBox1, currentSid) {
     ? `<button class="speak-btn" onclick="event.stopPropagation();speakText(${JSON.stringify(s.title).replace(/"/g, '&quot;')})" title="발음 듣기">🔊</button>`
     : '';
 
+  const isResult = phase === 'correct-flash' || phase === 'wrong-reveal';
+
   let bodyHtml = '';
   if (phase === 'reading') {
     bodyHtml = `<div class="vq-listening"><div class="vq-mic-ring vq-reading-ring"><div class="vq-mic-icon">🔊</div></div><div class="vq-hint">문제 읽는 중…</div></div>`;
@@ -3742,29 +3859,18 @@ function renderFirstLetterQuizCard(byBox1, currentSid) {
           <button class="fl-choice" onclick="firstLetterQuizSelect(${sid}, ${JSON.stringify(c.char).replace(/"/g, '&quot;')})">${escapeHtml(c.char)}</button>
         `).join('')}
       </div>
-      <div class="fl-hint">정답의 첫 글자를 고르세요</div>
     `;
-  } else if (phase === 'correct-flash') {
+  } else if (isResult) {
+    // 사진 찍히듯이 — 단어와 뜻을 크게 위/아래로. 색상으로만 정답/오답 구분.
+    const nextBtn = !isAuto
+      ? `<button class="vq-next-btn vq-snap-next" onclick="firstLetterQuizContinue(${sid})">다음 카드 →</button>`
+      : '';
     bodyHtml = `
-      <div class="vq-result vq-correct">
-        <div class="vq-result-icon">✓</div>
-        <div class="vq-result-text">정답!</div>
-        <div class="vq-correct-answer">정답: <strong>${escapeHtml(answer)}</strong></div>
-        <div class="vq-explain">${explainHtml}</div>
-      </div>
-    `;
-  } else if (phase === 'wrong-reveal') {
-    const yourPick = state.firstLetterQuizSelected ? `<div class="vq-you-said">선택: "${escapeHtml(state.firstLetterQuizSelected)}"</div>` : '';
-    const nextBtn = isAuto
-      ? `<div class="vq-auto-next-hint">자동으로 다음 카드…</div>`
-      : `<button class="vq-next-btn" onclick="firstLetterQuizContinue(${sid})">다음 카드 →</button>`;
-    bodyHtml = `
-      <div class="vq-result vq-wrong">
-        <div class="vq-result-icon">✗</div>
-        <div class="vq-result-text">다시</div>
-        ${yourPick}
-        <div class="vq-correct-answer">정답: <strong>${escapeHtml(answer)}</strong></div>
-        <div class="vq-explain">${explainHtml}</div>
+      <div class="vq-snapshot">
+        <div class="vq-snap-flash"></div>
+        <div class="vq-snap-word">${escapeHtml(s.title)}</div>
+        <div class="vq-snap-divider"></div>
+        <div class="vq-snap-meaning">${escapeHtml(answer)}</div>
         ${nextBtn}
       </div>
     `;
@@ -3774,7 +3880,7 @@ function renderFirstLetterQuizCard(byBox1, currentSid) {
 
   return `
     <div class="focus-card vq-card fl-card vq-${phase}" data-sub="${sid}">
-      <div class="focus-title">${escapeHtml(s.title)}${speakBtn}</div>
+      ${isResult ? '' : `<div class="focus-title">${escapeHtml(s.title)}${speakBtn}</div>`}
       ${bodyHtml}
     </div>
   `;
