@@ -836,12 +836,37 @@ a { color: #4fc3f7; text-decoration: none; }
 .srs-today-stage.open { min-height: 360px; }
 .srs-today-stage.closed { padding-bottom: 14px; }
 .srs-today-stage.closed .stage-head { margin-bottom: 0; }
+.srs-today-stage.stage-completing { animation: stageCompleteIn 320ms ease both; }
+.srs-today-stage.stage-closing { animation: stageDissolve 700ms ease forwards; pointer-events: none; }
+@keyframes stageCompleteIn {
+  0%   { box-shadow: 0 0 0 0 rgba(233,69,96,0); }
+  60%  { box-shadow: 0 0 24px 4px rgba(233,69,96,0.25); }
+  100% { box-shadow: 0 0 0 0 rgba(233,69,96,0); }
+}
+@keyframes stageDissolve {
+  0%   { opacity: 1; transform: translateY(0) scale(1); filter: blur(0); }
+  100% { opacity: 0; transform: translateY(-6px) scale(0.97); filter: blur(2px); }
+}
+.stage-completion-body {
+  flex: 1;
+  display: flex; flex-direction: column; align-items: center; justify-content: center;
+  padding: 36px 16px 28px;
+  gap: 10px;
+  animation: stageCompleteText 480ms ease both;
+}
+@keyframes stageCompleteText {
+  0%   { opacity: 0; transform: translateY(8px); }
+  100% { opacity: 1; transform: translateY(0); }
+}
+.stage-completion-icon { font-size: 44px; line-height: 1; }
+.stage-completion-text { font-size: 18px; font-weight: 800; color: #ffb8c5; letter-spacing: 0.3px; }
+.stage-completion-sub  { font-size: 12px; color: rgba(255,184,197,0.65); }
 .stage-head {
   display: flex; align-items: center; gap: 10px;
   margin-bottom: 12px;
-  cursor: pointer;
   -webkit-tap-highlight-color: transparent;
 }
+.stage-head.is-clickable { cursor: pointer; }
 .stage-head .srs-box-arrow {
   font-size: 11px; color: rgba(233,69,96,0.70); width: 14px;
 }
@@ -2281,6 +2306,10 @@ const state = {
   elaborationActive: false,     // 정교화 학습 모드 (포커스 모드) — 상단 chrome 숨기고 카드만 집중
   quizSoundEnabled: (() => { try { return localStorage.getItem('op_quiz_sound') !== '0'; } catch { return true; } })(), // 효과음 + 격려 음성 ON/OFF
   quizMilestonesHit: new Set(), // 이번 세션에 발사된 격려 milestone — 'start'/'20'/'10'/'clear'. 모드 시작마다 리셋
+  stageCompletion: null,        // 자연 종료 시 "끝났어요" 문구 → 스르르 닫기 위한 임시 메시지
+  stageClosing: false,          // 종료 메시지 후 dissolve 애니메이션 단계
+  _stageCloseTimer1: null,
+  _stageCloseTimer2: null,
   recentlyFailedFromMemo: new Set(), // 이번 챕터 진입 중 다지기에서 실패(펼침)해서 챕터 뷰로 돌아온 카드 — 챕터 뷰 정렬 시 맨 아래로
   peekedPassedSet: new Set(), // 펼친 뒤 패스해서 "틀린 단어"로 확정된 카드 — 챕터 뷰 정렬·색 구분용. 펼치는 순간이 아니라 패스 후에야 추가
   expanded: { topic: new Set(), subtopic: new Set() },
@@ -3058,9 +3087,9 @@ function renderMemorizedView(chapterId, hasAccess) {
     const stopFn = state.voiceQuizActive ? 'stopVoiceQuiz' : 'stopFirstLetterQuiz';
     const stopBtnHtml = `<button class="vq-stop-small" onclick="event.stopPropagation();${stopFn}()" title="퀴즈 중단">× 중단</button>`;
     if (state.voiceQuizActive) {
-      todayStageHtml = `<div class="srs-today-stage open vq-active"><div class="stage-head"><span class="srs-box-arrow">▼</span><span class="stage-name">🎤 음성 퀴즈</span>${stopBtnHtml}<div class="stage-counts">${todayStack}${quizStack}</div></div>${renderVoiceQuizCard(pendingCards, currentQuizSid)}</div>`;
+      todayStageHtml = `<div class="srs-today-stage open vq-active"><div class="stage-head"><span class="stage-name">🎤 음성 퀴즈</span>${stopBtnHtml}<div class="stage-counts">${todayStack}${quizStack}</div></div>${renderVoiceQuizCard(pendingCards, currentQuizSid)}</div>`;
     } else {
-      todayStageHtml = `<div class="srs-today-stage open fl-active"><div class="stage-head"><span class="srs-box-arrow">▼</span><span class="stage-name">✏️ 첫글자 퀴즈</span>${stopBtnHtml}<div class="stage-counts">${todayStack}${quizStack}</div></div>${renderFirstLetterQuizCard(pendingCards, currentQuizSid)}</div>`;
+      todayStageHtml = `<div class="srs-today-stage open fl-active"><div class="stage-head"><span class="stage-name">✏️ 첫글자 퀴즈</span>${stopBtnHtml}<div class="stage-counts">${todayStack}${quizStack}</div></div>${renderFirstLetterQuizCard(pendingCards, currentQuizSid)}</div>`;
     }
   } else {
     todayStageHtml = renderTodayStage(byBox[1], hasAccess);
@@ -3094,7 +3123,8 @@ function renderMemorizedView(chapterId, hasAccess) {
   }
 
   // 모드 활성 상태 — 활성 시 상단 chrome(clearBar, settings, 시작 버튼) 모두 숨김
-  const anyModeActive = state.voiceQuizActive || state.firstLetterQuizActive || state.elaborationActive;
+  //  완료 메시지/dissolve 진행 중에도 동일하게 숨김 (스테이지에 집중)
+  const anyModeActive = state.voiceQuizActive || state.firstLetterQuizActive || state.elaborationActive || !!state.stageCompletion;
 
   // 시작 버튼 + 설정 — 모드 비활성 시에만 렌더
   const c = state.currentChapter;
@@ -3423,12 +3453,43 @@ async function checkMicrophoneAvailable() {
   } catch { return null; }
 }
 
+// 자연 종료 시 "끝났어요" 문구 → 스르르 dissolve → 스테이지 닫기
+//   1.4s 메시지 노출 → 0.7s dissolve → memorizedBoxOpen[1]=false
+function endStageWithCompletion(message) {
+  if (state._stageCloseTimer1) { clearTimeout(state._stageCloseTimer1); state._stageCloseTimer1 = null; }
+  if (state._stageCloseTimer2) { clearTimeout(state._stageCloseTimer2); state._stageCloseTimer2 = null; }
+  state.stageCompletion = message;
+  state.stageClosing = false;
+  if (state.currentChapter) renderTree(state.currentChapter.id);
+  state._stageCloseTimer1 = setTimeout(() => {
+    state.stageClosing = true;
+    if (state.currentChapter) renderTree(state.currentChapter.id);
+    state._stageCloseTimer2 = setTimeout(() => {
+      state.stageCompletion = null;
+      state.stageClosing = false;
+      state.memorizedBoxOpen[1] = false;
+      state._stageCloseTimer1 = null;
+      state._stageCloseTimer2 = null;
+      if (state.currentChapter) renderTree(state.currentChapter.id);
+    }, 700);
+  }, 1400);
+}
+
+// 종료 애니메이션 중에 새 모드 시작 시 → 깔끔하게 취소
+function cancelStageCompletion() {
+  if (state._stageCloseTimer1) { clearTimeout(state._stageCloseTimer1); state._stageCloseTimer1 = null; }
+  if (state._stageCloseTimer2) { clearTimeout(state._stageCloseTimer2); state._stageCloseTimer2 = null; }
+  state.stageCompletion = null;
+  state.stageClosing = false;
+}
+
 // 음성 퀴즈 세션 시작 — 다지기 모드 안에서 호출
 // 정교화 학습(터치 학습) 모드 시작/중단 — 상단 chrome 숨김 + 카드 포커스
 function startElaboration() {
   if (!state.memorizedView) { toast('다지기 모드에서만 가능', true); return; }
   if (state.voiceQuizActive) { toast('음성 퀴즈를 먼저 종료하세요', true); return; }
   if (state.firstLetterQuizActive) { toast('첫글자 퀴즈를 먼저 종료하세요', true); return; }
+  cancelStageCompletion();
   state.elaborationActive = true;
   state.memorizedBoxOpen[1] = true;
   state.quizMilestonesHit = new Set(); // milestone 리셋 (각 세션 fresh)
@@ -3437,6 +3498,7 @@ function startElaboration() {
   speakEncouragement('화이팅', () => {}); // PT 톤 시작 격려
 }
 function stopElaboration() {
+  cancelStageCompletion();
   state.elaborationActive = false;
   state.memorizedBoxOpen[1] = false; // 스테이지 닫음
   if (state.currentChapter) renderTree(state.currentChapter.id);
@@ -3468,6 +3530,7 @@ async function startVoiceQuiz() {
     toast('마이크가 연결되어 있지 않습니다. 첫글자 퀴즈(✏️)를 이용해주세요.', true);
     return;
   }
+  cancelStageCompletion();
   state.voiceQuizActive = true;
   state.voiceQuizPhase = 'idle';
   state.memorizedBoxOpen[1] = true;
@@ -3482,6 +3545,7 @@ async function startVoiceQuiz() {
 function stopVoiceQuiz() {
   voiceQuizCleanup();
   try { speechSynthesis.cancel(); } catch {}
+  cancelStageCompletion();
   state.voiceQuizActive = false;
   state.voiceQuizPhase = 'idle';
   state.voiceQuizTranscript = '';
@@ -3505,16 +3569,13 @@ function voiceQuizNextCard() {
   voiceQuizCleanup();
   const sid = voiceQuizCurrentCardId();
   if (sid == null) {
-    // 더 풀 카드 없음 → 세션 종료. quizDoneSet 기준 toast 안내
+    // 더 풀 카드 없음 → 세션 종료. "끝났어요" 문구 → 스르르 닫기
     const qs = quizStats();
     state.voiceQuizActive = false;
     state.voiceQuizPhase = 'idle';
     state.quizRecentWrongs = [];
-    state.memorizedBoxOpen[1] = false; // 스테이지 닫음 (수동 stop과 동일하게)
-    if (qs.total > 0 && qs.done > 0 && qs.pending === 0) {
-      toast('🎉 퀴즈 클리어! 카드 터치로 깊은 학습을 진행하세요.', false);
-    }
-    if (state.currentChapter) renderTree(state.currentChapter.id);
+    const allClear = qs.total > 0 && qs.done > 0 && qs.pending === 0;
+    endStageWithCompletion(allClear ? '퀴즈 클리어! 잘 했어요' : '오늘 분량 끝났어요');
     return;
   }
   state.voiceQuizExpected = getCardAnswer(sid);
@@ -3912,6 +3973,7 @@ function startFirstLetterQuiz() {
     toast('퀴즈는 모두 풀었어요. 카드 터치 학습으로 진행하세요.', true);
     return;
   }
+  cancelStageCompletion();
   state.firstLetterQuizActive = true;
   state.firstLetterQuizPhase = 'idle';
   state.memorizedBoxOpen[1] = true;
@@ -3925,6 +3987,7 @@ function startFirstLetterQuiz() {
 function stopFirstLetterQuiz() {
   if (state._voiceQuizTimer) { clearTimeout(state._voiceQuizTimer); state._voiceQuizTimer = null; }
   try { speechSynthesis.cancel(); } catch {}
+  cancelStageCompletion();
   state.firstLetterQuizActive = false;
   state.firstLetterQuizPhase = 'idle';
   state.firstLetterQuizChoices = [];
@@ -3944,11 +4007,8 @@ function firstLetterQuizNextCard() {
     state.firstLetterQuizActive = false;
     state.firstLetterQuizPhase = 'idle';
     state.quizRecentWrongs = [];
-    state.memorizedBoxOpen[1] = false; // 스테이지 닫음 (수동 stop과 동일하게)
-    if (qs.total > 0 && qs.done > 0 && qs.pending === 0) {
-      toast('🎉 퀴즈 클리어! 카드 터치로 깊은 학습을 진행하세요.', false);
-    }
-    if (state.currentChapter) renderTree(state.currentChapter.id);
+    const allClear = qs.total > 0 && qs.done > 0 && qs.pending === 0;
+    endStageWithCompletion(allClear ? '퀴즈 클리어! 잘 했어요' : '오늘 분량 끝났어요');
     return;
   }
   state.firstLetterQuizSelected = '';
@@ -4241,13 +4301,27 @@ function renderTodayStage(byBox1, hasAccess) {
     : '';
   const stageName = state.elaborationActive ? '🧠 정교화 학습' : '오늘 학습';
   const head = `
-    <div class="stage-head" onclick="toggleSrsBox(1)">
-      <span class="srs-box-arrow">${isOpen ? '▼' : '▶'}</span>
+    <div class="stage-head">
       <span class="stage-name">${stageName}</span>
       ${stopBtnHtml}
       <div class="stage-counts">${todayStack}${quizStack}</div>
     </div>
   `;
+
+  // 자연 종료 → "끝났어요" 메시지 → 스르르 dissolve
+  if (state.stageCompletion) {
+    const closingCls = state.stageClosing ? ' stage-closing' : '';
+    return `
+      <div class="srs-today-stage open stage-completing${closingCls}">
+        ${head}
+        <div class="stage-completion-body">
+          <div class="stage-completion-icon">🎉</div>
+          <div class="stage-completion-text">${state.stageCompletion}</div>
+          <div class="stage-completion-sub">잠시 후 닫혀요…</div>
+        </div>
+      </div>
+    `;
+  }
 
   if (!isOpen) {
     return `<div class="srs-today-stage closed">${head}</div>`;
