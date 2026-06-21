@@ -3343,38 +3343,49 @@ function toggleQuizSound() {
 
 // 격려 milestone — pending 수 기준 한 번씩 발사
 //   pending 0 → "잘 했어요" / pending 10 → "마지막 N개입니다" / pending 20 → "조금만 더 힘내세요"
+// 마일스톤 키 반환 — 오디오 파일 키 ('start' | 'halfway' | 'clear') 또는 null
+//   pending=0  → 'clear'  (다 풀음)
+//   pending=20 이하 → 'halfway' (조금만 더 힘내세요)
+//   * 'start'는 모드 시작 시 직접 호출 (마일스톤 아님)
 function getMilestoneText(pending) {
   if (!state.quizMilestonesHit) state.quizMilestonesHit = new Set();
   if (pending === 0 && !state.quizMilestonesHit.has('clear')) {
     state.quizMilestonesHit.add('clear');
-    return '잘 했어요';
+    return 'clear';
   }
-  if (pending > 0 && pending <= 10 && !state.quizMilestonesHit.has('10')) {
-    state.quizMilestonesHit.add('10');
-    return '마지막 ' + pending + '개입니다';
-  }
-  if (pending > 10 && pending <= 20 && !state.quizMilestonesHit.has('20')) {
-    state.quizMilestonesHit.add('20');
-    return '조금만 더 힘내세요';
+  if (pending > 0 && pending <= 20 && !state.quizMilestonesHit.has('halfway')) {
+    state.quizMilestonesHit.add('halfway');
+    return 'halfway';
   }
   return null;
 }
 
-// 격려 음성 TTS — 효과음 OFF면 건너뜀. onDone은 끝났을 때 호출 (앵상 안 끊김)
-function speakEncouragement(text, onDone) {
+// 격려 음성 — 사람 목소리 mp3 재생 (브라우저 TTS 대체로 품질 통일).
+//   key: 'start' | 'halfway' | 'clear' — guide-media/encourage-*.mp3 매핑
+//   onDone: 재생 끝나면 호출 (다음 카드 진행 등 흐름 연결)
+const ENCOURAGE_AUDIO = {
+  start:   'guide-media/encourage-start.mp3',
+  halfway: 'guide-media/encourage-halfway.mp3',
+  clear:   'guide-media/encourage-clear.mp3',
+};
+let _encourageAudio = null; // 동시 재생 방지용 단일 인스턴스
+function speakEncouragement(key, onDone) {
   const done = () => { if (onDone) onDone(); };
-  if (!state.quizSoundEnabled || !text || !('speechSynthesis' in window)) { done(); return; }
+  if (!state.quizSoundEnabled || !key) { done(); return; }
+  const src = ENCOURAGE_AUDIO[key];
+  if (!src) { done(); return; }
   try {
-    const utt = new SpeechSynthesisUtterance(String(text));
-    utt.lang = 'ko-KR';
-    utt.rate = 1.05;
-    utt.pitch = 1.15;
+    // 이전 재생 중단 (마일스톤 연달아 발사 방지)
+    if (_encourageAudio) { try { _encourageAudio.pause(); } catch {} _encourageAudio = null; }
+    const a = new Audio(src);
+    _encourageAudio = a;
     let fired = false;
-    const fire = () => { if (fired) return; fired = true; done(); };
-    utt.onend = fire;
-    utt.onerror = fire;
-    setTimeout(fire, 4000); // 안전망
-    speechSynthesis.speak(utt); // 진행 중인 TTS 큐에 추가 (cancel 안 함)
+    const fire = () => { if (fired) return; fired = true; if (_encourageAudio === a) _encourageAudio = null; done(); };
+    a.onended = fire;
+    a.onerror = fire;
+    setTimeout(fire, 5000); // 안전망 — 로드 실패/네트워크 지연
+    const p = a.play();
+    if (p && typeof p.catch === 'function') p.catch(fire);
   } catch { done(); }
 }
 
@@ -3495,7 +3506,7 @@ function startElaboration() {
   state.quizMilestonesHit = new Set(); // milestone 리셋 (각 세션 fresh)
   if (state.currentChapter) renderTree(state.currentChapter.id);
   window.scrollTo({ top: 0, behavior: 'smooth' });
-  speakEncouragement('화이팅', () => {}); // PT 톤 시작 격려
+  speakEncouragement('start', () => {}); // PT 톤 시작 격려
 }
 function stopElaboration() {
   cancelStageCompletion();
@@ -3537,7 +3548,7 @@ async function startVoiceQuiz() {
   state.quizMilestonesHit = new Set();
   if (state.currentChapter) renderTree(state.currentChapter.id);
   window.scrollTo({ top: 0, behavior: 'smooth' });
-  speakEncouragement('화이팅', () => {});
+  speakEncouragement('start', () => {});
   voiceQuizNextCard();
 }
 
@@ -3980,7 +3991,7 @@ function startFirstLetterQuiz() {
   state.quizMilestonesHit = new Set();
   if (state.currentChapter) renderTree(state.currentChapter.id);
   window.scrollTo({ top: 0, behavior: 'smooth' });
-  speakEncouragement('화이팅', () => {});
+  speakEncouragement('start', () => {});
   firstLetterQuizNextCard();
 }
 
