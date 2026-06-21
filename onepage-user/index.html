@@ -3651,31 +3651,44 @@ function voiceQuizResolve(sid, outcome) {
   };
 
   const meaning = state.voiceQuizExpected;
-  const advanceAuto = isAuto || isCorrect; // 자동 모드 또는 정답이면 자동 진행
+  // 자동 모드만 자동 진행. 수동 모드는 정답/오답 무관 항상 버튼 대기.
+  const advanceAuto = isAuto;
 
   if (readAloud && meaning) {
-    // 신호음 끝나고 TTS 뜻 발음 → 끝나면 진행 (수동 오답은 대기)
     const meaningLang = detectVoiceQuizLang(meaning) || lang;
     setTimeout(() => {
       if (!state.voiceQuizActive) return;
       speakVoiceQuiz(meaning, meaningLang, () => {
         if (advanceAuto) setTimeout(proceed, isCorrect ? 100 : 500);
-        // 수동 오답: 사용자 탭 대기
+        // 수동 모드: 사용자 탭(voiceQuizContinue) 대기
       });
     }, 350);
   } else {
-    // readAloud OFF: 시각/신호음만, 시간 후 진행
     if (advanceAuto) {
       setTimeout(proceed, isCorrect ? VOICE_CORRECT_FLASH_MS : VOICE_AUTO_WRONG_DISPLAY_MS);
     }
-    // 수동 오답: 사용자 탭 대기
+    // 수동 모드: 사용자 탭 대기
   }
 }
 
-// 오답/타임아웃 후 "다음" 버튼 (수동 모드 전용)
-//  → done에 등록 안 함, lastWrongSid 기록만
+// 수동 모드 "다음 카드 →" 버튼 — 정답/오답 분기 처리.
+// phase로 직전 결과 판단: 'correct-flash' = 정답, 그 외 = 오답/타임아웃.
 function voiceQuizContinue(sid) {
-  state.quizLastWrongSid = sid;
+  const wasCorrect = state.voiceQuizPhase === 'correct-flash';
+  if (wasCorrect) {
+    state.quizDoneSet.add(sid);
+    state.quizLastWrongSid = null;
+  } else {
+    state.quizLastWrongSid = sid;
+  }
+  // 정답일 때만 milestone 격려 (pending 줄어듦)
+  if (wasCorrect) {
+    const milestoneText = getMilestoneText(quizStats().pending);
+    if (milestoneText) {
+      speakEncouragement(milestoneText, () => setTimeout(() => voiceQuizNextCard(), 50));
+      return;
+    }
+  }
   setTimeout(() => voiceQuizNextCard(), 50);
 }
 
@@ -3993,7 +4006,8 @@ function firstLetterQuizResolve(sid, correct) {
   };
 
   const meaning = state.firstLetterQuizExpected;
-  const advanceAuto = isAuto || correct;
+  // 자동 모드만 자동 진행. 수동 모드는 정답/오답 무관 항상 버튼 대기.
+  const advanceAuto = isAuto;
 
   if (readAloud && meaning) {
     const meaningLang = detectVoiceQuizLang(meaning) || lang;
@@ -4010,8 +4024,22 @@ function firstLetterQuizResolve(sid, correct) {
   }
 }
 
+// 첫글자 퀴즈 수동 "다음 카드 →" — 음성 퀴즈와 동일 분기
 function firstLetterQuizContinue(sid) {
-  state.quizLastWrongSid = sid;
+  const wasCorrect = state.firstLetterQuizPhase === 'correct-flash';
+  if (wasCorrect) {
+    state.quizDoneSet.add(sid);
+    state.quizLastWrongSid = null;
+  } else {
+    state.quizLastWrongSid = sid;
+  }
+  if (wasCorrect) {
+    const milestoneText = getMilestoneText(quizStats().pending);
+    if (milestoneText) {
+      speakEncouragement(milestoneText, () => setTimeout(() => firstLetterQuizNextCard(), 50));
+      return;
+    }
+  }
   setTimeout(() => firstLetterQuizNextCard(), 50);
 }
 
