@@ -817,10 +817,18 @@ a { color: #4fc3f7; text-decoration: none; }
   font-size: 13px; font-weight: 800;
   color: #ff8a9e; letter-spacing: 0.5px; flex: 1;
 }
+/* stage-counts — 두 deck stack 가로 배치 */
+.stage-counts {
+  display: flex;
+  gap: 10px;
+  align-items: flex-start;
+  flex-shrink: 0;
+}
+
 /* 우상단 카드 더미 — 다층 그라데이션 + inner highlight로 입체감 */
 .srs-deck-stack {
   position: relative;
-  width: 54px; height: 74px;
+  width: 46px; height: 62px;
   flex-shrink: 0;
 }
 .deck-back-card {
@@ -851,12 +859,34 @@ a { color: #4fc3f7; text-decoration: none; }
   position: absolute;
   inset: 0;
   display: flex; align-items: center; justify-content: center;
-  font-size: 22px; font-weight: 900;
+  font-size: 18px; font-weight: 900;
   color: #fff;
   text-shadow: 0 2px 6px rgba(0,0,0,0.7);
   z-index: 10;
   letter-spacing: -0.5px;
   font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+}
+
+/* Tone variants for 두 stack 색 구분 */
+/* 오늘 학습 (정교화) — 빨강 톤 */
+.srs-deck-today .deck-back-card {
+  background: linear-gradient(135deg, rgba(233,69,96,0.42), rgba(180,30,60,0.28));
+  border-color: rgba(233,69,96,0.55);
+}
+.srs-deck-today .deck-back-card.deck-top {
+  background: linear-gradient(135deg, rgba(255,138,158,0.70), rgba(233,69,96,0.55));
+  border-color: rgba(255,138,158,0.85);
+  box-shadow: 0 6px 14px rgba(0,0,0,0.42), inset 0 1px 0 rgba(255,255,255,0.25), inset 0 -1px 0 rgba(0,0,0,0.15);
+}
+/* 퀴즈 풀 — 주황/노랑 톤 */
+.srs-deck-quiz .deck-back-card {
+  background: linear-gradient(135deg, rgba(255,138,0,0.42), rgba(220,90,20,0.28));
+  border-color: rgba(255,138,0,0.55);
+}
+.srs-deck-quiz .deck-back-card.deck-top {
+  background: linear-gradient(135deg, rgba(255,193,7,0.70), rgba(255,138,0,0.55));
+  border-color: rgba(255,193,7,0.85);
+  box-shadow: 0 6px 14px rgba(0,0,0,0.42), inset 0 1px 0 rgba(255,255,255,0.25), inset 0 -1px 0 rgba(0,0,0,0.15);
 }
 
 /* 중앙 포커스 카드 — 글래스 모피즘 + 다층 그림자 */
@@ -2757,7 +2787,7 @@ async function enterChapter(chapterId) {
   state.recentlyFailedFromMemo = new Set();  // 다지기 실패 → 챕터 뷰 복귀 표시 초기화
   state.peekedPassedSet = new Set();   // 펼친 뒤 패스 = "틀린 단어" 표시 초기화
   state.normalMode = 'new';            // 챕터 진입 시 new 탭 기본
-  state.memorizedBoxOpen = {1:true, 2:false, 3:false, 4:false, 5:false, 6:false}; // 다지기 박스 펼침 초기화
+  state.memorizedBoxOpen = {1:false, 2:false, 3:false, 4:false, 5:false, 6:false}; // 기본 모두 닫힘 — 모드 버튼 클릭 시 자동 펼침
   loadTodayStats(chapterId);
   refreshModeTabsUI();
   const memoBtn = $('memorizedBtn');
@@ -2988,19 +3018,15 @@ function renderMemorizedView(chapterId, hasAccess) {
     // pendingCards: 카운트(badge/스택)용 — quizDoneSet만 제외
     const pendingCards = byBox[1].filter(s => !state.quizDoneSet.has(Number(s.id)));
     const pendingCount = pendingCards.length;
-    // 표시할 현재 카드는 voiceQuizCurrentCardId() 결과 — quizDoneSet + lastWrongSid 후순위까지 반영
-    // → TTS가 읽는 카드와 표시되는 카드가 항상 일치
     const currentQuizSid = voiceQuizCurrentCardId();
-    const stackLayers = pendingCount > 0 ? Math.min(pendingCount, 4) : 0;
-    const deckCardsHtml = Array(stackLayers).fill('<div class="deck-back-card"></div>').join('');
-    const countColor = pendingCount === 0 ? 'style="color:rgba(255,255,255,0.35)"' : '';
-    const deckStackHtml = `<div class="srs-deck-stack">${deckCardsHtml}<div class="deck-count" ${countColor}>${pendingCount}</div></div>`;
+    const todayStack = renderDeckStack(byBox[1].length, 'today');
+    const quizStack = renderDeckStack(pendingCount, 'quiz');
     const stopFn = state.voiceQuizActive ? 'stopVoiceQuiz' : 'stopFirstLetterQuiz';
     const stopBtnHtml = `<button class="vq-stop-small" onclick="event.stopPropagation();${stopFn}()" title="퀴즈 중단">× 중단</button>`;
     if (state.voiceQuizActive) {
-      todayStageHtml = `<div class="srs-today-stage open vq-active"><div class="stage-head"><span class="srs-box-arrow">▼</span><span class="stage-name">🎤 음성 퀴즈</span>${stopBtnHtml}${deckStackHtml}</div>${renderVoiceQuizCard(pendingCards, currentQuizSid)}</div>`;
+      todayStageHtml = `<div class="srs-today-stage open vq-active"><div class="stage-head"><span class="srs-box-arrow">▼</span><span class="stage-name">🎤 음성 퀴즈</span>${stopBtnHtml}<div class="stage-counts">${todayStack}${quizStack}</div></div>${renderVoiceQuizCard(pendingCards, currentQuizSid)}</div>`;
     } else {
-      todayStageHtml = `<div class="srs-today-stage open fl-active"><div class="stage-head"><span class="srs-box-arrow">▼</span><span class="stage-name">✏️ 첫글자 퀴즈</span>${stopBtnHtml}${deckStackHtml}</div>${renderFirstLetterQuizCard(pendingCards, currentQuizSid)}</div>`;
+      todayStageHtml = `<div class="srs-today-stage open fl-active"><div class="stage-head"><span class="srs-box-arrow">▼</span><span class="stage-name">✏️ 첫글자 퀴즈</span>${stopBtnHtml}<div class="stage-counts">${todayStack}${quizStack}</div></div>${renderFirstLetterQuizCard(pendingCards, currentQuizSid)}</div>`;
     }
   } else {
     todayStageHtml = renderTodayStage(byBox[1], hasAccess);
@@ -3041,22 +3067,16 @@ function renderMemorizedView(chapterId, hasAccess) {
   let quizBtnHtml = '';
   if (c && state.memorizedView && !anyModeActive) {
     const voiceQ = Number(c.voice_quiz_enabled) === 1;
-    const qs = quizStats();
-    const badgeClass = qs.pending === 0 ? 'vq-pending-badge zero' : 'vq-pending-badge';
-    const badgeTitle = qs.pending === 0
-      ? '오늘 학습 카드 클리어'
-      : `오늘 학습 카드 ${qs.pending}개`;
-    const badge = `<span class="${badgeClass}" title="${badgeTitle}">${qs.pending}</span>`;
     const elabBtn = `<button class="vq-toggle vq-toggle-elab vq-third" onclick="startElaboration()">🧠 정교화</button>`;
     if (voiceQ) {
       const others = `
         <button class="vq-toggle vq-toggle-start vq-third" onclick="startVoiceQuiz()">🎤 음성 (4초)</button>
         <button class="vq-toggle vq-toggle-fl vq-third" onclick="startFirstLetterQuiz()">✏️ 첫글자</button>
       `;
-      quizBtnHtml = renderVoiceQuizSettings() + `<div class="vq-start-row">${elabBtn}${others}${badge}</div>`;
+      quizBtnHtml = renderVoiceQuizSettings() + `<div class="vq-start-row">${elabBtn}${others}</div>`;
     } else {
       // 음성 퀴즈 비활성 챕터(수학·과학식 등)에서도 정교화는 가능 — 단독 버튼
-      quizBtnHtml = `<div class="vq-start-row">${elabBtn}${badge}</div>`;
+      quizBtnHtml = `<div class="vq-start-row">${elabBtn}</div>`;
     }
   }
 
@@ -3310,11 +3330,13 @@ function startElaboration() {
   if (state.voiceQuizActive) { toast('음성 퀴즈를 먼저 종료하세요', true); return; }
   if (state.firstLetterQuizActive) { toast('첫글자 퀴즈를 먼저 종료하세요', true); return; }
   state.elaborationActive = true;
+  state.memorizedBoxOpen[1] = true; // 스테이지 펼침
   if (state.currentChapter) renderTree(state.currentChapter.id);
   window.scrollTo({ top: 0, behavior: 'smooth' });
 }
 function stopElaboration() {
   state.elaborationActive = false;
+  state.memorizedBoxOpen[1] = false; // 스테이지 닫음
   if (state.currentChapter) renderTree(state.currentChapter.id);
 }
 
@@ -3346,6 +3368,7 @@ async function startVoiceQuiz() {
   }
   state.voiceQuizActive = true;
   state.voiceQuizPhase = 'idle';
+  state.memorizedBoxOpen[1] = true; // 스테이지 펼침
   if (state.currentChapter) renderTree(state.currentChapter.id);
   window.scrollTo({ top: 0, behavior: 'smooth' });
   voiceQuizNextCard();
@@ -3354,12 +3377,13 @@ async function startVoiceQuiz() {
 // 음성 퀴즈 세션 종료
 function stopVoiceQuiz() {
   voiceQuizCleanup();
-  try { speechSynthesis.cancel(); } catch {} // 진행 중인 TTS 발음 즉시 중단
+  try { speechSynthesis.cancel(); } catch {}
   state.voiceQuizActive = false;
   state.voiceQuizPhase = 'idle';
   state.voiceQuizTranscript = '';
   state.voiceQuizExpected = '';
   state.quizLastWrongSid = null;
+  state.memorizedBoxOpen[1] = false; // 스테이지 닫음
   if (state.currentChapter) renderTree(state.currentChapter.id);
 }
 
@@ -3766,6 +3790,7 @@ function startFirstLetterQuiz() {
   }
   state.firstLetterQuizActive = true;
   state.firstLetterQuizPhase = 'idle';
+  state.memorizedBoxOpen[1] = true; // 스테이지 펼침
   if (state.currentChapter) renderTree(state.currentChapter.id);
   window.scrollTo({ top: 0, behavior: 'smooth' });
   firstLetterQuizNextCard();
@@ -3780,6 +3805,7 @@ function stopFirstLetterQuiz() {
   state.firstLetterQuizSelected = '';
   state.firstLetterQuizExpected = '';
   state.quizLastWrongSid = null;
+  state.memorizedBoxOpen[1] = false; // 스테이지 닫음
   if (state.currentChapter) renderTree(state.currentChapter.id);
 }
 
@@ -4023,6 +4049,30 @@ function renderVoiceQuizSettings() {
   `;
 }
 
+// 동적 두께 deck stack — count에 따라 layer 수 + offset 가변 (많을수록 두꺼움)
+// tone: 'today' (오늘 학습 카드 수 — 빨강) | 'quiz' (퀴즈 풀 수 — 주황/노랑)
+function renderDeckStack(count, tone) {
+  const toneCls = 'srs-deck-' + tone;
+  if (count <= 0) {
+    return `<div class="srs-deck-stack ${toneCls}"><div class="deck-count" style="color:rgba(255,255,255,0.30)">0</div></div>`;
+  }
+  // 1-2장:1 layer, 3-5:2, 6-8:3, 9-11:4, 12+:5
+  const layers = Math.min(1 + Math.floor(count / 3), 5);
+  // offset: 1.5px ~ 5px (count에 비례, cap 5)
+  const offset = Math.min(1.5 + count * 0.20, 5.0);
+  let html = '';
+  for (let i = 0; i < layers; i++) {
+    const fromBack = layers - 1 - i; // 0 = top, layers-1 = back
+    const tx = (fromBack * offset).toFixed(1);
+    const ty = (fromBack * offset).toFixed(1);
+    const rot = (fromBack * offset * 0.4).toFixed(1);
+    const op = (0.35 + ((i + 1) / layers) * 0.50).toFixed(2);
+    const cls = i === layers - 1 ? 'deck-back-card deck-top' : 'deck-back-card';
+    html += `<div class="${cls}" style="z-index:${i+1};transform:translate(${tx}px,${ty}px) rotate(${rot}deg);opacity:${op}"></div>`;
+  }
+  return `<div class="srs-deck-stack ${toneCls}">${html}<div class="deck-count">${count}</div></div>`;
+}
+
 // 스테이지 전체 HTML (헤더 + 더미 + 포커스 카드 OR 빈 상태)
 //  - 헤더 클릭으로 펼침/접힘 (다른 박스와 아코디언 동작)
 //  - 닫혀 있으면 헤더만 (더미 카운트는 그대로 보임)
@@ -4030,10 +4080,12 @@ function renderTodayStage(byBox1, hasAccess) {
   const remaining = byBox1.length;
   const isOpen = !!state.memorizedBoxOpen[1];
 
-  // 더미 카드 시각화 — 펼침/접힘 상관없이 항상 보임
-  const stackLayers = remaining > 0 ? Math.min(remaining, 4) : 0;
-  const deckCardsHtml = Array(stackLayers).fill('<div class="deck-back-card"></div>').join('');
-  const countColor = remaining === 0 ? 'style="color:rgba(255,255,255,0.35)"' : '';
+  // 두 stack — 오늘 학습 카드 수(정교화) + 퀴즈 풀 수 (voice_quiz_enabled 시)
+  const c = state.currentChapter;
+  const voiceQ = c && Number(c.voice_quiz_enabled) === 1;
+  const qs = quizStats();
+  const todayStack = renderDeckStack(remaining, 'today');
+  const quizStack = voiceQ ? renderDeckStack(qs.pending, 'quiz') : '';
   const stopBtnHtml = state.elaborationActive
     ? `<button class="vq-stop-small" onclick="event.stopPropagation();stopElaboration()" title="정교화 학습 중단">× 중단</button>`
     : '';
@@ -4043,10 +4095,7 @@ function renderTodayStage(byBox1, hasAccess) {
       <span class="srs-box-arrow">${isOpen ? '▼' : '▶'}</span>
       <span class="stage-name">${stageName}</span>
       ${stopBtnHtml}
-      <div class="srs-deck-stack">
-        ${deckCardsHtml}
-        <div class="deck-count" ${countColor}>${remaining}</div>
-      </div>
+      <div class="stage-counts">${todayStack}${quizStack}</div>
     </div>
   `;
 
