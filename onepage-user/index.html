@@ -2274,7 +2274,7 @@ const state = {
   understoodMissCount: {},    // subtopic_id → miss_count (v2: 누적 펼친 횟수, 별표 표시용)
   understoodLastMovedAt: {},  // subtopic_id → last_moved_at (v2: 박스 이동 시각, 다지기 박스 안 정렬용)
   normalMode: 'new',          // v2: 'new' | 'star' | 'all' — 일반 모드 탭. 챕터 진입 시 'new' 기본
-  memorizedBoxOpen: {1:true, 2:false, 3:false, 4:false, 5:false, 6:false}, // v2: 다지기 6박스 펼침 상태. 오늘만 기본 펼침
+  memorizedBoxOpen: {1:false, 2:false, 3:false, 4:false, 5:false, 6:false}, // v2: 다지기 6박스 펼침 상태. 모드 버튼으로만 펼침
   todayStatsCleared: 0,       // v2: 오늘 박스에서 내일 박스로 진급한 카드 (분자). 분모는 동적 계산
   todayStatsDate: '',         // v2: KST 날짜 키 — 자정 지나면 자동 리셋
   passedSet: new Set(),       // 이번 회 패스한 학습 카드 (세션만 — 새로고침 시 복원)
@@ -4448,8 +4448,8 @@ function toggleMemorizedView() {
   if (state.memorizedView) {
     rebuildMemoSnapshot();
     prefetchMemoSnapshot();
-    // 박스 펼침 기본 상태 (오늘만 펼침) — 매 진입 시 리셋
-    state.memorizedBoxOpen = {1:true, 2:false, 3:false, 4:false, 5:false, 6:false};
+    // 박스 펼침 기본 상태 — 모두 닫힘. 모드 버튼(정교화/음성/첫글자)으로만 펼침
+    state.memorizedBoxOpen = {1:false, 2:false, 3:false, 4:false, 5:false, 6:false};
     // 다지기 펼침 이력 초기화 — 다지기 안에서 펼친 것만 패스 판정에 사용
     state.memorizedExpandedSet = new Set();
     // 다지기 처리 이력 초기화 — celebration 판정용
