@@ -3480,6 +3480,7 @@ function voiceQuizNextCard() {
     state.voiceQuizActive = false;
     state.voiceQuizPhase = 'idle';
     state.quizLastWrongSid = null;
+    state.memorizedBoxOpen[1] = false; // 스테이지 닫음 (수동 stop과 동일하게)
     if (qs.total > 0 && qs.done > 0 && qs.pending === 0) {
       toast('🎉 퀴즈 클리어! 카드 터치로 깊은 학습을 진행하세요.', false);
     }
@@ -3913,6 +3914,7 @@ function firstLetterQuizNextCard() {
     state.firstLetterQuizActive = false;
     state.firstLetterQuizPhase = 'idle';
     state.quizLastWrongSid = null;
+    state.memorizedBoxOpen[1] = false; // 스테이지 닫음 (수동 stop과 동일하게)
     if (qs.total > 0 && qs.done > 0 && qs.pending === 0) {
       toast('🎉 퀴즈 클리어! 카드 터치로 깊은 학습을 진행하세요.', false);
     }
