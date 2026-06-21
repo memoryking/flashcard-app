@@ -1,0 +1,20 @@
+{
+  "name": "원페이지 학습",
+  "short_name": "원페이지",
+  "description": "한 페이지가 곧 시험범위 — 간격 반복으로 잊지 않는 학습",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#0a0a1a",
+  "theme_color": "#0a0a1a",
+  "lang": "ko",
+  "icons": [
+    {
+      "src": "icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ]
+}
