@@ -57,7 +57,7 @@
       "y": -850,
       "width": 600,
       "height": 240,
-      "text": "## ☁️ Cloudflare Worker\n`onepage-worker/worker.js`\n\n**인증 · API · 결제 게이트 · 추천 · 진도**\n\n주요 엔드포인트:\n- `/auth/*` 로그인·회원가입·구글\n- `/chapters/*` 챕터 목록·접근\n- `/understood/*` SRS 패스·박스 갱신\n- `/access/*` 구독·포인트 결제\n- `/points/*` 포인트 적립·사용",
+      "text": "## ☁️ Cloudflare Worker\n`onepage-worker/worker.js`\n\n**인증 · API · 결제 게이트 · 추천 · 진도**\n\n주요 엔드포인트:\n- `/auth/*` 로그인·회원가입·구글\n- `/chapters/*` 챕터 목록·접근\n- `/understood/*` SRS 패스·박스 갱신\n- `/access/*` 구독·포인트 결제\n- `/points/*` 포인트 적립·사용\n- `/payment/*` `/payapp/webhook` 결제",
       "color": "3"
     },
     {
@@ -267,8 +267,78 @@
       "y": 960,
       "width": 360,
       "height": 260,
-      "text": "### 📣 마케팅 · 문서\n`marketing/scripts.md`\n\n- 영상 스크립트 5편\n- 랜딩페이지 카피\n- v2 신기능 섹션\n- 7가지만 알면 끝 (가이드)\n\n참고:\n- `ONEPAGE_FEATURES.md`\n- `ONEPAGE_SCHEMA.md`",
+      "text": "### 📣 마케팅 · 문서\n`marketing/scripts.md`\n\n- 영상 스크립트 5편\n- 랜딩페이지 카피\n- v2 신기능 섹션\n- 7가지만 알면 끝 (가이드)\n\n참고:\n- `ONEPAGE_FEATURES.md`\n- `ONEPAGE_SCHEMA.md`\n- `PAYMENT_INTEGRATION_GUIDE.md`",
       "color": "6"
+    },
+    {
+      "id": "section-external",
+      "type": "text",
+      "x": -700,
+      "y": 1320,
+      "width": 1400,
+      "height": 60,
+      "text": "## 🌐 외부 서비스 통합 (결제 · 알림 · 캠페인)",
+      "color": "6"
+    },
+    {
+      "id": "crm",
+      "type": "text",
+      "x": -1400,
+      "y": 1420,
+      "width": 320,
+      "height": 280,
+      "text": "### 🛠️ CRM 어드민\n`onepage-crm/index.html`\n\n관리자용 대시보드\n- 사용자 목록·검색\n- 챕터 액세스 부여/회수\n- 포인트 수동 조정\n- 캠페인 발송 (SMS/이메일)\n- Airtable 직접 조회\n\n→ 캠페인 페이로드 → Pabbly",
+      "color": "1"
+    },
+    {
+      "id": "payapp",
+      "type": "text",
+      "x": -1050,
+      "y": 1420,
+      "width": 320,
+      "height": 320,
+      "text": "### 💳 PayApp\n결제 게이트웨이 (카카오페이/카드)\n\n흐름:\n1. Worker `/payment/request` → 결제창\n2. 사용자 결제 → PayApp\n3. PayApp → Worker `/payapp/webhook`\n4. Worker가 정확히 `SUCCESS` 응답\n5. `chapter_access` 자동 연장\n\n**`feedbackurl` 동적 지정**\n→ Airtable Automation C1 처리\n\n📄 `PAYMENT_INTEGRATION_GUIDE.md`",
+      "color": "4"
+    },
+    {
+      "id": "pabbly",
+      "type": "text",
+      "x": -700,
+      "y": 1420,
+      "width": 360,
+      "height": 360,
+      "text": "### 🔌 Pabbly Connect\n웹훅 라우터 (no-code 자동화)\n\n**v2 용도:**\n- 📣 **캠페인 발송 라우터**\n  CRM → Pabbly → ChatGPT → SMS/이메일\n- 🔑 **비밀번호 재설정 SMS**\n  Worker → Pabbly → SOLAPI\n\n**환경변수:**\n- `PABBLY_WEBHOOK_URL` 캠페인\n- `PABBLY_RESET_WEBHOOK_URL` 리셋\n\n⚠️ **결제 라우팅 용도는 v2에서 제거**\n(PayApp `SUCCESS` 응답 요구 → Pabbly 본문 커스터마이즈 불가 → 10회 retry 발생)\n→ Worker 직접 처리로 전환",
+      "color": "3"
+    },
+    {
+      "id": "chatgpt",
+      "type": "text",
+      "x": -300,
+      "y": 1420,
+      "width": 320,
+      "height": 240,
+      "text": "### 🤖 ChatGPT\n캠페인 본문 자동 생성\n\nPabbly 워크플로우 내부 호출\n- 입력: 사용자 컨텍스트 + 의도\n- 출력: SMS / 이메일 본문\n- 치환 변수: `{name}` `{phone}` `{email}` `{point}`",
+      "color": "5"
+    },
+    {
+      "id": "solapi",
+      "type": "text",
+      "x": 50,
+      "y": 1420,
+      "width": 320,
+      "height": 220,
+      "text": "### 📱 SOLAPI\nSMS 발송 서비스\n\n- Pabbly가 호출\n- 캠페인 SMS\n- 비밀번호 재설정 코드\n- 발신자: 등록된 발신번호",
+      "color": "4"
+    },
+    {
+      "id": "gmail",
+      "type": "text",
+      "x": 400,
+      "y": 1420,
+      "width": 320,
+      "height": 220,
+      "text": "### 📧 Gmail\n이메일 발송 서비스\n\n- Pabbly가 호출\n- 캠페인 이메일 분기\n- 마케팅 · 공지 · 알림",
+      "color": "4"
     }
   ],
   "edges": [
@@ -415,6 +485,57 @@
       "fromSide": "right",
       "toNode": "storage",
       "toSide": "top"
+    },
+    {
+      "id": "e-worker-payapp",
+      "fromNode": "worker",
+      "fromSide": "left",
+      "toNode": "payapp",
+      "toSide": "top",
+      "label": "결제 + webhook",
+      "color": "3"
+    },
+    {
+      "id": "e-worker-pabbly-reset",
+      "fromNode": "worker",
+      "fromSide": "bottom",
+      "toNode": "pabbly",
+      "toSide": "top",
+      "label": "리셋 SMS",
+      "color": "3"
+    },
+    {
+      "id": "e-crm-pabbly",
+      "fromNode": "crm",
+      "fromSide": "right",
+      "toNode": "pabbly",
+      "toSide": "left",
+      "label": "캠페인",
+      "color": "1"
+    },
+    {
+      "id": "e-pabbly-chatgpt",
+      "fromNode": "pabbly",
+      "fromSide": "right",
+      "toNode": "chatgpt",
+      "toSide": "left",
+      "label": "본문 생성"
+    },
+    {
+      "id": "e-pabbly-solapi",
+      "fromNode": "pabbly",
+      "fromSide": "right",
+      "toNode": "solapi",
+      "toSide": "left",
+      "label": "SMS"
+    },
+    {
+      "id": "e-pabbly-gmail",
+      "fromNode": "pabbly",
+      "fromSide": "right",
+      "toNode": "gmail",
+      "toSide": "left",
+      "label": "Email"
     }
   ]
 }
