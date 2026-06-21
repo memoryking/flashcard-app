@@ -1,0 +1,420 @@
+{
+  "nodes": [
+    {
+      "id": "title",
+      "type": "text",
+      "x": -400,
+      "y": -1500,
+      "width": 800,
+      "height": 100,
+      "text": "# 🎯 원페이지 학습 — 시스템 개관\n*한 페이지가 곧 시험범위 · 간격 반복으로 잊지 않는 학습*",
+      "color": "6"
+    },
+    {
+      "id": "landing",
+      "type": "text",
+      "x": -1400,
+      "y": -1200,
+      "width": 320,
+      "height": 200,
+      "text": "## 📣 랜딩 페이지\n`onepage-landing.html`\n\n- 마케팅 진입점\n- SRS 학습법 소개\n- vipup.site/onepage",
+      "color": "1"
+    },
+    {
+      "id": "studentApp",
+      "type": "text",
+      "x": -700,
+      "y": -1200,
+      "width": 360,
+      "height": 240,
+      "text": "## 🎓 학생 앱\n`onepage-user/index.html`\n\n메인 학습 인터페이스 (PWA)\n\n흐름:\n- 홈 → 챕터 카드 → 학습\n- 일반 모드 / 다지기 모드\n- 오프라인 + 홈 화면 설치",
+      "color": "1"
+    },
+    {
+      "id": "teacherApp",
+      "type": "text",
+      "x": -100,
+      "y": -1200,
+      "width": 360,
+      "height": 240,
+      "text": "## 👨‍🏫 교사 앱\n`onepage-teacher.html`\n\n콘텐츠 작성/편집\n\n- 챕터/목차/학습카드 CRUD\n- 일괄 입력 (merge 모드)\n- draft 공개/비공개\n- voice_quiz 챕터 설정",
+      "color": "1"
+    },
+    {
+      "id": "guide",
+      "type": "text",
+      "x": 500,
+      "y": -1200,
+      "width": 320,
+      "height": 200,
+      "text": "## 📖 사용법 가이드\n`onepage-user/guide.html`\n\n학생용 매뉴얼\n- 7가지 핵심 기능\n- 동영상 + 스크린샷",
+      "color": "1"
+    },
+    {
+      "id": "worker",
+      "type": "text",
+      "x": -300,
+      "y": -850,
+      "width": 600,
+      "height": 240,
+      "text": "## ☁️ Cloudflare Worker\n`onepage-worker/worker.js`\n\n**인증 · API · 결제 게이트 · 추천 · 진도**\n\n주요 엔드포인트:\n- `/auth/*` 로그인·회원가입·구글\n- `/chapters/*` 챕터 목록·접근\n- `/understood/*` SRS 패스·박스 갱신\n- `/access/*` 구독·포인트 결제\n- `/points/*` 포인트 적립·사용",
+      "color": "3"
+    },
+    {
+      "id": "airtable",
+      "type": "text",
+      "x": -750,
+      "y": -480,
+      "width": 360,
+      "height": 280,
+      "text": "## 📊 Airtable\n**사람 · 돈 · 캠페인 도메인**\n\n- `users` 학생/교사 계정\n- `chapter_access` 구독·구매 이력\n- `points_ledger` 포인트 거래\n- `referrals` 추천 코드\n- `chapters_meta` 챕터 발행 상태\n- `interests` 사용자 관심 주제",
+      "color": "4"
+    },
+    {
+      "id": "ncbackend",
+      "type": "text",
+      "x": 390,
+      "y": -480,
+      "width": 360,
+      "height": 280,
+      "text": "## 🗄️ nocodebackend\n**콘텐츠 도메인**\n\n- `chapters` 챕터 본체\n- `topics` 목차\n- `subtopics` 학습 카드 (제목)\n- `subtopic_items` 본문/이미지\n- `op_understood` SRS 상태\n  · `box` 1~6\n  · `next_review_at`\n  · `miss_count` `last_moved_at`\n  · 챕터 `voice_quiz_*` 설정",
+      "color": "4"
+    },
+    {
+      "id": "section-modes",
+      "type": "text",
+      "x": -300,
+      "y": -130,
+      "width": 600,
+      "height": 60,
+      "text": "## 🧩 학습 모드",
+      "color": "6"
+    },
+    {
+      "id": "mode-normal",
+      "type": "text",
+      "x": -1200,
+      "y": -20,
+      "width": 400,
+      "height": 240,
+      "text": "### 📚 일반 모드\n첫 만남 — 학습 카드 펼침\n\n- 새 단어 노출\n- 펼침(long-press) = 미암기\n- 미펼침 다음 = 이해 완료\n- `passedSet` 세션 진행 추적\n- `peekedPassedSet` 펼친 후 패스\n\n→ 다지기로 진급",
+      "color": "2"
+    },
+    {
+      "id": "mode-srs",
+      "type": "text",
+      "x": -700,
+      "y": -20,
+      "width": 480,
+      "height": 320,
+      "text": "### 🎯 다지기 모드 (SRS)\nLeitner 6박스 간격 반복\n\n**박스 일정 (Model A)**\n```\nbox 1 → 오늘  (0일)\nbox 2 → 내일  (1일)\nbox 3 → 4일 후\nbox 4 → 8일 후\nbox 5 → 16일 후\nbox 6 → 32일 후\n```\n\n- 박스 헤더 클릭 잠금 (모드 버튼만)\n- 자연 종료 → '끝났어요' → dissolve\n- 자정 넘김 자동 정렬",
+      "color": "2"
+    },
+    {
+      "id": "ui-deck",
+      "type": "text",
+      "x": -150,
+      "y": -20,
+      "width": 320,
+      "height": 200,
+      "text": "### 🃏 덱 스택 시각화\n두 더미 — 학습 카드 + 퀴즈\n\n- 동적 두께 (카드 수 비례)\n- 미래 박스: 인벤토리 뷰\n- 펼친 카드 → 접으면 강등\n- mystical dissolve 애니메이션",
+      "color": "5"
+    },
+    {
+      "id": "section-activities",
+      "type": "text",
+      "x": -1400,
+      "y": 400,
+      "width": 1370,
+      "height": 60,
+      "text": "## 🎬 다지기 활동",
+      "color": "6"
+    },
+    {
+      "id": "elab",
+      "type": "text",
+      "x": -1400,
+      "y": 500,
+      "width": 320,
+      "height": 240,
+      "text": "### 🧠 정교화 학습\n터치 학습 — 카드 1장씩 집중\n\n- 능동 회상 (블러 + 정답 보기)\n- '학습 OK' / '더 학습' 자기평가\n- 대표 이미지 (subtopic.image_b64)\n- 카드 펼침 → SRS 박스 영향",
+      "color": "2"
+    },
+    {
+      "id": "voiceQuiz",
+      "type": "text",
+      "x": -1050,
+      "y": 500,
+      "width": 320,
+      "height": 320,
+      "text": "### 🎤 음성 퀴즈 (4초)\n발음 → 음성 인식 → 채점\n\n- SpeechRecognition (Web)\n- onstart 이벤트로 타이머 (모바일)\n- 자동/수동 모드\n- 문제 읽기 (TTS) 토글\n- 마이크 사전 체크 (PC)\n- 한자/국기는 읽기 OFF\n- 최근 오답 FIFO 3 (후순위)\n- SRS 영향 없음 (quizDoneSet)",
+      "color": "2"
+    },
+    {
+      "id": "letterQuiz",
+      "type": "text",
+      "x": -700,
+      "y": 500,
+      "width": 320,
+      "height": 240,
+      "text": "### ✏️ 첫글자 퀴즈\n2지선다 — 정답 첫 글자 고르기\n\n- 음성 인식 안 되는 환경용\n- 같은 챕터에서 오답 후보 추출\n- 동일 채점/SRS 정책\n- 정답 시 ding · 오답 시 buzz",
+      "color": "2"
+    },
+    {
+      "id": "activeRecall",
+      "type": "text",
+      "x": -350,
+      "y": 500,
+      "width": 320,
+      "height": 200,
+      "text": "### 🔍 능동 회상\nActive Recall — 항상 ON\n\n- 본문 블러 → '정답 보기' 강제\n- 회상 후 자기평가\n- 학습 과학 핵심 원리\n- 다지기 진입 시 자동 활성화",
+      "color": "5"
+    },
+    {
+      "id": "section-audio",
+      "type": "text",
+      "x": 0,
+      "y": 400,
+      "width": 1040,
+      "height": 60,
+      "text": "## 🔊 음성/오디오",
+      "color": "6"
+    },
+    {
+      "id": "mp3",
+      "type": "text",
+      "x": 0,
+      "y": 500,
+      "width": 360,
+      "height": 240,
+      "text": "### 🎵 격려 음성 (mp3)\n`onepage-user/guide-media/`\n\n- `encourage-start.mp3` 시작\n- `encourage-halfway.mp3` 20개 이하\n- `encourage-clear.mp3` 클리어\n\n사람 녹음 — OS별 TTS 품질 편차 해소\n시작 멘트 끝난 뒤 첫 문제 읽기",
+      "color": "5"
+    },
+    {
+      "id": "ttsApi",
+      "type": "text",
+      "x": 400,
+      "y": 500,
+      "width": 320,
+      "height": 220,
+      "text": "### 🗣️ Web Speech (TTS/STT)\n문제 읽기 + 음성 응답\n\n- `SpeechSynthesis` 문제 TTS\n- `SpeechRecognition` 답 인식\n- 언어 자동 감지 (한/영/일/중)\n- `cancel()` 하드 스톱",
+      "color": "5"
+    },
+    {
+      "id": "audioApi",
+      "type": "text",
+      "x": 760,
+      "y": 500,
+      "width": 280,
+      "height": 200,
+      "text": "### 🔔 Web Audio API\n효과음 — 합성 톤\n\n- ding (정답): sine A5+D6\n- buzz (오답): square 하행\n- 효과음 OFF 토글\n- 문제 읽기 ON → 자동 ON",
+      "color": "5"
+    },
+    {
+      "id": "section-meta",
+      "type": "text",
+      "x": -300,
+      "y": 870,
+      "width": 600,
+      "height": 60,
+      "text": "## ⚙️ 운영 · 메타",
+      "color": "6"
+    },
+    {
+      "id": "teacherTools",
+      "type": "text",
+      "x": -1100,
+      "y": 960,
+      "width": 360,
+      "height": 260,
+      "text": "### 👨‍🏫 교사 도구\n`onepage-teacher.html`\n\n- 챕터 편집기 — 목차/카드 CRUD\n- 일괄 입력 (merge 모드)\n  · 내용만 교체, 학생 진도 보존\n  · Phase 2 병렬 item 생성\n- draft 공개/비공개\n- voice_quiz_* 챕터 설정\n  (enabled, lang, read_question)",
+      "color": "2"
+    },
+    {
+      "id": "payment",
+      "type": "text",
+      "x": -700,
+      "y": 960,
+      "width": 360,
+      "height": 260,
+      "text": "### 💰 결제 도메인\n포인트 + 구독 + 추천\n\n- `points_ledger` 거래 로그\n- 챕터 구독 (월간/단발)\n- `chapter_access` 만료 추적\n- 포인트 모달 — 적립/사용\n- 추천 코드 — 신규 가입 보너스\n- 결제 게이트 (Worker 검증)",
+      "color": "4"
+    },
+    {
+      "id": "pwa",
+      "type": "text",
+      "x": -300,
+      "y": 960,
+      "width": 360,
+      "height": 260,
+      "text": "### 📱 PWA / 앱 설치\n`manifest.json` + 아이콘 세트\n\n- `icon.svg` 벡터\n- `apple-touch-icon.png` iOS\n- `android-chrome-*.png` 안드로이드\n- `favicon-*.png` 브라우저 탭\n- `favicon.ico` 레거시\n- standalone 모드 (앱처럼)",
+      "color": "5"
+    },
+    {
+      "id": "storage",
+      "type": "text",
+      "x": 100,
+      "y": 960,
+      "width": 360,
+      "height": 260,
+      "text": "### 💾 클라이언트 상태\n`localStorage` 영속화\n\n- `op_active_recall_v1` 능동 회상\n- `op_voice_quiz_mode` 자동/수동\n- `op_voice_quiz_read` 문제 읽기\n- `op_quiz_sound` 효과음\n- `op_last_study_date` 자정 넘김\n- 세션 상태: passedSet 등 메모리만",
+      "color": "5"
+    },
+    {
+      "id": "marketing",
+      "type": "text",
+      "x": 500,
+      "y": 960,
+      "width": 360,
+      "height": 260,
+      "text": "### 📣 마케팅 · 문서\n`marketing/scripts.md`\n\n- 영상 스크립트 5편\n- 랜딩페이지 카피\n- v2 신기능 섹션\n- 7가지만 알면 끝 (가이드)\n\n참고:\n- `ONEPAGE_FEATURES.md`\n- `ONEPAGE_SCHEMA.md`",
+      "color": "6"
+    }
+  ],
+  "edges": [
+    {
+      "id": "e-landing-student",
+      "fromNode": "landing",
+      "fromSide": "right",
+      "toNode": "studentApp",
+      "toSide": "left",
+      "label": "회원가입"
+    },
+    {
+      "id": "e-student-worker",
+      "fromNode": "studentApp",
+      "fromSide": "bottom",
+      "toNode": "worker",
+      "toSide": "top",
+      "label": "REST"
+    },
+    {
+      "id": "e-teacher-worker",
+      "fromNode": "teacherApp",
+      "fromSide": "bottom",
+      "toNode": "worker",
+      "toSide": "top",
+      "label": "REST"
+    },
+    {
+      "id": "e-worker-airtable",
+      "fromNode": "worker",
+      "fromSide": "bottom",
+      "toNode": "airtable",
+      "toSide": "top",
+      "label": "사람·돈"
+    },
+    {
+      "id": "e-worker-nc",
+      "fromNode": "worker",
+      "fromSide": "bottom",
+      "toNode": "ncbackend",
+      "toSide": "top",
+      "label": "콘텐츠"
+    },
+    {
+      "id": "e-student-modes",
+      "fromNode": "studentApp",
+      "fromSide": "bottom",
+      "toNode": "section-modes",
+      "toSide": "top",
+      "label": "학습"
+    },
+    {
+      "id": "e-normal-srs",
+      "fromNode": "mode-normal",
+      "fromSide": "right",
+      "toNode": "mode-srs",
+      "toSide": "left",
+      "label": "진급"
+    },
+    {
+      "id": "e-srs-elab",
+      "fromNode": "mode-srs",
+      "fromSide": "bottom",
+      "toNode": "elab",
+      "toSide": "top"
+    },
+    {
+      "id": "e-srs-vq",
+      "fromNode": "mode-srs",
+      "fromSide": "bottom",
+      "toNode": "voiceQuiz",
+      "toSide": "top"
+    },
+    {
+      "id": "e-srs-fl",
+      "fromNode": "mode-srs",
+      "fromSide": "bottom",
+      "toNode": "letterQuiz",
+      "toSide": "top"
+    },
+    {
+      "id": "e-srs-ar",
+      "fromNode": "mode-srs",
+      "fromSide": "bottom",
+      "toNode": "activeRecall",
+      "toSide": "top"
+    },
+    {
+      "id": "e-vq-tts",
+      "fromNode": "voiceQuiz",
+      "fromSide": "right",
+      "toNode": "ttsApi",
+      "toSide": "left"
+    },
+    {
+      "id": "e-vq-mp3",
+      "fromNode": "voiceQuiz",
+      "fromSide": "right",
+      "toNode": "mp3",
+      "toSide": "left"
+    },
+    {
+      "id": "e-fl-audio",
+      "fromNode": "letterQuiz",
+      "fromSide": "right",
+      "toNode": "audioApi",
+      "toSide": "left"
+    },
+    {
+      "id": "e-srs-nc",
+      "fromNode": "mode-srs",
+      "fromSide": "top",
+      "toNode": "ncbackend",
+      "toSide": "bottom",
+      "label": "op_understood",
+      "color": "4"
+    },
+    {
+      "id": "e-teacher-tools",
+      "fromNode": "teacherApp",
+      "fromSide": "bottom",
+      "toNode": "teacherTools",
+      "toSide": "top"
+    },
+    {
+      "id": "e-worker-payment",
+      "fromNode": "worker",
+      "fromSide": "left",
+      "toNode": "payment",
+      "toSide": "top",
+      "label": "결제",
+      "color": "4"
+    },
+    {
+      "id": "e-student-pwa",
+      "fromNode": "studentApp",
+      "fromSide": "right",
+      "toNode": "pwa",
+      "toSide": "top"
+    },
+    {
+      "id": "e-student-storage",
+      "fromNode": "studentApp",
+      "fromSide": "right",
+      "toNode": "storage",
+      "toSide": "top"
+    }
+  ]
+}
