@@ -2265,7 +2265,7 @@ const state = {
   firstLetterQuizSelected: '',  // 사용자가 고른 글자
   firstLetterQuizExpected: '',  // 정답 텍스트 (items[0])
   quizDoneSet: new Set(),       // 음성/첫글자 퀴즈에서 "정답"으로 클리어된 카드 — 오답은 추가 안 됨
-  quizLastWrongSid: null,       // 가장 최근 오답 카드 — 다음 카드 선택 시 후순위로 (반복적 노출 방지)
+  quizRecentWrongs: [],         // 최근 오답 카드 FIFO (최대 3개) — 다음 카드 선택 시 후순위로
   elaborationActive: false,     // 정교화 학습 모드 (포커스 모드) — 상단 chrome 숨기고 카드만 집중
   quizSoundEnabled: (() => { try { return localStorage.getItem('op_quiz_sound') !== '0'; } catch { return true; } })(), // 효과음 + 격려 음성 ON/OFF
   quizMilestonesHit: new Set(), // 이번 세션에 발사된 격려 milestone — 'start'/'20'/'10'/'clear'. 모드 시작마다 리셋
@@ -3212,9 +3212,20 @@ function voiceQuizCompare(spoken, expected) {
   return false;
 }
 
+// 최근 오답 카드 FIFO 등록 (최대 3개) — 중복 시 가장 최근 위치로 이동
+const QUIZ_RECENT_WRONG_MAX = 3;
+function pushQuizWrong(sid) {
+  if (!state.quizRecentWrongs) state.quizRecentWrongs = [];
+  const n = Number(sid);
+  const idx = state.quizRecentWrongs.indexOf(n);
+  if (idx >= 0) state.quizRecentWrongs.splice(idx, 1);
+  state.quizRecentWrongs.push(n);
+  while (state.quizRecentWrongs.length > QUIZ_RECENT_WRONG_MAX) state.quizRecentWrongs.shift();
+}
+
 // 다음 퀴즈 카드 선택:
 //  1. byBox[1] effective + 스냅샷 + 퀴즈에서 클리어 안 됨 후보 모음
-//  2. lastWrongSid는 다른 후보가 있으면 후순위 (반복 노출 방지)
+//  2. 최근 오답 카드들(quizRecentWrongs)은 다른 후보가 있으면 후순위 (3개까지 추적)
 //  3. last_moved_at 오래된 순 + sort_order로 정렬
 function voiceQuizCurrentCardId() {
   if (!state.currentChapter) return null;
@@ -3233,10 +3244,11 @@ function voiceQuizCurrentCardId() {
     }
   }
   if (candidates.length === 0) return null;
-  // 다른 카드 있으면 lastWrongSid 제외 (방금 틀린 카드 바로 다시 보지 않게)
+  // 최근 오답 카드(최대 3개)는 다른 후보가 있으면 후순위 — 바로 다시 나오지 않게
   let filtered = candidates;
-  if (state.quizLastWrongSid != null && candidates.length > 1) {
-    const others = candidates.filter(s => Number(s.id) !== state.quizLastWrongSid);
+  if (state.quizRecentWrongs && state.quizRecentWrongs.length > 0) {
+    const recentSet = new Set(state.quizRecentWrongs.map(Number));
+    const others = candidates.filter(s => !recentSet.has(Number(s.id)));
     if (others.length > 0) filtered = others;
   }
   filtered.sort((a, b) => {
@@ -3258,6 +3270,12 @@ function setVoiceQuizMode(mode) {
 function toggleVoiceQuizRead() {
   state.voiceQuizReadAloud = !state.voiceQuizReadAloud;
   try { localStorage.setItem('op_voice_quiz_read', state.voiceQuizReadAloud ? '1' : '0'); } catch {}
+  // 문제 읽기 ON → 효과음도 자동 ON (사용자가 별도로 끌 수 있음).
+  // OFF 시엔 효과음 그대로 (각자 독립 토글).
+  if (state.voiceQuizReadAloud && !state.quizSoundEnabled) {
+    state.quizSoundEnabled = true;
+    try { localStorage.setItem('op_quiz_sound', '1'); } catch {}
+  }
   if (state.currentChapter) renderTree(state.currentChapter.id);
 }
 
@@ -3456,7 +3474,7 @@ function stopVoiceQuiz() {
   state.voiceQuizPhase = 'idle';
   state.voiceQuizTranscript = '';
   state.voiceQuizExpected = '';
-  state.quizLastWrongSid = null;
+  state.quizRecentWrongs = [];
   state.memorizedBoxOpen[1] = false; // 스테이지 닫음
   if (state.currentChapter) renderTree(state.currentChapter.id);
 }
@@ -3479,7 +3497,7 @@ function voiceQuizNextCard() {
     const qs = quizStats();
     state.voiceQuizActive = false;
     state.voiceQuizPhase = 'idle';
-    state.quizLastWrongSid = null;
+    state.quizRecentWrongs = [];
     state.memorizedBoxOpen[1] = false; // 스테이지 닫음 (수동 stop과 동일하게)
     if (qs.total > 0 && qs.done > 0 && qs.pending === 0) {
       toast('🎉 퀴즈 클리어! 카드 터치로 깊은 학습을 진행하세요.', false);
@@ -3640,8 +3658,8 @@ function voiceQuizResolve(sid, outcome) {
 
   const proceed = () => {
     if (!state.voiceQuizActive) return;
-    if (isCorrect) { state.quizDoneSet.add(sid); state.quizLastWrongSid = null; }
-    else { state.quizLastWrongSid = sid; }
+    if (isCorrect) { state.quizDoneSet.add(sid); state.quizRecentWrongs = []; }
+    else { pushQuizWrong(sid); }
     // milestone 격려 (있으면 음성 끝난 후 진행)
     const milestoneText = getMilestoneText(quizStats().pending);
     if (milestoneText) {
@@ -3678,9 +3696,9 @@ function voiceQuizContinue(sid) {
   const wasCorrect = state.voiceQuizPhase === 'correct-flash';
   if (wasCorrect) {
     state.quizDoneSet.add(sid);
-    state.quizLastWrongSid = null;
+    state.quizRecentWrongs = [];
   } else {
-    state.quizLastWrongSid = sid;
+    pushQuizWrong(sid);
   }
   // 정답일 때만 milestone 격려 (pending 줄어듦)
   if (wasCorrect) {
@@ -3900,7 +3918,7 @@ function stopFirstLetterQuiz() {
   state.firstLetterQuizChoices = [];
   state.firstLetterQuizSelected = '';
   state.firstLetterQuizExpected = '';
-  state.quizLastWrongSid = null;
+  state.quizRecentWrongs = [];
   state.memorizedBoxOpen[1] = false; // 스테이지 닫음
   if (state.currentChapter) renderTree(state.currentChapter.id);
 }
@@ -3913,7 +3931,7 @@ function firstLetterQuizNextCard() {
     const qs = quizStats();
     state.firstLetterQuizActive = false;
     state.firstLetterQuizPhase = 'idle';
-    state.quizLastWrongSid = null;
+    state.quizRecentWrongs = [];
     state.memorizedBoxOpen[1] = false; // 스테이지 닫음 (수동 stop과 동일하게)
     if (qs.total > 0 && qs.done > 0 && qs.pending === 0) {
       toast('🎉 퀴즈 클리어! 카드 터치로 깊은 학습을 진행하세요.', false);
@@ -3997,8 +4015,8 @@ function firstLetterQuizResolve(sid, correct) {
 
   const proceed = () => {
     if (!state.firstLetterQuizActive) return;
-    if (correct) { state.quizDoneSet.add(sid); state.quizLastWrongSid = null; }
-    else { state.quizLastWrongSid = sid; }
+    if (correct) { state.quizDoneSet.add(sid); state.quizRecentWrongs = []; }
+    else { pushQuizWrong(sid); }
     const milestoneText = getMilestoneText(quizStats().pending);
     if (milestoneText) {
       speakEncouragement(milestoneText, () => setTimeout(() => firstLetterQuizNextCard(), 50));
@@ -4031,9 +4049,9 @@ function firstLetterQuizContinue(sid) {
   const wasCorrect = state.firstLetterQuizPhase === 'correct-flash';
   if (wasCorrect) {
     state.quizDoneSet.add(sid);
-    state.quizLastWrongSid = null;
+    state.quizRecentWrongs = [];
   } else {
-    state.quizLastWrongSid = sid;
+    pushQuizWrong(sid);
   }
   if (wasCorrect) {
     const milestoneText = getMilestoneText(quizStats().pending);
@@ -4359,7 +4377,7 @@ function toggleMemorizedView() {
     state.firstLetterQuizActive = false;
     state.elaborationActive = false;
     state.quizDoneSet = new Set();
-    state.quizLastWrongSid = null;
+    state.quizRecentWrongs = [];
     // 일반 모드/이전 세션에서 누적된 passedSet 잔여 항목 제거 — 다지기에서는 카드가 다 보여야 함
     // (다지기 박스 안 카드들에 한해서만 클리어. 일반 모드의 다른 챕터/패스 이력은 보존)
     for (const sid of state.memoSnapshotIds) state.passedSet.delete(sid);
