@@ -3548,8 +3548,8 @@ async function startVoiceQuiz() {
   state.quizMilestonesHit = new Set();
   if (state.currentChapter) renderTree(state.currentChapter.id);
   window.scrollTo({ top: 0, behavior: 'smooth' });
-  speakEncouragement('start', () => {});
-  voiceQuizNextCard();
+  // 시작 멘트가 끝난 뒤에 첫 문제 읽기 — 음성 겹침 방지
+  speakEncouragement('start', () => voiceQuizNextCard());
 }
 
 // 음성 퀴즈 세션 종료
@@ -3991,8 +3991,8 @@ function startFirstLetterQuiz() {
   state.quizMilestonesHit = new Set();
   if (state.currentChapter) renderTree(state.currentChapter.id);
   window.scrollTo({ top: 0, behavior: 'smooth' });
-  speakEncouragement('start', () => {});
-  firstLetterQuizNextCard();
+  // 시작 멘트가 끝난 뒤에 첫 문제 읽기 — 음성 겹침 방지
+  speakEncouragement('start', () => firstLetterQuizNextCard());
 }
 
 function stopFirstLetterQuiz() {
