@@ -2133,6 +2133,52 @@ a { color: #4fc3f7; text-decoration: none; }
   .app-header .memorized-toggle .cc-label { display: none; }
   .app-header #chStatus { font-size: 11px; padding: 5px 8px; }
 }
+
+/* ── 자동 업데이트 배너 ─────────────────────────────────── */
+.update-banner {
+  position: fixed;
+  top: 12px;
+  left: 50%;
+  transform: translateX(-50%);
+  background: linear-gradient(135deg, #16213e, #0f3460);
+  border: 1px solid rgba(233,69,96,0.55);
+  border-radius: 14px;
+  padding: 10px 12px 10px 16px;
+  display: flex; align-items: center; gap: 10px;
+  box-shadow: 0 10px 28px rgba(0,0,0,0.5), 0 0 0 1px rgba(233,69,96,0.15);
+  z-index: 9999;
+  animation: updateBannerIn 420ms cubic-bezier(0.34, 1.56, 0.64, 1) both;
+  max-width: calc(100vw - 24px);
+  font-size: 13px;
+  color: #fff;
+  -webkit-tap-highlight-color: transparent;
+}
+@keyframes updateBannerIn {
+  0%   { opacity: 0; transform: translate(-50%, -16px) scale(0.96); }
+  100% { opacity: 1; transform: translate(-50%, 0) scale(1); }
+}
+.update-banner-icon { font-size: 18px; }
+.update-banner-text { font-weight: 700; letter-spacing: 0.2px; }
+.update-banner-btn {
+  background: #e94560; color: #fff;
+  border: none; border-radius: 8px;
+  padding: 7px 14px; font-size: 12px; font-weight: 800;
+  cursor: pointer;
+  transition: background 0.15s ease;
+}
+.update-banner-btn:hover { background: #ff5c75; }
+.update-banner-btn:active { transform: scale(0.97); }
+.update-banner-close {
+  background: transparent; color: rgba(255,255,255,0.55);
+  border: none; cursor: pointer; padding: 4px 8px;
+  font-size: 16px; line-height: 1;
+}
+.update-banner-close:hover { color: #fff; }
+@media (max-width: 480px) {
+  .update-banner { font-size: 12px; padding: 9px 10px 9px 14px; gap: 8px; }
+  .update-banner-icon { font-size: 16px; }
+  .update-banner-btn { padding: 6px 10px; font-size: 11px; }
+}
 </style>
 </head>
 <body>
@@ -6192,6 +6238,89 @@ window.openPayModal = openPayModal;
 window.goPayment = goPayment;
 window.confirmRedeem = confirmRedeem;
 window.closeModal = closeModal;
+
+// ============================================================
+// 자동 업데이트 감지 — Vercel ETag 기반 (Service Worker 불필요)
+// ============================================================
+// 배포되면 정적 자원의 ETag가 콘텐츠 해시 기반으로 자동 변경됨.
+// 앱이 시작 시 자기 자신(index.html)의 ETag를 기억하고, 주기적으로 비교.
+// 다르면 비침습적 배너 노출 → 사용자가 "지금 업데이트" 누르면 새로고침.
+// 학습 중(퀴즈/정교화 모드)에는 배너 안 띄움 — 흐름 방해 X.
+const UPDATE_CHECK_INTERVAL_MS = 5 * 60 * 1000;     // 5분 폴링
+const UPDATE_DISMISS_COOLDOWN_MS = 30 * 60 * 1000;  // "나중에" 닫고 30분 침묵
+let _appInitialEtag = null;
+let _updateBannerShown = false;
+
+async function _fetchAppEtag() {
+  try {
+    const res = await fetch(location.pathname || '/', { method: 'HEAD', cache: 'no-store' });
+    return res.headers.get('etag') || res.headers.get('last-modified') || '';
+  } catch { return null; }
+}
+
+async function _captureInitialEtag() {
+  if (_appInitialEtag) return;
+  _appInitialEtag = await _fetchAppEtag();
+}
+
+function _isUpdateDismissedRecently() {
+  try {
+    const t = Number(localStorage.getItem('op_update_dismissed_at') || 0);
+    return t && (Date.now() - t < UPDATE_DISMISS_COOLDOWN_MS);
+  } catch { return false; }
+}
+
+function _isLearningActive() {
+  return !!(state && (state.voiceQuizActive || state.firstLetterQuizActive || state.elaborationActive));
+}
+
+async function _checkForUpdate() {
+  if (_updateBannerShown) return;
+  if (_isUpdateDismissedRecently()) return;
+  if (!_appInitialEtag) { await _captureInitialEtag(); return; }
+  if (_isLearningActive()) return; // 학습 중엔 다음 체크로 미룸
+  const current = await _fetchAppEtag();
+  if (current && current !== _appInitialEtag) _showUpdateBanner();
+}
+
+function _showUpdateBanner() {
+  if (_updateBannerShown) return;
+  if (document.querySelector('.update-banner')) return;
+  _updateBannerShown = true;
+  const banner = document.createElement('div');
+  banner.className = 'update-banner';
+  banner.innerHTML = `
+    <span class="update-banner-icon">✨</span>
+    <span class="update-banner-text">새 버전이 있어요</span>
+    <button class="update-banner-btn" onclick="applyUpdate()">지금 업데이트</button>
+    <button class="update-banner-close" onclick="dismissUpdate()" title="나중에">✕</button>
+  `;
+  document.body.appendChild(banner);
+}
+
+function applyUpdate() {
+  try { location.reload(); } catch {}
+}
+
+function dismissUpdate() {
+  const banner = document.querySelector('.update-banner');
+  if (banner) banner.remove();
+  _updateBannerShown = false; // 다시 보일 수는 있지만 30분 쿨다운 적용됨
+  try { localStorage.setItem('op_update_dismissed_at', String(Date.now())); } catch {}
+}
+
+window.applyUpdate = applyUpdate;
+window.dismissUpdate = dismissUpdate;
+
+// 초기화 — 페이지 로드 직후 ETag 캡처 → 주기적 + 포커스/visibility 변경 시 비교
+setTimeout(async () => {
+  await _captureInitialEtag();
+  setInterval(_checkForUpdate, UPDATE_CHECK_INTERVAL_MS);
+  window.addEventListener('focus', _checkForUpdate);
+  document.addEventListener('visibilitychange', () => {
+    if (document.visibilityState === 'visible') _checkForUpdate();
+  });
+}, 3000); // 3초 후 시작 — 초기 렌더 안 막음
 
 tryAutoLogin();
 </script>

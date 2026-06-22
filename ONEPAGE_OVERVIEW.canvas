@@ -257,7 +257,7 @@
       "y": 960,
       "width": 360,
       "height": 260,
-      "text": "### 📱 PWA / 앱 설치\n`manifest.json` + 아이콘 세트\n\n- `icon.svg` 벡터\n- `apple-touch-icon.png` iOS\n- `android-chrome-*.png` 안드로이드\n- `favicon-*.png` 브라우저 탭\n- `favicon.ico` 레거시\n- standalone 모드 (앱처럼)",
+      "text": "### 📱 PWA / 앱 설치\n`manifest.json` + 아이콘 세트\n\n- `icon.svg` 벡터\n- `apple-touch-icon.png` iOS\n- `android-chrome-*.png` 안드로이드\n- `favicon-*.png` 브라우저 탭\n- `favicon.ico` 레거시\n- standalone 모드 (앱처럼)\n\n**ETag 기반 자동 업데이트 감지**\n5분 폴링 + 포커스 시 비교\n→ '새 버전이에요' 배너\n(학습 중엔 미룸, 30분 쿨다운)",
       "color": "5"
     },
     {
