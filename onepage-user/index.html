@@ -1532,6 +1532,42 @@ a { color: #4fc3f7; text-decoration: none; }
   transform: scale(0.94);
 }
 
+/* ───── 신규 단어: 오늘 학습 / 내일 학습 버튼 (subtopic-body 하단) ───── */
+.learn-day-controls {
+  display: flex; gap: 10px;
+  margin-top: 18px;
+  padding: 14px 0 4px;
+  border-top: 1px dashed rgba(255,255,255,0.10);
+}
+.learn-day-btn {
+  flex: 1;
+  padding: 13px 12px;
+  border: none; border-radius: 12px;
+  font-size: 14px; font-weight: 800;
+  cursor: pointer;
+  letter-spacing: 0.3px;
+  color: #fff;
+  -webkit-tap-highlight-color: transparent;
+  transition: transform 0.12s ease, box-shadow 0.18s ease, filter 0.15s ease;
+  display: flex; align-items: center; justify-content: center; gap: 6px;
+}
+.learn-day-btn:active { transform: scale(0.96); }
+/* 오늘 학습 — 빨강/주황 (즉시 학습 = 긴급 톤) */
+.learn-day-today {
+  background: linear-gradient(135deg, rgba(255,138,158,0.95), rgba(233,69,96,0.92));
+  box-shadow: 0 4px 14px rgba(233,69,96,0.35);
+}
+.learn-day-today:hover { filter: brightness(1.08); box-shadow: 0 6px 20px rgba(233,69,96,0.50); }
+/* 내일 학습 — 파랑/보라 (미래 학습 = 침착 톤) */
+.learn-day-tomorrow {
+  background: linear-gradient(135deg, rgba(149,117,219,0.95), rgba(83,52,131,0.92));
+  box-shadow: 0 4px 14px rgba(149,117,219,0.35);
+}
+.learn-day-tomorrow:hover { filter: brightness(1.08); box-shadow: 0 6px 20px rgba(149,117,219,0.50); }
+@media (max-width: 480px) {
+  .learn-day-btn { font-size: 13px; padding: 11px 8px; }
+}
+
 /* ───── 축하 폭죽 오버레이 ───── */
 .celebration {
   position: fixed; inset: 0;
@@ -4776,16 +4812,13 @@ function renderTopic(t, hasAccess) {
     }
   }
 
-  // 학습 컨트롤 — 큰 패스 버튼 1개 (펼친 상태 + 접근권 있을 때)
-  // 펼침은 학습 카드 직접 클릭, 완료/다시는 꾹누르기로 처리되므로 버튼은 패스만
+  // ⤴ 패스 버튼 — 우선 숨김. 신규 단어는 카드 본문 하단의 '오늘 학습 / 내일 학습' 버튼으로 처리.
+  //   복원하려면 아래 주석 해제:
+  //   if (opened && !locked) {
+  //     const hasTop = topSubId != null;
+  //     studyBtns = hasTop ? `<div class="study-controls">...</div>` : '';
+  //   }
   let studyBtns = '';
-  if (opened && !locked) {
-    const hasTop = topSubId != null;
-    studyBtns = hasTop ? `
-      <div class="study-controls">
-        <button class="study-btn skip-big" onclick="event.stopPropagation();studyPass(${topSubId},${t.id})" title="맨 위 항목 패스 — 이 챕터에서 펼친 적 있으면 미암기, 없으면 ● 자동">⤴ 패스</button>
-      </div>` : '';
-  }
 
   // 목차별 암기 진도 — understoodSet 기준 비율
   const subsAll = state.subtopicsByTopic[t.id] || [];
@@ -4883,6 +4916,24 @@ function renderSubtopic(s, isCurrent) {
       body = '<div class="empty-state">아직 내용이 없습니다.</div>';
     } else {
       body = items.map(it => renderItem(it)).join('');
+    }
+
+    // 신규 단어용 — 본문 하단에 '오늘 학습 / 내일 학습' 버튼
+    //   - 일반(학습) 모드 + 본문 정상 로드 + 아직 ●가 아닌 카드만
+    //   - 클릭 시 srs-demoting 신비로운 dissolve 후 box 1 또는 2로 등록
+    const itemsReady = Array.isArray(items) && !items.locked && !items.error && items.length > 0;
+    const showLearnDay = !state.memorizedView && !understood && itemsReady;
+    if (showLearnDay) {
+      body += `
+        <div class="learn-day-controls" onclick="event.stopPropagation()">
+          <button class="learn-day-btn learn-day-today"
+                  onclick="event.stopPropagation();studyDayPick(${s.id}, 1)"
+                  title="오늘 학습 박스로 — 즉시 다지기 대상">📚 오늘 학습</button>
+          <button class="learn-day-btn learn-day-tomorrow"
+                  onclick="event.stopPropagation();studyDayPick(${s.id}, 2)"
+                  title="내일 학습 박스로 — 내일부터 다지기 대상">📅 내일 학습</button>
+        </div>
+      `;
     }
 
     // 미래 박스 인벤토리에서는 능동 회상 흐름 사용 안 함 — 본문 즉시 노출 후
@@ -5129,6 +5180,52 @@ function withTopicAnchor(topicId, callback) {
 //   new: 펼쳤으면 box=1 강등(miss=1) / 안 펼쳤으면 box=2 진입
 //   별표/all: 서버 변화 없음 (펼침은 peek에서 이미 처리). 화면에서만 다음 카드로
 //   다지기 오늘/내일/4/8/16/32: was_peeked 기준 advance/강등/유지
+// 신규 단어 — '오늘 학습' / '내일 학습' 선택
+//   targetBox: 1 (오늘) | 2 (내일)
+//   srs-demoting 신비로운 dissolve → state/서버 갱신 → 다지기 박스로 자동 분류
+//   - 1 → /understood (POST) → box=1, due 내일 → effective box=1 = "오늘 학습"
+//   - 2 → /understood/promote (POST) → box=2, due 내일 → "내일 학습"
+async function studyDayPick(subId, targetBox) {
+  if (!state.user) return;
+  const sid = Number(subId);
+  const box = (Number(targetBox) === 2) ? 2 : 1;
+  if (state.understoodSet.has(sid)) { toast('이미 처리된 카드', true); return; }
+
+  // 1) 신비로운 dissolve 애니메이션 (다지기 미래박스 강등과 동일)
+  const cardEl = document.querySelector(`[data-sub="${sid}"]`);
+  if (cardEl) cardEl.classList.add('srs-demoting');
+
+  // 2) 1.4초 후 state + 서버 동시 처리 + 재렌더
+  setTimeout(async () => {
+    // 클라이언트 낙관 갱신 — 서버 응답 대기 없이 즉시 반영
+    state.understoodSet.add(sid);
+    state.understoodBox[sid] = box;
+    const BOX_DUE_DAYS = [null, 0, 1, 4, 8, 16, 32];
+    const days = BOX_DUE_DAYS[box] || 0;
+    const due = new Date(Date.now() + 9 * 3600 * 1000 + days * 86400 * 1000);
+    state.understoodNextReview[sid] = due.toISOString().slice(0, 19).replace('T', ' ');
+    const nowKst = new Date(Date.now() + 9 * 3600 * 1000)
+      .toISOString().replace('T', ' ').slice(0, 19);
+    state.understoodMarkedAt[sid] = nowKst;
+    state.understoodLastMovedAt[sid] = nowKst;
+
+    // 세션 패스 + 펼침 정리 (자연 닫힘)
+    state.passedSet.add(sid);
+    state.expanded.subtopic.delete(sid);
+    state.recentlyFailedFromMemo.delete(sid);
+    savePassed();
+
+    // 서버 동기화 — box=1은 /understood, box=2는 /understood/promote
+    try {
+      if (box === 1) await api('POST', '/understood', { subtopic_id: sid });
+      else           await api('POST', '/understood/promote', { subtopic_id: sid });
+    } catch {}
+
+    // 재렌더
+    if (state.currentChapter) renderTree(state.currentChapter.id);
+  }, 1400);
+}
+
 function studyPass(subId, topicId) {
   const wasOpened = state.everExpandedSet.has(Number(subId));
   state.passedSet.add(Number(subId));
@@ -6239,6 +6336,7 @@ window.toggleTopic = toggleTopic;
 window.collapseAll = collapseAll;
 window.refreshChapter = refreshChapter;
 window.studyPass = studyPass;
+window.studyDayPick = studyDayPick;
 window.toggleMemorizedView = toggleMemorizedView;
 window.switchNormalMode = switchNormalMode;
 window.toggleSrsBox = toggleSrsBox;
