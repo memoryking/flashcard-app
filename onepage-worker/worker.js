@@ -19,6 +19,8 @@ const ALLOWED_ORIGINS = [
   'https://vipup.site',
   'https://www.vipup.site',
   'https://onepage.vipup.site',
+  'https://memoryking.kr',
+  'https://www.memoryking.kr',
   'http://localhost:3000',
   'http://localhost:8080',
   'http://127.0.0.1:5500',
@@ -45,7 +47,7 @@ const REDEEM_DAYS = 30;
 const PING_WINDOW_MIN = 5;
 
 const PAYAPP_API_URL = 'https://api.payapp.kr/oapi/apiLoad.html';
-const STUDENT_APP_ORIGIN = 'https://onepage-study.vercel.app';
+const STUDENT_APP_ORIGIN = 'https://memoryking.kr';
 
 // ── CORS ──────────────────────────────────────────────────────
 function isAllowedOrigin(origin) {
