@@ -2844,9 +2844,25 @@ function renderHome() {
     return;
   }
 
-  // 과목별 그룹핑 — v2.3: 필터 제거. 관심 주제는 그룹 순서 정렬용으로만 사용.
+  // 관심 주제 필터 — 체크된 주제만 표시. 비어있으면 전체 노출.
+  let visibleChapters = state.chapters;
+  if (state.interests.length > 0) {
+    visibleChapters = state.chapters.filter(c =>
+      state.interests.includes(c.subject || '기타')
+    );
+  }
+  if (!visibleChapters.length) {
+    cards.innerHTML = `
+      <div class="empty-state">
+        선택한 관심 주제에 해당하는 챕터가 없습니다.<br>
+        <button onclick="openInterestModal()" style="margin-top:10px;background:rgba(233,69,96,0.2);border:1px solid rgba(233,69,96,0.5);color:#ff8a9e;padding:8px 18px;border-radius:50px;cursor:pointer;font-size:13px;">🎯 관심 주제 편집</button>
+      </div>`;
+    return;
+  }
+
+  // 과목별 그룹핑
   const groups = {};
-  for (const c of state.chapters) {
+  for (const c of visibleChapters) {
     const s = c.subject || '기타';
     if (!groups[s]) groups[s] = [];
     groups[s].push(c);
@@ -2858,18 +2874,10 @@ function renderHome() {
     groups[subj] = sortChaptersBySaved(groups[subj], savedOrder[subj] || []);
   }
 
-  // 과목 그룹 순서 — 관심 주제 먼저, 그 외 알파벳
-  const allSubjects = Object.keys(groups);
-  const interestSet = new Set(state.interests);
-  const interestSubjects = allSubjects.filter(s => interestSet.has(s)).sort();
-  const otherSubjects = allSubjects.filter(s => !interestSet.has(s)).sort();
-  const sortedSubjects = [...interestSubjects, ...otherSubjects];
-
   let html = '';
-  for (const subj of sortedSubjects) {
-    const isInterest = interestSet.has(subj);
+  for (const subj of Object.keys(groups).sort()) {
     html += `<div class="subject-section">
-      <div class="subject-title">${escapeHtml(subj).toUpperCase()}${isInterest ? ' <span style="font-size:10px;color:#ff8a9e;font-weight:600;letter-spacing:0.5px;">🎯 관심</span>' : ''}</div>
+      <div class="subject-title">${escapeHtml(subj).toUpperCase()}</div>
       <div class="chapter-cards" data-subject="${escapeHtml(subj)}">
         ${groups[subj].map(c => renderChapterCard(c)).join('')}
       </div>
@@ -6229,7 +6237,7 @@ async function fpResetPassword() {
 }
 
 // ============================================================
-// 관심 주제 모달 — 체크한 주제는 홈에서 위로 정렬 (v2.3: 필터 X, 우선순위)
+// 관심 주제 모달 — 체크한 주제의 챕터만 홈에 표시 (필터). 비우면 전체 노출.
 // ============================================================
 function openInterestModal() {
   // 전체 과목 목록 — state.chapters에서 distinct subject 추출
@@ -6248,8 +6256,8 @@ function openInterestModal() {
     klass: 'interest-modal',
     body: `
       <p style="font-size:13px;color:rgba(255,255,255,0.7);line-height:1.6;margin-bottom:14px;">
-        체크한 주제가 <strong>홈 화면 위에 먼저</strong> 표시됩니다.<br>
-        다른 주제는 아래로 밀리고, <strong>숨기지는 않아요.</strong>
+        <strong>체크한 주제의 챕터만</strong> 홈 화면에 표시됩니다.<br>
+        비우면 전체 노출.
       </p>
       <div class="interest-list">
         ${checkboxes}
@@ -6278,8 +6286,8 @@ async function saveInterests() {
     state.interests = selected;
     closeModal();
     renderHome();
-    if (selected.length === 0) toast('관심 주제 비움 — 알파벳 순으로 표시');
-    else toast(`관심 주제 ${selected.length}개 — 위로 우선 표시`);
+    if (selected.length === 0) toast('관심 주제 비움 — 전체 챕터 표시');
+    else toast(`관심 주제 ${selected.length}개 저장됨`);
   } catch (e) {
     toast('저장 실패: ' + e.message, true);
   } finally {
