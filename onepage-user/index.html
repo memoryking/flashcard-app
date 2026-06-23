@@ -6391,19 +6391,28 @@ window.closeModal = closeModal;
 // 학습 중(퀴즈/정교화 모드)에는 배너 안 띄움 — 흐름 방해 X.
 const UPDATE_CHECK_INTERVAL_MS = 5 * 60 * 1000;     // 5분 폴링
 const UPDATE_DISMISS_COOLDOWN_MS = 30 * 60 * 1000;  // "나중에" 닫고 30분 침묵
+const UPDATE_LOG = (...a) => { try { console.log('[update]', ...a); } catch {} };
 let _appInitialEtag = null;
 let _updateBannerShown = false;
 
+// HEAD + cache-bust 쿼리 — 일부 PWA/모바일 환경에서 fetch cache:no-store가 무시되는 케이스 우회.
+// 콘텐츠 같으면 ETag도 같음 (Vercel은 URL 쿼리 무시하고 콘텐츠 해시로 ETag 발급).
 async function _fetchAppEtag() {
   try {
-    const res = await fetch(location.pathname || '/', { method: 'HEAD', cache: 'no-store' });
-    return res.headers.get('etag') || res.headers.get('last-modified') || '';
-  } catch { return null; }
+    const base = location.pathname || '/';
+    const sep = base.includes('?') ? '&' : '?';
+    const url = base + sep + '_u=' + Date.now();
+    const res = await fetch(url, { method: 'HEAD', cache: 'no-store' });
+    if (!res.ok) { UPDATE_LOG('HEAD not ok:', res.status); return null; }
+    const tag = res.headers.get('etag') || res.headers.get('last-modified') || '';
+    return tag;
+  } catch (e) { UPDATE_LOG('fetch fail:', e && e.message); return null; }
 }
 
 async function _captureInitialEtag() {
   if (_appInitialEtag) return;
   _appInitialEtag = await _fetchAppEtag();
+  UPDATE_LOG('initial captured:', _appInitialEtag);
 }
 
 function _isUpdateDismissedRecently() {
@@ -6421,9 +6430,13 @@ async function _checkForUpdate() {
   if (_updateBannerShown) return;
   if (_isUpdateDismissedRecently()) return;
   if (!_appInitialEtag) { await _captureInitialEtag(); return; }
-  if (_isLearningActive()) return; // 학습 중엔 다음 체크로 미룸
+  if (_isLearningActive()) { UPDATE_LOG('learning active — defer'); return; }
   const current = await _fetchAppEtag();
-  if (current && current !== _appInitialEtag) _showUpdateBanner();
+  UPDATE_LOG('check: initial=', _appInitialEtag, 'current=', current);
+  if (current && current !== _appInitialEtag) {
+    UPDATE_LOG('CHANGED → show banner');
+    _showUpdateBanner();
+  }
 }
 
 function _showUpdateBanner() {
@@ -6442,6 +6455,7 @@ function _showUpdateBanner() {
 }
 
 function applyUpdate() {
+  // 강력 새로고침 — 쿠키/스토리지는 유지, 캐시는 우회
   try { location.reload(); } catch {}
 }
 
@@ -6452,17 +6466,30 @@ function dismissUpdate() {
   try { localStorage.setItem('op_update_dismissed_at', String(Date.now())); } catch {}
 }
 
+// 디버깅용 — 콘솔에서 checkUpdate() / forceUpdateBanner() 호출 가능
 window.applyUpdate = applyUpdate;
 window.dismissUpdate = dismissUpdate;
+window.checkUpdate = async () => {
+  const cur = await _fetchAppEtag();
+  console.log('initial:', _appInitialEtag, '\ncurrent:', cur, '\nchanged:', _appInitialEtag !== cur,
+              '\ndismissedCool:', _isUpdateDismissedRecently(), '\nbannerShown:', _updateBannerShown);
+  await _checkForUpdate();
+};
+window.forceUpdateBanner = () => { _updateBannerShown = false; _showUpdateBanner(); };
+window.resetUpdateState = () => {
+  _appInitialEtag = null; _updateBannerShown = false;
+  try { localStorage.removeItem('op_update_dismissed_at'); } catch {}
+  console.log('update state reset');
+};
 
-// 초기화 — 페이지 로드 직후 ETag 캡처 → 주기적 + 포커스/visibility 변경 시 비교
+// 초기화 — 리스너 먼저, 캡처 나중 (캡처 중 focus 발생해도 흐름 끊기지 않게)
 setTimeout(async () => {
-  await _captureInitialEtag();
   setInterval(_checkForUpdate, UPDATE_CHECK_INTERVAL_MS);
   window.addEventListener('focus', _checkForUpdate);
   document.addEventListener('visibilitychange', () => {
     if (document.visibilityState === 'visible') _checkForUpdate();
   });
+  await _captureInitialEtag();
 }, 3000); // 3초 후 시작 — 초기 렌더 안 막음
 
 tryAutoLogin();
