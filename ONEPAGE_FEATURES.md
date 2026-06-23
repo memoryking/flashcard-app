@@ -48,7 +48,8 @@
 
 ```
 ┌──────────────────────────────────────────────────────────────┐
-│  학생:   https://onepage-study.vercel.app                     │   ← Vercel
+│  학생:   https://memoryking.kr                                │   ← Vercel (커스텀 도메인)
+│          + https://onepage-study.vercel.app (백업)            │
 │  선생님: github.io/flashcard-app/onepage-teacher.html         │   ← GitHub Pages
 │  CRM:    onepage-crm-*.vercel.app                             │   ← Vercel (teacher 전용)
 │  랜딩:   vipup.site/onepage-study (아임웹 페이지에 iframe)      │
@@ -420,16 +421,22 @@ https://vipup.site/onepage?ref=ABC123
 - `OnepageUsers.interests` — 콤마 구분 과목 문자열 (예: `"수능,토익"`)
 - 빈 값 또는 미설정 → 전체 챕터 노출 (필터 OFF가 기본)
 
-### 학생 앱 동작
-- 우상단 **👤 계정** 모달 → **🎯 관심 주제 → 편집** 모달에서 체크박스로 선택 + 필터 토글
-- 필터 ON + interests 비어있지 않으면 그 과목의 챕터만 홈에 표시
-- 필터 OFF 또는 interests 빈 값 → 전체 노출
-- 필터 토글 상태는 `localStorage` 에 phone별로 저장 (새로고침해도 유지)
+### 학생 앱 동작 (v2.2 — 토글 제거)
+- 우상단 **👤 계정** 모달 → **🎯 관심 주제 → 편집** 모달에서 체크박스로 선택
+- interests 비어있지 **않으면 그 과목의 챕터만** 홈에 표시. 비우면 전체 노출.
+- 모달 하단 **"전체 보기 (모두 해제)"** 버튼 — 한 번에 비우기
+- 옛 ON/OFF 토글 + `INTEREST_FILTER_KEY` localStorage 제거 (단일 멘탈 모델: "관심 주제 = 보고 싶은 목록")
+
+### CRM QR 생성기 — 관심 주제 자동 추가
+- 어트리뷰션 탭의 QR 빌더에 **챕터 DB 기반 자동 체크박스** 그리드
+- `state.chapters`에서 distinct subject 추출 → 체크하면 `?interest=A&interest=B` 자동 부착
+- **"모두 해제"** 버튼으로 한 번에 비우기
+- 저장된 캐페인엔 interests 별도 보존 안 함 (불러올 때 사용자가 다시 체크)
 
 ### URL 파라미터 자동 캡쳐 (마케팅용)
 ```
-https://onepage-study.vercel.app/?interest=수능,토익
-https://onepage-study.vercel.app/?interest=수능&interest=한자
+https://memoryking.kr/?interest=수능,토익
+https://memoryking.kr/?interest=수능&interest=한자
 ```
 - `captureUtmFromUrl()` 이 `?interest=` 파라미터를 파싱해 `localStorage`(30일 TTL)에 누적 저장
 - 다중 방문 시 **누적(union, 중복 제거)** — 한자 광고 클릭 후 영어 광고 클릭 = 둘 다 캡쳐
@@ -1001,7 +1008,7 @@ STEP 3는 4분면 미니 매트릭스로 시각화:
 
 ### URL 구조 (Google Analytics 호환 UTM)
 ```
-https://vipup.site/onepage-study?utm_source=flyer&utm_medium=qr&utm_campaign=school-A&utm_content=design-B
+https://memoryking.kr?utm_source=flyer&utm_medium=qr&utm_campaign=school-A&utm_content=design-B&interest=수능
                                   └─소스─┘     └─매체─┘  └──캐페인──┘    └─디자인/콘텐츠─┘
 ```
 
@@ -1015,7 +1022,7 @@ https://vipup.site/onepage-study?utm_source=flyer&utm_medium=qr&utm_campaign=sch
 
 ### 흐름 (랜딩 → 학생 앱 → CRM)
 ```
-1. 전단지 QR 스캔 → vipup.site/onepage-study?utm_source=...
+1. 전단지 QR 스캔 → memoryking.kr?utm_source=...&interest=수능
 2. 랜딩페이지(iframe)가 utm을 localStorage 'op_utm'에 저장 (30일)
 3. "시작하기" 클릭 → 학생 앱(다른 origin)에 URL 파라미터로 전달
 4. 학생 앱이 utm을 자체 localStorage에 저장 (30일, cross-origin 우회)

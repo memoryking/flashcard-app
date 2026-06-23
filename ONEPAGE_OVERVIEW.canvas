@@ -297,7 +297,7 @@
       "y": 1420,
       "width": 320,
       "height": 280,
-      "text": "### 🛠️ CRM 어드민\n`onepage-crm/index.html`\n\n관리자용 대시보드\n- 사용자 목록·검색\n- 챕터 액세스 부여/회수\n- 포인트 수동 조정\n- 캠페인 발송 (SMS/이메일)\n- Airtable 직접 조회\n\n→ 캠페인 페이로드 → Pabbly",
+      "text": "### 🛠️ CRM 어드민\n`onepage-crm/index.html`\n\n관리자용 대시보드\n- 사용자 목록·검색\n- 챕터 액세스 부여/회수\n- 포인트 수동 조정\n- 캠페인 발송 (SMS/이메일)\n- Airtable 직접 조회\n- **QR + 관심 주제 자동 추가**\n  · 챕터 DB에서 subject 자동 로드\n  · `?interest=A&interest=B` URL 부착\n\n→ 캠페인 페이로드 → Pabbly",
       "color": "1"
     },
     {

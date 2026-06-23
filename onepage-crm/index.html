@@ -320,6 +320,48 @@ table { border-collapse: collapse; width: 100%; }
   border-radius: 8px; padding: 10px 12px; font-family: monospace;
   font-size: 12px; color: #81d4fa; word-break: break-all; margin-top: 6px;
 }
+/* 관심 주제 체크박스 그리드 — QR URL에 ?interest=A&interest=B 자동 추가 */
+.qr-interests-box {
+  background: rgba(79,195,247,0.06);
+  border: 1px solid rgba(79,195,247,0.20);
+  border-radius: 10px;
+  padding: 12px 14px;
+  margin-top: 6px;
+}
+.qr-interests-head {
+  display: flex; align-items: center; justify-content: space-between;
+  gap: 10px; margin-bottom: 8px;
+}
+.qr-interests-head .label {
+  font-size: 13px; font-weight: 700; color: #fff;
+}
+.qr-interests-head .clear-btn {
+  background: rgba(255,255,255,0.08);
+  border: 1px solid rgba(255,255,255,0.15);
+  color: rgba(255,255,255,0.75);
+  font-size: 11px; padding: 4px 10px; border-radius: 6px;
+  cursor: pointer;
+}
+.qr-interests-head .clear-btn:hover { background: rgba(255,255,255,0.14); }
+.qr-interests-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
+  gap: 6px;
+}
+.qr-interests-grid label {
+  display: flex; align-items: center; gap: 6px;
+  font-size: 12.5px; color: rgba(255,255,255,0.82);
+  cursor: pointer;
+  padding: 5px 8px; border-radius: 6px;
+  transition: background 0.12s ease;
+}
+.qr-interests-grid label:hover { background: rgba(255,255,255,0.04); }
+.qr-interests-grid input[type="checkbox"] { width: 14px; height: 14px; cursor: pointer; flex-shrink: 0; }
+.qr-interests-grid input:checked + span { color: #4fc3f7; font-weight: 700; }
+.qr-interests-empty {
+  font-size: 12px; color: rgba(255,255,255,0.4);
+  padding: 8px 0; text-align: center;
+}
 .attr-presets {
   display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
   gap: 6px; margin-bottom: 12px;
@@ -469,7 +511,7 @@ const API = 'https://onepage-api.memoryking.workers.dev';
 const TOKEN_KEY = 'op_crm_token';
 const KST_OFFSET_MS = 9 * 60 * 60 * 1000;
 const KST_TZ = 'Asia/Seoul';
-const LANDING_BASE_URL = 'https://vipup.site/onepage-study';   // QR이 가리키는 랜딩 URL
+const LANDING_BASE_URL = 'https://memoryking.kr';              // QR이 가리키는 랜딩 URL
 
 // ============================================================
 // 상태
@@ -500,7 +542,7 @@ const state = {
   // attribution
   attribution: null,
   attrDays: 90,
-  qrBuilder: { source: 'flyer', medium: 'qr', campaign: '', content: '', term: '' },
+  qrBuilder: { source: 'flyer', medium: 'qr', campaign: '', content: '', term: '', interests: [] },
   savedCampaigns: [],   // 서버에서 로드 (Airtable OnepageCampaigns)
   savedLoaded: false,
 };
@@ -2082,6 +2124,17 @@ function renderAttribution() {
             <input type="text" id="qr_term" placeholder="ex) winter-special">
           </div>
           <div class="form-row">
+            <label>🎯 관심 주제 (선택)</label>
+            <div class="form-hint">체크한 주제가 URL에 추가됩니다 — 그 주제 타겟 사용자가 가입 시 자동으로 그 관심 주제로 등록</div>
+            <div class="qr-interests-box">
+              <div class="qr-interests-head">
+                <div class="label">챕터 DB에서 자동 로드</div>
+                <button type="button" class="clear-btn" onclick="clearQrInterests()">모두 해제</button>
+              </div>
+              <div class="qr-interests-grid" id="qrInterestsGrid"></div>
+            </div>
+          </div>
+          <div class="form-row">
             <label>최종 추적 URL</label>
             <div class="url-display" id="qrUrl">${escapeHtml(LANDING_BASE_URL)}</div>
             <div style="display:flex;gap:6px;margin-top:6px;flex-wrap:wrap">
@@ -2163,6 +2216,8 @@ function renderAttribution() {
   ['qr_source','qr_medium','qr_campaign','qr_content','qr_term'].forEach(id => {
     $(id).oninput = updateQr;
   });
+  // 관심 주제 그리드 — state.chapters에서 자동 로드 (CRM 진입 시 미리 받음)
+  renderQrInterestsGrid();
   updateQr();
 }
 
@@ -2241,12 +2296,14 @@ function loadSavedCampaign(id) {
   state.qrBuilder = {
     source: c.source || '', medium: c.medium || '',
     campaign: c.campaign || '', content: c.content || '', term: c.term || '',
+    interests: [], // 저장된 캐페인엔 관심 주제 별도 보존 안 함 — 사용자가 다시 체크
   };
   $('qr_source').value = state.qrBuilder.source;
   $('qr_medium').value = state.qrBuilder.medium;
   $('qr_campaign').value = state.qrBuilder.campaign;
   $('qr_content').value = state.qrBuilder.content;
   $('qr_term').value = state.qrBuilder.term;
+  document.querySelectorAll('.qr-interest-cb').forEach(cb => { cb.checked = false; });
   updateQr();
   $('qrCanvas').scrollIntoView({ behavior: 'smooth', block: 'center' });
   toast(`"${c.name}" 불러옴`, 'ok');
@@ -2284,8 +2341,46 @@ function buildTrackingUrl() {
     const v = $('qr_' + k)?.value.trim();
     if (v) params.set('utm_' + k, v);
   });
+  // 관심 주제 — 체크된 것들 ?interest=A&interest=B 형태로 추가 (학생 앱이 그대로 파싱)
+  const interests = getSelectedQrInterests();
+  for (const it of interests) params.append('interest', it);
   const qs = params.toString();
   return LANDING_BASE_URL + (qs ? '?' + qs : '');
+}
+
+// 챕터 DB(state.chapters)에서 distinct subject 추출 → 체크박스 그리드 렌더
+function renderQrInterestsGrid() {
+  const target = $('qrInterestsGrid');
+  if (!target) return;
+  const subjects = [...new Set((state.chapters || []).map(c => c.subject || '기타'))]
+    .filter(Boolean).sort();
+  if (subjects.length === 0) {
+    target.innerHTML = '<div class="qr-interests-empty">아직 챕터가 없습니다 — 챕터 추가 후 새로고침</div>';
+    return;
+  }
+  const checked = new Set(state.qrBuilder.interests || []);
+  target.innerHTML = subjects.map(s => `
+    <label>
+      <input type="checkbox" class="qr-interest-cb" value="${escapeHtml(s)}" ${checked.has(s) ? 'checked' : ''} onchange="onQrInterestChange()">
+      <span>${escapeHtml(s)}</span>
+    </label>
+  `).join('');
+}
+
+function getSelectedQrInterests() {
+  const cbs = document.querySelectorAll('.qr-interest-cb:checked');
+  return Array.from(cbs).map(cb => cb.value).filter(Boolean);
+}
+
+function onQrInterestChange() {
+  state.qrBuilder.interests = getSelectedQrInterests();
+  updateQr();
+}
+
+function clearQrInterests() {
+  document.querySelectorAll('.qr-interest-cb').forEach(cb => { cb.checked = false; });
+  state.qrBuilder.interests = [];
+  updateQr();
 }
 function updateQr() {
   const url = buildTrackingUrl();
@@ -2301,6 +2396,7 @@ function updateQr() {
     campaign: $('qr_campaign').value.trim(),
     content: $('qr_content').value.trim(),
     term: $('qr_term').value.trim(),
+    interests: getSelectedQrInterests(),
   };
 
   drawQr(url);
@@ -2319,12 +2415,14 @@ function drawQr(url) {
 }
 function applyAttrPreset(idx) {
   const p = ATTR_PRESETS[idx];
-  state.qrBuilder = { source: p.source, medium: p.medium, campaign: p.campaign, content: p.content, term: '' };
+  state.qrBuilder = { source: p.source, medium: p.medium, campaign: p.campaign, content: p.content, term: '', interests: [] };
   $('qr_source').value = p.source;
   $('qr_medium').value = p.medium;
   $('qr_campaign').value = p.campaign;
   $('qr_content').value = p.content;
   $('qr_term').value = '';
+  // 관심 주제 체크 모두 해제
+  document.querySelectorAll('.qr-interest-cb').forEach(cb => { cb.checked = false; });
   updateQr();
   $('qrCanvas').scrollIntoView({ behavior: 'smooth', block: 'center' });
 }
@@ -2333,7 +2431,7 @@ function rebuildUrlForCampaign(source, medium, campaign, content) {
   function clean(s) { return s === '(없음)' || s === '(직접)' ? '' : s; }
   state.qrBuilder = {
     source: clean(source), medium: clean(medium),
-    campaign: clean(campaign), content: clean(content), term: '',
+    campaign: clean(campaign), content: clean(content), term: '', interests: [],
   };
   switchTab('attribution');
   setTimeout(() => {
@@ -2343,6 +2441,7 @@ function rebuildUrlForCampaign(source, medium, campaign, content) {
       $('qr_campaign').value = state.qrBuilder.campaign;
       $('qr_content').value = state.qrBuilder.content;
       $('qr_term').value = '';
+      document.querySelectorAll('.qr-interest-cb').forEach(cb => { cb.checked = false; });
       updateQr();
       $('qrCanvas').scrollIntoView({ behavior: 'smooth', block: 'center' });
     }
@@ -2416,6 +2515,8 @@ window.openQrUrl = openQrUrl;
 window.downloadQrPng = downloadQrPng;
 window.printQrCode = printQrCode;
 window.saveCampaign = saveCampaign;
+window.clearQrInterests = clearQrInterests;
+window.onQrInterestChange = onQrInterestChange;
 window.loadSavedCampaign = loadSavedCampaign;
 window.deleteSavedCampaign = deleteSavedCampaign;
 window.exportSavedCampaigns = exportSavedCampaigns;

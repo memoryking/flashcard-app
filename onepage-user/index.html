@@ -2104,14 +2104,6 @@ a { color: #4fc3f7; text-decoration: none; }
 }
 
 /* ─── 관심 주제 모달 ─── */
-.interest-modal .interest-toggle {
-  display: flex; align-items: center; gap: 10px;
-  padding: 12px 14px; background: rgba(233,69,96,0.10);
-  border: 1px solid rgba(233,69,96,0.3); border-radius: 8px;
-  margin-bottom: 14px; cursor: pointer; user-select: none;
-  font-size: 13px; font-weight: 600; color: #ff8a9e;
-}
-.interest-modal .interest-toggle input { width: 18px; height: 18px; cursor: pointer; }
 .interest-modal .interest-list {
   max-height: 320px; overflow-y: auto;
   display: flex; flex-direction: column; gap: 6px;
@@ -2349,7 +2341,6 @@ const TOKEN_KEY = 'op_user_token';
 const REF_KEY = 'op_ref_code';
 const UTM_KEY = 'op_utm';
 const INTERESTS_KEY = 'op_interests_pending'; // 가입 전 URL에서 캡쳐한 관심 주제
-const INTEREST_FILTER_KEY = 'op_interest_filter'; // 필터 ON/OFF 토글 저장 (사용자별 phone 기준)
 const UTM_TTL_MS = 30 * 24 * 3600 * 1000;   // 30일 유지 (재방문 시까지 어트리뷰션 유지)
 const LANDING_URL = 'https://vipup.site/onepage';   // 결제 안내 페이지
 const REDEEM_COST = 3000;
@@ -2421,7 +2412,6 @@ const state = {
   pingTimer: null,
   liveTimer: null,
   interests: [],          // 사용자가 저장한 관심 주제 (subject 배열)
-  interestFilterOn: false, // 홈 필터 ON/OFF — interests가 있으면 기본 ON
 };
 
 // ============================================================
@@ -2748,11 +2738,6 @@ async function loadMeAndEnter() {
     state.point = Number(r.user.point) || 0;
     state.chapterAccess = r.chapter_access || {};
     state.interests = Array.isArray(r.user.interests) ? r.user.interests : [];
-    // 필터 ON/OFF: localStorage에 저장한 값이 있으면 그대로, 없으면 interests 있을 때 기본 ON
-    const savedToggle = localStorage.getItem(INTEREST_FILTER_KEY + '_' + (r.user.phone || ''));
-    if (savedToggle === '1') state.interestFilterOn = state.interests.length > 0;
-    else if (savedToggle === '0') state.interestFilterOn = false;
-    else state.interestFilterOn = state.interests.length > 0;
     renderWatermark();
     await enterHome();
   } finally {
@@ -2830,9 +2815,10 @@ function renderHome() {
     return;
   }
 
-  // 관심 주제 필터 (ON이고 interests 있을 때만 적용)
+  // 관심 주제 필터 — 관심 주제가 있으면 무조건 적용. 비우면 전체 노출.
+  //   토글 제거 (v2.2): "관심 주제 = 보고 싶은 목록" 단일 멘탈 모델
   let visibleChapters = state.chapters;
-  if (state.interestFilterOn && state.interests.length > 0) {
+  if (state.interests.length > 0) {
     visibleChapters = state.chapters.filter(c =>
       state.interests.includes(c.subject || '기타')
     );
@@ -6179,7 +6165,6 @@ function openInterestModal() {
   // 전체 과목 목록 — state.chapters에서 distinct subject 추출
   const allSubjects = [...new Set(state.chapters.map(c => c.subject || '기타'))].sort();
   const selectedSet = new Set(state.interests);
-  const filterOn = state.interestFilterOn;
   const checkboxes = allSubjects.length === 0
     ? '<div style="text-align:center;color:rgba(255,255,255,0.5);font-size:13px;padding:20px 0;">아직 챕터가 없습니다.</div>'
     : allSubjects.map(subj => `
@@ -6193,39 +6178,37 @@ function openInterestModal() {
     klass: 'interest-modal',
     body: `
       <p style="font-size:13px;color:rgba(255,255,255,0.7);line-height:1.6;margin-bottom:14px;">
-        체크한 과목의 챕터만 홈 화면에 표시됩니다. 비우면 전체 노출.
+        체크한 과목의 챕터만 홈 화면에 표시됩니다. <strong>비우면 전체 노출.</strong>
       </p>
-      <label class="interest-toggle">
-        <input type="checkbox" id="interestFilterToggle" ${filterOn ? 'checked' : ''}>
-        <span>관심 주제 필터 사용</span>
-      </label>
       <div class="interest-list">
         ${checkboxes}
       </div>
     `,
     foot: `
+      <button onclick="clearAllInterests()" style="background:rgba(255,255,255,0.06);">전체 보기 (모두 해제)</button>
       <button onclick="closeModal()">취소</button>
       <button class="primary" onclick="saveInterests()">저장</button>
     `
   });
 }
 
+function clearAllInterests() {
+  // 모달 안의 모든 체크박스 해제 (저장은 사용자가 '저장' 누를 때)
+  document.querySelectorAll('.interest-cb').forEach(cb => { cb.checked = false; });
+}
+
 async function saveInterests() {
   const cbs = document.querySelectorAll('.interest-cb');
   const selected = [];
   cbs.forEach(cb => { if (cb.checked) selected.push(cb.value); });
-  const filterOn = $('interestFilterToggle').checked;
   showLoading(true);
   try {
     await api('PUT', '/auth/me/interests', { interests: selected });
     state.interests = selected;
-    state.interestFilterOn = filterOn && selected.length > 0;
-    // 필터 토글 상태도 사용자별로 localStorage 저장
-    const key = INTEREST_FILTER_KEY + '_' + (state.user.phone || '');
-    localStorage.setItem(key, state.interestFilterOn ? '1' : '0');
     closeModal();
     renderHome();
-    toast(`관심 주제 ${selected.length}개 저장됨 (Airtable 동기화 완료)`);
+    if (selected.length === 0) toast('관심 주제 비움 — 전체 챕터 표시');
+    else toast(`관심 주제 ${selected.length}개 저장됨`);
   } catch (e) {
     toast('저장 실패: ' + e.message, true);
   } finally {
@@ -6366,6 +6349,7 @@ window.openReferralModal = openReferralModal;
 window.openPointModal = openPointModal;
 window.openInterestModal = openInterestModal;
 window.saveInterests = saveInterests;
+window.clearAllInterests = clearAllInterests;
 window.openAccountModal = openAccountModal;
 window.openGuide = openGuide;
 window.openChangePasswordModal = openChangePasswordModal;
