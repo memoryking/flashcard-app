@@ -185,7 +185,51 @@
     width: 100%; height: auto;   /* 본인 비율 유지 */
     display: block;
     background: #000;
+    cursor: zoom-in;              /* 확대 가능 표시 */
+    transition: filter 0.18s ease, transform 0.18s ease;
   }
+  .tour-shot img:hover { filter: brightness(1.1); transform: scale(1.01); }
+
+  /* ───────── Lightbox (전체보기 이미지 확대) ───────── */
+  .lightbox {
+    display: none;
+    position: fixed; inset: 0;
+    background: rgba(0,0,0,0.94);
+    z-index: 9999;
+    align-items: center; justify-content: center;
+    padding: 32px 16px;
+    cursor: zoom-out;
+    -webkit-tap-highlight-color: transparent;
+    animation: lightboxIn 200ms ease;
+  }
+  .lightbox.open { display: flex; }
+  @keyframes lightboxIn { 0% { opacity: 0; } 100% { opacity: 1; } }
+  .lightbox img {
+    max-width: 100%;
+    max-height: 100%;
+    object-fit: contain;
+    border-radius: 12px;
+    box-shadow: 0 24px 60px rgba(0,0,0,0.7);
+    animation: lightboxImgIn 280ms cubic-bezier(0.22, 0.95, 0.30, 1.12);
+  }
+  @keyframes lightboxImgIn {
+    0%   { opacity: 0; transform: scale(0.92); }
+    100% { opacity: 1; transform: scale(1); }
+  }
+  .lightbox-close {
+    position: fixed;
+    top: 16px; right: 18px;
+    background: rgba(255,255,255,0.14);
+    border: 1px solid rgba(255,255,255,0.28);
+    color: #fff;
+    width: 42px; height: 42px;
+    border-radius: 50%;
+    font-size: 22px; font-weight: 700; line-height: 1;
+    cursor: pointer;
+    display: flex; align-items: center; justify-content: center;
+    transition: background 0.15s ease;
+  }
+  .lightbox-close:hover { background: rgba(255,255,255,0.26); }
   .tour-empty {
     position: absolute; inset: 0;
     display: flex; flex-direction: column;
@@ -723,6 +767,12 @@
 
 </div>
 
+<!-- Lightbox — 전체보기 이미지 클릭 시 확대 -->
+<div class="lightbox" id="lightbox" onclick="closeLightbox()">
+  <img id="lightboxImg" alt="">
+  <button class="lightbox-close" onclick="event.stopPropagation();closeLightbox()" title="닫기 (ESC)">×</button>
+</div>
+
 <script>
   // ───────── 진행 도트 ─────────
   // 7개 스텝 도트를 만들고, 현재 화면에 가까운 스텝을 강조
@@ -762,6 +812,31 @@
 
   // ───────── 첫 방문 표시 저장 ─────────
   try { localStorage.setItem('op_guide_seen', '1'); } catch {}
+
+  // ───────── Lightbox — 전체보기 이미지 클릭 시 확대 ─────────
+  //   이벤트 위임 — 나중에 <img>로 placeholder 교체해도 자동 동작
+  const lightbox = document.getElementById('lightbox');
+  const lightboxImg = document.getElementById('lightboxImg');
+  document.addEventListener('click', (e) => {
+    const img = e.target;
+    if (img && img.tagName === 'IMG' && img.closest('.tour-shot')) {
+      lightboxImg.src = img.currentSrc || img.src;
+      lightboxImg.alt = img.alt || '';
+      lightbox.classList.add('open');
+      document.body.style.overflow = 'hidden'; // 배경 스크롤 잠금
+    }
+  });
+  function closeLightbox() {
+    lightbox.classList.remove('open');
+    document.body.style.overflow = '';
+    // 다음 열기 fresh — 200ms 후 src 비움 (애니메이션 끝난 뒤)
+    setTimeout(() => { lightboxImg.src = ''; }, 200);
+  }
+  window.closeLightbox = closeLightbox;
+  // ESC 키로 닫기
+  document.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape' && lightbox.classList.contains('open')) closeLightbox();
+  });
 </script>
 
 </body>
