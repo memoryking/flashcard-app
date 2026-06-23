@@ -127,7 +127,7 @@
       "y": -20,
       "width": 320,
       "height": 200,
-      "text": "### 🃏 덱 스택 시각화\n두 더미 — 학습 카드 + 퀴즈\n\n- 동적 두께 (카드 수 비례)\n- 미래 박스: 인벤토리 뷰\n- 펼친 카드 → 접으면 강등\n- mystical dissolve 애니메이션",
+      "text": "### 🃏 덱 스택 시각화\n세 더미 — 정교화 · 음성 · 첫글자\n\n- 색상이 버튼 색과 매칭\n  · 정교화 빨강 / 음성 파랑 / 첫글자 보라\n- 음성·첫글자 독립 카운트\n- 정교화 ✓ → 양쪽 모두 cascade 감소\n- 동적 두께 (카드 수 비례)\n- 미래 박스: 인벤토리 뷰\n- 펼친 카드 → 접으면 강등 (mystical dissolve)",
       "color": "5"
     },
     {
@@ -157,7 +157,7 @@
       "y": 500,
       "width": 320,
       "height": 320,
-      "text": "### 🎤 음성 퀴즈 (4초)\n발음 → 음성 인식 → 채점\n\n- SpeechRecognition (Web)\n- onstart 이벤트로 타이머 (모바일)\n- 자동/수동 모드\n- 문제 읽기 (TTS) 토글\n- 마이크 사전 체크 (PC)\n- 한자/국기는 읽기 OFF\n- 최근 오답 FIFO 3 (후순위)\n- SRS 영향 없음 (quizDoneSet)",
+      "text": "### 🎤 음성 퀴즈 (4초)\n발음 → 음성 인식 → 채점\n\n- SpeechRecognition (Web)\n- onstart 이벤트로 타이머 (모바일)\n- 자동/수동 모드\n- 문제 읽기 (TTS) 토글\n- 마이크 사전 체크 (PC)\n- 한자/국기는 읽기 OFF\n- 최근 오답 FIFO 3 (후순위)\n- SRS 영향 없음 (quizDoneSetVoice 독립)",
       "color": "2"
     },
     {
@@ -167,7 +167,7 @@
       "y": 500,
       "width": 320,
       "height": 240,
-      "text": "### ✏️ 첫글자 퀴즈\n2지선다 — 정답 첫 글자 고르기\n\n- 음성 인식 안 되는 환경용\n- 같은 챕터에서 오답 후보 추출\n- 동일 채점/SRS 정책\n- 정답 시 ding · 오답 시 buzz",
+      "text": "### ✏️ 첫글자 퀴즈\n2지선다 — 정답 첫 글자 고르기\n\n- 음성 인식 안 되는 환경용\n- 같은 챕터에서 오답 후보 추출\n- quizDoneSetFirstLetter 독립 풀\n- 정답 시 ding · 오답 시 buzz",
       "color": "2"
     },
     {
