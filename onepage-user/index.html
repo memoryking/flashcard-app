@@ -924,15 +924,15 @@ a { color: #4fc3f7; text-decoration: none; }
   font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
 }
 
-/* Tone variants for 두 stack 색 구분 */
-/* 오늘 학습 (정교화) — 빨강 톤 */
+/* Tone variants for 3 stack 색 구분 — 버튼 색상과 매칭 */
+/* 정교화 풀 — 초록 (vq-toggle-elab 버튼과 동일 색) */
 .srs-deck-today .deck-back-card {
-  background: linear-gradient(135deg, rgba(233,69,96,0.42), rgba(180,30,60,0.28));
-  border-color: rgba(233,69,96,0.55);
+  background: linear-gradient(135deg, rgba(129,199,132,0.42), rgba(67,160,71,0.28));
+  border-color: rgba(129,199,132,0.55);
 }
 .srs-deck-today .deck-back-card.deck-top {
-  background: linear-gradient(135deg, rgba(255,138,158,0.70), rgba(233,69,96,0.55));
-  border-color: rgba(255,138,158,0.85);
+  background: linear-gradient(135deg, rgba(165,214,167,0.78), rgba(129,199,132,0.60));
+  border-color: rgba(165,214,167,0.90);
   box-shadow: 0 6px 14px rgba(0,0,0,0.42), inset 0 1px 0 rgba(255,255,255,0.25), inset 0 -1px 0 rgba(0,0,0,0.15);
 }
 /* 퀴즈 풀 — 주황/노랑 톤 (레거시, 현재 미사용) */
@@ -3206,7 +3206,7 @@ function renderMemorizedView(chapterId, hasAccess) {
     const elabBtn = `<button class="vq-toggle vq-toggle-elab vq-third" onclick="startElaboration()">🧠 정교화</button>`;
     if (voiceQ) {
       const others = `
-        <button class="vq-toggle vq-toggle-start vq-third" onclick="startVoiceQuiz()">🎤 음성 (4초)</button>
+        <button class="vq-toggle vq-toggle-start vq-third" onclick="startVoiceQuiz()">🎤 말하기</button>
         <button class="vq-toggle vq-toggle-fl vq-third" onclick="startFirstLetterQuiz()">✏️ 첫글자</button>
       `;
       quizBtnHtml = renderVoiceQuizSettings() + `<div class="vq-start-row">${elabBtn}${others}</div>`;
