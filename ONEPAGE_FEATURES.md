@@ -26,6 +26,7 @@
 20. [데이터 모델](#20-데이터-모델)
 21. [Worker 엔드포인트](#21-worker-엔드포인트)
 22. [Cloudflare Workers 청크 처리](#22-cloudflare-workers-청크-처리)
+23. [v2 학습 시스템 (단일 카드 + 퀴즈)](#23-v2-학습-시스템-단일-카드--퀴즈)
 
 ---
 
@@ -1404,10 +1405,11 @@ while (true) {
 ### 23.4 음성 퀴즈 / 첫글자 퀴즈 (단어-뜻 빠른 연결)
 **전제**: `op_chapters.voice_quiz_enabled=1` 인 챕터. items[0] = 정답.
 
-**🎤 음성 퀴즈** (4초 타이머):
+**🎤 말하기 퀴즈** (4초 타이머, 버튼 라벨 "말하기"):
 - Web Speech API SpeechRecognition (브라우저 STT)
 - 카드 등장 → (선택) TTS 제목 → 마이크 4초 listening
 - STT 결과 vs items[0] 정규화 비교 (한국어/영어 + 후보 5개 중 매칭)
+- onstart 이벤트로 타이머 시작 — 모바일 listening 지연 보정
 - 마이크 미연결 PC: enumerateDevices() 사전 체크 + 안내 toast
 
 **✏️ 첫글자 퀴즈** (객관식 2지선다):
@@ -1417,13 +1419,25 @@ while (true) {
 **공통 설정** (localStorage 영속):
 - 수동/자동 모드 — 자동은 hands-free (오답도 자동 진행)
 - 🔊 문제 읽기 ON/OFF — TTS 제목 + 결과 뜻 읽기
-- 시작 버튼 옆 **남은 카드 수 badge** (주황: 진행 중, 초록: 클리어)
+- 🔔 효과음 ON/OFF (문제 읽기 ON 시 자동 ON)
+- 최근 오답 3개 FIFO 후순위 (바로 다시 안 나옴)
 
-**중요 결정**: 퀴즈는 **SRS 박스 변경 안 함** — 단순 단어-뜻 연결 확인용
-- 정답 → `state.quizDoneSet.add(sid)` → 카운트 -1
-- 오답 → `state.quizLastWrongSid = sid` (후순위로 다시 보임 — 무한 반복)
-- 카드 터치 학습 ✓ → 자동으로 box+1 → quizDoneSet에서 자연 제외
-- 카드 터치 학습 ✗ → `quizDoneSet.delete(sid)` → 퀴즈 풀에 재등재
+**3-stack 풀 모델 (v2.1)** — 정교화/음성/첫글자 **독립 카운트**:
+- `state.quizDoneSetVoice` — 🎤 말하기 정답 카드
+- `state.quizDoneSetFirstLetter` — ✏️ 첫글자 정답 카드
+- 우상단 deck stack 3개 (정교화 초록 / 말하기 파랑 / 첫글자 보라) — **버튼 색상과 1:1 매칭**
+
+**Cascade 규칙**:
+| 액션 | 정교화 | 말하기 | 첫글자 |
+|------|--------|--------|--------|
+| 🎤 정답 | 그대로 | −1 | 그대로 |
+| ✏️ 정답 | 그대로 | 그대로 | −1 |
+| 🧠 정교화 ✓ (학습 OK) | box+1 (자연 제외) | −1 cascade | −1 cascade |
+| 🧠 정교화 ✗ (더 학습) | peek+pass | done 해제 (재등재) | done 해제 (재등재) |
+| 미래 박스 데모트 | 오늘 박스 합류 | done 해제 (fresh) | done 해제 (fresh) |
+
+**중요 결정**: 퀴즈는 **SRS 박스 변경 안 함** — 단순 단어-뜻 연결 확인용.
+정교화 학습만이 box 진행에 영향.
 
 ### 23.5 사진 스냅샷 결과 + 띵동/삑 신호음
 정답/오답 시 카드 전체가 색상으로 변하고 단어/뜻이 크게 위·아래로 표시 (사진 찍히듯).
@@ -1437,3 +1451,49 @@ while (true) {
 - **new**: 아직 학습 안 한 카드만 (op_understood 행 없음)
 - **★ 별표**: `miss_count > 0` 인 카드, miss 많은 순 정렬. ★ 1-2=1개, 3-4=2개, 5-6=3개, 7-8=4개, 9+=5개
 - **all**: 모든 카드 + 박스 위치 라벨 (오늘/내일/4일/8일/16일/32일) + ★ 누적
+
+### 23.7 격려 음성 — 사람 녹음 mp3
+브라우저 TTS는 OS별 품질 편차 큼 (Windows Heami 로봇 톤). 사람 녹음 mp3로 교체.
+
+**파일** (`onepage-user/guide-media/`):
+- `encourage-start.mp3` — 모드 시작 ("시작합니다 화이팅")
+- `encourage-halfway.mp3` — 20개 이하 ("조금만 더 힘내세요")
+- `encourage-clear.mp3` — 모두 풀음 ("잘 했습니다")
+
+**재생 로직**: `speakEncouragement(key, onDone)` — `<audio>` 단일 인스턴스, 동시 재생 방지.
+**시작 멘트 후 첫 문제 읽기** — onended 콜백 안에서 `voiceQuizNextCard()` 호출 → TTS 겹침 방지.
+
+### 23.8 정교화 학습 모드 (모드 진입 + 자연 종료 dissolve)
+다지기 진입 시 박스 전부 닫힘 (b=1 포함). **모드 버튼만이 박스 펼침**:
+- 🧠 정교화 / 🎤 말하기 / ✏️ 첫글자 — 각 버튼이 box 1 열고 모드 시작
+- "오늘 학습" 헤더 클릭 → 무반응 (잠금)
+
+**자연 종료 시 dissolve**:
+- 더 풀 카드 없음 → 🎉 "끝났어요" 메시지 1.4초 노출
+- 0.7초 dissolve 애니메이션 (opacity + blur + scale)
+- 스테이지 자동 닫힘
+- 수동 × 중단은 기존대로 즉시 닫힘 (메시지 없음)
+
+### 23.9 ETag 기반 자동 업데이트 감지
+Service worker 없이 Vercel의 자동 ETag 헤더 활용 — 배포 후 활성 사용자에게 비침습적 알림.
+
+**동작**:
+1. 앱 시작 3초 후 자기 자신(`index.html`) HEAD 요청 → 초기 ETag 캡처
+2. 5분 폴링 + `focus`/`visibilitychange` 시 비교
+3. ETag 다르면 상단에 ✨ "새 버전이 있어요" 배너 (지금 업데이트 / 나중에)
+4. 학습 중(퀴즈/정교화 모드)엔 미룸 — 다음 체크에서 다시 시도
+5. "나중에" 닫으면 `localStorage.op_update_dismissed_at` 기록 → 30분 쿨다운
+
+**개발자 수동 작업 0** — `git push`만 하면 됨. Vercel이 콘텐츠 해시 기반 ETag 자동 발급.
+**한계**: `index.html` 변경 시에만 트리거. 자산 단독 교체 시 배너 안 뜸 (자연 갱신은 됨).
+
+### 23.10 커스텀 도메인 (memoryking.kr)
+`onepage-study.vercel.app` + `memoryking.kr` 듀얼 운영.
+
+**Worker CORS** (`onepage-worker/worker.js`):
+- `ALLOWED_ORIGINS`: memoryking.github.io, vipup.site, onepage.vipup.site, **memoryking.kr**, **www.memoryking.kr**, localhost들
+- `ALLOWED_ORIGIN_PATTERNS`: `/^https:\/\/[a-z0-9-]+\.vercel\.app$/i` (모든 vercel.app 서브도메인)
+
+**PayApp 결제 리턴 URL**: `STUDENT_APP_ORIGIN = 'https://memoryking.kr'` (vercel.app → 커스텀 도메인 전환).
+
+**배포**: Worker는 GitHub auto-deploy 없음 — `cd onepage-worker && wrangler deploy` 수동 실행 필수.
