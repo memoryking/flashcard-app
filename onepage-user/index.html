@@ -935,7 +935,7 @@ a { color: #4fc3f7; text-decoration: none; }
   border-color: rgba(255,138,158,0.85);
   box-shadow: 0 6px 14px rgba(0,0,0,0.42), inset 0 1px 0 rgba(255,255,255,0.25), inset 0 -1px 0 rgba(0,0,0,0.15);
 }
-/* 퀴즈 풀 — 주황/노랑 톤 */
+/* 퀴즈 풀 — 주황/노랑 톤 (레거시, 현재 미사용) */
 .srs-deck-quiz .deck-back-card {
   background: linear-gradient(135deg, rgba(255,138,0,0.42), rgba(220,90,20,0.28));
   border-color: rgba(255,138,0,0.55);
@@ -943,6 +943,26 @@ a { color: #4fc3f7; text-decoration: none; }
 .srs-deck-quiz .deck-back-card.deck-top {
   background: linear-gradient(135deg, rgba(255,193,7,0.70), rgba(255,138,0,0.55));
   border-color: rgba(255,193,7,0.85);
+  box-shadow: 0 6px 14px rgba(0,0,0,0.42), inset 0 1px 0 rgba(255,255,255,0.25), inset 0 -1px 0 rgba(0,0,0,0.15);
+}
+/* 음성 퀴즈 풀 — 파랑 (vq-toggle-start 버튼과 동일 색) */
+.srs-deck-voice .deck-back-card {
+  background: linear-gradient(135deg, rgba(79,195,247,0.42), rgba(38,150,210,0.28));
+  border-color: rgba(79,195,247,0.55);
+}
+.srs-deck-voice .deck-back-card.deck-top {
+  background: linear-gradient(135deg, rgba(129,212,250,0.78), rgba(79,195,247,0.60));
+  border-color: rgba(129,212,250,0.90);
+  box-shadow: 0 6px 14px rgba(0,0,0,0.42), inset 0 1px 0 rgba(255,255,255,0.25), inset 0 -1px 0 rgba(0,0,0,0.15);
+}
+/* 첫글자 퀴즈 풀 — 보라 (vq-toggle-fl 버튼과 동일 색) */
+.srs-deck-fl .deck-back-card {
+  background: linear-gradient(135deg, rgba(186,156,245,0.42), rgba(149,117,219,0.28));
+  border-color: rgba(186,156,245,0.55);
+}
+.srs-deck-fl .deck-back-card.deck-top {
+  background: linear-gradient(135deg, rgba(206,180,255,0.78), rgba(186,156,245,0.60));
+  border-color: rgba(206,180,255,0.90);
   box-shadow: 0 6px 14px rgba(0,0,0,0.42), inset 0 1px 0 rgba(255,255,255,0.25), inset 0 -1px 0 rgba(0,0,0,0.15);
 }
 
@@ -2347,7 +2367,9 @@ const state = {
   firstLetterQuizChoices: [],   // [{char, isCorrect}] 2개, 셔플됨
   firstLetterQuizSelected: '',  // 사용자가 고른 글자
   firstLetterQuizExpected: '',  // 정답 텍스트 (items[0])
-  quizDoneSet: new Set(),       // 음성/첫글자 퀴즈에서 "정답"으로 클리어된 카드 — 오답은 추가 안 됨
+  quizDoneSetVoice: new Set(),       // 🎤 음성 퀴즈 정답 카드 (독립 집합)
+  quizDoneSetFirstLetter: new Set(), // ✏️ 첫글자 퀴즈 정답 카드 (독립 집합)
+  // 정교화 ✓는 두 집합에 cascade. 정교화 ✗는 두 집합에서 cascade 제거.
   quizRecentWrongs: [],         // 최근 오답 카드 FIFO (최대 3개) — 다음 카드 선택 시 후순위로
   elaborationActive: false,     // 정교화 학습 모드 (포커스 모드) — 상단 chrome 숨기고 카드만 집중
   quizSoundEnabled: (() => { try { return localStorage.getItem('op_quiz_sound') !== '0'; } catch { return true; } })(), // 효과음 + 격려 음성 ON/OFF
@@ -3121,21 +3143,25 @@ function renderMemorizedView(chapterId, hasAccess) {
 
   // 오늘 학습 (b=1): 단일 카드 스테이지로 렌더 (큰 카드 + 우상단 더미 시각화)
   // 음성 퀴즈 또는 첫글자 퀴즈 활성 시 포커스 카드를 해당 모드 카드로 대체.
-  // 퀴즈는 SRS 박스 변경 없이 quizDoneSet에만 추가 → 우상단 카운트만 줄어듦
+  // 퀴즈는 SRS 박스 변경 없이 각 mode set에만 추가 → 해당 stack 카운트만 줄어듦
+  //   3-stack 모델: 정교화(today byBox[1]) · 음성(quizDoneSetVoice 제외) · 첫글자(quizDoneSetFirstLetter 제외)
   let todayStageHtml;
   if (state.voiceQuizActive || state.firstLetterQuizActive) {
-    // pendingCards: 카운트(badge/스택)용 — quizDoneSet만 제외
-    const pendingCards = byBox[1].filter(s => !state.quizDoneSet.has(Number(s.id)));
-    const pendingCount = pendingCards.length;
-    const currentQuizSid = voiceQuizCurrentCardId();
+    const activeMode = state.voiceQuizActive ? 'voice' : 'firstLetter';
+    const activeDoneSet = activeMode === 'voice' ? state.quizDoneSetVoice : state.quizDoneSetFirstLetter;
+    const pendingCards = byBox[1].filter(s => !activeDoneSet.has(Number(s.id)));
+    const currentQuizSid = voiceQuizCurrentCardId(activeMode);
+    const voicePending = byBox[1].filter(s => !state.quizDoneSetVoice.has(Number(s.id))).length;
+    const flPending = byBox[1].filter(s => !state.quizDoneSetFirstLetter.has(Number(s.id))).length;
     const todayStack = renderDeckStack(byBox[1].length, 'today');
-    const quizStack = renderDeckStack(pendingCount, 'quiz');
+    const voiceStack = renderDeckStack(voicePending, 'voice');
+    const flStack = renderDeckStack(flPending, 'fl');
     const stopFn = state.voiceQuizActive ? 'stopVoiceQuiz' : 'stopFirstLetterQuiz';
     const stopBtnHtml = `<button class="vq-stop-small" onclick="event.stopPropagation();${stopFn}()" title="퀴즈 중단">× 중단</button>`;
     if (state.voiceQuizActive) {
-      todayStageHtml = `<div class="srs-today-stage open vq-active"><div class="stage-head"><span class="stage-name">🎤 음성 퀴즈</span>${stopBtnHtml}<div class="stage-counts">${todayStack}${quizStack}</div></div>${renderVoiceQuizCard(pendingCards, currentQuizSid)}</div>`;
+      todayStageHtml = `<div class="srs-today-stage open vq-active"><div class="stage-head"><span class="stage-name">🎤 음성 퀴즈</span>${stopBtnHtml}<div class="stage-counts">${todayStack}${voiceStack}${flStack}</div></div>${renderVoiceQuizCard(pendingCards, currentQuizSid)}</div>`;
     } else {
-      todayStageHtml = `<div class="srs-today-stage open fl-active"><div class="stage-head"><span class="stage-name">✏️ 첫글자 퀴즈</span>${stopBtnHtml}<div class="stage-counts">${todayStack}${quizStack}</div></div>${renderFirstLetterQuizCard(pendingCards, currentQuizSid)}</div>`;
+      todayStageHtml = `<div class="srs-today-stage open fl-active"><div class="stage-head"><span class="stage-name">✏️ 첫글자 퀴즈</span>${stopBtnHtml}<div class="stage-counts">${todayStack}${voiceStack}${flStack}</div></div>${renderFirstLetterQuizCard(pendingCards, currentQuizSid)}</div>`;
     }
   } else {
     todayStageHtml = renderTodayStage(byBox[1], hasAccess);
@@ -3250,11 +3276,17 @@ function todayStageJudge(subId, correct) {
   state.activeRecallRevealed.delete(sid);
   const finalize = () => {
     memorizedPass(sid, { forcePeeked: !correct });
-    if (correct) state.quizDoneSet.add(sid);
-    else state.quizDoneSet.delete(sid);
-    // ✓ correct 일 때만 milestone 발사 (✗ 는 pending 증가 — 격려 의미 없음)
+    // 정교화 cascade — ✓이면 음성·첫글자 두 set에 동시 추가, ✗이면 두 set에서 동시 제거
     if (correct) {
-      const milestoneText = getMilestoneText(quizStats().pending);
+      state.quizDoneSetVoice.add(sid);
+      state.quizDoneSetFirstLetter.add(sid);
+    } else {
+      state.quizDoneSetVoice.delete(sid);
+      state.quizDoneSetFirstLetter.delete(sid);
+    }
+    // ✓ correct 일 때만 milestone 발사 (정교화 milestone은 voice 풀 기준 — 양쪽 cascade라 의미 동일)
+    if (correct) {
+      const milestoneText = getMilestoneText(quizStats('voice').pending);
       if (milestoneText) speakEncouragement(milestoneText, () => {});
     }
   };
@@ -3315,8 +3347,10 @@ function pushQuizWrong(sid) {
 //  1. byBox[1] effective + 스냅샷 + 퀴즈에서 클리어 안 됨 후보 모음
 //  2. 최근 오답 카드들(quizRecentWrongs)은 다른 후보가 있으면 후순위 (3개까지 추적)
 //  3. last_moved_at 오래된 순 + sort_order로 정렬
-function voiceQuizCurrentCardId() {
+function voiceQuizCurrentCardId(mode) {
+  // mode: 'voice' (기본) | 'firstLetter' — 모드별 별도 done set으로 후보 필터
   if (!state.currentChapter) return null;
+  const doneSet = (mode === 'firstLetter') ? state.quizDoneSetFirstLetter : state.quizDoneSetVoice;
   const topics = state.topicsByChapter[state.currentChapter.id] || [];
   const candidates = [];
   for (const t of topics) {
@@ -3324,7 +3358,7 @@ function voiceQuizCurrentCardId() {
     for (const s of subs) {
       const sid = Number(s.id);
       if (!state.memoSnapshotIds.has(sid)) continue;
-      if (state.quizDoneSet && state.quizDoneSet.has(sid)) continue;
+      if (doneSet.has(sid)) continue;
       const days = dueDaysLeft(state.understoodNextReview[sid]);
       const effBox = days <= 0 ? 1 : (Number(state.understoodBox[sid]) || 1);
       if (effBox !== 1) continue;
@@ -3577,9 +3611,9 @@ async function startVoiceQuiz() {
     return;
   }
   if (state.elaborationActive) state.elaborationActive = false; // 정교화 자동 종료
-  const qs = quizStats();
+  const qs = quizStats('voice');
   if (qs.total > 0 && qs.pending === 0) {
-    toast('퀴즈는 모두 풀었어요. 카드 터치 학습으로 진행하세요.', true);
+    toast('음성 퀴즈는 모두 풀었어요. 카드 터치 학습으로 진행하세요.', true);
     return;
   }
   const hasMic = await checkMicrophoneAvailable();
@@ -3624,10 +3658,10 @@ function voiceQuizCleanup() {
 function voiceQuizNextCard() {
   if (!state.voiceQuizActive) return; // 중단된 세션은 더 진행 안 함
   voiceQuizCleanup();
-  const sid = voiceQuizCurrentCardId();
+  const sid = voiceQuizCurrentCardId('voice');
   if (sid == null) {
     // 더 풀 카드 없음 → 세션 종료. "끝났어요" 문구 → 스르르 닫기
-    const qs = quizStats();
+    const qs = quizStats('voice');
     state.voiceQuizActive = false;
     state.voiceQuizPhase = 'idle';
     state.quizRecentWrongs = [];
@@ -3788,10 +3822,10 @@ function voiceQuizResolve(sid, outcome) {
 
   const proceed = () => {
     if (!state.voiceQuizActive) return;
-    if (isCorrect) { state.quizDoneSet.add(sid); state.quizRecentWrongs = []; }
+    if (isCorrect) { state.quizDoneSetVoice.add(sid); state.quizRecentWrongs = []; }
     else { pushQuizWrong(sid); }
-    // milestone 격려 (있으면 음성 끝난 후 진행)
-    const milestoneText = getMilestoneText(quizStats().pending);
+    // milestone 격려 (있으면 음성 끝난 후 진행) — voice 풀 기준
+    const milestoneText = getMilestoneText(quizStats('voice').pending);
     if (milestoneText) {
       speakEncouragement(milestoneText, () => setTimeout(() => voiceQuizNextCard(), 50));
     } else {
@@ -3825,14 +3859,14 @@ function voiceQuizResolve(sid, outcome) {
 function voiceQuizContinue(sid) {
   const wasCorrect = state.voiceQuizPhase === 'correct-flash';
   if (wasCorrect) {
-    state.quizDoneSet.add(sid);
+    state.quizDoneSetVoice.add(sid);
     state.quizRecentWrongs = [];
   } else {
     pushQuizWrong(sid);
   }
-  // 정답일 때만 milestone 격려 (pending 줄어듦)
+  // 정답일 때만 milestone 격려 (pending 줄어듦) — voice 풀 기준
   if (wasCorrect) {
-    const milestoneText = getMilestoneText(quizStats().pending);
+    const milestoneText = getMilestoneText(quizStats('voice').pending);
     if (milestoneText) {
       speakEncouragement(milestoneText, () => setTimeout(() => voiceQuizNextCard(), 50));
       return;
@@ -4025,9 +4059,9 @@ function startFirstLetterQuiz() {
   if (!state.memorizedView) { toast('다지기 모드에서만 가능', true); return; }
   if (state.voiceQuizActive) { toast('음성 퀴즈를 먼저 종료하세요', true); return; }
   if (state.elaborationActive) state.elaborationActive = false; // 정교화 자동 종료
-  const qs = quizStats();
+  const qs = quizStats('firstLetter');
   if (qs.total > 0 && qs.pending === 0) {
-    toast('퀴즈는 모두 풀었어요. 카드 터치 학습으로 진행하세요.', true);
+    toast('첫글자 퀴즈는 모두 풀었어요. 카드 터치 학습으로 진행하세요.', true);
     return;
   }
   cancelStageCompletion();
@@ -4058,9 +4092,9 @@ function stopFirstLetterQuiz() {
 function firstLetterQuizNextCard() {
   if (!state.firstLetterQuizActive) return; // 중단된 세션은 더 진행 안 함
   if (state._voiceQuizTimer) { clearTimeout(state._voiceQuizTimer); state._voiceQuizTimer = null; }
-  const sid = voiceQuizCurrentCardId();
+  const sid = voiceQuizCurrentCardId('firstLetter');
   if (sid == null) {
-    const qs = quizStats();
+    const qs = quizStats('firstLetter');
     state.firstLetterQuizActive = false;
     state.firstLetterQuizPhase = 'idle';
     state.quizRecentWrongs = [];
@@ -4108,9 +4142,9 @@ function showFirstLetterChoices(sid) {
   state.firstLetterQuizExpected = answer;
   const correctChar = getFirstChar(answer);
   if (!correctChar) {
-    // 정답 추출 실패 — 한 카드 스킵 (quizDoneSet에 추가하여 무한 루프 방지)
+    // 정답 추출 실패 — 한 카드 스킵 (firstLetter set에 추가하여 무한 루프 방지)
     toast('정답을 찾을 수 없는 카드입니다', true);
-    state.quizDoneSet.add(sid);
+    state.quizDoneSetFirstLetter.add(sid);
     setTimeout(() => firstLetterQuizNextCard(), 200);
     return;
   }
@@ -4144,9 +4178,9 @@ function firstLetterQuizResolve(sid, correct) {
 
   const proceed = () => {
     if (!state.firstLetterQuizActive) return;
-    if (correct) { state.quizDoneSet.add(sid); state.quizRecentWrongs = []; }
+    if (correct) { state.quizDoneSetFirstLetter.add(sid); state.quizRecentWrongs = []; }
     else { pushQuizWrong(sid); }
-    const milestoneText = getMilestoneText(quizStats().pending);
+    const milestoneText = getMilestoneText(quizStats('firstLetter').pending);
     if (milestoneText) {
       speakEncouragement(milestoneText, () => setTimeout(() => firstLetterQuizNextCard(), 50));
     } else {
@@ -4177,13 +4211,13 @@ function firstLetterQuizResolve(sid, correct) {
 function firstLetterQuizContinue(sid) {
   const wasCorrect = state.firstLetterQuizPhase === 'correct-flash';
   if (wasCorrect) {
-    state.quizDoneSet.add(sid);
+    state.quizDoneSetFirstLetter.add(sid);
     state.quizRecentWrongs = [];
   } else {
     pushQuizWrong(sid);
   }
   if (wasCorrect) {
-    const milestoneText = getMilestoneText(quizStats().pending);
+    const milestoneText = getMilestoneText(quizStats('firstLetter').pending);
     if (milestoneText) {
       speakEncouragement(milestoneText, () => setTimeout(() => firstLetterQuizNextCard(), 50));
       return;
@@ -4254,9 +4288,11 @@ function renderFirstLetterQuizCard(byBox1, currentSid) {
 }
 
 // 오늘 학습 박스의 퀴즈 통계 — {total, done, pending}. byBox[1] effective 카드 기준.
-function quizStats() {
+// mode: 'voice' | 'firstLetter' (생략 시 'voice' 기본 — 옛 호출부 호환)
+function quizStats(mode) {
   if (!state.currentChapter) return { total: 0, done: 0, pending: 0 };
   const topics = state.topicsByChapter[state.currentChapter.id] || [];
+  const doneSet = (mode === 'firstLetter') ? state.quizDoneSetFirstLetter : state.quizDoneSetVoice;
   let total = 0, done = 0;
   for (const t of topics) {
     const subs = state.subtopicsByTopic[t.id] || [];
@@ -4267,7 +4303,7 @@ function quizStats() {
       const effBox = days <= 0 ? 1 : (Number(state.understoodBox[sid]) || 1);
       if (effBox !== 1) continue;
       total++;
-      if (state.quizDoneSet.has(sid)) done++;
+      if (doneSet.has(sid)) done++;
     }
   }
   return { total, done, pending: total - done };
@@ -4347,12 +4383,18 @@ function renderTodayStage(byBox1, hasAccess) {
   const remaining = byBox1.length;
   const isOpen = !!state.memorizedBoxOpen[1];
 
-  // 두 stack — 오늘 학습 카드 수(정교화) + 퀴즈 풀 수 (voice_quiz_enabled 시)
+  // 세 stack — 정교화(today byBox[1]) · 음성 풀 · 첫글자 풀 (음성/첫글자는 voice_quiz_enabled 시)
   const c = state.currentChapter;
   const voiceQ = c && Number(c.voice_quiz_enabled) === 1;
-  const qs = quizStats();
   const todayStack = renderDeckStack(remaining, 'today');
-  const quizStack = voiceQ ? renderDeckStack(qs.pending, 'quiz') : '';
+  let voiceStack = '';
+  let flStack = '';
+  if (voiceQ) {
+    const voicePending = byBox1.filter(s => !state.quizDoneSetVoice.has(Number(s.id))).length;
+    const flPending = byBox1.filter(s => !state.quizDoneSetFirstLetter.has(Number(s.id))).length;
+    voiceStack = renderDeckStack(voicePending, 'voice');
+    flStack = renderDeckStack(flPending, 'fl');
+  }
   const stopBtnHtml = state.elaborationActive
     ? `<button class="vq-stop-small" onclick="event.stopPropagation();stopElaboration()" title="정교화 학습 중단">× 중단</button>`
     : '';
@@ -4361,7 +4403,7 @@ function renderTodayStage(byBox1, hasAccess) {
     <div class="stage-head">
       <span class="stage-name">${stageName}</span>
       ${stopBtnHtml}
-      <div class="stage-counts">${todayStack}${quizStack}</div>
+      <div class="stage-counts">${todayStack}${voiceStack}${flStack}</div>
     </div>
   `;
 
@@ -4519,7 +4561,8 @@ function toggleMemorizedView() {
     state.voiceQuizActive = false;
     state.firstLetterQuizActive = false;
     state.elaborationActive = false;
-    state.quizDoneSet = new Set();
+    state.quizDoneSetVoice = new Set();
+    state.quizDoneSetFirstLetter = new Set();
     state.quizRecentWrongs = [];
     // 일반 모드/이전 세션에서 누적된 passedSet 잔여 항목 제거 — 다지기에서는 카드가 다 보여야 함
     // (다지기 박스 안 카드들에 한해서만 클리어. 일반 모드의 다른 챕터/패스 이력은 보존)
@@ -5204,12 +5247,14 @@ function subClick(e, subId) {
           cardEl.classList.add('srs-demoting');
           setTimeout(() => {
             memorizedPass(subId);
-            // 미래 박스 카드가 오늘로 demote → 퀴즈 풀에 fresh 등재
-            state.quizDoneSet.delete(Number(subId));
+            // 미래 박스 카드가 오늘로 demote → 음성·첫글자 풀에 fresh 등재
+            state.quizDoneSetVoice.delete(Number(subId));
+            state.quizDoneSetFirstLetter.delete(Number(subId));
           }, 1400);
         } else {
           memorizedPass(subId); // 안전망: DOM 못 찾으면 즉시
-          state.quizDoneSet.delete(Number(subId));
+          state.quizDoneSetVoice.delete(Number(subId));
+          state.quizDoneSetFirstLetter.delete(Number(subId));
         }
         return;
       }
