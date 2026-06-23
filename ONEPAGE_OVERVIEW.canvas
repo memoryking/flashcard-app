@@ -267,7 +267,7 @@
       "y": 960,
       "width": 360,
       "height": 260,
-      "text": "### 💾 클라이언트 상태\n`localStorage` 영속화\n\n- `op_active_recall_v1` 능동 회상\n- `op_voice_quiz_mode` 자동/수동\n- `op_voice_quiz_read` 문제 읽기\n- `op_quiz_sound` 효과음\n- `op_last_study_date` 자정 넘김\n- 세션 상태: passedSet 등 메모리만",
+      "text": "### 💾 클라이언트 상태\n`localStorage` 영속화\n\n- `op_active_recall_v1` 능동 회상\n- `op_voice_quiz_mode` 자동/수동\n- `op_voice_quiz_read` 문제 읽기\n- `op_quiz_sound` 효과음\n- `op_last_study_date` 자정 넘김\n- `op_chapter_order_v1_{phone}` 챕터 드래그 순서 (과목별)\n- 세션 상태: passedSet 등 메모리만",
       "color": "5"
     },
     {

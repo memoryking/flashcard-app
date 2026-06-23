@@ -17,6 +17,8 @@
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="msapplication-TileColor" content="#0a0a1a">
 <meta name="msapplication-TileImage" content="android-chrome-192x192.png">
+<!-- 챕터 카드 드래그 재정렬 (모바일 터치 지원) — Sortable.js -->
+<script src="https://cdn.jsdelivr.net/npm/sortablejs@1.15.2/Sortable.min.js"></script>
 <style>
 * { box-sizing: border-box; margin: 0; padding: 0; }
 html, body { height: 100%; font-family: -apple-system, BlinkMacSystemFont, 'Pretendard', 'Segoe UI', sans-serif; background: #0a0a1a; color: #e5e7eb; }
@@ -1348,6 +1350,18 @@ a { color: #4fc3f7; text-decoration: none; }
 .chapter-cards {
   display: grid; grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
   gap: 12px;
+}
+/* 드래그 재정렬 — Sortable.js 시각 피드백 */
+.chapter-card.sortable-ghost { opacity: 0.35; }
+.chapter-card.sortable-chosen {
+  cursor: grabbing;
+  box-shadow: 0 12px 32px rgba(233,69,96,0.40), 0 0 0 2px rgba(233,69,96,0.55) inset;
+  transform: scale(1.02);
+  z-index: 5;
+}
+.chapter-card.sortable-drag {
+  cursor: grabbing;
+  transform: rotate(-1.5deg);
 }
 .chapter-card {
   background: linear-gradient(135deg, #1a1a2e, #16213e);
@@ -2815,66 +2829,92 @@ function renderHome() {
     return;
   }
 
-  // 관심 주제 필터 — 관심 주제가 있으면 무조건 적용. 비우면 전체 노출.
-  //   토글 제거 (v2.2): "관심 주제 = 보고 싶은 목록" 단일 멘탈 모델
-  let visibleChapters = state.chapters;
-  if (state.interests.length > 0) {
-    visibleChapters = state.chapters.filter(c =>
-      state.interests.includes(c.subject || '기타')
-    );
-  }
-  if (!visibleChapters.length) {
-    cards.innerHTML = `
-      <div class="empty-state">
-        선택한 관심 주제에 해당하는 챕터가 없습니다.<br>
-        <button onclick="openInterestModal()" style="margin-top:10px;background:rgba(233,69,96,0.2);border:1px solid rgba(233,69,96,0.5);color:#ff8a9e;padding:8px 18px;border-radius:50px;cursor:pointer;font-size:13px;">🎯 관심 주제 편집</button>
-      </div>`;
-    return;
-  }
-
-  // 과목별 그룹핑
+  // 과목별 그룹핑 — v2.3: 필터 제거. 관심 주제는 그룹 순서 정렬용으로만 사용.
   const groups = {};
-  for (const c of visibleChapters) {
+  for (const c of state.chapters) {
     const s = c.subject || '기타';
     if (!groups[s]) groups[s] = [];
     groups[s].push(c);
   }
-  // 그룹 안 정렬: 구독 중 → 학습 진행 있음 → 구매 이력(만료) → 그 외
-  // (같은 우선순위 안에서는 원래 순서 유지 — JS sort는 안정 정렬)
+
+  // 각 그룹 안: 사용자가 저장한 drag 순서 적용 (없으면 chapter.sort_order 기본)
+  const savedOrder = loadChapterOrder();
   for (const subj in groups) {
-    groups[subj].sort((a, b) => chapterPriority(a) - chapterPriority(b));
+    groups[subj] = sortChaptersBySaved(groups[subj], savedOrder[subj] || []);
   }
+
+  // 과목 그룹 순서 — 관심 주제 먼저, 그 외 알파벳
+  const allSubjects = Object.keys(groups);
+  const interestSet = new Set(state.interests);
+  const interestSubjects = allSubjects.filter(s => interestSet.has(s)).sort();
+  const otherSubjects = allSubjects.filter(s => !interestSet.has(s)).sort();
+  const sortedSubjects = [...interestSubjects, ...otherSubjects];
+
   let html = '';
-  for (const subj of Object.keys(groups).sort()) {
+  for (const subj of sortedSubjects) {
+    const isInterest = interestSet.has(subj);
     html += `<div class="subject-section">
-      <div class="subject-title">${escapeHtml(subj).toUpperCase()}</div>
-      <div class="chapter-cards">
+      <div class="subject-title">${escapeHtml(subj).toUpperCase()}${isInterest ? ' <span style="font-size:10px;color:#ff8a9e;font-weight:600;letter-spacing:0.5px;">🎯 관심</span>' : ''}</div>
+      <div class="chapter-cards" data-subject="${escapeHtml(subj)}">
         ${groups[subj].map(c => renderChapterCard(c)).join('')}
       </div>
     </div>`;
   }
   cards.innerHTML = html;
+
+  // 드래그 재정렬 활성화 — 과목 그룹 안에서만 (꾹누름 250ms로 시작)
+  attachChapterSortables();
 }
 
-// 홈 화면 카드 정렬 우선순위 — 작을수록 위
-// 0: 구독 활성 (D-N 보이는 챕터)
-// 1: 학습 진행 있음 (passedSet localStorage 비어있지 않음 — 무료/만료/미구매 막론)
-// 2: 구매 이력 있음 (만료)
-// 3: 그 외 (미구매 + 진행 없음)
-function chapterPriority(c) {
-  const access = state.chapterAccess[c.id];
-  const dLeft = access ? daysLeft(access.expires_at) : null;
-  const isPaidActive = dLeft != null && dLeft > 0;
-  if (isPaidActive) return 0;
+// 사용자가 저장한 chapter id 순서대로 정렬. saved 목록에 없는 카드는 sort_order로 뒤에.
+function sortChaptersBySaved(chapters, savedIds) {
+  const idIdx = new Map(savedIds.map((id, i) => [Number(id), i]));
+  return chapters.slice().sort((a, b) => {
+    const ai = idIdx.has(Number(a.id)) ? idIdx.get(Number(a.id)) : 100000 + (Number(a.sort_order) || 0);
+    const bi = idIdx.has(Number(b.id)) ? idIdx.get(Number(b.id)) : 100000 + (Number(b.sort_order) || 0);
+    return ai - bi;
+  });
+}
+
+const CHAPTER_ORDER_KEY = 'op_chapter_order_v1';
+function loadChapterOrder() {
+  if (!state.user || !state.user.phone) return {};
   try {
-    const raw = localStorage.getItem('op_passed_' + c.id);
-    if (raw) {
-      const arr = JSON.parse(raw);
-      if (Array.isArray(arr) && arr.length > 0) return 1;
-    }
+    const raw = localStorage.getItem(CHAPTER_ORDER_KEY + '_' + state.user.phone);
+    return raw ? JSON.parse(raw) : {};
+  } catch { return {}; }
+}
+function saveChapterOrder(orderMap) {
+  if (!state.user || !state.user.phone) return;
+  try {
+    localStorage.setItem(CHAPTER_ORDER_KEY + '_' + state.user.phone, JSON.stringify(orderMap));
   } catch {}
-  if (access) return 2;
-  return 3;
+}
+
+// 각 .chapter-cards 컨테이너에 Sortable 부착 — 과목 그룹 안에서만 드래그
+function attachChapterSortables() {
+  if (typeof Sortable === 'undefined') return; // 라이브러리 로드 실패 시 무시
+  document.querySelectorAll('.chapter-cards[data-subject]').forEach(el => {
+    if (el._sortable) { try { el._sortable.destroy(); } catch {} }
+    el._sortable = Sortable.create(el, {
+      animation: 200,
+      delay: 250,            // 250ms 꾹누름 → 드래그 시작 (PC·모바일 둘 다)
+      delayOnTouchOnly: false, // 꾹누름 안 해도 그냥 클릭은 enterChapter 정상 동작
+      touchStartThreshold: 5,
+      ghostClass: 'sortable-ghost',
+      chosenClass: 'sortable-chosen',
+      dragClass: 'sortable-drag',
+      onEnd: () => {
+        const subject = el.dataset.subject;
+        const ids = Array.from(el.querySelectorAll('.chapter-card[data-chapter-id]'))
+          .map(c => Number(c.dataset.chapterId))
+          .filter(Boolean);
+        const all = loadChapterOrder();
+        all[subject] = ids;
+        saveChapterOrder(all);
+      },
+    });
+  });
 }
 
 function renderChapterCard(c) {
@@ -2916,7 +2956,7 @@ function renderChapterCard(c) {
   }
 
   return `
-    <div class="chapter-card ${access && !isActive && !isTeacher ? 'expired' : ''}" onclick="enterChapter(${c.id})">
+    <div class="chapter-card ${access && !isActive && !isTeacher ? 'expired' : ''}" data-chapter-id="${c.id}" onclick="enterChapter(${c.id})">
       ${cornerBadge}
       <div class="ch-icon">${escapeHtml(c.icon || '📘')}</div>
       <div class="ch-title">${escapeHtml(c.title)}</div>
