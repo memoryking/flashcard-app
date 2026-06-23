@@ -2537,7 +2537,9 @@ function renderWatermark() {
 document.addEventListener('contextmenu', e => { if (state.user) e.preventDefault(); });
 document.addEventListener('keydown', e => {
   if (!state.user) return;
-  const k = e.key.toLowerCase();
+  // e.key는 IME 조합·일부 메타키에서 undefined일 수 있음 — 가드 필수
+  const k = String(e.key || '').toLowerCase();
+  if (!k) return;
   if ((e.ctrlKey || e.metaKey) && ['c','a','s','p','u'].includes(k)) {
     // 입력 필드에서는 허용
     const tag = (e.target.tagName || '').toLowerCase();
