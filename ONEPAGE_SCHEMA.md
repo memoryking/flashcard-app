@@ -52,6 +52,7 @@
 | **`landing_url`** | **Long text** | — | 가입 직전 랜딩 URL 전체 (파라미터 포함) |
 | **`referrer_url`** | **Long text** | — | `document.referrer` (어디서 클릭해서 왔는지) |
 | **`interests`** | **Long text** | — | 관심 주제 — 콤마 구분 과목 문자열 (예: `"수능,토익"`). 가입 시 URL `?interest=...` 캡쳐 또는 학생 앱 모달에서 편집. 빈 값/미설정이면 필터 OFF (전체 노출). 최대 20개. |
+| **`chapter_order`** | **Long text** | — | 챕터 드래그 순서 — JSON 문자열 (`{"수능":[3,1,2],"토익":[5,4]}`). 학생 앱 홈에서 챕터 카드 꾹누름+드래그로 변경 시 디바운스 0.8초 후 `PUT /auth/me/chapter_order` 동기화. 비어있거나 잘못된 JSON이면 chapter.sort_order 기본 정렬. localStorage 백업 있음. |
 | **`reset_code`** | **Single line text** | — | 비밀번호 찾기 — `POST /auth/forgot-password` 호출 시 생성된 6자리 숫자 코드 (`'123456'`). 검증 성공 또는 만료 시 빈 문자열로 클리어. 비밀번호 외부 노출이 없으니 짧은 TTL 의존. |
 | **`reset_code_expires_at`** | **Single line text** | — | 위 코드의 KST ISO 만료 시각 (생성 시점 +10분). `POST /auth/reset-password` 가 `expires_at > kstISOString()` 검증. 비교는 ISO 문자열 사전순(작은 문자열이 옛날). |
 | `created_at` | **Created time** (auto) | 자동 채움 | Airtable 자동 필드 |

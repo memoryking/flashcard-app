@@ -2426,6 +2426,7 @@ const state = {
   pingTimer: null,
   liveTimer: null,
   interests: [],          // 사용자가 저장한 관심 주제 (subject 배열)
+  chapterOrder: {},       // 챕터 순서 (드래그) — { 과목: [id, id, ...] }. /auth/me로부터 로드
 };
 
 // ============================================================
@@ -2752,6 +2753,19 @@ async function loadMeAndEnter() {
     state.point = Number(r.user.point) || 0;
     state.chapterAccess = r.chapter_access || {};
     state.interests = Array.isArray(r.user.interests) ? r.user.interests : [];
+    // 챕터 순서 — 서버가 진실. 비어있으면 localStorage 백업에서 1회 마이그레이션.
+    state.chapterOrder = (r.user.chapter_order && typeof r.user.chapter_order === 'object') ? r.user.chapter_order : {};
+    if (Object.keys(state.chapterOrder).length === 0 && r.user.phone) {
+      try {
+        const raw = localStorage.getItem(CHAPTER_ORDER_KEY + '_' + r.user.phone);
+        const local = raw ? JSON.parse(raw) : null;
+        if (local && typeof local === 'object' && Object.keys(local).length > 0) {
+          state.chapterOrder = local;
+          // 백그라운드 동기화 — 실패해도 무시
+          api('PUT', '/auth/me/chapter_order', { chapter_order: local }).catch(() => {});
+        }
+      } catch {}
+    }
     renderWatermark();
     await enterHome();
   } finally {
@@ -2877,18 +2891,30 @@ function sortChaptersBySaved(chapters, savedIds) {
 }
 
 const CHAPTER_ORDER_KEY = 'op_chapter_order_v1';
+// 서버 동기화 — state.chapterOrder가 진실의 출처. localStorage는 오프라인/실패 시 백업.
 function loadChapterOrder() {
+  if (state.chapterOrder && typeof state.chapterOrder === 'object') return state.chapterOrder;
+  // 로그인 전이거나 서버 응답 전 — 로컬 백업으로 폴백
   if (!state.user || !state.user.phone) return {};
   try {
     const raw = localStorage.getItem(CHAPTER_ORDER_KEY + '_' + state.user.phone);
     return raw ? JSON.parse(raw) : {};
   } catch { return {}; }
 }
+let _chapterOrderSaveTimer = null;
 function saveChapterOrder(orderMap) {
-  if (!state.user || !state.user.phone) return;
-  try {
-    localStorage.setItem(CHAPTER_ORDER_KEY + '_' + state.user.phone, JSON.stringify(orderMap));
-  } catch {}
+  state.chapterOrder = orderMap;
+  // 로컬 백업 — 오프라인이거나 서버 저장 실패해도 새로고침 시 살아남게
+  if (state.user && state.user.phone) {
+    try {
+      localStorage.setItem(CHAPTER_ORDER_KEY + '_' + state.user.phone, JSON.stringify(orderMap));
+    } catch {}
+  }
+  // 디바운스 서버 저장 — 드래그 연속 발생해도 0.8초 후 한 번만
+  if (_chapterOrderSaveTimer) clearTimeout(_chapterOrderSaveTimer);
+  _chapterOrderSaveTimer = setTimeout(() => {
+    api('PUT', '/auth/me/chapter_order', { chapter_order: orderMap }).catch(() => {});
+  }, 800);
 }
 
 // 각 .chapter-cards 컨테이너에 Sortable 부착 — 과목 그룹 안에서만 드래그

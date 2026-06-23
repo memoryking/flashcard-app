@@ -437,7 +437,11 @@ https://vipup.site/onepage?ref=ABC123
 - v2.2까지 자동 우선순위 정렬 (구독 활성 > 진행 있음 > 만료 > 그 외) — **제거됨**
 - **꾹누름 250ms + 드래그**로 사용자가 직접 챕터 순서 정함 (Sortable.js)
 - 과목 그룹 안에서만 드래그 가능 (그룹 사이 이동 X — 챕터의 subject는 불변)
-- 저장: `localStorage.op_chapter_order_v1_{phone}` — `{ 수능: [3,1,2], 토익: [5,4] }`
+- **서버 동기화** (v2.3.1): `Airtable.OnepageUsers.chapter_order` (JSON 문자열)
+  · 진실의 출처: 서버. `/auth/me` 응답으로 로드 → `state.chapterOrder`
+  · 변경 시: 디바운스 0.8초 → `PUT /auth/me/chapter_order` 자동 호출
+  · `localStorage.op_chapter_order_v1_{phone}` 는 오프라인/실패 시 백업 + 1회 마이그레이션
+  · 다중 기기에서도 동일 순서 (서버에서 동기화)
 - 과목 그룹 순서: **관심 주제 먼저** + 그 외 알파벳
   · 관심 주제 그룹 헤더에 🎯 관심 배지 표시
 - 새로 추가된 챕터 → 저장 목록 끝에 자동 추가 (chapter.sort_order 기준)

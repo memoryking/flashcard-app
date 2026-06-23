@@ -495,6 +495,7 @@ async function handleMe(request, env) {
       referral_code: f.referral_code,
       first_paid_at: f.first_paid_at || null,
       interests: parseInterests(f.interests),
+      chapter_order: parseChapterOrder(f.chapter_order),
     },
     chapter_access: access, // { chapter_id: { expires_at, source } }
   }, 200, request);
@@ -504,6 +505,16 @@ async function handleMe(request, env) {
 function parseInterests(raw) {
   if (Array.isArray(raw)) return raw.map(s => String(s).trim()).filter(Boolean);
   return String(raw || '').split(',').map(s => s.trim()).filter(Boolean);
+}
+
+// JSON 문자열 → 챕터 순서 객체 { 과목: [id, id, ...] }. 잘못된 데이터는 빈 객체.
+function parseChapterOrder(raw) {
+  if (!raw) return {};
+  if (typeof raw === 'object' && !Array.isArray(raw)) return raw;
+  try {
+    const obj = JSON.parse(String(raw));
+    return (obj && typeof obj === 'object' && !Array.isArray(obj)) ? obj : {};
+  } catch { return {}; }
 }
 
 // POST /auth/change-password — 현재 비밀번호 검증 후 새 비밀번호로 교체
@@ -631,6 +642,42 @@ async function handleResetPassword(request, env) {
     return json({ error: 'update_failed', detail: result.error }, 500, request);
   }
   return json({ ok: true }, 200, request);
+}
+
+// PUT /auth/me/chapter_order — 사용자가 챕터 순서 드래그로 변경 시 동기화
+//   body: { chapter_order: { 과목: [id, id, ...] } }
+//   클라이언트에서 디바운스 후 호출.
+async function handleUpdateChapterOrder(request, env) {
+  const auth = await verifyAuth(request, env);
+  if (!auth) return json({ error: 'unauthenticated' }, 401, request);
+  const body = await request.json().catch(() => ({}));
+  const orderMap = body.chapter_order;
+  if (!orderMap || typeof orderMap !== 'object' || Array.isArray(orderMap)) {
+    return json({ error: 'chapter_order must be an object' }, 400, request);
+  }
+  // 정제: 각 키는 과목명(최대 80자), 값은 양수 정수 배열 (최대 100개). 과목 50개 한도.
+  const clean = {};
+  let subjectCount = 0;
+  for (const [subj, ids] of Object.entries(orderMap)) {
+    if (subjectCount >= 50) break;
+    if (!Array.isArray(ids)) continue;
+    const cleanIds = ids.map(Number).filter(n => Number.isFinite(n) && n > 0).slice(0, 100);
+    if (cleanIds.length > 0) {
+      clean[String(subj).slice(0, 80)] = cleanIds;
+      subjectCount++;
+    }
+  }
+  const jsonStr = JSON.stringify(clean);
+  if (jsonStr.length > 10000) {
+    return json({ error: 'chapter_order too large' }, 400, request);
+  }
+  const rec = await findUserByPhone(env, auth.phone);
+  if (!rec) return json({ error: 'user_not_found' }, 404, request);
+  const result = await atUpdate(env, AT_USERS, rec.id, { chapter_order: jsonStr });
+  if (result && result.error) {
+    return json({ error: 'airtable_update_failed', detail: result.error }, 500, request);
+  }
+  return json({ ok: true, chapter_order: clean }, 200, request);
 }
 
 // PUT /auth/me/interests — 사용자가 관심 주제 편집
@@ -2936,6 +2983,7 @@ async function route(request, env) {
   if (m === 'POST' && path === '/auth/login') return handleLogin(request, env);
   if (m === 'GET' && path === '/auth/me') return handleMe(request, env);
   if (m === 'PUT' && path === '/auth/me/interests') return handleUpdateInterests(request, env);
+  if (m === 'PUT' && path === '/auth/me/chapter_order') return handleUpdateChapterOrder(request, env);
   if (m === 'POST' && path === '/auth/change-password') return handleChangePassword(request, env);
   if (m === 'POST' && path === '/auth/forgot-password') return handleForgotPassword(request, env);
   if (m === 'POST' && path === '/auth/reset-password') return handleResetPassword(request, env);
