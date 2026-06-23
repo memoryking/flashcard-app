@@ -2924,9 +2924,12 @@ function attachChapterSortables() {
     if (el._sortable) { try { el._sortable.destroy(); } catch {} }
     el._sortable = Sortable.create(el, {
       animation: 200,
-      delay: 250,            // 250ms 꾹누름 → 드래그 시작 (PC·모바일 둘 다)
-      delayOnTouchOnly: false, // 꾹누름 안 해도 그냥 클릭은 enterChapter 정상 동작
-      touchStartThreshold: 5,
+      delay: 200,             // 200ms 꾹누름 → 드래그 시작 (PC·모바일 둘 다)
+      delayOnTouchOnly: false,
+      touchStartThreshold: 4,
+      forceFallback: true,    // touch-action: manipulation 등 CSS 간섭 우회 (Sortable 자체 fallback)
+      fallbackClass: 'sortable-fallback',
+      fallbackTolerance: 4,
       ghostClass: 'sortable-ghost',
       chosenClass: 'sortable-chosen',
       dragClass: 'sortable-drag',
