@@ -5339,13 +5339,16 @@ async function studyDayPick(subId, targetBox) {
     savePassed();
 
     // 서버 동기화 — box=1은 /understood, box=2는 /understood/promote
-    //   시나리오 1: 펼친 후 사라지는 신규 카드 → miss=1로 시작
-    //   (행 생성 → peek로 +1. peek는 행 있어야 동작하므로 순서 중요)
-    state.understoodMissCount[sid] = 1;
+    //   시나리오 1: 오늘 학습(box=1)만 miss=1 — "한 번 더 봐야지" 신호
+    //   내일 학습(box=2)은 "안다 → 내일로" 긍정 신호라 miss 0 유지
+    if (box === 1) state.understoodMissCount[sid] = 1;
     try {
-      if (box === 1) await api('POST', '/understood', { subtopic_id: sid });
-      else           await api('POST', '/understood/promote', { subtopic_id: sid });
-      api('POST', '/understood/peek', { subtopic_id: sid }).catch(() => {});
+      if (box === 1) {
+        await api('POST', '/understood', { subtopic_id: sid });
+        api('POST', '/understood/peek', { subtopic_id: sid }).catch(() => {}); // 서버 miss +1
+      } else {
+        await api('POST', '/understood/promote', { subtopic_id: sid });
+      }
     } catch {}
 
     // 재렌더

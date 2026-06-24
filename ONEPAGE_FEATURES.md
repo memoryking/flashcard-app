@@ -1550,7 +1550,7 @@ Service worker 없이 Vercel의 자동 ETag 헤더 활용 — 배포 후 활성 
 
 | # | 시나리오 | 처리 위치 | 메커니즘 |
 |---|----------|----------|----------|
-| 1 | 일반(new) 펼친 후 사라짐 (오늘/내일 학습 버튼) | `studyDayPick` | 서버에 행 생성 후 추가 `/peek` 호출 + client 즉시 +1 |
+| 1 | 일반(new) 펼친 후 **오늘 학습** 버튼 (box=1, '한 번 더 봐야지') | `studyDayPick(sid, 1)` | `/understood` 생성 → `/peek` 추가 호출 + client 즉시 +1. **내일 학습(box=2)은 긍정 신호라 miss 0 유지** |
 | 2 | 다지기 정교화 "더 학습" 버튼 | Worker `/understood/pass` | `was_peeked=true` + 기존 행 → miss +1 (v2.3.4 추가) |
 | 3 | 말하기 퀴즈 오답 (자동/수동 모두) | `voiceQuiz proceed`, `voiceQuizContinue` | `bumpMissCount(sid)` |
 | 4 | 첫글자 퀴즈 오답 (자동/수동 모두) | `firstLetterQuiz proceed`, `firstLetterQuizContinue` | `bumpMissCount(sid)` |
