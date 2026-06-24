@@ -1479,7 +1479,7 @@ while (true) {
 ### 23.6 일반 모드 3탭 (new / 별표 / all)
 챕터 안 학습 카드를 3가지 관점으로:
 - **new**: 아직 학습 안 한 카드만 (op_understood 행 없음)
-- **★ 별표**: `miss_count > 0` 인 카드, miss 많은 순 정렬. ★ 1-2=1개, 3-4=2개, 5-6=3개, 7-8=4개, 9+=5개
+- **★ 별표**: `miss_count > 0` 인 카드, miss 많은 순 정렬. ★ 1-3=1개, 4-6=2개, 7-9=3개, 10-12=4개, 13+=5개 (v2.3.4 임계값 완화)
 - **all**: 모든 카드 + 박스 위치 라벨 (오늘/내일/4일/8일/16일/32일) + ★ 누적
 
 ### 23.7 격려 음성 — 사람 녹음 mp3
@@ -1544,6 +1544,29 @@ Service worker 없이 Vercel의 자동 ETag 헤더 활용 — 배포 후 활성 
 
 **애니메이션**: 클릭 시 다지기 미래박스 강등과 동일한 `srs-demoting` dissolve 1.4초.
 **옛 ⤴ 패스 버튼**: 우선 숨김(주석 처리). 두 버튼이 대체.
+
+### 23.11.2 miss_count 트리거 (v2.3.4 — 별표 누적 규칙)
+"틀린 횟수 = 별표"가 정확히 늘어나는 6가지 시나리오 (한 동작당 +1):
+
+| # | 시나리오 | 처리 위치 | 메커니즘 |
+|---|----------|----------|----------|
+| 1 | 일반(new) 펼친 후 사라짐 (오늘/내일 학습 버튼) | `studyDayPick` | 서버에 행 생성 후 추가 `/peek` 호출 + client 즉시 +1 |
+| 2 | 다지기 정교화 "더 학습" 버튼 | Worker `/understood/pass` | `was_peeked=true` + 기존 행 → miss +1 (v2.3.4 추가) |
+| 3 | 말하기 퀴즈 오답 (자동/수동 모두) | `voiceQuiz proceed`, `voiceQuizContinue` | `bumpMissCount(sid)` |
+| 4 | 첫글자 퀴즈 오답 (자동/수동 모두) | `firstLetterQuiz proceed`, `firstLetterQuizContinue` | `bumpMissCount(sid)` |
+| 5 | 내일(b=2) 박스 펼치고 닫음 → dissolve | `subClick` setTimeout | client +1, 서버는 `was_peeked` 경로 |
+| 6 | 4·8·16·32일 후(b≥3) 박스 펼치고 닫음 → dissolve | 동일 | 동일 |
+
+**중복 방지**: subClick 펼침 시점의 `apiPeek` 호출은 다지기 미래박스(b≥2)에 대해 skip. dissolve 시 한 번만 +1.
+
+**임계값** (`missToStarCount`):
+- 1-3 → ★ / 4-6 → ★★ / 7-9 → ★★★ / 10-12 → ★★★★ / 13+ → ★★★★★
+- 이전(v2.3.3): 1-2/3-4/5-6/7-8/9+ — 새 임계가 더 관대 (학습 의욕 보호)
+
+**bumpMissCount(sid)** 헬퍼:
+- client `state.understoodMissCount[sid] += 1` 즉시
+- 서버 `POST /understood/peek` fire-and-forget (응답 무시 — race 방지)
+- 행 없으면 서버 skip, 행 있으면 +1
 
 ### 23.11.1 소리 안전장치 — 조용한 환경 보호 (v2.3.3)
 "조용한 데서 깜짝 놀라는" 사고 방지. 모달 없는 conservative defaults 방식.

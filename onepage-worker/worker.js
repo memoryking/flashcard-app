@@ -1384,16 +1384,19 @@ async function handleUnderstoodPass(request, env) {
   const now = kstDateTime();
 
   if (wasPeeked) {
-    // 펼치고 패스 → box=1 (오늘)로 강등
+    // 펼치고 패스 → box=1 (오늘)로 강등 + miss_count +1
+    //   (정교화 '더 학습' 버튼, 다지기 미래박스 dissolve 등이 이 경로)
     if (existing) {
+      const newMiss = (Number(existing.miss_count) || 0) + 1;
       await ncbUpdate(env, 'op_understood', existing.id, {
         review_box: 1,
         next_review_at: nextReviewForBox(1),
         last_moved_at: now,
+        miss_count: newMiss,
       });
       return json({
         ok: true, review_box: 1, next_review_at: nextReviewForBox(1),
-        miss_count: Number(existing.miss_count) || 0,
+        miss_count: newMiss,
       }, 200, request);
     } else {
       // new + 펼치고 패스 → 새 행 box=1, miss=1

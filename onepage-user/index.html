@@ -3969,7 +3969,7 @@ function voiceQuizResolve(sid, outcome) {
   const proceed = () => {
     if (!state.voiceQuizActive) return;
     if (isCorrect) { state.quizDoneSetVoice.add(sid); state.quizRecentWrongs = []; }
-    else { pushQuizWrong(sid); }
+    else { pushQuizWrong(sid); bumpMissCount(sid); } // 시나리오 3: 말하기 오답 → miss +1
     // milestone 격려 (있으면 음성 끝난 후 진행) — voice 풀 기준
     const milestoneText = getMilestoneText(quizStats('voice').pending);
     if (milestoneText) {
@@ -4009,6 +4009,7 @@ function voiceQuizContinue(sid) {
     state.quizRecentWrongs = [];
   } else {
     pushQuizWrong(sid);
+    bumpMissCount(sid); // 시나리오 3: 말하기 오답 → miss +1 (수동 모드)
   }
   // 정답일 때만 milestone 격려 (pending 줄어듦) — voice 풀 기준
   if (wasCorrect) {
@@ -4325,7 +4326,7 @@ function firstLetterQuizResolve(sid, correct) {
   const proceed = () => {
     if (!state.firstLetterQuizActive) return;
     if (correct) { state.quizDoneSetFirstLetter.add(sid); state.quizRecentWrongs = []; }
-    else { pushQuizWrong(sid); }
+    else { pushQuizWrong(sid); bumpMissCount(sid); } // 시나리오 4: 첫글자 오답 → miss +1
     const milestoneText = getMilestoneText(quizStats('firstLetter').pending);
     if (milestoneText) {
       speakEncouragement(milestoneText, () => setTimeout(() => firstLetterQuizNextCard(), 50));
@@ -4361,6 +4362,7 @@ function firstLetterQuizContinue(sid) {
     state.quizRecentWrongs = [];
   } else {
     pushQuizWrong(sid);
+    bumpMissCount(sid); // 시나리오 4: 첫글자 오답 → miss +1 (수동 모드)
   }
   if (wasCorrect) {
     const milestoneText = getMilestoneText(quizStats('firstLetter').pending);
@@ -4958,15 +4960,24 @@ function renderTopic(t, hasAccess) {
   `;
 }
 
-// miss_count → 별 개수 (1-2:★, 3-4:★★, 5-6:★★★, 7-8:★★★★, 9+:★★★★★)
+// miss_count → 별 개수 (1-3:★, 4-6:★★, 7-9:★★★, 10-12:★★★★, 13+:★★★★★)
 function missToStarCount(miss) {
   const m = Number(miss) || 0;
   if (m <= 0) return 0;
-  if (m <= 2) return 1;
-  if (m <= 4) return 2;
-  if (m <= 6) return 3;
-  if (m <= 8) return 4;
+  if (m <= 3) return 1;
+  if (m <= 6) return 2;
+  if (m <= 9) return 3;
+  if (m <= 12) return 4;
   return 5;
+}
+
+// miss_count +1 트리거 — 클라이언트 즉시 +1 + 서버 동기화 (응답 무시: race 방지)
+// 호출처: 퀴즈 오답, 다지기 미래 박스 dissolve, 학습 모드 사라짐 등
+function bumpMissCount(sid) {
+  const n = Number(sid);
+  state.understoodMissCount[n] = (state.understoodMissCount[n] || 0) + 1;
+  // 서버: 행 없으면 skip, 있으면 +1. fire-and-forget.
+  api('POST', '/understood/peek', { subtopic_id: n }).catch(() => {});
 }
 // effective box → 짧은 라벨 (오늘/내일/4일/8일/16일/32일)
 const BOX_SHORT_LABELS = [null, '오늘', '내일', '4일', '8일', '16일', '32일'];
@@ -5328,9 +5339,13 @@ async function studyDayPick(subId, targetBox) {
     savePassed();
 
     // 서버 동기화 — box=1은 /understood, box=2는 /understood/promote
+    //   시나리오 1: 펼친 후 사라지는 신규 카드 → miss=1로 시작
+    //   (행 생성 → peek로 +1. peek는 행 있어야 동작하므로 순서 중요)
+    state.understoodMissCount[sid] = 1;
     try {
       if (box === 1) await api('POST', '/understood', { subtopic_id: sid });
       else           await api('POST', '/understood/promote', { subtopic_id: sid });
+      api('POST', '/understood/peek', { subtopic_id: sid }).catch(() => {});
     } catch {}
 
     // 재렌더
@@ -5456,12 +5471,16 @@ function subClick(e, subId) {
           cardEl.classList.add('srs-demoting');
           setTimeout(() => {
             memorizedPass(subId);
+            // 시나리오 5/6: 미래박스 dissolve = 펼치고 닫음 → miss +1 (client 즉시)
+            //   서버는 memorizedPass→apiPass(was_peeked=true)로 +1 받음
+            state.understoodMissCount[Number(subId)] = (state.understoodMissCount[Number(subId)] || 0) + 1;
             // 미래 박스 카드가 오늘로 demote → 음성·첫글자 풀에 fresh 등재
             state.quizDoneSetVoice.delete(Number(subId));
             state.quizDoneSetFirstLetter.delete(Number(subId));
           }, 1400);
         } else {
           memorizedPass(subId); // 안전망: DOM 못 찾으면 즉시
+          state.understoodMissCount[Number(subId)] = (state.understoodMissCount[Number(subId)] || 0) + 1;
           state.quizDoneSetVoice.delete(Number(subId));
           state.quizDoneSetFirstLetter.delete(Number(subId));
         }
@@ -5481,8 +5500,14 @@ function subClick(e, subId) {
 
     // v2: 행이 있는 카드 (별표/all/다지기에서 펼침) = miss_count +1 서버 동기화
     // 새 카드(no row, new 탭에서 펼침)는 client 상태만 — 패스 시점에 행 생성됨
+    // 단, 다지기 미래박스(b≥2)는 dissolve 시점에 +1 처리하므로 펼침 +1 skip (중복 방지)
     if (firstExpand && state.understoodSet.has(Number(subId))) {
-      apiPeek(Number(subId));
+      const dueDays = dueDaysLeft(state.understoodNextReview[Number(subId)]);
+      const effBox = dueDays <= 0 ? 1 : (Number(state.understoodBox[Number(subId)]) || 1);
+      const isMemorizedFutureBox = state.memorizedView && effBox >= 2;
+      if (!isMemorizedFutureBox) {
+        apiPeek(Number(subId));
+      }
     }
   }
   renderTree(state.currentChapter.id);
