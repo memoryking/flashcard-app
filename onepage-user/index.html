@@ -3500,6 +3500,7 @@ function toggleVoiceQuizRead() {
     state.quizSoundEnabled = true;
     try { localStorage.setItem('op_quiz_sound', '1'); } catch {}
   }
+  bumpQuizSoundIdleTimer();
   if (state.currentChapter) renderTree(state.currentChapter.id);
 }
 
@@ -3520,8 +3521,51 @@ function detectVoiceQuizLang(text) {
 function toggleQuizSound() {
   state.quizSoundEnabled = !state.quizSoundEnabled;
   try { localStorage.setItem('op_quiz_sound', state.quizSoundEnabled ? '1' : '0'); } catch {}
+  bumpQuizSoundIdleTimer();
   if (state.currentChapter) renderTree(state.currentChapter.id);
 }
+
+// ───── 소리 안전장치 ─────────────────────────────────────
+// 조용한 환경에서 깜짝 놀라지 않도록:
+//   1. 다지기 진입 시 → 효과음 + 문제읽기 둘 다 자동 OFF
+//   2. 다지기 나갈 때 → 둘 다 OFF (다음 진입에도 OFF로 시작)
+//   3. 다지기 안에서 10분간 활동 없으면 → 둘 다 OFF + 토스트 안내
+//   사용자가 ON으로 켠 후에도 이 규칙 적용. 의도적으로 켠 건 그 활동 시간만큼만 유지.
+const QUIZ_SOUND_IDLE_MS = 10 * 60 * 1000;
+let _quizSoundIdleTimer = null;
+
+function forceQuietQuizSound(reason) {
+  let changed = false;
+  if (state.quizSoundEnabled) {
+    state.quizSoundEnabled = false;
+    try { localStorage.setItem('op_quiz_sound', '0'); } catch {}
+    changed = true;
+  }
+  if (state.voiceQuizReadAloud) {
+    state.voiceQuizReadAloud = false;
+    try { localStorage.setItem('op_voice_quiz_read', '0'); } catch {}
+    changed = true;
+  }
+  if (_quizSoundIdleTimer) { clearTimeout(_quizSoundIdleTimer); _quizSoundIdleTimer = null; }
+  if (changed && reason === 'idle') {
+    toast('10분 조용해서 효과음·문제 읽기 자동 OFF');
+  }
+  if (changed && state.currentChapter && state.memorizedView) renderTree(state.currentChapter.id);
+}
+
+function bumpQuizSoundIdleTimer() {
+  // 다지기 안 + 둘 중 하나라도 ON일 때만 타이머 동작 (그 외엔 비용 0)
+  if (!state.memorizedView) return;
+  if (!state.quizSoundEnabled && !state.voiceQuizReadAloud) return;
+  if (_quizSoundIdleTimer) clearTimeout(_quizSoundIdleTimer);
+  _quizSoundIdleTimer = setTimeout(() => forceQuietQuizSound('idle'), QUIZ_SOUND_IDLE_MS);
+}
+
+// 활동 감지 — 다지기 안에서 사용자가 무언가 누르면 idle 타이머 리셋
+//   passive + capture로 어떤 클릭/터치든 잡음. 다지기 밖이면 함수 진입 즉시 return.
+['click', 'touchstart', 'keydown'].forEach(evt => {
+  document.addEventListener(evt, bumpQuizSoundIdleTimer, { passive: true, capture: true });
+});
 
 // 격려 milestone — pending 수 기준 한 번씩 발사
 //   pending 0 → "잘 했어요" / pending 10 → "마지막 N개입니다" / pending 20 → "조금만 더 힘내세요"
@@ -4643,6 +4687,8 @@ function toggleMemorizedView() {
   state.memorizedView = !state.memorizedView;
   // 모드 전환 시 펼친 학습 카드 닫기 (혼선 방지)
   state.expanded.subtopic.clear();
+  // 소리 안전장치 — 진입·이탈 시 효과음 + 문제 읽기 자동 OFF (조용한 환경 보호)
+  forceQuietQuizSound(state.memorizedView ? 'enter' : 'exit');
   const btn = $('memorizedBtn');
   if (btn) btn.classList.toggle('active', state.memorizedView);
   // ON으로 전환 → 현재 암기된 것들을 스냅샷에 고정 + items 미리 받기
