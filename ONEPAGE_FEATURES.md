@@ -436,15 +436,16 @@ https://vipup.site/onepage?ref=ABC123
 
 ### 챕터 순서 — 드래그로 직접 정하기 (v2.3)
 - v2.2까지 자동 우선순위 정렬 (구독 활성 > 진행 있음 > 만료 > 그 외) — **제거됨**
-- **꾹누름 250ms + 드래그**로 사용자가 직접 챕터 순서 정함 (Sortable.js)
+- **꾹누름 200ms + 드래그**로 사용자가 직접 챕터 순서 정함 (Sortable.js CDN)
+  · `forceFallback: true` — `.chapter-card`의 `touch-action: manipulation` CSS 간섭 우회
+  · 빠른 클릭은 `enterChapter` 정상 동작 (drag 시작 임계 < 200ms이면 cancel)
 - 과목 그룹 안에서만 드래그 가능 (그룹 사이 이동 X — 챕터의 subject는 불변)
 - **서버 동기화** (v2.3.1): `Airtable.OnepageUsers.chapter_order` (JSON 문자열)
   · 진실의 출처: 서버. `/auth/me` 응답으로 로드 → `state.chapterOrder`
   · 변경 시: 디바운스 0.8초 → `PUT /auth/me/chapter_order` 자동 호출
   · `localStorage.op_chapter_order_v1_{phone}` 는 오프라인/실패 시 백업 + 1회 마이그레이션
   · 다중 기기에서도 동일 순서 (서버에서 동기화)
-- 과목 그룹 순서: **관심 주제 먼저** + 그 외 알파벳
-  · 관심 주제 그룹 헤더에 🎯 관심 배지 표시
+- 과목 그룹 순서: 알파벳 정렬 (관심 필터 ON 시 보이는 것만 알파벳)
 - 새로 추가된 챕터 → 저장 목록 끝에 자동 추가 (chapter.sort_order 기준)
 - 챕터 삭제되면 저장 목록에 dead ID 남지만 렌더에서 자동 무시 (해 없음)
 
@@ -899,7 +900,7 @@ document.addEventListener('keydown', e => {
    - 다양함이 기억을 굳힙니다
    - 콘텐츠는 계속 진화합니다
 3. **히어로** — "7가지만 알면 원페이지 학습 끝 · 1분이면 충분합니다"
-4. **👀 전체 보기** — 5개 화면 캡쳐 격자 (메인 / 학습 / 다지기 / 내 계정 / 포인트 사용). 사용자가 이미지 편집기에서 말풍선까지 합쳐 PNG 로 올리는 방식
+4. **👀 전체 보기** — **9개 화면 캡쳐 격자** + **이미지 클릭 시 라이트박스 확대** (메인 / 학습 / 다지기 / 내 계정 / 포인트 사용 / 모르면 오늘로 / 결제 / 암기카드 3탭 / 친구추천)
 5. **STEP 1~7** — 각 단계 = 제목 + 영상(자동 재생 무음 루프) + 짧은 설명 + 팁 박스
 6. **하단 CTA** — "준비 완료! 앱으로 돌아가기 →"
 
@@ -908,9 +909,15 @@ document.addEventListener('keydown', e => {
 | 형식 | 권장 사양 | 자리 |
 |---|---|---|
 | MP4 (7편) | 720×1280 또는 1280×720, H.264, CRF 28, 무음, 3~6초 루프 | STEP 1~7 |
-| PNG (5장) | 본인 비율 그대로 (PC·태블릿·모바일 캡쳐 자유) | 전체 보기 |
+| PNG (9장) | 본인 비율 그대로 (PC·태블릿·모바일 캡쳐 자유) | 전체 보기 |
+| MP3 (3편) | encourage-start/halfway/clear — 사람 녹음 격려 음성 | 다지기 모드 |
 
 배포는 Vercel 정적 서빙 — `git push` 한 번이면 끝. CSS `aspect-ratio` 강제 없음 → 이미지 자기 비율 유지.
+
+### 라이트박스 (이미지 확대)
+- `.tour-shot img` 클릭 시 풀스크린 오버레이 (배경 0.94 어두움)
+- 이벤트 위임 (`document` 레벨) — placeholder가 나중에 `<img>`로 교체돼도 자동 동작
+- 닫기: 배경 클릭 / ✕ 버튼 / ESC 키 (3가지)
 
 ### STEP 3 — 패스 버튼 똑똑한 분류 (특별 강조)
 STEP 3는 4분면 미니 매트릭스로 시각화:
@@ -1283,8 +1290,9 @@ PABBLY_RESET_WEBHOOK_URL 이 설정돼 있으면 비밀번호 찾기 SMS 발송�
 |---|---|---|
 | `/auth/signup` | POST | 회원가입 (+ utm 필드 7개 + interests 자동 저장) |
 | `/auth/login` | POST | 로그인 → JWT 토큰 |
-| `/auth/me` | GET | 내 정보 + 챕터 접근 맵 + interests 배열 |
+| `/auth/me` | GET | 내 정보 + 챕터 접근 맵 + interests 배열 + chapter_order 객체 |
 | `/auth/me/interests` | PUT | 관심 주제 편집 — `{interests: [...]}` 콤마 join하여 Airtable 갱신 |
+| `/auth/me/chapter_order` | PUT | 챕터 드래그 순서 동기화 — `{chapter_order: {과목: [id,...]}}` JSON stringify 후 Airtable 저장. 클라이언트가 0.8초 디바운스 후 호출 |
 | `/auth/change-password` | POST | 비밀번호 변경 — `{old_password, new_password}`, 현재 비번 검증 후 PBKDF2 재해시 |
 | `/auth/forgot-password` | POST | 비밀번호 찾기 1단계 — `{email}` → 등록 휴대폰으로 SMS 6자리 코드. enumeration 차단 위해 미존재 시에도 200. 응답 `{ok, sent, phone_masked}` |
 | `/auth/reset-password` | POST | 비밀번호 찾기 2단계 — `{email, code, new_password}` → 코드+만료 검증 후 password_hash 갱신, reset_code 클리어 |
@@ -1519,3 +1527,28 @@ Service worker 없이 Vercel의 자동 ETag 헤더 활용 — 배포 후 활성 
 **PayApp 결제 리턴 URL**: `STUDENT_APP_ORIGIN = 'https://memoryking.kr'` (vercel.app → 커스텀 도메인 전환).
 
 **배포**: Worker는 GitHub auto-deploy 없음 — `cd onepage-worker && wrangler deploy` 수동 실행 필수.
+
+### 23.11 학습 모드 — 신규 단어 오늘/내일 학습 버튼 (v2.3)
+일반 학습 모드(다지기 X)에서 카드 펼침 시 본문 하단에 두 개 버튼 노출. 신규 단어를 즉시 다지기로 보낼지, 내일 박스로 보낼지 사용자가 선택.
+
+**조건** (모두 만족 시 노출):
+- `state.memorizedView === false` (일반 모드)
+- 카드 펼친 상태 + 본문 정상 로드 (잠김/오류/빈 카드 제외)
+- `!state.understoodSet.has(sid)` — 신규 카드만 (이미 ● 카드는 안 보임)
+
+**버튼**:
+| 버튼 | 색상 | 서버 호출 | 결과 |
+|------|------|----------|------|
+| 📚 오늘 학습 | 빨강 | `POST /understood` | box=1, due 내일 → 다지기 오늘 박스 |
+| 📅 내일 학습 | 보라 | `POST /understood/promote` | box=2, due 내일 → 다지기 내일 박스 |
+
+**애니메이션**: 클릭 시 다지기 미래박스 강등과 동일한 `srs-demoting` dissolve 1.4초.
+**옛 ⤴ 패스 버튼**: 우선 숨김(주석 처리). 두 버튼이 대체.
+
+### 23.12 가이드 — 전체보기 9개 카드 + 라이트박스
+`onepage-user/guide.html`의 "전체 보기" 섹션에 9개 캡쳐 카드 (메인/학습/다지기/내 계정/포인트/모르면 오늘로/결제/암기카드 3탭/친구추천).
+
+- 이미지 클릭 → 풀스크린 라이트박스 (배경 0.94 어두움 + 클릭/✕/ESC 닫기)
+- **이벤트 위임**(`document` 레벨 `.tour-shot img`) — placeholder가 나중에 `<img>`로 교체돼도 자동 동작
+- 사이즈: 9:16 720×1280 (세로) 또는 16:9 1280×720 (가로) 권장
+- 모든 이미지는 `guide-media/screen-*.png` (9개)
