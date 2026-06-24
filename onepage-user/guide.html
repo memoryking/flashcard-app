@@ -180,15 +180,19 @@
     border: 1px dashed rgba(255,255,255,0.15);
     border-radius: 14px;
     overflow: hidden;
+    /* 이미지 세로 가운데 정렬 — 가로 이미지(메인 화면 등)가 위에 붙지 않고 박스 중앙에 */
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: zoom-in; /* 박스 어디든 클릭하면 라이트박스 (이벤트 위임) */
   }
   .tour-shot img {
     width: 100%; height: auto;   /* 본인 비율 유지 */
     display: block;
     background: #000;
-    cursor: zoom-in;              /* 확대 가능 표시 */
     transition: filter 0.18s ease, transform 0.18s ease;
   }
-  .tour-shot img:hover { filter: brightness(1.1); transform: scale(1.01); }
+  .tour-shot:hover img { filter: brightness(1.1); transform: scale(1.01); }
 
   /* ───────── Lightbox (전체보기 이미지 확대) ───────── */
   .lightbox {
@@ -811,17 +815,19 @@
   try { localStorage.setItem('op_guide_seen', '1'); } catch {}
 
   // ───────── Lightbox — 전체보기 이미지 클릭 시 확대 ─────────
-  //   이벤트 위임 — 나중에 <img>로 placeholder 교체해도 자동 동작
+  //   이벤트 위임 — .tour-shot 박스 어디를 누르든 안쪽 <img>를 찾아 확대
+  //   (이미지가 박스 일부만 차지하는 가로/세로 비율에도 빈 영역 클릭 가능)
   const lightbox = document.getElementById('lightbox');
   const lightboxImg = document.getElementById('lightboxImg');
   document.addEventListener('click', (e) => {
-    const img = e.target;
-    if (img && img.tagName === 'IMG' && img.closest('.tour-shot')) {
-      lightboxImg.src = img.currentSrc || img.src;
-      lightboxImg.alt = img.alt || '';
-      lightbox.classList.add('open');
-      document.body.style.overflow = 'hidden'; // 배경 스크롤 잠금
-    }
+    const tourShot = e.target.closest && e.target.closest('.tour-shot');
+    if (!tourShot) return;
+    const img = tourShot.querySelector('img');
+    if (!img) return; // placeholder 상태(<img> 없음)면 무시
+    lightboxImg.src = img.currentSrc || img.src;
+    lightboxImg.alt = img.alt || '';
+    lightbox.classList.add('open');
+    document.body.style.overflow = 'hidden'; // 배경 스크롤 잠금
   });
   function closeLightbox() {
     lightbox.classList.remove('open');
