@@ -545,7 +545,6 @@ https://memoryking.kr/?interest=수능&interest=한자
 - 클라이언트 state: `understoodMarkedAt` / `understoodBox` / `understoodNextReview` 3 맵
 - 옛 데이터(NULL next_review_at): "오늘 다지기" 그룹으로 분류 → 처음 패스 시 정상 진행
 
-**꾹누르기 토스트**: "● 다지기 추가" / "다지기 해제" — 버튼·그룹 라벨과 일관성
 
 ## 8. 학습 인터페이스 — 플래시카드 모드
 
@@ -568,15 +567,15 @@ https://memoryking.kr/?interest=수능&interest=한자
 - **⑫ 카운트 배지** — 제목 바로 뒤에 원형 표시 (학습 카드 총 개수, 학습 동기 부여)
 - **⤴ 패스 버튼** — 헤더 오른쪽 끝까지 확장 (손가락으로 누르기 편함)
 
-### 학습 동작 — 버튼 1개 + 꾹누르기 1개
+### 학습 동작 — 탭 + 본문 하단 버튼 2개 (v2.3.5)
 
 | 동작 | 트리거 | 결과 | 저장 |
 |---|---|---|---|
 | **펼치기/접기** | 학습 카드 짧게 탭 | 내용 표시 (아코디언). 챕터 내 `everExpandedSet`에 기록됨 | — |
-| **패스** | 목차 헤더의 **⤴ 패스** 버튼 | 맨 위 학습 카드가 이번 회에서 빠짐 + 펼침 이력 따라 자동 ●/미암기 분류 | localStorage (챕터 단위, 영구) + 서버 |
-| **완료/다시 토글** | 학습 카드를 600ms 꾹누르기 | 학습완료 ● 표시 ↔ 미학습 토글 (수동) | DB (`op_understood`) |
+| **오늘 학습** | 본문 하단 빨강 버튼 | 다지기 오늘 박스 즉시 등장. ★ +1 | DB (`op_understood` box=1) |
+| **내일 학습** | 본문 하단 보라 버튼 | 다지기 내일 박스로. ★ 안 늘림 | DB (`op_understood` box=2) |
 
-→ 버튼 1개 + 꾹누르기 1개로 모든 학습 흐름 처리. 버튼은 단순하고 크게, 동작은 직관적으로.
+→ 꾹누르기(0.6초 long-press)와 ⤴ 패스 버튼은 v2.3.5에서 모두 제거. 본문 하단 두 버튼이 명시적으로 분류 처리. 단순/직관성 강화.
 
 ### 패스 버튼 자동 분류 (v2 핵심 UX)
 
@@ -658,7 +657,7 @@ function withTopicAnchor(topicId, callback) {
 ```
 - 목차 헤더(패스 버튼 포함)의 화면 Y 위치 캡쳐
 - 렌더 후 위치 변화량만큼 scrollBy로 보정
-- 패스 / 꾹누르기 / 펼침 모두 이 함수로 감싸짐
+- 오늘/내일 학습 / 펼침 모두 이 함수로 감싸짐
 
 → 패스 버튼 위치가 항상 같은 자리에 있어 연속 탭 가능
 
@@ -736,7 +735,7 @@ function withTopicAnchor(topicId, callback) {
 | 속도 | `rate: 0.85` (학습용으로 살짝 천천히) |
 | 표시 조건 | 학습 카드 제목에 라틴 문자 포함 **AND** 한글 미포함일 때만 (`/[a-zA-Z]/` 통과 + `/[가-힯ᄀ-ᇿ㄰-㆏]/` 미통과) |
 | 연속 클릭 | `speechSynthesis.cancel()` 로 진행 중 음성 중단 후 재생 |
-| 펼침·꾹누르기 분리 | `event.stopPropagation()` 을 click·mousedown·touchstart 모두에 |
+| 펼침 분리 | `event.stopPropagation()` 을 click에 |
 
 OS 네이티브 음성을 사용하므로 iOS/Android/Mac/Windows에서 자연스러운 발음. 안 들리면 무음 모드 또는 시스템에 영어 voice 미설치 가능성.
 
@@ -759,7 +758,7 @@ OS 네이티브 음성을 사용하므로 iOS/Android/Mac/Windows에서 자연�
 
 **데이터 무결성 — 사용자 학습 기록 보존**
 - 모든 사용자 reference는 `subtopic_id` 기준 → `sort_order` 변경 무영향
-- 콘텐츠 삭제 시: `op_understood.subtopic_id` FK CASCADE → 모든 사용자의 그 학습 카드 꾹누른 기록 자동 정리
+- 콘텐츠 삭제 시: `op_understood.subtopic_id` FK CASCADE → 모든 사용자의 그 학습 카드 학습 진도 자동 정리
 - 콘텐츠 추가: 학생 앱이 매번 fresh fetch → 즉시 반영, 새 sort_order 위치에 표시
 
 ---
@@ -795,8 +794,8 @@ A: 목차       B: 학습 카드    C~ : 내용1, 내용2, 내용3 ...
 | 모드 | 동작 | 학생 학습 기록 영향 |
 |---|---|---|
 | **append** (기본) | 기존 내용 뒤에 추가 — 동일 이름 목차·학습 카드 재사용해서 items만 누적 | ✅ 보존 (subtopic_id 유지) |
-| **✨ merge** | 동일 이름 목차·학습 카드 그대로 두고 **items만 전부 교체** — 콘텐츠 업데이트용 | ✅ **완벽 보존** (subtopic_id 유지, 꾹누른 기록 그대로) |
-| ⚠️ **replace** | 챕터의 모든 목차 삭제 후 신규 입력 | ❌ FK CASCADE로 모든 꾹누른 기록 삭제됨 |
+| **✨ merge** | 동일 이름 목차·학습 카드 그대로 두고 **items만 전부 교체** — 콘텐츠 업데이트용 | ✅ **완벽 보존** (subtopic_id 유지, 학습 진도 그대로) |
+| ⚠️ **replace** | 챕터의 모든 목차 삭제 후 신규 입력 | ❌ FK CASCADE로 모든 학습 진도 기록 삭제됨 |
 
 #### merge 모드 동작 디테일
 - 첫 호출에서 모든 기존 토픽 + 그 학습 카드들을 한 번에 읽어 `topicMap`·`subMap`·`originalSubIds` 채움
@@ -1276,7 +1275,7 @@ PABBLY_RESET_WEBHOOK_URL 이 설정돼 있으면 비밀번호 찾기 SMS 발송�
   - `kind='link'`: `text` 컬럼에 URL 저장, `caption` 에 제목/설명
   - `kind='text'`: `caption` 으로 이미지처럼 작은 설명 표시 (선택)
   - **v2 컨벤션**: `items[0].text` = 학습 카드 정답 (제목→items[0] = 큐→정답)
-- **op_understood**: user_phone, subtopic_id, marked_at, **review_box** (Leitner 1~6), **next_review_at** (다음 due KST), **miss_count** (★ 누적), **last_moved_at** (박스 안 정렬 키) — 꾹누르기 진도 + Standard SRS 스케줄
+- **op_understood**: user_phone, subtopic_id, marked_at, **review_box** (Leitner 1~6), **next_review_at** (다음 due KST), **miss_count** (★ 누적), **last_moved_at** (박스 안 정렬 키) — 학습 진도 + Standard SRS 스케줄
 - **op_pings**: user_phone, first_ping_today, last_ping_at (라이브 카운트)
 
 자세한 컬럼·타입·FK 설정은 [ONEPAGE_SCHEMA.md](ONEPAGE_SCHEMA.md) 참조.
@@ -1301,7 +1300,7 @@ PABBLY_RESET_WEBHOOK_URL 이 설정돼 있으면 비밀번호 찾기 SMS 발송�
 | `/topics?chapter_id=` | GET | 목차 목록 + 동봉 subtopics |
 | `/subtopics?topic_id=` | GET | 학습 카드 목록 |
 | `/items?subtopic_id=` | GET | 내용 블록 (구독 게이트 적용) |
-| `/understood` | POST | 꾹누르기 토글 — 첫 ● 시 review_box=1, next_review_at=내일 자동 세팅 |
+| `/understood` | POST | 카드 ● 등록 — 첫 등록 시 review_box=1, next_review_at=내일 자동 세팅 (studyDayPick에서 호출) |
 | `/understood/advance` | POST | 회상 성공(다지기 안 펼치고 패스) → Box +1, next_review_at 갱신 (Leitner 1·2·4·8·16·32일) |
 | `/understood?chapter_id=` | GET | 내 ● 등록 목록 + review_box + next_review_at |
 | `/stats/ping` | POST | 60초마다 학생이 호출 |

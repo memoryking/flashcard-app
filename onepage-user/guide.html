@@ -448,7 +448,7 @@
   <!-- ───────── 히어로 ───────── -->
   <section class="hero">
     <div class="pill">📖 5분이면 충분합니다</div>
-    <h1 style="margin-top:14px;">7가지만 알면<br><em>원페이지 학습</em> 끝</h1>
+    <h1 style="margin-top:14px;">6가지만 알면<br><em>원페이지 학습</em> 끝</h1>
     <p>아래로 스크롤하면서 영상을 한 번씩만 보세요</p>
   </section>
 
@@ -580,11 +580,11 @@
   <section class="step" id="s3">
     <div class="step-head">
       <div class="step-num">3</div>
-      <div class="step-title">⤴ 패스 — 똑똑한 자동 분류</div>
+      <div class="step-title">📚 오늘 학습 / 📅 내일 학습 — 직접 분류</div>
     </div>
     <p class="step-lead">
-      목차 오른쪽 <strong>⤴ 패스</strong>를 누르면 <strong>맨 위 카드가 사라져요</strong>.
-      그 카드는 "내가 챕터 안에서 한 번이라도 펼쳐봤는지"에 따라 자동으로 분류됩니다.
+      학습 카드를 펼쳐서 내용을 보고 두 버튼 중 하나를 누르세요.
+      <strong>오늘 학습</strong>은 즉시 다지기 오늘 박스로, <strong>내일 학습</strong>은 내일 박스로 갑니다.
     </p>
     <div class="media wide">
       <video src="guide-media/03-pass.mp4"
@@ -592,13 +592,13 @@
     </div>
 
     <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin:14px 0;">
-      <div style="background:rgba(76,175,80,0.08);border:1px solid rgba(76,175,80,0.28);border-radius:10px;padding:14px 14px 12px;">
-        <div style="font-size:13px;color:#81c784;font-weight:800;margin-bottom:6px;">안 펼치고 패스</div>
-        <div style="font-size:12.5px;color:rgba(255,255,255,0.75);line-height:1.65;">"안다" 신호 → 자동으로 <b style="color:#81c784;">● 다지기 등록</b></div>
+      <div style="background:rgba(233,69,96,0.10);border:1px solid rgba(233,69,96,0.30);border-radius:10px;padding:14px 14px 12px;">
+        <div style="font-size:13px;color:#ff8a9e;font-weight:800;margin-bottom:6px;">📚 오늘 학습</div>
+        <div style="font-size:12.5px;color:rgba(255,255,255,0.75);line-height:1.65;">"한 번 더 봐야겠다" → 다지기 <b style="color:#ff8a9e;">오늘 박스</b> 즉시 등장 + ★ 1개 추가</div>
       </div>
-      <div style="background:rgba(255,152,0,0.08);border:1px solid rgba(255,152,0,0.28);border-radius:10px;padding:14px 14px 12px;">
-        <div style="font-size:13px;color:#ffb74d;font-weight:800;margin-bottom:6px;">펼쳐본 뒤 패스</div>
-        <div style="font-size:12.5px;color:rgba(255,255,255,0.75);line-height:1.65;">"다시 봐야 했다" → <b style="color:#ffb74d;">미암기</b> (★ 표시 누적)</div>
+      <div style="background:rgba(149,117,219,0.10);border:1px solid rgba(149,117,219,0.30);border-radius:10px;padding:14px 14px 12px;">
+        <div style="font-size:13px;color:#b39ddb;font-weight:800;margin-bottom:6px;">📅 내일 학습</div>
+        <div style="font-size:12.5px;color:rgba(255,255,255,0.75);line-height:1.65;">"이건 안다" → 다지기 <b style="color:#b39ddb;">내일 박스</b>로 보내고 ★ 안 추가</div>
       </div>
     </div>
 
@@ -613,36 +613,18 @@
     </div>
 
     <div class="tip">
-      <b>모두 패스 → 🎉 자동 재시작</b> 미암기로 분류된 카드들만 다시 위로 올라와서 집중 복습할 수 있어요. 챕터를 나갔다 들어오면 "펼친 기록"은 초기화 — 늘 새로운 한 회로 시작합니다.
+      <b>★ 누적 기준 (1~3 = ★, 4~6 = ★★, 7~9 = ★★★, 10~12 = ★★★★, 13+ = ★★★★★)</b>
+      ★는 "한 번 더 봐야겠다" 신호가 쌓일 때 늘어요. 오늘 학습 누르기, 다지기에서 미래 박스 카드 펼쳐서 닫기, 말하기/첫글자 퀴즈 오답 등.
     </div>
     <div class="tip warn">
-      <b>다시 정리</b> "안 펼치고 패스 = 안다" / "펼친 뒤 패스 = 모른다". 펼친 적 있는 카드는 ★ 별표 탭에 누적돼서 약점만 모아 복습 가능.
+      <b>의미 차이</b> 펼치고 그냥 닫기 = ★ 안 늘어남. 오늘/내일 학습 버튼을 명시적으로 눌러야 분류됨.
     </div>
   </section>
 
-  <!-- ───────── STEP 4 ───────── -->
+  <!-- ───────── STEP 4 (이전 STEP 5) ───────── -->
   <section class="step" id="s4">
     <div class="step-head">
       <div class="step-num">4</div>
-      <div class="step-title">꾹눌러서 ● 직접 표시</div>
-    </div>
-    <p class="step-lead">
-      학습 카드를 <strong>0.6초 이상 꾹누르면</strong> 바로 "● 다지기"에 등록됩니다.
-      다시 꾹누르면 해제. 휴대폰이 살짝 진동해서 표시된 걸 바로 알 수 있어요.
-    </p>
-    <div class="media wide">
-      <video src="guide-media/04-press.mp4"
-             autoplay loop muted playsinline></video>
-    </div>
-    <div class="tip">
-      <b>패스와 차이</b> 패스(STEP 3)는 펼침 여부를 보고 자동 분류 + 카드가 사라짐. 꾹누르기는 카드가 안 사라지고 ● 표시만 즉시 토글 — "이건 확실히 안다" 거나 "이건 다시 봐야 한다" 를 명시적으로 정할 때 쓰세요.
-    </div>
-  </section>
-
-  <!-- ───────── STEP 5 ───────── -->
-  <section class="step" id="s5">
-    <div class="step-head">
-      <div class="step-num">5</div>
       <div class="step-title">● 다지기 — 6박스 자동 간격 반복</div>
     </div>
     <p class="step-lead">
@@ -688,11 +670,11 @@
     <div class="tip"><b>영어 단어는 🔊 발음 듣기</b> 학습 카드 제목 옆 🔊 버튼으로 바로 들을 수 있어요.</div>
   </section>
 
-  <!-- ───────── STEP 5-B (음성/첫글자 퀴즈) ───────── -->
-  <section class="step" id="s5b">
+  <!-- ───────── STEP 4-B (음성/첫글자 퀴즈) ───────── -->
+  <section class="step" id="s4b">
     <div class="step-head">
-      <div class="step-num">5+</div>
-      <div class="step-title">🎤 음성 / ✏️ 첫글자 퀴즈 — 단어와 뜻을 빠르게 각인</div>
+      <div class="step-num">4+</div>
+      <div class="step-title">🎤 말하기 / ✏️ 첫글자 퀴즈 — 단어와 뜻을 빠르게 각인</div>
     </div>
     <p class="step-lead">
       특정 챕터(한국사·영단어처럼 짧은 답이 있는)에서는 다지기 상단에 <strong>두 가지 퀴즈 모드</strong>가 나타납니다. 카드 터치 학습 전에 가볍게 단어-뜻 연결을 확인해보세요.
@@ -739,10 +721,10 @@
     </div>
   </section>
 
-  <!-- ───────── STEP 6 ───────── -->
-  <section class="step" id="s6">
+  <!-- ───────── STEP 5 (이전 STEP 6) ───────── -->
+  <section class="step" id="s5">
     <div class="step-head">
-      <div class="step-num">6</div>
+      <div class="step-num">5</div>
       <div class="step-title">👤 내 계정 — 구독·포인트·추천 코드</div>
     </div>
     <p class="step-lead">
@@ -756,10 +738,10 @@
     <div class="tip"><b>📋 코드 / 🔗 링크</b> 둘 다 복사 버튼이 있어요. 친구에게 보내면 가입 시 자동 연결.</div>
   </section>
 
-  <!-- ───────── STEP 7 ───────── -->
-  <section class="step" id="s7">
+  <!-- ───────── STEP 6 (이전 STEP 7) ───────── -->
+  <section class="step" id="s6">
     <div class="step-head">
-      <div class="step-num">7</div>
+      <div class="step-num">6</div>
       <div class="step-title">결제·포인트 사용으로 챕터 열기</div>
     </div>
     <p class="step-lead">
@@ -792,7 +774,7 @@
   // ───────── 진행 도트 ─────────
   // 7개 스텝 도트를 만들고, 현재 화면에 가까운 스텝을 강조
   // 메인 스텝 7개 + s5b(다지기 보조 — 음성/첫글자 퀴즈)는 도트 없이 본문에만 노출
-  const TOTAL = 7;
+  const TOTAL = 6; // STEP 4 (꾹누르기)는 v2.3.5에서 제거 — 오늘/내일 학습 버튼이 대체
   const dots = document.getElementById('dots');
   for (let i = 1; i <= TOTAL; i++) {
     const d = document.createElement('div');

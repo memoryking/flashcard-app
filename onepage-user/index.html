@@ -1856,9 +1856,6 @@ a { color: #4fc3f7; text-decoration: none; }
   background: #ffb74d; border-color: #ffb74d;
   box-shadow: 0 0 10px rgba(255,138,0,0.55);
 }
-.subtopic-hint {
-  font-size: 10px; color: rgba(255,255,255,0.35);
-}
 /* 별표 — 틀린 횟수(miss_count) 시각 표시. 별표/all 탭에서 노출 */
 .subtopic-stars {
   font-size: 11px; letter-spacing: 1px;
@@ -2386,7 +2383,7 @@ const state = {
   todayStatsCleared: 0,       // v2: 오늘 박스에서 내일 박스로 진급한 카드 (분자). 분모는 동적 계산
   todayStatsDate: '',         // v2: KST 날짜 키 — 자정 지나면 자동 리셋
   passedSet: new Set(),       // 이번 회 패스한 학습 카드 (세션만 — 새로고침 시 복원)
-  memorizedView: false,       // 챕터 내 암기 모음 모드 (꾹누른 학습 카드만 모아보기)
+  memorizedView: false,       // 챕터 내 다지기 모드 (이해 완료(●) 학습 카드만 모아보기)
   memoSnapshotIds: new Set(), // 암기 모음 진입 시 보여줄 학습 카드 스냅샷 — 펼친 항목이 미암기로 분류돼도 이번 회는 그대로 보이게
   everExpandedSet: new Set(), // 이 챕터 진입 후 한 번이라도 펼쳐본 학습 카드 — 일반 모드 패스 판정용. 챕터 나가면 초기화
   memorizedExpandedSet: new Set(), // 다지기 모드 진입 후 펼친 카드 — 다지기 패스 판정용. 다지기 토글 ON 시 초기화
@@ -5007,14 +5004,7 @@ function renderSubtopic(s, isCurrent) {
 
   // 항상 보이는 미리보기 (제목 아래)
   const preview = hasImg ? `
-    <div class="subtopic-preview"
-         onclick="subClick(event,${s.id})"
-         onmousedown="pressStart(${s.id})"
-         onmouseup="pressEnd()"
-         onmouseleave="pressEnd()"
-         ontouchstart="pressStart(${s.id})"
-         ontouchend="pressEnd()"
-         ontouchcancel="pressEnd()">
+    <div class="subtopic-preview" onclick="subClick(event,${s.id})">
       <img src="${escapeHtml(s.image_b64)}" alt="" oncontextmenu="return false">
       ${s.caption ? `<div class="cap">${escapeHtml(s.caption)}</div>` : ''}
     </div>
@@ -5066,14 +5056,7 @@ function renderSubtopic(s, isCurrent) {
 
   return `
     <div class="${cls}" data-sub="${s.id}">
-      <div class="subtopic-head"
-           onclick="subClick(event,${s.id})"
-           onmousedown="pressStart(${s.id})"
-           onmouseup="pressEnd()"
-           onmouseleave="pressEnd()"
-           ontouchstart="pressStart(${s.id})"
-           ontouchend="pressEnd()"
-           ontouchcancel="pressEnd()">
+      <div class="subtopic-head" onclick="subClick(event,${s.id})">
         <div class="subtopic-dot"></div>
         <div class="subtopic-arrow">▶</div>
         ${failedFromMemo ? `<span class="failed-memo-badge" title="다지기에서 다시 보고 싶다고 한 카드">↺</span>` : ''}
@@ -5103,7 +5086,6 @@ function renderSubtopic(s, isCurrent) {
                 onmousedown="event.stopPropagation()"
                 ontouchstart="event.stopPropagation()"
                 title="발음 듣기">🔊</button>` : ''}
-        <div class="subtopic-hint">${opened ? '꾹눌러 ●' : ''}</div>
       </div>
       ${preview}
       <div class="subtopic-body">${body}</div>
@@ -5247,7 +5229,7 @@ function renderItem(it) {
 }
 
 // ============================================================
-// 펼침 토글 + 꾹누르기
+// 펼침 토글
 // ============================================================
 function toggleTopic(id) {
   if (state.expanded.topic.has(id)) state.expanded.topic.delete(id);
@@ -5430,24 +5412,9 @@ function showCelebration() {
   setTimeout(() => c.remove(), 2700);
 }
 
-// 펼침은 click이 담당, long-press(600ms)는 이해 토글
-// → 모바일/데스크탑 모두 안정적 (이전 longPressEnd가 모바일에서 안 먹는 문제 해결)
-let _pressTimer = null;
-let _longFired = false;
-function pressStart(subId) {
-  _longFired = false;
-  _pressTimer = setTimeout(() => {
-    _longFired = true;
-    if (navigator.vibrate) try { navigator.vibrate(20); } catch {}
-    toggleUnderstood(subId);
-  }, 600);
-}
-function pressEnd() {
-  if (_pressTimer) { clearTimeout(_pressTimer); _pressTimer = null; }
-}
+// 학습 카드 클릭 — 펼침/닫음 전용 (v2.3.5: 꾹누르기 제거)
+//   ● 등록은 일반 모드의 오늘/내일 학습 버튼이 담당.
 function subClick(e, subId) {
-  if (_longFired) { _longFired = false; e.preventDefault(); return; }
-
   // 클릭한 학습 카드의 화면 위치 캡쳐 (위쪽 다른 학습 카드가 닫혀도 자리 유지하려고)
   const subEl = e.currentTarget && e.currentTarget.closest('.subtopic');
   const beforeY = subEl ? subEl.getBoundingClientRect().top : null;
@@ -5701,26 +5668,6 @@ async function apiPass(subId, wasPeeked) {
   } catch { return null; }
 }
 
-// 꾹누르기 — 무조건 다음 박스로 advance
-async function apiPromote(subId) {
-  if (!state.user) return null;
-  const sid = Number(subId);
-  const prevBox = state.understoodSet.has(sid) ? (state.understoodBox[sid] || 1) : null;
-  try {
-    const r = await api('POST', '/understood/promote', { subtopic_id: subId });
-    if (r && r.ok) {
-      state.understoodSet.add(sid);
-      if (typeof r.review_box === 'number') {
-        state.understoodBox[sid] = r.review_box;
-        bumpTodayStats(prevBox, r.review_box);
-      }
-      if (r.next_review_at) state.understoodNextReview[sid] = r.next_review_at;
-      if (typeof r.miss_count === 'number') state.understoodMissCount[sid] = r.miss_count;
-    }
-    return r;
-  } catch { return null; }
-}
-
 // 패스 — 안 펼치고 패스한 경우 자동 ● 암기로 설정 (정상 모드에서 사용)
 // 화면 갱신·토스트 없이 understoodSet 갱신 + 서버 동기화
 async function silentMarkUnderstood(subId) {
@@ -5770,21 +5717,6 @@ async function silentUnmarkUnderstood(subId) {
     state.understoodSet.add(Number(subId));
     state.recentlyFailedFromMemo.delete(Number(subId));
     if (wasInEverExpanded) state.everExpandedSet.add(Number(subId));
-  }
-}
-
-// v2 꾹누르기 — 항상 다음 박스로 advance (= "안다" 신호)
-// new 카드면 box=2 (내일) 진입. 기존 카드면 현재 박스+1.
-async function toggleUnderstood(subId) {
-  if (!state.user) return;
-  const r = await apiPromote(Number(subId));
-  if (r && r.ok) {
-    const labels = ['', '오늘 학습', '내일 학습', '4일 후', '8일 후', '16일 후', '32일 후'];
-    const lbl = labels[Number(r.review_box) || 1] || `Box ${r.review_box}`;
-    toast(`✓ ${lbl} 으로 이동`);
-    renderTree(state.currentChapter.id);
-  } else {
-    toast('서버 통신 실패', true);
   }
 }
 
@@ -6495,8 +6427,6 @@ window.stopElaboration = stopElaboration;
 window.toggleQuizSound = toggleQuizSound;
 window.firstLetterQuizSelect = firstLetterQuizSelect;
 window.firstLetterQuizContinue = firstLetterQuizContinue;
-window.pressStart = pressStart;
-window.pressEnd = pressEnd;
 window.subClick = subClick;
 window.openReferralModal = openReferralModal;
 window.openPointModal = openPointModal;

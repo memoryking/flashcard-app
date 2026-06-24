@@ -22,7 +22,7 @@
 | nocodebackend | `op_topics` | 목차 |
 | nocodebackend | `op_subtopics` | 학습 카드 (+ 대표 이미지) |
 | nocodebackend | `op_items` | 내용 블록 (텍스트·이미지·링크) |
-| nocodebackend | `op_understood` | 학생 꾹누르기 진도 |
+| nocodebackend | `op_understood` | 학생 ● 등록 + SRS 진도 |
 | nocodebackend | `op_pings` | 라이브 학습자 카운트 |
 
 ---
@@ -584,7 +584,7 @@ if (existing) {
 | 트리거 | 대상 | 동작 |
 |---|---|---|
 | 회원가입 | OnepageUsers | 신규 행 생성 (Worker가 referral_code 생성·중복 확인) |
-| 학습 카드 꾹누르기 | op_understood | upsert (이미 있으면 행 삭제 = 토글) |
+| 학습 카드 ● 등록 (오늘/내일 학습) | op_understood | upsert (행 없으면 생성, box=1 또는 2 세팅) |
 | 60초 ping | op_pings | upsert (user_phone로 찾아 first_ping_today 갱신) |
 | 선생님이 콘텐츠 CRUD | op_chapters/topics/subtopics/items | 일반 CRUD |
 | 일괄 입력 (TSV) | op_topics/subtopics/items 한꺼번에 | append 또는 replace 모드 |
