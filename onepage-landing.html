@@ -313,6 +313,67 @@
     font-size: 12.5px;
 }
 
+/* ★ 별표 — 자주 틀린 카드 시각화 (별표/all 탭에서 노출) */
+#opRoot .op-sub-stars {
+    color: #ffd54f;
+    font-size: 11px;
+    letter-spacing: 1.5px;
+    margin-left: 4px;
+    flex-shrink: 0;
+    text-shadow: 0 0 6px rgba(255,213,79,0.45);
+}
+
+/* 본문 하단 오늘 학습 / 내일 학습 버튼 — 학습 모드 핵심 UX */
+#opRoot .op-learn-day {
+    display: flex;
+    gap: 10px;
+    margin: 18px 0 4px;
+    padding-top: 14px;
+    border-top: 1px dashed rgba(255,255,255,0.12);
+}
+#opRoot .op-learn-day-btn {
+    flex: 1;
+    padding: 12px 10px;
+    border: none;
+    border-radius: 10px;
+    font-size: 13px;
+    font-weight: 800;
+    color: #fff;
+    text-align: center;
+    cursor: pointer;
+    letter-spacing: 0.3px;
+    transition: transform 0.12s ease, box-shadow 0.18s ease, filter 0.15s ease;
+    -webkit-user-select: none; user-select: none;
+}
+#opRoot .op-learn-day-btn:hover { filter: brightness(1.08); }
+#opRoot .op-learn-day-btn:active { transform: scale(0.96); }
+#opRoot .op-learn-today {
+    background: linear-gradient(135deg, rgba(255,138,158,0.95), rgba(233,69,96,0.92));
+    box-shadow: 0 4px 14px rgba(233,69,96,0.30);
+}
+#opRoot .op-learn-tomorrow {
+    background: linear-gradient(135deg, rgba(149,117,219,0.95), rgba(83,52,131,0.92));
+    box-shadow: 0 4px 14px rgba(149,117,219,0.30);
+}
+/* ● 다지기 등록됨 표시 — 버튼 클릭 후 카드 head에 라벨 */
+#opRoot .op-sub-badge {
+    display: none;
+    background: linear-gradient(135deg, rgba(76,175,80,0.85), rgba(46,125,50,0.85));
+    color: #fff; font-size: 10.5px; font-weight: 800;
+    padding: 3px 9px; border-radius: 50px;
+    letter-spacing: 0.4px; flex-shrink: 0;
+    animation: opBadgePop 280ms cubic-bezier(0.34, 1.56, 0.64, 1) both;
+}
+#opRoot .op-sub.registered .op-sub-badge { display: inline-block; }
+#opRoot .op-sub.registered .op-sub-dot {
+    background: #4caf50; border-color: #4caf50;
+    box-shadow: 0 0 10px rgba(76,175,80,0.55);
+}
+@keyframes opBadgePop {
+    0% { opacity: 0; transform: scale(0.5); }
+    100% { opacity: 1; transform: scale(1); }
+}
+
 #opRoot .op-demo-hint {
     display: block; text-align: center; margin-top: 16px;
     font-size: 12px; color: rgba(255,255,255,0.45);
@@ -740,18 +801,25 @@
                         <div class="op-sub-head">
                             <div class="op-sub-dot"></div>
                             <div class="op-sub-title">harvest <span style="color:rgba(255,255,255,0.4);font-weight:400;font-size:13px">[ˈhɑːrvɪst]</span></div>
+                            <span class="op-sub-badge">● 다지기</span>
                         </div>
                         <div class="op-sub-body">
                             <p><strong style="color:#ffb347">n. 수확  ·  v. 거두어들이다</strong></p>
                             <p>The farmer celebrated a rich <code>harvest</code> this autumn.<br>
                             농부는 올 가을 풍성한 수확을 자축했다.</p>
                             <p style="font-size:12.5px;color:rgba(255,255,255,0.55);">💡 har(허~) + vest(조끼) → 조끼 입고 수확하는 농부</p>
+                            <div class="op-learn-day">
+                                <button class="op-learn-day-btn op-learn-today" data-day="today">📚 오늘 학습</button>
+                                <button class="op-learn-day-btn op-learn-tomorrow" data-day="tomorrow">📅 내일 학습</button>
+                            </div>
                         </div>
                     </div>
                     <div class="op-sub" data-sub="1-2">
                         <div class="op-sub-head">
                             <div class="op-sub-dot"></div>
                             <div class="op-sub-title">gust <span style="color:rgba(255,255,255,0.4);font-weight:400;font-size:13px">[ɡʌst]</span></div>
+                            <span class="op-sub-stars" title="틀린 횟수 5회">★★</span>
+                            <span class="op-sub-badge">● 다지기</span>
                         </div>
                         <div class="op-sub-body">
                             <p><strong style="color:#ffb347">n. 돌풍, 한바탕 몰아치는 것</strong></p>
@@ -777,6 +845,8 @@
                         <div class="op-sub-head">
                             <div class="op-sub-dot"></div>
                             <div class="op-sub-title">vivid <span style="color:rgba(255,255,255,0.4);font-weight:400;font-size:13px">[ˈvɪvɪd]</span></div>
+                            <span class="op-sub-stars" title="틀린 횟수 2회">★</span>
+                            <span class="op-sub-badge">● 다지기</span>
                         </div>
                         <div class="op-sub-body">
                             <p><strong style="color:#ffb347">a. 생생한, 선명한</strong></p>
@@ -799,6 +869,8 @@
                         <div class="op-sub-head">
                             <div class="op-sub-dot"></div>
                             <div class="op-sub-title">stall <span style="color:rgba(255,255,255,0.4);font-weight:400;font-size:13px">[stɔːl]</span></div>
+                            <span class="op-sub-stars" title="틀린 횟수 8회">★★★</span>
+                            <span class="op-sub-badge">● 다지기</span>
                         </div>
                         <div class="op-sub-body">
                             <p><strong style="color:#ffb347">v. 지연시키다, 멈추다</strong></p>
@@ -821,7 +893,7 @@
                 </div>
             </div>
         </div>
-        <div class="op-demo-hint">👆 목차 클릭 → 단어 클릭으로 본문 펼침. 실제 앱에서는 본문 하단 <b>오늘 학습 / 내일 학습</b> 버튼으로 ● 다지기 등록 → 1·2·4·8·16·32일 간격 자동 복습</div>
+        <div class="op-demo-hint">👆 목차 → 단어 → 본문 펼침. <b>오늘/내일 학습</b> 버튼 직접 눌러보세요 (● 다지기 등록 시연). ★는 자주 틀린 카드 자동 표시.</div>
     </div>
 </section>
 
@@ -1417,6 +1489,19 @@
         if (!head) return;
         head.addEventListener('click', function () {
             s.classList.toggle('opened');
+        });
+    });
+
+    // ── 오늘 학습 / 내일 학습 버튼 클릭 → ● 다지기 등록 시연 ──
+    //    실제 앱과 동일한 dissolve 흐름: 카드 head에 '● 다지기' 배지 노출 + 카드 닫힘
+    root.querySelectorAll('.op-learn-day-btn').forEach(function (btn) {
+        btn.addEventListener('click', function (e) {
+            e.stopPropagation();
+            var sub = btn.closest('.op-sub');
+            if (!sub) return;
+            sub.classList.add('registered');
+            // 본문 닫기 (다지기 등록되면 학습 모드에서 사라짐 시뮬레이션)
+            setTimeout(function () { sub.classList.remove('opened'); }, 350);
         });
     });
 
