@@ -716,16 +716,54 @@ async function handleReferralInfo(request, env) {
 // 핸들러 — 챕터/토픽/학습 카드 (CRUD)
 // ============================================================
 
-async function handleListChapters(request, env) {
+// 챕터 목록 캐시 — 모든 사용자 공통 메타데이터, 사용자별 데이터(주문/구독/관심)는 별개 endpoint
+//   캐시 키: role + subject 조합. TTL 5분 (s-maxage=300).
+//   변경(POST/PUT/DELETE) 시 purgeChapterCache() 로 자동 무효화.
+const CHAPTERS_CACHE_TTL = 300; // 5분
+function chaptersCacheKey(role, subject) {
+  return new Request(
+    `https://opcache.local/chapters?role=${role}&subject=${encodeURIComponent(subject || '')}`,
+    { method: 'GET' }
+  );
+}
+async function purgeChapterCache() {
+  // 학생·교사 캐시 둘 다 + subject 없는 기본 키 purge.
+  // subject 필터 캐시들은 TTL 만료(5분) 의존 — 어차피 자주 안 쓰임.
+  try {
+    const cache = caches.default;
+    await Promise.all([
+      cache.delete(chaptersCacheKey('student', '')),
+      cache.delete(chaptersCacheKey('teacher', '')),
+    ]);
+  } catch {}
+}
+
+async function handleListChapters(request, env, ctx) {
   const url = new URL(request.url);
-  const subject = url.searchParams.get('subject');
+  const subject = url.searchParams.get('subject') || '';
+
+  // 1) auth 먼저 (역할 판정용 — JWT는 DB 조회 없이 빠름 ~10ms)
+  const auth = await verifyAuth(request, env);
+  const isTeacher = auth && auth.role === 'teacher';
+  const role = isTeacher ? 'teacher' : 'student';
+  const cacheKey = chaptersCacheKey(role, subject);
+  const cache = caches.default;
+
+  // 2) 캐시 히트 확인 — 응답에 CORS 헤더가 빠져있으니 데이터만 꺼내 새 json 생성
+  try {
+    const hit = await cache.match(cacheKey);
+    if (hit) {
+      const payload = await hit.json();
+      return json(payload, 200, request);
+    }
+  } catch {}
+
+  // 3) 캐시 미스 — nocodebackend에서 fetch
   const base = subject ? `subject=${encodeURIComponent(subject)}` : '';
   const filter = base ? `${base}&limit=2000` : 'limit=2000';
   const r = await ncbRead(env, 'op_chapters', filter);
   // 학생에겐 비공개(is_published=0) 챕터 숨김. 선생님은 모두 노출.
   // is_published 컬럼이 없거나 null이면 publish=1로 간주 (기존 데이터 호환)
-  const auth = await verifyAuth(request, env);
-  const isTeacher = auth && auth.role === 'teacher';
   let list = r.data || [];
   if (!isTeacher) {
     list = list.filter(c => {
@@ -738,7 +776,19 @@ async function handleListChapters(request, env) {
     (Number(a.sort_order) || 0) - (Number(b.sort_order) || 0) ||
     (Number(a.id) || 0) - (Number(b.id) || 0)
   );
-  return json({ chapters: list }, 200, request);
+  const payload = { chapters: list };
+
+  // 4) 캐시에 저장 — 백그라운드로(응답 지연 X). ctx 없으면 await로 fallback.
+  const toCache = new Response(JSON.stringify(payload), {
+    headers: { 'Content-Type': 'application/json', 'Cache-Control': `public, s-maxage=${CHAPTERS_CACHE_TTL}` },
+  });
+  if (ctx && ctx.waitUntil) {
+    ctx.waitUntil(cache.put(cacheKey, toCache));
+  } else {
+    try { await cache.put(cacheKey, toCache); } catch {}
+  }
+
+  return json(payload, 200, request);
 }
 
 async function handleCreateChapter(request, env, user) {
@@ -760,6 +810,7 @@ async function handleCreateChapter(request, env, user) {
   };
   if (!data.subject || !data.title) return json({ error: 'subject, title 필수' }, 400, request);
   const r = await ncbCreate(env, 'op_chapters', data);
+  await purgeChapterCache();
   return json({ ok: true, id: r.id, chapter: { ...data, id: r.id } }, 200, request);
 }
 
@@ -782,12 +833,14 @@ async function handleUpdateChapter(request, env, user, id) {
   if (b.voice_quiz_read_question !== undefined) patch.voice_quiz_read_question = b.voice_quiz_read_question ? 1 : 0;
   patch.updated_at = kstDateTime();
   const r = await ncbUpdate(env, 'op_chapters', id, patch);
+  await purgeChapterCache();
   return json({ ok: true, result: r }, 200, request);
 }
 
 async function handleDeleteChapter(request, env, user, id) {
   // FK CASCADE로 자식 자동 정리
   await ncbDelete(env, 'op_chapters', id);
+  await purgeChapterCache();
   return json({ ok: true }, 200, request);
 }
 
@@ -2976,7 +3029,7 @@ function pathMatch(path, pattern) {
   return params;
 }
 
-async function route(request, env) {
+async function route(request, env, ctx) {
   const url = new URL(request.url);
   const path = url.pathname.replace(/\/$/, '') || '/';
   const m = request.method;
@@ -2998,7 +3051,7 @@ async function route(request, env) {
   if (m === 'POST' && path === '/payapp/webhook') return handlePayAppWebhook(request, env);
 
   // ── 콘텐츠 읽기 (게이트는 items에만) ──
-  if (m === 'GET' && path === '/chapters') return handleListChapters(request, env);
+  if (m === 'GET' && path === '/chapters') return handleListChapters(request, env, ctx);
   if (m === 'GET' && path === '/topics') return handleListTopics(request, env);
   if (m === 'GET' && path === '/subtopics') return handleListSubtopics(request, env);
   if (m === 'GET' && path === '/items') return handleListItems(request, env);
@@ -3130,7 +3183,7 @@ export default {
       return new Response(null, { status: 204, headers: corsHeaders(request) });
     }
     try {
-      return await route(request, env);
+      return await route(request, env, ctx);
     } catch (e) {
       console.error('worker_error', e);
       return json({ error: 'server_error', message: String(e?.message || e) }, 500, request);
