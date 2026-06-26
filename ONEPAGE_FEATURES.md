@@ -26,6 +26,7 @@
 20. [데이터 모델](#20-데이터-모델)
 21. [Worker 엔드포인트](#21-worker-엔드포인트)
 22. [Cloudflare Workers 청크 처리](#22-cloudflare-workers-청크-처리)
+22.5. [Cloudflare Edge Cache — /chapters 가속](#225-cloudflare-edge-cache--chapters-가속-v237)
 23. [v2 학습 시스템 (단일 카드 + 퀴즈)](#23-v2-학습-시스템-단일-카드--퀴즈)
 
 ---
@@ -1296,7 +1297,7 @@ PABBLY_RESET_WEBHOOK_URL 이 설정돼 있으면 비밀번호 찾기 SMS 발송�
 | `/auth/forgot-password` | POST | 비밀번호 찾기 1단계 — `{email}` → 등록 휴대폰으로 SMS 6자리 코드. enumeration 차단 위해 미존재 시에도 200. 응답 `{ok, sent, phone_masked}` |
 | `/auth/reset-password` | POST | 비밀번호 찾기 2단계 — `{email, code, new_password}` → 코드+만료 검증 후 password_hash 갱신, reset_code 클리어 |
 | `/referral/info?code=` | GET | 추천 코드 유효성 (이름 마스킹) |
-| `/chapters` | GET | 챕터 목록 |
+| `/chapters` | GET | 챕터 목록. **Cloudflare Edge Cache 5분 TTL** — role(student/teacher) + subject 별 캐시 키, 챕터 변경 시 자동 purge. 캐시 히트 시 ~50ms (10배 빠름) |
 | `/topics?chapter_id=` | GET | 목차 목록 + 동봉 subtopics |
 | `/subtopics?topic_id=` | GET | 학습 카드 목록 |
 | `/items?subtopic_id=` | GET | 내용 블록 (구독 게이트 적용) |
@@ -1313,8 +1314,8 @@ PABBLY_RESET_WEBHOOK_URL 이 설정돼 있으면 비밀번호 찾기 SMS 발송�
 ### 선생님용 (teacher gate)
 | 경로 | 메서드 | 동작 |
 |---|---|---|
-| `/chapters` | POST | 챕터 생성 (pay_url 포함) |
-| `/chapters/:id` | PUT/DELETE | 챕터 수정/삭제 |
+| `/chapters` | POST | 챕터 생성 (pay_url 포함). **Edge Cache 자동 purge** |
+| `/chapters/:id` | PUT/DELETE | 챕터 수정/삭제. **Edge Cache 자동 purge** |
 | `/chapters/:id/bulk` | POST | TSV 일괄 입력 (청크 처리) |
 | `/topics`·`/topics/:id` | POST/PUT/DELETE | 목차 CRUD |
 | `/topics/reorder` | POST | 목차 순서 일괄 변경 — `{ordered_ids[], start_index}` |
@@ -1408,6 +1409,56 @@ while (true) {
   - 화자는 한국어 여성 차분한 톤으로 통일 (브랜드 일관성)
   - guide-media/*.mp4 의 7편 영상을 B-roll로 재활용
   - 편당 30~90분 작업, 5편 총 4시간 → 한 달 분량 15~20편으로 확장
+
+---
+
+## 22.5 Cloudflare Edge Cache — `/chapters` 가속 (v2.3.7)
+
+홈 첫 진입 로딩 속도 개선. 챕터 메타데이터(시스템 공통)는 캐시 가능, 사용자별 데이터는 별도 endpoint.
+
+### 무엇을 캐시하나
+- **`/chapters` 응답만** 캐시 (Cloudflare 엣지 `caches.default`)
+- 5분 TTL (`s-maxage=300`)
+- 키: `https://opcache.local/chapters?role={student|teacher}&subject={subj}` — role + subject 별 분리
+
+### 무엇은 캐시 안 하나
+- ❌ `/auth/me` — 사용자별 (액세스/주문/관심/포인트)
+- ❌ `/understood` — 사용자별 학습 진도
+- ❌ `/access` — 사용자별 구독
+
+→ 사용자가 챕터 순서·구매 필터·관심 주제를 바꿔도 **캐시 영향 0** (모두 `/auth/me`에서 옴).
+
+### 자동 무효화 (Cache Invalidation)
+변경 endpoint에서 `purgeChapterCache()` 호출:
+- `POST /chapters` — 신규 챕터 생성 → purge
+- `PUT /chapters/:id` — 챕터 수정 (is_published 토글 포함) → purge
+- `DELETE /chapters/:id` — 챕터 삭제 → purge
+
+→ 강사가 챕터 작업하면 **다음 호출부터 모든 사용자에게 즉시 반영**. (5분 기다릴 필요 X)
+
+### 성능 효과
+| 시나리오 | 이전 | 이후 |
+|---------|------|------|
+| 캐시 미스 (첫 사용자) | ~500ms | ~500ms (동일) |
+| 캐시 히트 (5분간 나머지) | ~500ms | **~50ms (10배)** |
+| 교사 챕터 추가 직후 | 즉시 | 즉시 (자동 purge) |
+| 일반 평균 | ~500ms | **~70ms** |
+
+### 구현 세부
+```js
+// route(request, env, ctx) — ctx 추가 전달
+async function handleListChapters(request, env, ctx) {
+  const auth = await verifyAuth(request, env);  // JWT만 검증 (~10ms)
+  const role = auth?.role === 'teacher' ? 'teacher' : 'student';
+  const cacheKey = chaptersCacheKey(role, subject);
+  const hit = await caches.default.match(cacheKey);
+  if (hit) return json(await hit.json(), 200, request);
+  // ... fetch from nocodebackend ...
+  ctx.waitUntil(caches.default.put(cacheKey, toCache));  // 백그라운드 저장
+}
+```
+
+`ctx.waitUntil` — 응답 후 백그라운드에서 캐시 저장 → 첫 사용자도 지연 없음.
 
 ---
 
@@ -1578,6 +1629,30 @@ Service worker 없이 Vercel의 자동 ETag 헤더 활용 — 배포 후 활성 
 **활동 감지**: `document` 레벨 `click` / `touchstart` / `keydown` (capture+passive). 다지기 밖이면 비용 0.
 **의도**: 사용자가 ON으로 켠 후에도 위 규칙 적용. 의도적으로 켠 건 그 활동 시간만큼만 유지.
 **모달 안 띄움**: UX 마찰 최소화. 기본을 안전하게 + 자동 보호.
+
+### 23.13 신규 사용자 온보딩 (v2.3.7 — 환영 모달 + 펄스)
+랜딩에서 가입한 사용자가 홈 첫 진입 시 헤매지 않게 안내.
+
+**A) 환영 모달** (`maybeShowWelcome`):
+- `enterHome()` 후 350ms 지연으로 자연스럽게 표시
+- 조건: `localStorage.op_welcome_seen` 미설정 **AND** `op_guide_seen` 미설정
+- 본문: "1분이면 사용법 끝나요. 가이드 먼저 읽어볼까요?" + 6 STEP 요약
+- 2버튼:
+  - **📖 가이드 보기 (1분)** → `openGuide()` (guide.html이 `op_guide_seen='1'` 자동 설정)
+  - **먼저 둘러보기** → 모달 닫고 펄스 힌트 발동
+
+**B) 가이드 버튼 펄스** (`#guideBtn.pulse-hint`):
+- 둘러보기 선택 시 우상단 📖 가이드 버튼에 10초간 펄스 글로우
+- 빨강 배경/보더 + box-shadow ring 호흡(1.4s) + scale 1.04
+- 10초 후 자동 해제 (`setTimeout` removeClass)
+
+**상태 키**:
+| key | 설정 시점 | 역할 |
+|-----|---------|------|
+| `op_welcome_seen` | 둘 중 어느 버튼이든 누른 직후 | 환영 모달 1회만 노출 |
+| `op_guide_seen` | guide.html 진입 시 자동 | 모달 차단 (이미 본 사용자) |
+
+→ **둘 중 하나라도 있으면 모달 비노출** — 자연스럽고 침습적 X.
 
 ### 23.12 가이드 — 전체보기 9개 카드 + 라이트박스
 `onepage-user/guide.html`의 "전체 보기" 섹션에 9개 캡쳐 카드 (메인/학습/다지기/내 계정/포인트/모르면 오늘로/결제/암기카드 3탭/친구추천).

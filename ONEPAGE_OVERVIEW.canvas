@@ -67,7 +67,7 @@
       "y": -850,
       "width": 600,
       "height": 240,
-      "text": "## ☁️ Cloudflare Worker\n`onepage-worker/worker.js`\n\n**인증 · API · 결제 게이트 · 추천 · 진도**\n\n주요 엔드포인트:\n- `/auth/*` 로그인·회원가입·구글\n- `/chapters/*` 챕터 목록·접근\n- `/understood/*` SRS 패스·박스 갱신\n- `/access/*` 구독·포인트 결제\n- `/points/*` 포인트 적립·사용\n- `/payment/*` `/payapp/webhook` 결제",
+      "text": "## ☁️ Cloudflare Worker\n`onepage-worker/worker.js`\n\n**인증 · API · 결제 게이트 · 추천 · 진도**\n\n주요 엔드포인트:\n- `/auth/*` 로그인·회원가입·구글\n- `/chapters/*` 챕터 목록·접근\n  · **Edge Cache 5분 TTL** (role별)\n  · 변경 시 자동 purge\n- `/understood/*` SRS 패스·박스 갱신\n- `/access/*` 구독·포인트 결제\n- `/points/*` 포인트 적립·사용\n- `/payment/*` `/payapp/webhook` 결제",
       "color": "3"
     },
     {
@@ -267,7 +267,7 @@
       "y": 960,
       "width": 360,
       "height": 260,
-      "text": "### 💾 클라이언트 상태\n`localStorage` 영속화\n\n- `op_active_recall_v1` 능동 회상\n- `op_voice_quiz_mode` 자동/수동\n- `op_voice_quiz_read` 문제 읽기\n- `op_quiz_sound` 효과음\n- `op_last_study_date` 자정 넘김\n- `op_chapter_order_v1_{phone}` 챕터 순서 (서버 동기 백업)\n- 세션 상태: passedSet 등 메모리만",
+      "text": "### 💾 클라이언트 상태\n`localStorage` 영속화\n\n- `op_active_recall_v1` 능동 회상\n- `op_voice_quiz_mode` 자동/수동\n- `op_voice_quiz_read` 문제 읽기\n- `op_quiz_sound` 효과음\n- `op_last_study_date` 자정 넘김\n- `op_chapter_order_v1_{phone}` 챕터 순서 (서버 동기 백업)\n- `op_welcome_seen` / `op_guide_seen` 신규 사용자 온보딩\n- 세션 상태: passedSet 등 메모리만",
       "color": "5"
     },
     {
