@@ -94,6 +94,17 @@ a { color: #4fc3f7; text-decoration: none; }
   display: inline-flex; align-items: center; gap: 4px;
 }
 .app-header .icon-btn:hover { background: rgba(255,255,255,0.1); }
+/* 가이드 버튼 펄스 힌트 — 첫 방문 사용자 '둘러보기' 선택 시 10초간 */
+.app-header .icon-btn.pulse-hint {
+  background: rgba(233,69,96,0.30);
+  border: 1px solid rgba(233,69,96,0.55);
+  color: #fff;
+  animation: guidePulse 1.4s ease-in-out infinite;
+}
+@keyframes guidePulse {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(233,69,96,0.55); transform: scale(1); }
+  50%      { box-shadow: 0 0 0 8px rgba(233,69,96,0); transform: scale(1.04); }
+}
 /* 모두 접기 버튼 — 가운데, v^ 아이콘 + "접기" 라벨 */
 .app-header .collapse-center {
   padding: 6px 14px;
@@ -2295,7 +2306,7 @@ a { color: #4fc3f7; text-decoration: none; }
       <div class="live-dot"></div><span id="liveCount">0</span>명 학습 중
     </div>
     <div class="spacer"></div>
-    <button class="icon-btn" onclick="openGuide()" title="사용법 가이드">📖 가이드</button>
+    <button class="icon-btn" id="guideBtn" onclick="openGuide()" title="사용법 가이드">📖 가이드</button>
     <button class="icon-btn" onclick="openAccountModal()" title="내 계정">👤</button>
   </header>
   <div class="home-top">
@@ -2795,6 +2806,8 @@ async function enterHome() {
     loadLiveCount(),
   ]);
   renderHome();
+  // 첫 방문자 환영 모달 — 가이드 안 본 사용자에게 1회만
+  setTimeout(maybeShowWelcome, 350);
 }
 
 async function loadChapters() {
@@ -5977,6 +5990,53 @@ function openReferralModal() {
 }
 
 // ============================================================
+// 신규 사용자 환영 — 가이드 안 본 사용자에게 1회 모달 + 펄스 힌트
+// ============================================================
+//   기준: localStorage.op_welcome_seen 미설정 + op_guide_seen 미설정
+//   가이드 보기 → guide.html 이동 (가이드에서 op_guide_seen 자동 설정)
+//   둘러보기 → 모달 닫고 가이드 버튼에 10초 펄스 글로우 힌트
+function maybeShowWelcome() {
+  try {
+    if (localStorage.getItem('op_welcome_seen') === '1') return;
+    if (localStorage.getItem('op_guide_seen') === '1') return;
+  } catch {}
+  showModal({
+    title: '👋 환영해요!',
+    body: `
+      <p style="font-size:14px;color:rgba(255,255,255,0.85);line-height:1.7;margin-bottom:14px;">
+        <strong style="color:#fff;">1분이면 사용법 끝나요.</strong><br>
+        가이드 먼저 읽어볼까요? 헤매지 않게요.
+      </p>
+      <div style="background:rgba(255,255,255,0.05);border-radius:10px;padding:14px;font-size:13px;color:rgba(255,255,255,0.75);line-height:1.6;">
+        <div style="margin-bottom:6px;">📖 가이드 6개 STEP</div>
+        <div style="color:rgba(255,255,255,0.55);font-size:12px;">챕터 → 학습 카드 → 오늘/내일 학습 → 다지기 SRS → 말하기/첫글자 퀴즈 → 결제</div>
+      </div>
+    `,
+    foot: `
+      <button onclick="dismissWelcomePeek()">먼저 둘러보기</button>
+      <button class="primary" onclick="dismissWelcomeAndGuide()">📖 가이드 보기 (1분)</button>
+    `,
+  });
+}
+
+function dismissWelcomePeek() {
+  try { localStorage.setItem('op_welcome_seen', '1'); } catch {}
+  closeModal();
+  // 10초간 가이드 버튼 펄스 힌트
+  const btn = $('guideBtn');
+  if (btn) {
+    btn.classList.add('pulse-hint');
+    setTimeout(() => btn.classList.remove('pulse-hint'), 10000);
+  }
+}
+
+function dismissWelcomeAndGuide() {
+  try { localStorage.setItem('op_welcome_seen', '1'); } catch {}
+  closeModal();
+  openGuide();
+}
+
+// ============================================================
 // 사용법 가이드 — 새 탭으로 열기 (정적 페이지)
 // ============================================================
 function openGuide() {
@@ -6446,6 +6506,8 @@ window.saveInterests = saveInterests;
 window.clearAllInterests = clearAllInterests;
 window.openAccountModal = openAccountModal;
 window.openGuide = openGuide;
+window.dismissWelcomePeek = dismissWelcomePeek;
+window.dismissWelcomeAndGuide = dismissWelcomeAndGuide;
 window.openChangePasswordModal = openChangePasswordModal;
 window.openForgotPasswordModal = openForgotPasswordModal;
 window.fpBackToStep1 = fpBackToStep1;
