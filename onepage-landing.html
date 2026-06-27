@@ -172,6 +172,18 @@
     display: flex; align-items: center; gap: 6px;
     font-size: 12px; color: rgba(255,255,255,0.55);
 }
+/* HERO 일러스트 — H1 아래, 첫인상 펀치 */
+#opRoot .op-hero-visual {
+    display: block; position: relative; z-index: 2;
+    width: 100%; max-width: 520px; height: auto;
+    margin: 22px auto 14px;
+    border-radius: 18px;
+    box-shadow: 0 20px 60px rgba(233,69,96,0.28),
+                0 0 0 1px rgba(255,138,158,0.18);
+}
+@media (max-width: 480px) {
+    #opRoot .op-hero-visual { max-width: 100%; margin: 18px auto 12px; border-radius: 14px; }
+}
 
 /* ========== Section ========== */
 #opRoot .op-section { display: block; padding: 56px 24px; }
@@ -208,6 +220,41 @@
     background: #e94560; color: #fff !important;
     display: flex; align-items: center; justify-content: center;
     font-size: 16px; font-weight: 800;
+}
+/* PAIN 카드 이미지 아이콘 — 1:1 일러스트 */
+#opRoot .op-pain-img {
+    flex-shrink: 0;
+    width: 84px; height: 84px;
+    border-radius: 12px;
+    object-fit: cover;
+    background: #0a0a1a;
+    box-shadow: 0 4px 16px rgba(233,69,96,0.20),
+                0 0 0 1px rgba(255,138,158,0.15);
+}
+@media (max-width: 480px) {
+    #opRoot .op-pain-img { width: 64px; height: 64px; border-radius: 10px; }
+}
+/* SRS 망각 곡선 그래프 */
+#opRoot .op-srs-curve {
+    display: block;
+    width: 100%; max-width: 680px; height: auto;
+    margin: 0 auto 28px;
+    border-radius: 16px;
+    box-shadow: 0 12px 36px rgba(0,0,0,0.45),
+                0 0 0 1px rgba(255,255,255,0.08);
+}
+/* 정교화 — 뇌 + 연결망 */
+#opRoot .op-elab-brain {
+    display: block;
+    width: 240px; height: 240px;
+    margin: 0 auto 24px;
+    border-radius: 24px;
+    object-fit: cover;
+    background: transparent;
+    filter: drop-shadow(0 14px 32px rgba(233,69,96,0.32));
+}
+@media (max-width: 480px) {
+    #opRoot .op-elab-brain { width: 180px; height: 180px; }
 }
 #opRoot .op-pain-body { display: block; }
 #opRoot .op-pain-body strong { display: block; font-size: 16px; font-weight: 700; color: #1a1a2e; margin-bottom: 4px; }
@@ -522,6 +569,7 @@
         <span class="line">외운 단어의 <span class="stat">70%</span>는</span>
         <span class="line">다음 날 <em>사라집니다</em></span>
     </h1>
+    <img class="op-hero-visual" src="onepage-landing-media/hero-forgetting.webp" alt="기억의 절반이 입자로 흩어지는 시각화 — 망각 곡선" loading="eager" decoding="async">
     <p class="op-hero-sub">1885년 에빙하우스가 증명한 잔인한 사실.<br><strong style="color:#ffb347">5가지 시스템이 다 있어야</strong> 막을 수 있어요.</p>
     <div class="op-hero-promise">📑 한 페이지에 한 단원 전체 → 🔁 1·2·4·8·16·32일 자동 반복 → ★ 약점만 따로 → 🎤 말하기 · ✏️ 첫글자 퀴즈 → 🧠 깊은 정교화 학습</div>
     <div class="op-hero-trust" style="margin-top:18px;">
@@ -538,21 +586,21 @@
     <p class="op-section-lead">인지과학이 50년간 검증한 <strong style="color:#1a1a2e;">3가지</strong>가 없으면 막을 수 없어요.</p>
     <div class="op-pains">
         <div class="op-pain">
-            <div class="op-pain-ico">1</div>
+            <img class="op-pain-img" src="onepage-landing-media/pain-recall.webp" alt="능동 회상 — 뇌에서 기억 카드 인출" loading="lazy" decoding="async">
             <div class="op-pain-body">
                 <strong>능동 회상이 없으면</strong>
                 <span>읽기·듣기만으로는 안 굳습니다. 머릿속에서 <b>능동적으로 떠올리기</b> — 그게 기억 형성의 핵심.</span>
             </div>
         </div>
         <div class="op-pain">
-            <div class="op-pain-ico">2</div>
+            <img class="op-pain-img" src="onepage-landing-media/pain-spacing.webp" alt="간격 반복 — 1·2·4·8·16·32일 나선" loading="lazy" decoding="async">
             <div class="op-pain-body">
                 <strong>간격을 둔 반복이 없으면</strong>
                 <span>하루 100번 봐도 다음 날엔 흩어져요. <b>잊을 때쯤</b> 정확히 다시 봐야 단기 → 장기 기억으로 굳습니다.</span>
             </div>
         </div>
         <div class="op-pain">
-            <div class="op-pain-ico">3</div>
+            <img class="op-pain-img" src="onepage-landing-media/pain-weakness.webp" alt="약점 추적 — 별로 표시된 약한 노드 별자리" loading="lazy" decoding="async">
             <div class="op-pain-body">
                 <strong>약점 추적이 없으면</strong>
                 <span>"어떤 게 자꾸 헷갈리는지" 모이지 않아 매번 처음부터. 시간 비효율의 진짜 원인.</span>
@@ -642,6 +690,8 @@
     <span class="op-section-tag">다지기 — Anki 학습 과학</span>
     <h2><em style="color:#ffb347;font-style:normal">Anki와 동일 원리,</em><br>더 단순한 ● 다지기</h2>
     <p class="op-section-lead">간격 반복 시스템(SRS)을 가장 단순하게 구현 — 평가 버튼 4개 대신 2개, 망각 곡선을 거꾸로.</p>
+
+    <img class="op-srs-curve" src="onepage-landing-media/curve-ebbinghaus.webp" alt="에빙하우스 망각 곡선 — 1·2·4·8·16·32일 간격으로 복습하면 기억 95%+ 회복" loading="lazy" decoding="async">
 
     <div style="max-width:680px;margin:0 auto;background:rgba(255,255,255,0.04);border-radius:16px;padding:28px 24px;">
         <h3 style="font-size:18px;font-weight:800;color:#fff;margin-bottom:14px;text-align:center;">한 번 외운 카드는 정확히 6번 더 만납니다</h3>
@@ -812,6 +862,8 @@
     <span class="op-section-tag">정교화 학습 — 깊은 인출</span>
     <h2>단순 암기가 아닌<br><em style="color:#2e7d32;font-style:normal">깊은 인출</em>로</h2>
     <p class="op-section-lead">기억은 '본 횟수'가 아니라 '얼마나 깊이 처리했는지'로 결정됩니다. (Levels of Processing, Craik & Lockhart 1972)</p>
+
+    <img class="op-elab-brain" src="onepage-landing-media/brain-elaboration.webp" alt="정교화 — 뇌에서 4가지 단서(정의·예시·연상·네트워크)로 뻗어나가는 경로" loading="lazy" decoding="async">
 
     <div style="max-width:680px;margin:24px auto 0;background:linear-gradient(180deg,rgba(129,199,132,0.10),rgba(129,199,132,0.04));border:1px solid rgba(129,199,132,0.35);border-radius:16px;padding:28px 24px;">
         <h3 style="font-size:17px;font-weight:800;color:#1a1a2e;text-align:center;margin-bottom:20px;">🧠 정교화 모드 — 3단계</h3>
