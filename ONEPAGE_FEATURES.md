@@ -712,16 +712,32 @@ function withTopicAnchor(topicId, callback) {
 | **`html`** | `text` = HTML 마크업 | DOMPurify sanitize 후 그대로 렌더 + MathJax 자동 적용 (수학 콘텐츠 §22.8) |
 | **`svg`** | `text` = `<svg>...</svg>` 인라인 | DOMPurify sanitize 후 그대로 삽입 (matplotlib 글리프 친화) |
 
-**`html`/`svg` 업로드** (선생님 앱 `+ 📄 HTML/SVG` 버튼):
-- 파일 선택 → 첫 글자가 `<svg`로 시작하면 자동 `kind='svg'`, 아니면 `kind='html'`
+**`html`/`svg` 업로드 — 두 가지 방식**:
+
+| 진입점 | 동작 | 용도 |
+|---|---|---|
+| 학습 카드 펼침 → **+ 📄 HTML/SVG** | 단일 파일 → 단일 item으로 추가 | 기존 카드에 콘텐츠 보충 |
+| 목차 펼침 → **+ 📄 HTML 일괄 추가** | 파일 여러 개 → **각각 학습 카드 1장**으로 자동 생성. 파일 안 마커가 있으면 두 item으로 자동 분리 | 수학 문제 폴더(§22.8) 일괄 등록 |
+
+**일괄 업로드 시 마커 기반 자동 분리**:
+- 파일 안 `<!-- 암기카드 -->` 와 `<!-- 내용 -->` 두 주석 마커 인식
+- 두 마커 사이 → 1번째 item (`caption='암기카드'`)
+- `<!-- 내용 -->` 이후 → 2번째 item (`caption='내용'`)
+- 마커 없으면 단일 item으로 저장 (호환성)
+- 학생 앱은 두 item을 순차 표시 — 다지기 모드의 본문 블러(§23.2)가 풀이를 자연스럽게 가림
+
+**공통 처리**:
+- 파일명·확장자로 자동 kind 판정 (`<svg`로 시작/`.svg` 확장자 → `kind='svg'`)
 - SVG는 업로드 직전 **client-side minify** — XML 헤더·주석·공백 제거 (30~60% 절감)
 - 500KB 초과 시 [SVGOMG](https://jakearchibald.github.io/svgomg/) 안내 토스트 + 413 응답에도 같은 안내
-- 학생 앱 sanitize 허용 태그 매트릭스 (matplotlib 친화):
-  - 모든 SVG 셰이프/텍스트 (`g/path/circle/.../text/tspan/use`)
-  - 그라데이션/필터/마스크 (`linearGradient/feGaussianBlur/mask` ...)
-  - MathML (`math/mrow/msup/mfrac` ...)
-  - `href` / `xlink:href` URI-safe (matplotlib 글리프 `<use href="#m1234">` 필수)
-- 학생 앱에서 LaTeX(`$...$`, `\(...\)`, `\[...\]`) 발견 시 **MathJax 3 lazy-load** → MutationObserver가 새 카드도 자동 typeset
+- 학생 카드 제목은 파일명에서 자동 추출 (`01_절댓값삼차함수_합본.html` → `01 절댓값삼차함수`)
+
+**학생 앱 sanitize 허용 태그 매트릭스** (matplotlib 친화):
+- 모든 SVG 셰이프/텍스트 (`g/path/circle/.../text/tspan/use`)
+- 그라데이션/필터/마스크 (`linearGradient/feGaussianBlur/mask` ...)
+- MathML (`math/mrow/msup/mfrac` ...)
+- `href` / `xlink:href` URI-safe (matplotlib 글리프 `<use href="#m1234">` 필수)
+- LaTeX(`$...$`, `\(...\)`, `\[...\]`) 발견 시 **MathJax 3 lazy-load** → MutationObserver가 새 카드도 자동 typeset
 
 #### `link` 분기 — Gumlet vs YouTube vs 일반
 
@@ -1690,18 +1706,23 @@ node scripts/merge-math.js "C:/Users/memoryking/00_DEV/11_math/미분가능성/0
 6. SVG 0개여도 `_합본.html` 생성 (업로드 단위 통일)
 7. 누락된 SVG는 `⚠`로 표시 + 파일명 출력
 
-### 학생 앱에 업로드하는 순서
+### 학생 앱에 업로드하는 순서 (일괄)
 
 1. 합본 만들기:
    ```bash
    node scripts/merge-math.js "C:/Users/memoryking/00_DEV/11_math/<단원>"
    ```
-2. 교사 앱(`onepage-teacher.html`) → 챕터 → **+ 📄 HTML/SVG** 버튼
-3. `_합본.html` 파일 선택 → 자동 업로드 (kind=html)
-4. 학생 앱에서 카드 진입 → DOMPurify로 sanitize 후 표시
-5. MathJax가 카드 안 LaTeX(`$...$`, `\(...\)`)를 자동 렌더링
-6. SVG는 인라인이므로 외부 요청 없이 즉시 표시
-7. 학생이 그래프 터치 → 풀스크린 라이트박스로 확대 (§23.16)
+2. 교사 앱(`onepage-teacher.html`) → 챕터 → 목차(topic) 펼침 → **+ 📄 HTML 일괄 추가** 버튼
+3. 폴더의 `*_합본.html` 여러 개 선택 → 확인
+4. **자동 처리**:
+   - 파일마다 학습 카드(subtopic) 생성 (제목은 파일명에서 추출)
+   - 파일 안에 `<!-- 암기카드 -->` / `<!-- 내용 -->` 마커가 있으면 → 1 카드 안 2 item (암기카드/내용)
+   - 마커 없으면 → 1 카드 안 1 item
+5. 학생 앱에서 카드 진입 → DOMPurify sanitize 후 표시
+6. MathJax가 카드 안 LaTeX 자동 렌더링
+7. SVG 인라인 → 외부 요청 없음
+8. 학생이 그래프 터치 → 풀스크린 라이트박스로 확대 (§23.16)
+9. 다지기 모드에서는 본문 블러 → 학생이 카드 터치 전에 풀이가 가려져 있음 (자연스러운 "먼저 풀어보기" 학습 흐름)
 
 ### 새로 만들 때 한 줄 요청
 

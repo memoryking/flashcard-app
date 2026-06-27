@@ -1390,9 +1390,13 @@ function triggerHtmlPick(subId) {
 // 일괄 업로드 — 토픽(목차) 안에 HTML 파일들을 학습 카드로 자동 생성
 // ============================================================
 //   사용 흐름: + 📄 HTML 일괄 추가 → 파일 여러 개 선택 → 각각 학습 카드 1장
-//   - 학습 카드 제목 = 파일명에서 확장자/_합본 떼고 _ → 공백
-//   - 그 안에 kind=html (또는 svg) item 1개를 자동 추가
-//   - 정렬 순서는 기존 학습 카드 다음 번호부터 순차
+//   - 파일명 → 학습 카드(subtopic) 제목 자동 추출
+//   - 파일 안에 마커가 있으면 "암기카드"/"내용" 두 item으로 자동 분리:
+//       <!-- 암기카드 --> ... <!-- 내용 --> ...
+//     · 두 마커 사이      → 1번째 item (caption="암기카드")
+//     · <!-- 내용 --> 이후 → 2번째 item (caption="내용")
+//   - 마커 없으면 전체를 단일 item으로 저장 (기존 동작)
+//   - SVG 파일은 분할 안 함 (마커 의미 없음)
 function triggerHtmlBatchForTopic(topicId) {
   const inp = document.createElement('input');
   inp.type = 'file';
@@ -1402,7 +1406,7 @@ function triggerHtmlBatchForTopic(topicId) {
     const files = Array.from(inp.files || []);
     if (!files.length) return;
     if (files.length > 1
-        && !confirm(`${files.length}개 파일을 각각 학습 카드 1장으로 만듭니다. 계속할까요?`)) return;
+        && !confirm(`${files.length}개 파일을 각각 학습 카드 1장으로 만듭니다.\n파일 안에 <!-- 암기카드 --> / <!-- 내용 --> 마커가 있으면 자동 분리됩니다.\n계속할까요?`)) return;
     await uploadHtmlsAsSubtopics(topicId, files);
   };
   inp.click();
@@ -1418,9 +1422,24 @@ function deriveSubtopicTitle(filename) {
   return s.trim() || filename;
 }
 
+// HTML 본문을 마커 기준으로 분할
+//   <!-- 암기카드 --> 가 있으면 그 이후부터 시작 (앞의 head/style 등 제외)
+//   <!-- 내용 --> 으로 [암기카드, 내용] 두 부분으로 분할
+//   분할 마커 없으면 단일 요소 배열 [전체]
+function splitHtmlByMarkers(text) {
+  let s = String(text || '');
+  const startMarker = '<!-- 암기카드 -->';
+  const startIdx = s.indexOf(startMarker);
+  if (startIdx >= 0) s = s.slice(startIdx + startMarker.length);
+  const splitMarker = '<!-- 내용 -->';
+  const sp = s.indexOf(splitMarker);
+  if (sp < 0) return [s.trim()];
+  return [s.slice(0, sp).trim(), s.slice(sp + splitMarker.length).trim()].filter(p => p);
+}
+
 async function uploadHtmlsAsSubtopics(topicId, files) {
   showLoading(true);
-  let ok = 0, failed = [];
+  let ok = 0, splitOk = 0, failed = [];
   try {
     const existing = state.subtopicsByTopic[topicId] || [];
     let nextOrder = existing.length
@@ -1429,28 +1448,58 @@ async function uploadHtmlsAsSubtopics(topicId, files) {
     for (const f of files) {
       try {
         const title = deriveSubtopicTitle(f.name);
-        // 1) subtopic 생성 (이미지/캡션 없이 제목만)
-        const res = await api('POST', '/subtopics', {
+        const lname = String(f.name || '').toLowerCase();
+        const isSvg = lname.endsWith('.svg') || f.type === 'image/svg+xml';
+        const kind = isSvg ? 'svg' : 'html';
+        const rawText = await f.text();
+        // HTML만 마커 분할. SVG는 분할 안 함.
+        const parts = isSvg ? [rawText] : splitHtmlByMarkers(rawText);
+        // SVG는 minify 적용
+        const processed = parts.map(p => isSvg ? minifySvg(p) : p);
+        // 크기 안내 (총 합계 기준)
+        const totalKb = Math.round(processed.reduce((a, p) => a + p.length, 0) / 1024);
+        if (totalKb > 500) {
+          const msg = isSvg
+            ? `${f.name}: SVG가 큽니다 (~${totalKb}KB).\n413 가능성 — https://jakearchibald.github.io/svgomg/ 압축 권장.\n계속할까요?`
+            : `${f.name}: 파일이 큽니다 (~${totalKb}KB). 계속할까요?`;
+          if (!confirm(msg)) { failed.push(`${f.name}: 사용자 취소`); continue; }
+        }
+        // 1) subtopic 생성
+        const subRes = await api('POST', '/subtopics', {
           topic_id: topicId, title, sort_order: nextOrder++, image_b64: null, caption: '',
         });
-        const newSubId = res?.subtopic?.id || res?.id;
+        const newSubId = subRes?.subtopic?.id || subRes?.id;
         if (!newSubId) throw new Error('subtopic id 없음');
-        // 2) 그 안에 html/svg item 1개 추가 (기존 단일 업로드 로직 재사용)
-        await uploadHtmlOrSvg(newSubId, f);
+        // 2) parts 마다 item 생성
+        for (let i = 0; i < processed.length; i++) {
+          const partText = processed[i];
+          // 분할되었으면 caption: "암기카드"/"내용". 분할 안 되면 파일명을 caption으로.
+          const caption = processed.length > 1
+            ? (i === 0 ? '암기카드' : '내용')
+            : f.name.replace(/\.(html?|svg)$/i, '');
+          await api('POST', '/items', {
+            subtopic_id: newSubId, kind, text: partText, caption, sort_order: i + 1,
+          });
+        }
+        if (processed.length > 1) splitOk++;
         ok++;
       } catch (e) {
-        failed.push(`${f.name}: ${e?.message || e}`);
+        const msg = String(e?.message || e);
+        const hint = (msg.includes('413') || msg.includes('Too Large') || msg.includes('Payload'))
+          ? ' (파일이 너무 큼 — SVGOMG 압축 권장)' : '';
+        failed.push(`${f.name}: ${msg}${hint}`);
       }
     }
     await loadSubtopics(topicId);
-    // 목차 카운트 갱신
     const topics = state.topicsByChapter || {};
     for (const cid in topics) {
       if ((topics[cid] || []).some(t => t.id === topicId)) { await loadTopics(Number(cid)); break; }
     }
-    const summary = `${ok}/${files.length}개 추가됨` + (failed.length ? ` · 실패 ${failed.length}` : '');
+    const summary = `${ok}/${files.length}개 추가됨`
+      + (splitOk ? ` (${splitOk}개는 암기카드/내용으로 자동 분리)` : '')
+      + (failed.length ? ` · 실패 ${failed.length}` : '');
     toast(summary, failed.length > 0);
-    if (failed.length) console.warn('[batch html] 실패 목록:\n' + failed.join('\n'));
+    if (failed.length) console.warn('[batch html] 실패:\n' + failed.join('\n'));
   } finally { showLoading(false); }
 }
 
