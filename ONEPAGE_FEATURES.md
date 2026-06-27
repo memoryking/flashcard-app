@@ -28,7 +28,9 @@
 22. [Cloudflare Workers 청크 처리](#22-cloudflare-workers-청크-처리)
 22.5. [Cloudflare Edge Cache — /chapters 가속](#225-cloudflare-edge-cache--chapters-가속-v237)
 22.7. [랜딩 페이지 제작 워크플로](#227-랜딩-페이지-제작-워크플로-v238)
+22.8. [수학 콘텐츠 제작 워크플로](#228-수학-콘텐츠-제작-워크플로-v239)
 23. [v2 학습 시스템 (단일 카드 + 퀴즈)](#23-v2-학습-시스템-단일-카드--퀴즈)
+&nbsp;&nbsp;&nbsp;&nbsp;23.16. [학습 카드 본문 라이트박스](#2316-학습-카드-본문-라이트박스--이미지svg-풀스크린-확대-v239)
 
 ---
 
@@ -700,13 +702,26 @@ function withTopicAnchor(topicId, callback) {
   - Worker가 `is_published=0`인 챕터만 학생에게 숨김
   - NULL/미존재는 공개로 간주 (기존 데이터 호환)
 
-### 콘텐츠 블록 (op_items) 종류 3가지
+### 콘텐츠 블록 (op_items) 종류 5가지
 
 | `kind` | 저장 필드 | 학생 앱 렌더링 |
 |---|---|---|
 | `text` (기본) | `text` (+ 선택 `caption`) | 본문 + 본문 안의 URL 자동 링크화 + 선택적 작은 설명 캡션 |
-| `image` | `image_b64` (data URL) + 선택 `caption` | 이미지 + 캡션 |
-| **`link`** | `text` = URL (+ 선택 `caption` = 제목/설명) | URL 종류 따라 분기 (아래) |
+| `image` | `image_b64` (data URL) + 선택 `caption` | 이미지 + 캡션 (터치 시 라이트박스 §23.16) |
+| `link` | `text` = URL (+ 선택 `caption` = 제목/설명) | URL 종류 따라 분기 (아래) |
+| **`html`** | `text` = HTML 마크업 | DOMPurify sanitize 후 그대로 렌더 + MathJax 자동 적용 (수학 콘텐츠 §22.8) |
+| **`svg`** | `text` = `<svg>...</svg>` 인라인 | DOMPurify sanitize 후 그대로 삽입 (matplotlib 글리프 친화) |
+
+**`html`/`svg` 업로드** (선생님 앱 `+ 📄 HTML/SVG` 버튼):
+- 파일 선택 → 첫 글자가 `<svg`로 시작하면 자동 `kind='svg'`, 아니면 `kind='html'`
+- SVG는 업로드 직전 **client-side minify** — XML 헤더·주석·공백 제거 (30~60% 절감)
+- 500KB 초과 시 [SVGOMG](https://jakearchibald.github.io/svgomg/) 안내 토스트 + 413 응답에도 같은 안내
+- 학생 앱 sanitize 허용 태그 매트릭스 (matplotlib 친화):
+  - 모든 SVG 셰이프/텍스트 (`g/path/circle/.../text/tspan/use`)
+  - 그라데이션/필터/마스크 (`linearGradient/feGaussianBlur/mask` ...)
+  - MathML (`math/mrow/msup/mfrac` ...)
+  - `href` / `xlink:href` URI-safe (matplotlib 글리프 `<use href="#m1234">` 필수)
+- 학생 앱에서 LaTeX(`$...$`, `\(...\)`, `\[...\]`) 발견 시 **MathJax 3 lazy-load** → MutationObserver가 새 카드도 자동 typeset
 
 #### `link` 분기 — Gumlet vs YouTube vs 일반
 
@@ -1909,3 +1924,35 @@ Service worker 없이 Vercel의 자동 ETag 헤더 활용 — 배포 후 활성 
 - **이벤트 위임**(`document` 레벨 `.tour-shot img`) — placeholder가 나중에 `<img>`로 교체돼도 자동 동작
 - 사이즈: 9:16 720×1280 (세로) 또는 16:9 1280×720 (가로) 권장
 - 모든 이미지는 `guide-media/screen-*.png` (9개)
+
+### 23.16 학습 카드 본문 라이트박스 — 이미지·SVG 풀스크린 확대 (v2.3.9)
+
+학생 앱(`onepage-user/index.html`) 학습 카드 안의 이미지/SVG를 터치하면 풀스크린으로 확대.
+
+**대상**:
+- `.item-image` — `kind='image'` 블록의 대표 이미지
+- `.item-svg svg` — `kind='svg'` 블록의 인라인 SVG
+- `.item-html svg`, `.item-html img` — `kind='html'` 안에 임베드된 SVG/이미지 (수학 합본 그래프 등)
+
+**시각 단서**:
+- 위 요소들에 `cursor: zoom-in` + 호버 시 `filter: brightness(1.06)` — 클릭 가능 신호
+- (`.item-image`의 기존 `pointer-events: none`는 제거됨 — 보호는 워터마크 + `oncontextmenu='return false'`로 충분)
+
+**라이트박스 UI** (`.content-lightbox`):
+- 풀스크린 다크 오버레이 (rgba 0/0/0/0.94)
+- 흰 배경 카드 + 그림자 + round 12px (`.content-lightbox-body > *`)
+- 우상단 ✕ 버튼 (`.content-lightbox-close`)
+- 페이드(200ms) + 스케일 인(280ms cubic-bezier 살짝 오버슈트) 애니메이션
+
+**크기 처리** (이게 핵심):
+- `> svg { width: min(95vw, 1400px) !important; height: auto }` — SVG는 인트린식(300×150)으로 쪼그라들지 않게 명시
+- `> img { width: auto; height: auto; object-fit: contain }` — 비율 유지하며 95vw/90vh 안에서 최대
+- `.content-lightbox-body { width:100%; height:100% }` — flex 컨테이너 가용 공간 확보
+
+**동작 흐름**:
+- `document` 레벨 click 캡쳐 → `closest('.item-image, .item-html svg, .item-html img, .item-svg svg, .item-svg img')`
+- 대상 발견 → `cloneNode(true)`로 라이트박스 body에 복제 (원본 DOM 그대로 유지)
+- 열린 동안 `document.body.style.overflow = 'hidden'` — 배경 스크롤 잠금
+- 닫기 3가지: 배경 클릭 / ✕ 버튼 / ESC 키
+
+**`guide.html`의 `.lightbox`와는 별개 클래스** (`.content-lightbox`) — CSS 충돌 방지.

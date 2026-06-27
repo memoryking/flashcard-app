@@ -37,7 +37,7 @@
       "y": -1200,
       "width": 360,
       "height": 240,
-      "text": "## 🎓 학생 앱\n`onepage-user/index.html`\n\n메인 학습 인터페이스 (PWA)\n\n흐름:\n- 홈 → 챕터 카드 → 학습\n- 일반 모드 / 다지기 모드\n- 오프라인 + 홈 화면 설치",
+      "text": "## 🎓 학생 앱\n`onepage-user/index.html`\n\n메인 학습 인터페이스 (PWA)\n\n흐름:\n- 홈 → 챕터 카드 → 학습\n- 일반 모드 / 다지기 모드\n- 오프라인 + 홈 화면 설치\n\n**콘텐츠 풍부화**\n- HTML/SVG 카드 (kind)\n- MathJax LaTeX 자동 렌더\n- 카드 이미지/SVG 터치 라이트박스",
       "color": "1"
     },
     {
