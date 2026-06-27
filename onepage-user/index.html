@@ -20,6 +20,8 @@
 <meta name="msapplication-TileImage" content="android-chrome-192x192.png">
 <!-- 챕터 카드 드래그 재정렬 (모바일 터치 지원) — Sortable.js -->
 <script src="https://cdn.jsdelivr.net/npm/sortablejs@1.15.2/Sortable.min.js"></script>
+<!-- HTML/SVG 콘텐츠 새니타이즈 — 수학 등 외부 컴파일 HTML 안전 렌더 -->
+<script src="https://cdn.jsdelivr.net/npm/dompurify@3.2.4/dist/purify.min.js"></script>
 <style>
 * { box-sizing: border-box; margin: 0; padding: 0; }
 html, body { height: 100%; font-family: -apple-system, BlinkMacSystemFont, 'Pretendard', 'Segoe UI', sans-serif; background: #0a0a1a; color: #e5e7eb; }
@@ -1954,6 +1956,45 @@ a { color: #4fc3f7; text-decoration: none; }
 .item .item-caption {
   font-size: 11px; color: rgba(255,255,255,0.4); margin-top: 6px;
 }
+/* HTML/SVG 콘텐츠 컨테이너 — 수학·도표 등 외부 컴파일 자산 안전 렌더 */
+/*   배경은 밝은 톤(콘텐츠가 보통 검정 텍스트라) + 둥근 모서리 + 가로 스크롤 보호 */
+.item .item-html, .item .item-svg {
+  background: #f8fafc;
+  color: #1a1a2e;
+  border-radius: 8px;
+  padding: 14px 16px;
+  overflow-x: auto;
+  font-size: 14px;
+  line-height: 1.6;
+  -webkit-user-select: text; user-select: text;
+}
+.item .item-svg { padding: 8px 10px; text-align: center; }
+.item .item-html img, .item .item-svg svg, .item .item-html svg {
+  max-width: 100%; height: auto; display: inline-block;
+}
+.item .item-html p { margin: 0 0 10px; }
+.item .item-html p:last-child { margin-bottom: 0; }
+.item .item-html h1, .item .item-html h2, .item .item-html h3,
+.item .item-html h4, .item .item-html h5, .item .item-html h6 {
+  font-weight: 800; margin: 12px 0 6px; color: #0a0a1a;
+}
+.item .item-html ul, .item .item-html ol { margin: 0 0 10px 20px; }
+.item .item-html li { margin-bottom: 4px; }
+.item .item-html code {
+  background: #e5e7eb; padding: 1px 5px; border-radius: 3px;
+  font-family: 'Courier New', monospace; font-size: 13px;
+}
+.item .item-html pre {
+  background: #1a1a2e; color: #e5e7eb; padding: 12px 14px;
+  border-radius: 6px; overflow-x: auto; font-size: 13px;
+}
+.item .item-html table { border-collapse: collapse; width: 100%; margin: 8px 0; }
+.item .item-html th, .item .item-html td {
+  border: 1px solid #cbd5e1; padding: 6px 10px; text-align: left;
+}
+.item .item-html th { background: #e2e8f0; font-weight: 700; }
+/* KaTeX 스타일 (외부에서 미리 컴파일된 HTML이 가져와도 fallback) */
+.item .item-html .katex { font-size: 1.05em; }
 /* 텍스트 안 자동 링크 — body의 user-select:none / touch-callout:none 효과 해제 */
 .item-text .inline-link {
   color: #4fc3f7; text-decoration: underline;
@@ -5195,6 +5236,32 @@ function renderItem(it) {
     return `
       <div class="item">
         <img class="item-image" src="${escapeHtml(url)}" alt="" oncontextmenu="return false">
+        ${it.caption ? `<div class="item-caption">${escapeHtml(it.caption)}</div>` : ''}
+      </div>
+    `;
+  }
+  // HTML 콘텐츠 — 외부에서 미리 컴파일된 수식/도표/표 등. DOMPurify로 새니타이즈.
+  if (it.kind === 'html') {
+    const raw = String(it.text || '');
+    const clean = (typeof DOMPurify !== 'undefined')
+      ? DOMPurify.sanitize(raw, { ADD_TAGS: ['svg','path','g','circle','rect','line','polyline','polygon','text','tspan','defs','marker','use','linearGradient','radialGradient','stop','filter','feGaussianBlur','foreignObject','mrow','mi','mo','mn','msup','msub','mfrac','msqrt','mroot','annotation','semantics','math'], ADD_ATTR: ['viewBox','d','transform','fill','stroke','stroke-width','stroke-linecap','stroke-linejoin','x','y','x1','y1','x2','y2','cx','cy','r','rx','ry','points','width','height','class','style','xmlns','aria-hidden','role','focusable','preserveAspectRatio'] })
+      : escapeHtml(raw); // DOMPurify 못 받으면 안전하게 텍스트로
+    return `
+      <div class="item">
+        <div class="item-html">${clean}</div>
+        ${it.caption ? `<div class="item-caption">${escapeHtml(it.caption)}</div>` : ''}
+      </div>
+    `;
+  }
+  // SVG 인라인 — 그래프·도표 등 벡터. 동일 새니타이즈 정책.
+  if (it.kind === 'svg') {
+    const raw = String(it.text || '');
+    const clean = (typeof DOMPurify !== 'undefined')
+      ? DOMPurify.sanitize(raw, { USE_PROFILES: { svg: true, svgFilters: true } })
+      : '';
+    return `
+      <div class="item">
+        <div class="item-svg">${clean}</div>
         ${it.caption ? `<div class="item-caption">${escapeHtml(it.caption)}</div>` : ''}
       </div>
     `;

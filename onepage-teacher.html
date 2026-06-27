@@ -824,6 +824,7 @@ function renderSubtopic(s) {
         <div style="margin:6px 0;display:flex;gap:6px;flex-wrap:wrap;">
           <button class="btn-secondary btn-small" onclick="event.stopPropagation();addTextItem(${s.id})">+ 텍스트</button>
           <button class="btn-secondary btn-small" onclick="event.stopPropagation();triggerImagePick(${s.id})">+ 이미지 (파일)</button>
+          <button class="btn-secondary btn-small" onclick="event.stopPropagation();triggerHtmlPick(${s.id})">+ 📄 HTML/SVG</button>
           <button class="btn-secondary btn-small" onclick="event.stopPropagation();addLinkItem(${s.id})">+ 🔗 링크</button>
           <span style="font-size:11px;color:rgba(255,255,255,0.4);align-self:center;">← Ctrl+V로 화면 캡쳐 붙여넣기 가능</span>
         </div>
@@ -882,6 +883,26 @@ function renderItem(it) {
         <div class="item-body">
           <img class="item-image" src="${escapeHtml(it.image_b64)}" alt="">
           ${it.caption ? `<div class="item-caption">${escapeHtml(it.caption)}</div>` : ''}
+        </div>
+        <div class="item-actions">
+          <button class="btn-ghost btn-small" onclick="editItemCaption(${it.id})">✎</button>
+          <button class="btn-danger btn-small" onclick="deleteItem(${it.id},${it.subtopic_id})">🗑️</button>
+        </div>
+      </div>
+    `;
+  }
+  // HTML/SVG — 미리보기는 압축 (전체는 학생 앱에서). 교사 화면에선 캡션 + 크기만 표시.
+  if (it.kind === 'html' || it.kind === 'svg') {
+    const icon = it.kind === 'svg' ? '📐' : '📄';
+    const sizeKb = Math.round(String(it.text || '').length / 1024);
+    const label = it.kind.toUpperCase();
+    return `
+      <div class="item" data-id="${it.id}">
+        <span class="drag-handle" title="드래그로 순서 변경">⋮⋮</span>
+        <div class="item-icon">${icon}</div>
+        <div class="item-body">
+          <div class="item-text"><strong>${label}</strong> · ${escapeHtml(it.caption || '제목 없음')} <span style="color:rgba(255,255,255,0.4);font-size:11px;">(${sizeKb}KB)</span></div>
+          <div class="item-caption" style="font-size:11px;color:rgba(255,255,255,0.5);">학생 앱에서 안전 새니타이즈 후 렌더</div>
         </div>
         <div class="item-actions">
           <button class="btn-ghost btn-small" onclick="editItemCaption(${it.id})">✎</button>
@@ -1344,6 +1365,48 @@ async function deleteItem(itemId, subId) {
 }
 
 // ============================================================
+// HTML/SVG 추가 — 미리 컴파일된 수식·도표·그래프 등 외부 자산
+//   확장자 자동 판별 → kind: 'html' 또는 'svg' 로 저장
+//   학생 앱이 DOMPurify로 새니타이즈 후 렌더 (수학 콘텐츠 안전)
+// ============================================================
+function triggerHtmlPick(subId) {
+  const inp = document.createElement('input');
+  inp.type = 'file';
+  inp.accept = '.html,.htm,.svg,text/html,image/svg+xml';
+  inp.onchange = async () => {
+    const f = inp.files[0];
+    if (f) await uploadHtmlOrSvg(subId, f);
+  };
+  inp.click();
+}
+
+async function uploadHtmlOrSvg(subId, file) {
+  showLoading(true);
+  try {
+    const name = String(file.name || '').toLowerCase();
+    const isSvg = name.endsWith('.svg') || file.type === 'image/svg+xml';
+    const kind = isSvg ? 'svg' : 'html';
+    const text = await file.text();
+    const sizeKb = Math.round(text.length / 1024);
+    if (sizeKb > 1000) {
+      if (!confirm(`파일이 큽니다 (~${sizeKb}KB).\n그래도 저장할까요?`)) {
+        showLoading(false); return;
+      }
+    }
+    const items = state.itemsBySubtopic[subId] || [];
+    const order = items.length ? Math.max(...items.map(i => Number(i.sort_order) || 0)) + 1 : 1;
+    // 파일명에서 확장자 떼서 캡션 자동 제안 (사용자가 나중에 편집 가능)
+    const caption = file.name.replace(/\.(html?|svg)$/i, '');
+    await api('POST', '/items', {
+      subtopic_id: subId, kind, text, caption, sort_order: order,
+    });
+    await loadItems(subId);
+    toast(`${kind.toUpperCase()} 추가됨: ${caption} (${sizeKb}KB)`);
+  } catch (e) { toast('파일 처리 실패: ' + e.message, true); }
+  finally { showLoading(false); }
+}
+
+// ============================================================
 // 이미지 추가 (파일 선택 + Ctrl+V 붙여넣기)
 // ============================================================
 function triggerImagePick(subId) {
@@ -1627,6 +1690,7 @@ window.deleteSubtopic = deleteSubtopic;
 window.deleteItem = deleteItem;
 window.addTextItem = addTextItem;
 window.addLinkItem = addLinkItem;
+window.triggerHtmlPick = triggerHtmlPick;
 window.editItemLink = editItemLink;
 window.editItemText = editItemText;
 window.editItemCaption = editItemCaption;
