@@ -5289,6 +5289,46 @@ function autolinkText(text) {
   return result;
 }
 
+// DOMPurify 옵션 — matplotlib SVG (defs+use 글리프 패턴), MathJax 출력, KaTeX, 표·코드 모두 통과
+//   script·iframe·on* 이벤트만 차단 (DOMPurify 기본). 그 외엔 다 허용.
+function sanitizeOptsRich() {
+  return {
+    ADD_TAGS: [
+      // SVG + MathML
+      'svg','g','path','circle','ellipse','line','polyline','polygon','rect',
+      'text','tspan','textPath','defs','use','symbol','marker','clipPath','mask',
+      'linearGradient','radialGradient','stop','pattern','filter','feGaussianBlur',
+      'feOffset','feBlend','feColorMatrix','feComponentTransfer','feFlood','feImage',
+      'feMerge','feMergeNode','feMorphology','feTurbulence','feComposite',
+      'foreignObject','title','desc','style',
+      'math','mrow','mi','mo','mn','msup','msub','mfrac','msqrt','mroot',
+      'annotation','semantics','mtable','mtr','mtd','mover','munder','munderover','mspace','mtext','mphantom',
+    ],
+    ADD_ATTR: [
+      // 공통
+      'class','id','style','xmlns','xmlns:xlink','xml:space','aria-hidden','role','focusable',
+      // SVG geometry
+      'viewBox','preserveAspectRatio','width','height','x','y','x1','y1','x2','y2',
+      'cx','cy','r','rx','ry','d','points','transform','gradientUnits','gradientTransform',
+      'spreadMethod','clipPathUnits','mask','filter',
+      // SVG paint
+      'fill','fill-rule','fill-opacity','stroke','stroke-width','stroke-linecap',
+      'stroke-linejoin','stroke-dasharray','stroke-opacity','opacity',
+      'stop-color','stop-opacity','offset','clip-path','clip-rule',
+      // SVG text (matplotlib axis labels 등)
+      'font-family','font-size','font-weight','font-style','text-anchor','dominant-baseline',
+      'dx','dy','rotate','letter-spacing','word-spacing',
+      // use / href (matplotlib defs+use 패턴 — 글자 글리프 참조)
+      'href','xlink:href','target',
+    ],
+    // matplotlib SVG <use href="#m1234"> 같은 fragment URL 허용 (xlink:href 안전 통과)
+    ADD_URI_SAFE_ATTR: ['href','xlink:href'],
+    // <style> 안의 CSS는 그대로 유지 (DOMPurify가 KEEP_CONTENT 안 하면 보안상 비움)
+    FORBID_TAGS: ['script','iframe','object','embed'],
+    FORBID_ATTR: ['onload','onerror','onclick','onmouseover','onfocus','onblur'],
+  };
+}
+
 function renderItem(it) {
   if (it.kind === 'image') {
     const url = unwrapImage(it.image_b64);
@@ -5300,11 +5340,12 @@ function renderItem(it) {
     `;
   }
   // HTML 콘텐츠 — 외부에서 미리 컴파일된 수식/도표/표 등. DOMPurify로 새니타이즈.
+  //   matplotlib SVG·MathJax 출력·KaTeX 출력·표준 표 등 모두 통과시키도록 ADD_ATTR 넓힘
   if (it.kind === 'html') {
     const raw = String(it.text || '');
     const clean = (typeof DOMPurify !== 'undefined')
-      ? DOMPurify.sanitize(raw, { ADD_TAGS: ['svg','path','g','circle','rect','line','polyline','polygon','text','tspan','defs','marker','use','linearGradient','radialGradient','stop','filter','feGaussianBlur','foreignObject','mrow','mi','mo','mn','msup','msub','mfrac','msqrt','mroot','annotation','semantics','math'], ADD_ATTR: ['viewBox','d','transform','fill','stroke','stroke-width','stroke-linecap','stroke-linejoin','x','y','x1','y1','x2','y2','cx','cy','r','rx','ry','points','width','height','class','style','xmlns','aria-hidden','role','focusable','preserveAspectRatio'] })
-      : escapeHtml(raw); // DOMPurify 못 받으면 안전하게 텍스트로
+      ? DOMPurify.sanitize(raw, sanitizeOptsRich())
+      : escapeHtml(raw);
     return `
       <div class="item">
         <div class="item-html">${clean}</div>
@@ -5312,11 +5353,11 @@ function renderItem(it) {
       </div>
     `;
   }
-  // SVG 인라인 — 그래프·도표 등 벡터. 동일 새니타이즈 정책.
+  // SVG 인라인 — 그래프·도표 등 벡터. 동일 정책으로 matplotlib SVG 텍스트 글리프 보존
   if (it.kind === 'svg') {
     const raw = String(it.text || '');
     const clean = (typeof DOMPurify !== 'undefined')
-      ? DOMPurify.sanitize(raw, { USE_PROFILES: { svg: true, svgFilters: true } })
+      ? DOMPurify.sanitize(raw, sanitizeOptsRich())
       : '';
     return `
       <div class="item">
