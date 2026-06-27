@@ -237,7 +237,7 @@
       "y": 960,
       "width": 360,
       "height": 260,
-      "text": "### 👨‍🏫 교사 도구\n`onepage-teacher.html`\n\n- 챕터 편집기 — 목차/카드 CRUD\n- 일괄 입력 (merge 모드)\n  · 내용만 교체, 학생 진도 보존\n  · Phase 2 병렬 item 생성\n- draft 공개/비공개\n- voice_quiz_* 챕터 설정\n  (enabled, lang, read_question)",
+      "text": "### 👨‍🏫 교사 도구\n`onepage-teacher.html`\n\n- 챕터 편집기 — 목차/카드 CRUD\n- 일괄 입력 (merge 모드)\n  · 내용만 교체, 학생 진도 보존\n  · Phase 2 병렬 item 생성\n- draft 공개/비공개\n- voice_quiz_* 챕터 설정\n  (enabled, lang, read_question)\n- 📄 HTML/SVG 업로드 (kind=html/svg)\n  · 수학 콘텐츠 합본 직업로드\n  · `scripts/merge-math.js` 로 미리 생성",
       "color": "2"
     },
     {

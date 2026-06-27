@@ -1609,6 +1609,107 @@ PAIN (인지과학 3가지 — 통념 깨기)
 
 ---
 
+## 22.8 수학 콘텐츠 제작 워크플로 (v2.3.9)
+
+### 폴더 위치
+
+```
+C:/Users/memoryking/00_DEV/11_math/
+  ├ 미분가능성/         ← 단원 단위 폴더
+  ├ 적분/
+  └ ...
+```
+
+각 단원 폴더 안에 문제별 파일 묶음을 둔다.
+
+### 파일 명명 규칙 (3종 세트)
+
+| 종류 | 파일명 | 용도 |
+|------|--------|------|
+| 소스 | `<번호>_<제목>.md` | LaTeX 수식 포함 마크다운 — 작성용 |
+| 컴파일 | `<번호>_<제목>.html` | MD → HTML 변환 결과 |
+| 그래프 | `<번호>_<제목>_그래프.svg` | matplotlib·desmos 등으로 생성한 SVG |
+| **업로드용** | `<번호>_<제목>_합본.html` | SVG 인라인 삽입 — 학생 앱 업로드 단위 |
+
+예 (미분가능성 단원):
+```
+01_절댓값삼차함수.md          ← 작성
+01_절댓값삼차함수.html         ← 컴파일
+01_절댓값삼차함수_그래프.svg    ← 그래프
+01_절댓값삼차함수_합본.html     ← 머지 (업로드)
+```
+
+**SVG 여러 개**: `_그래프1.svg`, `_그래프2.svg`로. HTML 안에서 `<img src="...그래프1.svg">`, `<img src="...그래프2.svg">` 순서대로 참조.
+
+### HTML이 SVG 참조하는 패턴 (필수)
+
+HTML 안에서 SVG는 반드시 `<img>` 태그로 참조:
+
+```html
+<img src="01_절댓값삼차함수_그래프.svg" alt="설명">
+```
+
+머지 스크립트가 이 `<img>` 태그를 찾아 인라인 `<svg>...</svg>`로 치환한다.
+파일명이 HTML과 정확히 안 맞아도 (`02_구간별함수_미정계수.html` ↔ `02_구간별미정계수_그래프.svg` 같이 달라도) `<img src>` 경로만 정확하면 머지된다.
+
+### 머지 도구 — `scripts/merge-math.js`
+
+학생 앱 업로드용 합본 HTML을 한 줄로 생성.
+
+**폴더 일괄**:
+```bash
+node scripts/merge-math.js "C:/Users/memoryking/00_DEV/11_math/미분가능성"
+```
+
+**단일 파일**:
+```bash
+node scripts/merge-math.js "C:/Users/memoryking/00_DEV/11_math/미분가능성/05_미분계수.html"
+```
+
+**동작**:
+1. 폴더면 `*.html` 모두, 단일 파일이면 그 하나만 처리
+2. 이미 `_합본.html`로 끝나면 건너뜀
+3. HTML 안 `<img src="...svg">` 마다 같은 폴더의 SVG를 찾아 인라인 치환
+4. SVG에서 `<?xml ...?>` / `<!DOCTYPE>` 헤더 제거
+5. 루트 `<svg>`에 `width="100%"` 자동 부여 (없으면)
+6. SVG 0개여도 `_합본.html` 생성 (업로드 단위 통일)
+7. 누락된 SVG는 `⚠`로 표시 + 파일명 출력
+
+### 학생 앱에 업로드하는 순서
+
+1. 합본 만들기:
+   ```bash
+   node scripts/merge-math.js "C:/Users/memoryking/00_DEV/11_math/<단원>"
+   ```
+2. 교사 앱(`onepage-teacher.html`) → 챕터 → **+ 📄 HTML/SVG** 버튼
+3. `_합본.html` 파일 선택 → 자동 업로드 (kind=html)
+4. 학생 앱에서 카드 진입 → DOMPurify로 sanitize 후 표시
+5. MathJax가 카드 안 LaTeX(`$...$`, `\(...\)`)를 자동 렌더링
+6. SVG는 인라인이므로 외부 요청 없이 즉시 표시
+7. 학생이 그래프 터치 → 풀스크린 라이트박스로 확대 (§23.16)
+
+### 새로 만들 때 한 줄 요청
+
+기억해 둘 약속:
+```
+"11_math/<단원폴더> 합본 만들어 줘"
+```
+→ 클로드가 `node scripts/merge-math.js`로 해당 폴더 전체 일괄 처리.
+
+또는 사용자가 직접:
+```bash
+node scripts/merge-math.js "C:/Users/memoryking/00_DEV/11_math/<단원폴더>"
+```
+
+### 주의 사항
+
+- **MD에서 LaTeX 인라인**: `$x^2$`, `$$f(x) = ...$$`, `\(...\)`, `\[...\]` 모두 지원 (MathJax 3 lazy load)
+- **SVG 크기 제한**: 단일 SVG > 500KB 시 [SVGOMG](https://jakearchibald.github.io/svgomg/)로 최적화 권장 (matplotlib 출력은 자주 1MB 초과)
+- **matplotlib `<use href="#mxxx">` 글리프 참조**: DOMPurify 화이트리스트에 `href`/`xlink:href` 이미 포함됨 — 텍스트 깨지지 않음
+- **머지 후 .html / .svg 원본**: 손대지 않음. 합본만 추가 생성됨
+
+---
+
 ## 23. v2 학습 시스템 (단일 카드 + 퀴즈)
 
 ### 23.1 다지기 모드 — 6박스 SRS + 단일 카드 스테이지
