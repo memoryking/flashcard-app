@@ -1017,22 +1017,39 @@ function normalizeKind(k) { return ITEM_KINDS.has(k) ? k : 'text'; }
 async function handleCreateItem(request, env) {
   const b = await request.json().catch(() => ({}));
   const kind = normalizeKind(b.kind);
+  // SVG에 흔한 <?xml ...?> XML 선언 + DOCTYPE 제거 — 일부 백엔드가 거부함
+  let textVal = kind === 'image' ? '' : String(b.text || '');
+  if (kind === 'svg' && textVal) {
+    textVal = textVal
+      .replace(/<\?xml[^?]*\?>/gi, '')
+      .replace(/<!DOCTYPE[^>]*>/gi, '')
+      .trim();
+  }
   const data = {
     subtopic_id: Number(b.subtopic_id),
     kind,
     // html/svg/link/text 는 text 필드에 본문 저장. image만 image_b64 사용.
-    text: kind === 'image' ? '' : String(b.text || ''),
+    text: textVal,
     image_b64: kind === 'image' ? wrapImg(b.image_b64) : null,
     caption: String(b.caption || ''),
     sort_order: Number(b.sort_order) || 0,
     updated_at: kstDateTime(),
   };
   if (!data.subtopic_id) return json({ error: 'subtopic_id 필수' }, 400, request);
-  const r = await ncbCreate(env, 'op_items', data);
-  return json({
-    ok: true, id: r.id,
-    item: { ...data, image_b64: unwrapImg(data.image_b64), id: r.id }
-  }, 200, request);
+  try {
+    const r = await ncbCreate(env, 'op_items', data);
+    return json({
+      ok: true, id: r.id,
+      item: { ...data, image_b64: unwrapImg(data.image_b64), id: r.id }
+    }, 200, request);
+  } catch (e) {
+    // nocodebackend 에러 그대로 노출 — 사용자가 원인 파악 가능
+    return json({
+      error: 'create_failed',
+      message: String(e?.message || e).slice(0, 500),
+      kind, text_length: data.text.length,
+    }, 500, request);
+  }
 }
 
 async function handleUpdateItem(request, env, id) {

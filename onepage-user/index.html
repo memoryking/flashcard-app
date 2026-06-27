@@ -5213,6 +5213,65 @@ function normalizeUrl(url) {
 }
 // 텍스트 안의 URL(http(s)://… 또는 www.…)을 자동으로 클릭 가능한 <a>로 변환
 // 텍스트 그대로 박혀있어도 링크가 동작하게 — kind='text' 아이템에도 적용됨
+// ============================================================
+// MathJax 지연 로드 — html/svg 아이템에 LaTeX 수식이 있을 때만 활성화
+// ============================================================
+//   1) chapterTree에 .item-html 컨테이너가 새로 들어오면 MutationObserver가 감지
+//   2) 그 컨테이너 안에 $ \\( \\[ 패턴이 있으면 MathJax CDN 지연 로드
+//   3) MathJax.typesetPromise 로 수식 렌더 → "$x^2$" → 진짜 수식
+//   4) 이미 로드됐으면 그냥 typeset만
+let _mathJaxLoading = null;
+async function _ensureMathJax() {
+  if (window.MathJax && window.MathJax.typesetPromise) return;
+  if (_mathJaxLoading) return _mathJaxLoading;
+  window.MathJax = {
+    tex: { inlineMath: [['$','$'],['\\(','\\)']], displayMath: [['$$','$$'],['\\[','\\]']] },
+    svg: { fontCache: 'global' },
+    startup: { typeset: false },
+  };
+  _mathJaxLoading = new Promise((resolve, reject) => {
+    const s = document.createElement('script');
+    s.src = 'https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js';
+    s.async = true;
+    s.onload = async () => {
+      try { if (window.MathJax.startup && window.MathJax.startup.promise) await window.MathJax.startup.promise; } catch {}
+      resolve();
+    };
+    s.onerror = () => reject(new Error('MathJax CDN 로드 실패'));
+    document.head.appendChild(s);
+  });
+  return _mathJaxLoading;
+}
+async function _typesetMathInTree() {
+  const tree = document.getElementById('chapterTree');
+  if (!tree) return;
+  const items = tree.querySelectorAll('.item-html');
+  if (!items.length) return;
+  let hasMath = false;
+  for (const el of items) {
+    if (/\$|\\\(|\\\[/.test(el.textContent)) { hasMath = true; break; }
+  }
+  if (!hasMath) return;
+  try {
+    await _ensureMathJax();
+    if (window.MathJax && window.MathJax.typesetPromise) {
+      await window.MathJax.typesetPromise([tree]);
+    }
+  } catch (e) { console.warn('[mathjax]', e); }
+}
+// MutationObserver — chapterTree childList 변경 시 디바운스 typeset
+let _typesetDebounce = null;
+const _typesetObserver = new MutationObserver(() => {
+  if (_typesetDebounce) clearTimeout(_typesetDebounce);
+  _typesetDebounce = setTimeout(_typesetMathInTree, 80);
+});
+function _initMathObserver() {
+  const el = document.getElementById('chapterTree');
+  if (!el) { setTimeout(_initMathObserver, 200); return; }
+  _typesetObserver.observe(el, { childList: true });
+}
+_initMathObserver();
+
 function autolinkText(text) {
   const s = String(text || '');
   const urlRegex = /(https?:\/\/[^\s<>"]+|www\.[^\s<>"]+)/g;

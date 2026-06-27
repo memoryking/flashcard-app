@@ -476,8 +476,11 @@ async function api(method, path, body) {
   let data = null;
   try { data = await res.json(); } catch (_) {}
   if (!res.ok) {
-    const err = new Error((data && data.error) || `HTTP ${res.status}`);
+    const baseMsg = (data && data.error) || `HTTP ${res.status}`;
+    const detail = data && data.message ? ` — ${data.message}` : '';
+    const err = new Error(baseMsg + detail);
     err.status = res.status;
+    err.data = data;
     throw err;
   }
   return data;
