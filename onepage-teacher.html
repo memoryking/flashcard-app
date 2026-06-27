@@ -1383,16 +1383,43 @@ function triggerHtmlPick(subId) {
   inp.click();
 }
 
+// SVG 미니파이어 — matplotlib/Inkscape 등이 붙이는 공백·주석·헤더 제거
+//   typical 30-60% 감소. nocodebackend 1MB 한도(413 Payload Too Large) 우회 도움.
+//   regex는 new RegExp 패턴 — IDE가 정규식 안 <!-- 를 HTML 주석으로 오인하는 문제 우회
+function minifySvg(svg) {
+  let s = String(svg || '');
+  s = s.replace(new RegExp('<!--[\\s\\S]*?-->', 'g'), '');     // HTML 주석
+  s = s.replace(new RegExp('<\\?xml[^?]*\\?>', 'gi'), '');     // XML 선언
+  s = s.replace(new RegExp('<!DOCTYPE[^>]*>', 'gi'), '');      // DOCTYPE
+  s = s.replace(/>\s+</g, '><');                               // 태그 사이 공백
+  s = s.replace(/\s+/g, ' ');                                  // 연속 공백 1칸
+  s = s.replace(/\s+\/>/g, '/>');                              // self-closing 정리
+  s = s.replace(/\s+>/g, '>');                                 // 닫힘태그 정리
+  return s.trim();
+}
+
 async function uploadHtmlOrSvg(subId, file) {
   showLoading(true);
   try {
     const name = String(file.name || '').toLowerCase();
     const isSvg = name.endsWith('.svg') || file.type === 'image/svg+xml';
     const kind = isSvg ? 'svg' : 'html';
-    const text = await file.text();
+    let text = await file.text();
+    const origKb = Math.round(text.length / 1024);
+    if (isSvg) {
+      const before = text.length;
+      text = minifySvg(text);
+      const after = text.length;
+      const saved = Math.round((1 - after/before) * 100);
+      if (saved > 5) console.log(`[svg] minified ${origKb}KB → ${Math.round(after/1024)}KB (-${saved}%)`);
+    }
     const sizeKb = Math.round(text.length / 1024);
-    if (sizeKb > 1000) {
-      if (!confirm(`파일이 큽니다 (~${sizeKb}KB).\n그래도 저장할까요?`)) {
+    // nocodebackend 한도(보통 1MB) 우회 안내
+    if (sizeKb > 500) {
+      const msg = isSvg
+        ? `SVG가 큽니다 (~${sizeKb}KB).\n\n413 Payload Too Large 에러 가능성 있어요.\n먼저 https://jakearchibald.github.io/svgomg/ 에서 압축하시는 걸 추천합니다.\n\n그래도 그대로 시도할까요?`
+        : `파일이 큽니다 (~${sizeKb}KB).\n그래도 저장할까요?`;
+      if (!confirm(msg)) {
         showLoading(false); return;
       }
     }
@@ -1404,8 +1431,17 @@ async function uploadHtmlOrSvg(subId, file) {
       subtopic_id: subId, kind, text, caption, sort_order: order,
     });
     await loadItems(subId);
-    toast(`${kind.toUpperCase()} 추가됨: ${caption} (${sizeKb}KB)`);
-  } catch (e) { toast('파일 처리 실패: ' + e.message, true); }
+    const saveNote = isSvg && origKb !== sizeKb ? ` (원본 ${origKb}KB → ${sizeKb}KB 압축)` : '';
+    toast(`${kind.toUpperCase()} 추가됨: ${caption} (${sizeKb}KB)${saveNote}`);
+  } catch (e) {
+    // 413 에러는 별도 안내
+    const msg = String(e?.message || '');
+    if (msg.includes('413') || msg.includes('Payload Too Large') || msg.includes('Too Large')) {
+      toast('파일이 너무 큽니다. SVG는 https://jakearchibald.github.io/svgomg/ 에서 압축 후 재시도하세요.', true);
+    } else {
+      toast('파일 처리 실패: ' + msg, true);
+    }
+  }
   finally { showLoading(false); }
 }
 
