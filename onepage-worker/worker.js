@@ -1010,13 +1010,18 @@ function unwrapImg(s) {
   return s;
 }
 
+// 허용 kind 값 — 알려진 값만 저장, 나머지는 'text'로 fallback
+const ITEM_KINDS = new Set(['text', 'image', 'link', 'html', 'svg']);
+function normalizeKind(k) { return ITEM_KINDS.has(k) ? k : 'text'; }
+
 async function handleCreateItem(request, env) {
   const b = await request.json().catch(() => ({}));
-  const kind = b.kind === 'image' ? 'image' : 'text';
+  const kind = normalizeKind(b.kind);
   const data = {
     subtopic_id: Number(b.subtopic_id),
     kind,
-    text: kind === 'text' ? String(b.text || '') : '',
+    // html/svg/link/text 는 text 필드에 본문 저장. image만 image_b64 사용.
+    text: kind === 'image' ? '' : String(b.text || ''),
     image_b64: kind === 'image' ? wrapImg(b.image_b64) : null,
     caption: String(b.caption || ''),
     sort_order: Number(b.sort_order) || 0,
@@ -1033,7 +1038,7 @@ async function handleCreateItem(request, env) {
 async function handleUpdateItem(request, env, id) {
   const b = await request.json().catch(() => ({}));
   const patch = {};
-  if (b.kind !== undefined) patch.kind = b.kind === 'image' ? 'image' : 'text';
+  if (b.kind !== undefined) patch.kind = normalizeKind(b.kind);
   if (b.text !== undefined) patch.text = String(b.text || '');
   if (b.image_b64 !== undefined) patch.image_b64 = wrapImg(b.image_b64);
   if (b.caption !== undefined) patch.caption = String(b.caption || '');
