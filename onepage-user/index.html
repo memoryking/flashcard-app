@@ -1089,19 +1089,39 @@ a { color: #4fc3f7; text-decoration: none; }
   margin-top: 8px;
   font-style: italic;
 }
-.focus-body.blurred {
+/* 일반(분리 X) 모드 — 본문 전체 blur */
+.focus-body.blurred:not(.split) {
   filter: blur(13px);
   opacity: 0.40;
   user-select: none;
   pointer-events: none;
 }
-/* 본문 reveal 애니메이션 — 블러 해제 시 부드럽게 등장 */
-.focus-body:not(.blurred) {
+/* 본문 reveal 애니메이션 — 블러 해제 시 부드럽게 등장 (분리 모드는 별도 처리) */
+.focus-body:not(.blurred):not(.split) {
   animation: focusBodyReveal 0.55s cubic-bezier(0.25, 0.46, 0.45, 0.94) backwards;
 }
 @keyframes focusBodyReveal {
   0%   { filter: blur(13px); opacity: 0.40; transform: scale(0.985); }
   100% { filter: blur(0);    opacity: 1;    transform: scale(1); }
+}
+/* ───── 수학 콘텐츠 분리 모드 (.split): 암기카드만 노출, 풀이는 blur ───── */
+/*   다지기 카드 안에선 풀이 토글 버튼 무관 → 숨김. 풀이 영역은 항상 펼친 상태로 두고
+     blur로만 가림. 카드 터치 시 blur 해제되어 자연스럽게 전체 공개됨.    */
+.focus-body.split .solution-toggle { display: none; }
+.focus-body.split .solution-content { display: block; animation: none; }
+/* 분리 모드 + 블러: 부모 blur 없음, 풀이 item에만 blur */
+.focus-body.blurred.split {
+  user-select: none;
+  pointer-events: none;
+}
+.focus-body.blurred.split .item.is-card-back {
+  filter: blur(13px);
+  opacity: 0.40;
+  transition: filter 0.55s cubic-bezier(0.25, 0.46, 0.45, 0.94),
+              opacity 0.55s cubic-bezier(0.25, 0.46, 0.45, 0.94);
+}
+.focus-body.split:not(.blurred) .item.is-card-back {
+  animation: focusBodyReveal 0.55s cubic-bezier(0.25, 0.46, 0.45, 0.94) backwards;
 }
 /* "카드터치" 옅은 힌트 — 블러 본문 위에 부드럽게 펄스 */
 .focus-tap-hint {
@@ -4231,6 +4251,10 @@ function renderFocusCard(s, remaining, hasAccess) {
   const hasBodyToReveal = bodyReady && !!body;
   const showRevealBtn = recallOn && hasBodyToReveal && !revealed;
   const showAssessBar = bodyReady && (!recallOn || revealed || !hasBodyToReveal);
+  // 수학 콘텐츠 분리 모드 — 카드 안에 caption='암기카드' item이 있으면
+  //   다지기 정면에서 그 item만 노출, 나머지(풀이)는 blur로 가림.
+  //   카드 터치 시 blur 해제되어 전체 공개.
+  const hasCardFront = Array.isArray(items) && items.some(it => it && it.caption === '암기카드');
 
   const isAlpha = /[a-zA-Z]/.test(s.title || '') && !/[가-힯ᄀ-ᇿ㄰-㆏]/.test(s.title || '');
   const speakBtn = isAlpha
@@ -4245,8 +4269,8 @@ function renderFocusCard(s, remaining, hasAccess) {
       <div class="focus-title">${escapeHtml(s.title)}${speakBtn}</div>
       ${previewHtml}
       <div class="focus-body-wrap">
-        <div class="focus-body${showRevealBtn ? ' blurred' : ''}">${body}</div>
-        ${showRevealBtn ? '<div class="focus-tap-hint">카드터치</div>' : ''}
+        <div class="focus-body${showRevealBtn ? ' blurred' : ''}${hasCardFront ? ' split' : ''}">${body}</div>
+        ${showRevealBtn ? `<div class="focus-tap-hint">${hasCardFront ? '풀이 보기' : '카드터치'}</div>` : ''}
       </div>
       ${showAssessBar ? `
         <div class="focus-bottom-bar">
@@ -5461,7 +5485,7 @@ function renderItem(it) {
     //   그 외:      기존대로 본문 + 캡션
     if (it.caption === '내용') {
       return `
-        <div class="item">
+        <div class="item is-card-back">
           <button class="solution-toggle" type="button"
             onclick="toggleSolution(this)">
             <span class="solution-toggle-icon">✅</span>
@@ -5473,7 +5497,7 @@ function renderItem(it) {
     }
     if (it.caption === '암기카드') {
       return `
-        <div class="item">
+        <div class="item is-card-front">
           <div class="item-html">${clean}</div>
         </div>
       `;
