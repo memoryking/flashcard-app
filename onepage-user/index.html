@@ -1999,6 +1999,43 @@ a { color: #4fc3f7; text-decoration: none; }
 /* KaTeX 스타일 (외부에서 미리 컴파일된 HTML이 가져와도 fallback) */
 .item .item-html .katex { font-size: 1.05em; }
 
+/* ───── 풀이 토글 (수학 콘텐츠 '내용' item 가림 → 학생이 먼저 풀어보게) ───── */
+.solution-toggle {
+  display: flex; align-items: center; justify-content: center; gap: 8px;
+  width: 100%;
+  margin: 16px 0;
+  padding: 14px 20px;
+  background: linear-gradient(135deg, #2563eb 0%, #1d4ed8 100%);
+  color: #fff;
+  border: none;
+  border-radius: 10px;
+  font-size: 15px;
+  font-weight: 700;
+  cursor: pointer;
+  box-shadow: 0 4px 14px rgba(37, 99, 235, 0.35);
+  transition: transform 0.15s ease, box-shadow 0.15s ease, background 0.2s ease;
+}
+.solution-toggle:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 6px 20px rgba(37, 99, 235, 0.45);
+}
+.solution-toggle:active { transform: translateY(0); }
+.solution-toggle.open {
+  background: linear-gradient(135deg, #475569 0%, #334155 100%);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
+}
+.solution-toggle-icon { font-size: 17px; line-height: 1; }
+/* 펼침 전: 완전 가림. 펼침 후: 노출 + 부드러운 페이드 */
+.solution-content {
+  display: none;
+  animation: solutionFadeIn 280ms ease;
+}
+.solution-content.open { display: block; }
+@keyframes solutionFadeIn {
+  0%   { opacity: 0; transform: translateY(-6px); }
+  100% { opacity: 1; transform: translateY(0); }
+}
+
 /* 본문 안 이미지/SVG — 확대 가능 표시 + 호버 피드백 */
 .item .item-html svg, .item .item-html img,
 .item .item-svg svg, .item .item-svg img {
@@ -5418,6 +5455,29 @@ function renderItem(it) {
     const clean = (typeof DOMPurify !== 'undefined')
       ? DOMPurify.sanitize(raw, sanitizeOptsRich())
       : escapeHtml(raw);
+    // 수학 콘텐츠 마커 분리 결과 — caption으로 동작 분기:
+    //   '암기카드': 카드 펼침 즉시 노출 (캡션은 숨김 — 학생 화면에 불필요)
+    //   '내용':     "✅ 풀이 보기" 토글로 가림 (학생이 먼저 풀어보게)
+    //   그 외:      기존대로 본문 + 캡션
+    if (it.caption === '내용') {
+      return `
+        <div class="item">
+          <button class="solution-toggle" type="button"
+            onclick="toggleSolution(this)">
+            <span class="solution-toggle-icon">✅</span>
+            <span class="solution-toggle-label">풀이 보기</span>
+          </button>
+          <div class="item-html solution-content">${clean}</div>
+        </div>
+      `;
+    }
+    if (it.caption === '암기카드') {
+      return `
+        <div class="item">
+          <div class="item-html">${clean}</div>
+        </div>
+      `;
+    }
     return `
       <div class="item">
         <div class="item-html">${clean}</div>
@@ -6918,6 +6978,21 @@ setTimeout(async () => {
     setTimeout(() => { document.getElementById('contentLightboxBody').innerHTML = ''; }, 200);
   };
 })();
+
+// 풀이 보기 토글 — caption='내용' html item의 가림/펼침
+//   상태에 따라 라벨을 "풀이 보기" ↔ "풀이 가리기"로 변경
+window.toggleSolution = function (btn) {
+  const content = btn.nextElementSibling;
+  if (!content) return;
+  const opened = content.classList.toggle('open');
+  btn.classList.toggle('open', opened);
+  const label = btn.querySelector('.solution-toggle-label');
+  if (label) label.textContent = opened ? '풀이 가리기' : '풀이 보기';
+  // 펼치면서 풀이 영역에 LaTeX 있으면 MathJax 재시도 보장 (이미 typeset됐어도 무해)
+  if (opened && typeof _typesetMathInTree === 'function') {
+    _typesetMathInTree();
+  }
+};
 
 tryAutoLogin();
 </script>
