@@ -27,7 +27,7 @@
       "y": -1200,
       "width": 320,
       "height": 200,
-      "text": "## 📣 랜딩 페이지\n`onepage-landing.html`\n\n- 마케팅 진입점\n- SRS 학습법 소개\n- vipup.site/onepage",
+      "text": "## 📣 랜딩 페이지\n`onepage-landing.html`\n\n- 5단계 기억 시스템 설득 구조\n- 후킹 통계형: '70%는 다음 날 사라집니다'\n- 인지과학 PAIN 3가지 → 5가지 해법 → 정교화\n- 일러스트 6장 (Gemini 생성)\n  `onepage-landing-media/*.webp`\n- vipup.site/onepage iframe\n- UTM 자동 캡쳐 + 학생앱 reroute",
       "color": "1"
     },
     {

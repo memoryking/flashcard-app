@@ -27,6 +27,7 @@
 21. [Worker 엔드포인트](#21-worker-엔드포인트)
 22. [Cloudflare Workers 청크 처리](#22-cloudflare-workers-청크-처리)
 22.5. [Cloudflare Edge Cache — /chapters 가속](#225-cloudflare-edge-cache--chapters-가속-v237)
+22.7. [랜딩 페이지 제작 워크플로](#227-랜딩-페이지-제작-워크플로-v238)
 23. [v2 학습 시스템 (단일 카드 + 퀴즈)](#23-v2-학습-시스템-단일-카드--퀴즈)
 
 ---
@@ -1459,6 +1460,152 @@ async function handleListChapters(request, env, ctx) {
 ```
 
 `ctx.waitUntil` — 응답 후 백그라운드에서 캐시 저장 → 첫 사용자도 지연 없음.
+
+---
+
+## 22.7 랜딩 페이지 제작 워크플로 (v2.3.8)
+
+`onepage-landing.html` — 마케팅 진입 + 5단계 기억 시스템 설득 페이지. 아임웹(`vipup.site/onepage-study`)에 iframe으로 임베드.
+
+### 페이지 구조 (위→아래 흐름)
+
+```
+HERO (강한 후킹)
+  ↓ "외운 단어의 70%는 다음 날 사라집니다" — 통계 충격
+  ↓ HERO 일러스트 (뇌+기억큐브 분해 시각화)
+  ↓ 1885년 에빙하우스가 증명한 잔인한 사실...
+
+PAIN (인지과학 3가지 — 통념 깨기)
+  ↓ #1 능동 회상 없으면 + 일러스트
+  ↓ #2 간격 둔 반복 없으면 + 일러스트
+  ↓ #3 약점 추적 없으면 + 일러스트
+
+5가지 시스템 한눈에 (해법 overview)
+  ↓ 📑 목차 / ● 다지기 / ★ 별표 / 🎤✏️ 퀴즈 / 🧠 정교화
+
+사용법 3 STEP (펼침 + 두 버튼)
+  ↓ 1. 챕터 선택 → 2. 목차 펼침 → 3. 오늘/내일 학습
+
+다지기 SRS — Anki 학습 과학
+  ↓ 망각 곡선 그래프 (1·2·4·8·16·32일 6회 복습 시각화)
+  ↓ 6박스 시스템 그리드
+
+★ 별표 — 약점 자동 누적
+  ↓ ★ 1~5개 임계값 표 (1-3 / 4-6 / 7-9 / 10-12 / 13+)
+
+🎤 말하기 · ✏️ 첫글자 퀴즈
+  ↓ 능동 회상 강제 — 입에서 안 나오면 진짜 외운 게 아님
+
+🧠 정교화 학습 — 깊은 인출
+  ↓ 뇌 + 4단서 일러스트
+  ↓ 3단계 (블러+회상 / 다중단서 / 자기평가)
+
+다른 앱과 비교 (vs 일반/Anki류)
+핵심 가치 / 가격 / 포인트 / 추천 / FAQ / 최종 CTA + sticky bar
+```
+
+### 후킹 카피 4가지 패턴 (A/B 후보)
+
+| 패턴 | 예시 | 강도 |
+|------|------|------|
+| **A 통계 충격형** ⭐ | "외운 단어의 70%는 다음 날 사라집니다" | ★★★★★ |
+| B 도발/역설형 | "외우지 마세요. 다르게 외우세요" | ★★★★ |
+| C 정체성·열망형 | "상위권은 외우지 않습니다" | ★★★★ |
+| D 안전 일상통증형 | "어제 외운 단어가 오늘 안 떠오를 때" | ★★★ |
+
+→ 현재 A 채택. 구체 숫자 + 권위(에빙하우스) → 즉각 신뢰.
+
+### 이미지 자산 (`onepage-landing-media/`)
+
+**6장 일관 스타일** (Google Gemini 이미지 생성):
+
+| 파일 | 비율 | 자리 | 표시 사이즈 |
+|------|------|------|------------|
+| `hero-forgetting.webp` | 16:9 | HERO H1 아래 | max 520px |
+| `pain-recall.webp` | 1:1 | PAIN #1 아이콘 | 84×84 (64 모바일) |
+| `pain-spacing.webp` | 1:1 | PAIN #2 아이콘 | 84×84 |
+| `pain-weakness.webp` | 1:1 | PAIN #3 아이콘 | 84×84 |
+| `curve-ebbinghaus.webp` | 16:9 | SRS 섹션 상단 | max 680px |
+| `brain-elaboration.webp` | 1:1 | 정교화 섹션 상단 | 240×240 (180 모바일) |
+
+### 이미지 스타일 가이드 (반드시 모든 자산 일관 적용)
+
+```
+배경: 깊은 네이비 #0a0a1a → #16213e 그라데이션
+강조색: 진홍 #e94560, 호박 #ffb347
+톤: 모던 미니멀, 다크 모드, 부드러운 글로우
+스타일: 이소메트릭 또는 플랫 일러스트 (사진 X)
+글자 없음 (한글 직접 렌더링 시 깨질 위험 — HTML로 따로)
+```
+
+### Gemini 이미지 생성 워크플로
+
+1. **품질 설정 "최고"** (이미지 생성 박스 우측 슬라이더)
+2. **한 채팅 안에서 시리즈 생성** — 스타일 일관성 유지됨
+   - 첫 이미지 OK → "같은 스타일로 이번엔 [다른 주제]"로 이어달라기
+   - 새 채팅 시작하면 톤이 바뀜 → 한 채팅 = 한 시리즈 원칙
+3. **참고 이미지 업로드** (좌측 + 버튼) — 기존 이미지를 스타일 reference로 활용 가능
+4. **마음에 들 때까지 "다시" or "조정"** — 변형 4개씩 받아 선택
+
+### 한국어 프롬프트 템플릿 (이 도구는 한국어 직접 이해)
+
+**예 — HERO**:
+```
+이소메트릭 일러스트레이션. 어두운 네이비 배경(#0a0a1a → #16213e 그라데이션). 
+사람의 머리 모양 안에서 빛나는 기억 큐브들이 떠 있고, 그 중 절반이 
+입자로 흩어져 밖으로 날아가는 모습. 
+사라지는 입자는 진홍색 글로우(#e94560), 남아있는 큐브는 호박색(#ffb347) 하이라이트.
+모던 미니멀, 사진처럼 사실적 X, 글자 없음. 16:9 비율.
+분위기: 과학적이고 약간 드라마틱, 상실감.
+```
+
+### 압축 → 배포
+
+```
+1. Gemini PNG 다운로드 (1~3MB)
+2. TinyPNG (https://tinypng.com) 또는 Squoosh (https://squoosh.app)
+   → WebP 변환 + 압축 → 30~150KB
+3. onepage-landing-media/ 폴더에 권장 파일명으로 저장
+4. PNG 원본도 같이 보관 (다른 사이즈 필요 시)
+5. git push → 자동 Vercel 배포
+```
+
+### HTML 삽입 패턴
+
+**HERO** (첫화면 — eager loading):
+```html
+<img class="op-hero-visual"
+     src="onepage-landing-media/hero-forgetting.webp"
+     alt="..."
+     loading="eager" decoding="async">
+```
+
+**PAIN/SRS/정교화** (lazy loading):
+```html
+<img class="op-pain-img" src="..." alt="..." loading="lazy" decoding="async">
+<img class="op-srs-curve" src="..." alt="..." loading="lazy" decoding="async">
+<img class="op-elab-brain" src="..." alt="..." loading="lazy" decoding="async">
+```
+
+### CSS 클래스 (`#opRoot .op-*-visual`/`-img`/`-curve`/`-brain`)
+
+- `box-shadow` 또는 `drop-shadow`로 다크 배경에 글로우
+- 모바일(`max-width: 480px`) 사이즈 축소
+- `object-fit: cover` (잘림 방지)
+- `border-radius` 부드러운 모서리
+
+### 인터랙티브 데모 섹션 제거 (v2.3.6)
+
+이전엔 `<section id="demo">`에 학습 카드 시뮬레이션이 있었으나 **삭제**:
+- **이유**: 부분 기능만 시연 → 사용자가 일부 보고 예단 → 전체 페이지 끝까지 안 읽고 이탈 위험
+- **대체 흐름**: HERO → 인지과학 PAIN → 5가지 시스템 → 정교화 → ... → 최종 CTA → 실제 앱 가입 → 모든 기능 체험
+- 약 339줄 dead code 청소 (HTML/CSS/JS)
+
+### Sticky CTA + 최종 CTA
+
+- **하단 sticky bar** (`.op-sticky`) — 항상 노출. 최종 CTA 섹션 visible 시 자동 hide
+- **최종 CTA** (`.op-final`) — 페이지 끝, "지금 시작하기 →" → `https://memoryking.kr/`
+- UTM 파라미터 자동 첨부 — `?utm_source=...&utm_medium=...` 캡쳐 후 학생 앱 URL에 reroute
 
 ---
 
