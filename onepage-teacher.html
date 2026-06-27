@@ -775,7 +775,10 @@ function renderTopic(t) {
       loadSubtopics(t.id);
       body = '<div class="empty-state small">로드 중…</div>';
     } else {
-      body = `<div style="margin:6px 0;"><button class="btn-secondary btn-small" onclick="event.stopPropagation();openSubtopicModal(${t.id})">+ 학습 카드 추가</button></div>`;
+      body = `<div style="margin:6px 0;display:flex;gap:6px;flex-wrap:wrap;">
+        <button class="btn-secondary btn-small" onclick="event.stopPropagation();openSubtopicModal(${t.id})">+ 학습 카드 추가</button>
+        <button class="btn-secondary btn-small" onclick="event.stopPropagation();triggerHtmlBatchForTopic(${t.id})" title="HTML/SVG 파일을 여러 개 선택하면, 각각이 학습 카드 1장으로 자동 생성됩니다.">+ 📄 HTML 일괄 추가</button>
+      </div>`;
       if (!subs.length) {
         body += '<div class="empty-state small">아직 학습 카드가 없습니다.</div>';
       } else {
@@ -1383,6 +1386,74 @@ function triggerHtmlPick(subId) {
   inp.click();
 }
 
+// ============================================================
+// 일괄 업로드 — 토픽(목차) 안에 HTML 파일들을 학습 카드로 자동 생성
+// ============================================================
+//   사용 흐름: + 📄 HTML 일괄 추가 → 파일 여러 개 선택 → 각각 학습 카드 1장
+//   - 학습 카드 제목 = 파일명에서 확장자/_합본 떼고 _ → 공백
+//   - 그 안에 kind=html (또는 svg) item 1개를 자동 추가
+//   - 정렬 순서는 기존 학습 카드 다음 번호부터 순차
+function triggerHtmlBatchForTopic(topicId) {
+  const inp = document.createElement('input');
+  inp.type = 'file';
+  inp.accept = '.html,.htm,.svg,text/html,image/svg+xml';
+  inp.multiple = true;
+  inp.onchange = async () => {
+    const files = Array.from(inp.files || []);
+    if (!files.length) return;
+    if (files.length > 1
+        && !confirm(`${files.length}개 파일을 각각 학습 카드 1장으로 만듭니다. 계속할까요?`)) return;
+    await uploadHtmlsAsSubtopics(topicId, files);
+  };
+  inp.click();
+}
+
+// 파일명 → 학습 카드 제목 정규화
+//   "01_절댓값삼차함수_합본.html" → "01 절댓값삼차함수"
+function deriveSubtopicTitle(filename) {
+  let s = String(filename || '').trim();
+  s = s.replace(/\.(html?|svg)$/i, '');       // 확장자
+  s = s.replace(/[_\s]*합본\s*$/i, '');        // 끝의 "_합본"
+  s = s.replace(/_/g, ' ');                   // underscore → 공백
+  return s.trim() || filename;
+}
+
+async function uploadHtmlsAsSubtopics(topicId, files) {
+  showLoading(true);
+  let ok = 0, failed = [];
+  try {
+    const existing = state.subtopicsByTopic[topicId] || [];
+    let nextOrder = existing.length
+      ? Math.max(...existing.map(s => Number(s.sort_order) || 0)) + 1
+      : 1;
+    for (const f of files) {
+      try {
+        const title = deriveSubtopicTitle(f.name);
+        // 1) subtopic 생성 (이미지/캡션 없이 제목만)
+        const res = await api('POST', '/subtopics', {
+          topic_id: topicId, title, sort_order: nextOrder++, image_b64: null, caption: '',
+        });
+        const newSubId = res?.subtopic?.id || res?.id;
+        if (!newSubId) throw new Error('subtopic id 없음');
+        // 2) 그 안에 html/svg item 1개 추가 (기존 단일 업로드 로직 재사용)
+        await uploadHtmlOrSvg(newSubId, f);
+        ok++;
+      } catch (e) {
+        failed.push(`${f.name}: ${e?.message || e}`);
+      }
+    }
+    await loadSubtopics(topicId);
+    // 목차 카운트 갱신
+    const topics = state.topicsByChapter || {};
+    for (const cid in topics) {
+      if ((topics[cid] || []).some(t => t.id === topicId)) { await loadTopics(Number(cid)); break; }
+    }
+    const summary = `${ok}/${files.length}개 추가됨` + (failed.length ? ` · 실패 ${failed.length}` : '');
+    toast(summary, failed.length > 0);
+    if (failed.length) console.warn('[batch html] 실패 목록:\n' + failed.join('\n'));
+  } finally { showLoading(false); }
+}
+
 // SVG 미니파이어 — matplotlib/Inkscape 등이 붙이는 공백·주석·헤더 제거
 //   typical 30-60% 감소. nocodebackend 1MB 한도(413 Payload Too Large) 우회 도움.
 //   regex는 new RegExp 패턴 — IDE가 정규식 안 <!-- 를 HTML 주석으로 오인하는 문제 우회
@@ -1730,6 +1801,7 @@ window.deleteItem = deleteItem;
 window.addTextItem = addTextItem;
 window.addLinkItem = addLinkItem;
 window.triggerHtmlPick = triggerHtmlPick;
+window.triggerHtmlBatchForTopic = triggerHtmlBatchForTopic;
 window.editItemLink = editItemLink;
 window.editItemText = editItemText;
 window.editItemCaption = editItemCaption;
