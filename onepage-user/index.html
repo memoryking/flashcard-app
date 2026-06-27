@@ -1979,30 +1979,88 @@ a { color: #4fc3f7; text-decoration: none; }
 .item .item-caption {
   font-size: 11px; color: rgba(255,255,255,0.4); margin-top: 6px;
 }
-/* HTML/SVG 콘텐츠 컨테이너 — 수학·도표 등 외부 컴파일 자산 안전 렌더 */
-/*   배경은 밝은 톤(콘텐츠가 보통 검정 텍스트라) + 둥근 모서리 + 가로 스크롤 보호 */
+/* ───── HTML/SVG 콘텐츠 컨테이너 — 외부 컴파일 자산 안전 렌더 ───── */
+/*   우선순위: 태블릿(7~12") 기본값 → 모바일에서 축소, PC에서 확대        */
+/*   합본 안 <style>의 글로벌 셀렉터(h1{}, p{} 등)를 더 specific하게 덮어쓰기 */
 .item .item-html, .item .item-svg {
   background: #f8fafc;
   color: #1a1a2e;
-  border-radius: 8px;
-  padding: 14px 16px;
+  border-radius: 10px;
+  padding: 20px 22px;             /* 태블릿 기본 — 넉넉 */
   overflow-x: auto;
-  font-size: 14px;
-  line-height: 1.6;
+  font-size: 16px;                /* 태블릿 기본 — 가독성 우선 */
+  line-height: 1.75;
   -webkit-user-select: text; user-select: text;
 }
-.item .item-svg { padding: 8px 10px; text-align: center; }
+.item .item-svg { padding: 10px 12px; text-align: center; }
 .item .item-html img, .item .item-svg svg, .item .item-html svg {
   max-width: 100%; height: auto; display: inline-block;
 }
-.item .item-html p { margin: 0 0 10px; }
+/* 모바일 (~640px) — 패딩·폰트 약간 축소 */
+@media (max-width: 640px) {
+  .item .item-html { padding: 14px 16px; font-size: 14.5px; line-height: 1.7; }
+  .item .item-svg  { padding: 8px 10px; }
+}
+/* PC (1024px+) — 약간 더 넉넉 */
+@media (min-width: 1024px) {
+  .item .item-html { padding: 24px 28px; font-size: 17px; line-height: 1.8; }
+}
+
+/* 본문 단락 — 한국어 자연스러운 줄바꿈 */
+.item .item-html p {
+  margin: 0 0 12px;
+  word-break: keep-all;        /* 한국어 음절 끊김 방지 */
+  overflow-wrap: anywhere;     /* 긴 영문/URL은 끊기 (가로 오버플로 차단) */
+}
 .item .item-html p:last-child { margin-bottom: 0; }
+
+/* 헤더 — 태블릿 기본 + 모바일/PC 분기. 합본 글로벌 h1{} 보다 우선 적용 */
 .item .item-html h1, .item .item-html h2, .item .item-html h3,
 .item .item-html h4, .item .item-html h5, .item .item-html h6 {
-  font-weight: 800; margin: 12px 0 6px; color: #0a0a1a;
+  font-weight: 800; color: #0a0a1a; word-break: keep-all; line-height: 1.4;
 }
-.item .item-html ul, .item .item-html ol { margin: 0 0 10px 20px; }
-.item .item-html li { margin-bottom: 4px; }
+.item .item-html h1 {
+  font-size: 1.55rem; margin: 16px 0 12px;
+  padding-bottom: 8px; border-bottom: 2.5px solid #2563eb;
+}
+.item .item-html h2 { font-size: 1.25rem; margin: 22px 0 10px; color: #2563eb; }
+.item .item-html h3 { font-size: 1.1rem;  margin: 18px 0 8px; }
+.item .item-html h4 { font-size: 1rem;     margin: 14px 0 6px; }
+@media (max-width: 640px) {
+  .item .item-html h1 { font-size: 1.22rem; padding-bottom: 6px; margin: 14px 0 10px; }
+  .item .item-html h2 { font-size: 1.08rem; margin: 18px 0 8px; }
+  .item .item-html h3 { font-size: 1.02rem; }
+}
+@media (min-width: 1024px) {
+  .item .item-html h1 { font-size: 1.75rem; }
+  .item .item-html h2 { font-size: 1.4rem; }
+  .item .item-html h3 { font-size: 1.18rem; }
+}
+
+/* 리스트 */
+.item .item-html ul, .item .item-html ol { margin: 0 0 12px; padding-left: 24px; }
+.item .item-html li {
+  margin-bottom: 6px;
+  word-break: keep-all; overflow-wrap: anywhere;
+}
+
+/* 표 — 좁은 화면에서 가로 스크롤 */
+.item .item-html table {
+  display: block; overflow-x: auto;
+  border-collapse: collapse; width: 100%; margin: 10px 0;
+}
+.item .item-html th, .item .item-html td { word-break: keep-all; }
+
+/* MathJax · KaTeX 수식 — 가로 오버플로 보호 */
+.item .item-html mjx-container,
+.item .item-html .MathJax {
+  max-width: 100%;
+  overflow-x: auto;
+  overflow-y: hidden;
+}
+.item .item-html mjx-container[display="true"] {
+  margin: 0.6em 0 !important;
+}
 .item .item-html code {
   background: #e5e7eb; padding: 1px 5px; border-radius: 3px;
   font-family: 'Courier New', monospace; font-size: 13px;
@@ -2011,13 +2069,22 @@ a { color: #4fc3f7; text-decoration: none; }
   background: #1a1a2e; color: #e5e7eb; padding: 12px 14px;
   border-radius: 6px; overflow-x: auto; font-size: 13px;
 }
-.item .item-html table { border-collapse: collapse; width: 100%; margin: 8px 0; }
+/* 표 셀 — 위 display:block table 규칙에 더해 보더/배경 (위 규칙과 합쳐 작동) */
 .item .item-html th, .item .item-html td {
-  border: 1px solid #cbd5e1; padding: 6px 10px; text-align: left;
+  border: 1px solid #cbd5e1; padding: 8px 10px; text-align: left;
 }
 .item .item-html th { background: #e2e8f0; font-weight: 700; }
-/* KaTeX 스타일 (외부에서 미리 컴파일된 HTML이 가져와도 fallback) */
+/* KaTeX·MathJax 수식 — 가로 오버플로 보호 (긴 디스플레이 수식이 모바일 폭 초과) */
 .item .item-html .katex { font-size: 1.05em; }
+.item .item-html .katex-display {
+  max-width: 100%; overflow-x: auto; overflow-y: hidden;
+  margin: 0.6em 0;
+}
+.item .item-html mjx-container,
+.item .item-html .MathJax {
+  max-width: 100%; overflow-x: auto; overflow-y: hidden;
+}
+.item .item-html mjx-container[display="true"] { margin: 0.6em 0 !important; }
 
 /* ───── 풀이 토글 (수학 콘텐츠 '내용' item 가림 → 학생이 먼저 풀어보게) ───── */
 .solution-toggle {
