@@ -23,7 +23,7 @@
 | nocodebackend | `op_subtopics` | 학습 카드 (+ 대표 이미지) |
 | nocodebackend | `op_items` | 내용 블록 (텍스트·이미지·링크) |
 | nocodebackend | `op_understood` | 학생 ● 등록 + SRS 진도 |
-| nocodebackend | `op_pings` | 라이브 학습자 카운트 |
+| nocodebackend | `op_pings` | 라이브 학습자 카운트 + 실시간 학습 통계(카드 수·피드) |
 
 ---
 
@@ -433,15 +433,23 @@ Type 드롭다운에 보이는 옵션: `INT`, `BIGINT`, `VARCHAR(255)`, `DROPDOW
 
 ---
 
-### B6. `op_pings` (오늘 학습자 카운트)
+### B6. `op_pings` (오늘 학습자 카운트 + 실시간 학습 통계)
 
 | 필드명 | 타입 | Not null | FK/Unique | Default | 비고 |
 |---|---|---|---|---|---|
 | `user_phone` | VARCHAR(255) | ✅ | **Unique ✅** | — | 사용자당 1행 |
 | `first_ping_today` | DATE | ✅ | — | — | KST 날짜 |
-| `last_ping_at` | DATETIME | — | — | — | 디버깅용 |
+| `last_ping_at` | DATETIME | — | — | — | 최근 활동 시각 (피드 정렬·디버깅) |
+| `name` | VARCHAR(255) | — | — | — | 학습 피드 표시용 (마스킹은 Worker가 처리) |
+| `cards_today` | INT | — | — | 0 | 오늘 학습(pass·첫 학습)한 카드 누적 수 |
+| `cards_date` | VARCHAR(255) | — | — | — | `cards_today`의 KST 기준 날짜 (날짜 바뀌면 0부터 재누적) |
 
-> 클라이언트가 60초마다 ping → Worker가 `first_ping_today < 오늘`이면 오늘 날짜로 덮어씀. `/stats/learners-now`는 `first_ping_today = 오늘`인 행 수를 카운트.
+> 클라이언트가 60초마다 `POST /stats/ping`(body `{cards}` = 직전 ping 이후 학습한 카드 델타) → Worker가 `first_ping_today`·`last_ping_at`·`name` 갱신하고, `cards_date`가 오늘이면 `cards_today += delta`, 아니면 `delta`부터 재시작.
+>
+> - `/stats/learners-now` → `first_ping_today = 오늘`인 행 수(`count`) + 오늘 카드 합계(`total_cards`)
+> - `/stats/live-feed` → `last_ping_at` 최신순 상위 학습자의 마스킹 이름(`김○○`) + `cards` + 상대시간 (랜딩·메인 실시간 위젯용, 공개 GET)
+>
+> ⚠️ `name`·`cards_today`·`cards_date`는 v2 마케팅 위젯 추가 시 도입 — 기존 인스턴스는 nocodebackend 대시보드에서 이 3개 컬럼을 먼저 추가해야 ping이 정상 동작.
 
 ---
 
@@ -585,7 +593,7 @@ if (existing) {
 |---|---|---|
 | 회원가입 | OnepageUsers | 신규 행 생성 (Worker가 referral_code 생성·중복 확인) |
 | 학습 카드 ● 등록 (오늘/내일 학습) | op_understood | upsert (행 없으면 생성, box=1 또는 2 세팅) |
-| 60초 ping | op_pings | upsert (user_phone로 찾아 first_ping_today 갱신) |
+| 60초 ping | op_pings | upsert (first_ping_today·last_ping_at·name 갱신 + cards_today 누적) |
 | 선생님이 콘텐츠 CRUD | op_chapters/topics/subtopics/items | 일반 CRUD |
 | 일괄 입력 (TSV) | op_topics/subtopics/items 한꺼번에 | append 또는 replace 모드 |
 | 포인트로 챕터 연장 | OnepageChapterAccess + OnepageUsers + OnepagePointTx | 트랜잭션처럼 3개 행 동시 갱신 |

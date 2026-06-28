@@ -909,16 +909,32 @@ document.addEventListener('keydown', e => {
 
 ---
 
-## 15. 라이브 학습자 카운트
+## 15. 라이브 학습자 카운트 + 실시간 학습 통계 (사회적 증거)
 
-### 헤더에 "🟢 N명 학습 중" 표시
-- 60초마다 `POST /stats/ping` 호출 (학생 앱)
-- nocodebackend `op_pings` 테이블에 (phone, first_ping_today) upsert
-- `GET /stats/learners-now`가 `first_ping_today = 오늘`인 행 수 반환
+마케팅 전환용 — 랜딩·메인에 "지금 함께 공부하는 사람"을 실시간 노출해 가입/학습 욕구를 자극.
 
-### "오늘 N명"
-- KST 기준 자정에 자동 리셋 (다음 ping부터 새 카운트)
-- 실시간 학습 인원 = 오늘 한 번이라도 ping 보낸 사용자 수
+### 데이터 수집 — `POST /stats/ping` (60초 하트비트)
+- 학생 앱이 60초마다 호출 + **탭 숨김(visibilitychange) 시 즉시 flush**
+- body `{cards}` = 직전 ping 이후 학습한 카드 **델타** (`state.studyDelta`)
+  - 카드 학습 시점마다 `studyDelta++` — 첫 학습(`studyDayPick`) + 다지기 패스(`apiPass` 2곳)
+  - 전송 성공 시 0으로 리셋, 실패 시 델타 복구 후 다음 ping에 재전송
+- Worker가 `op_pings` upsert: `first_ping_today`·`last_ping_at`·`name`(JWT) 갱신 + `cards_today` 누적(`cards_date`가 오늘 아니면 0부터)
+
+### 노출 ① 헤더 라이브 칩 (학생 앱)
+- `GET /stats/learners-now` → `{count, total_cards, date}`
+- 칩 표시: **"N명 학습 중 · 오늘 N장"** (30초마다 갱신). count=0이면 숨김
+
+### 노출 ② 랜딩 LIVE 위젯 ([onepage-landing.html](onepage-landing.html))
+- 히어로 직하 "떠 있는 카드" — **"오늘 N명 함께 공부 / 오늘 N장 함께 외움"** 숫자 카운트업(20초 갱신)
+- **실시간 학습 피드**: `GET /stats/live-feed` → "🔥 김○○님이 방금 30장 학습" 회전 (이름 첫 글자만 노출, 마스킹은 Worker `maskName`)
+- 시각 강조: "지금 이 순간" 배지 shimmer+glow, 상단 흐르는 그라데이션 라인, breathe 글로우
+- 데이터 0이면 위젯 자동 숨김 (작은 숫자 역효과 방지)
+
+### "오늘" 기준
+- KST 자정에 자동 리셋 (다음 ping부터 `cards_date` 바뀌며 0부터 재누적, learners count도 새로 시작)
+- 실시간 학습 인원 = 오늘 한 번이라도 ping 보낸 사용자 수 (학습 끝난 사람도 포함)
+
+> ⚠️ **배포 전제**: `op_pings`에 `name`·`cards_today`·`cards_date` 컬럼이 있어야 함. 기존 인스턴스는 [NOCODEBACKEND_GUIDE.md](NOCODEBACKEND_GUIDE.md) §9.6 ALTER 먼저 → Worker 배포 순서.
 
 ---
 
@@ -1311,7 +1327,7 @@ PABBLY_RESET_WEBHOOK_URL 이 설정돼 있으면 비밀번호 찾기 SMS 발송�
   - `kind='text'`: `caption` 으로 이미지처럼 작은 설명 표시 (선택)
   - **v2 컨벤션**: `items[0].text` = 학습 카드 정답 (제목→items[0] = 큐→정답)
 - **op_understood**: user_phone, subtopic_id, marked_at, **review_box** (Leitner 1~6), **next_review_at** (다음 due KST), **miss_count** (★ 누적), **last_moved_at** (박스 안 정렬 키) — 학습 진도 + Standard SRS 스케줄
-- **op_pings**: user_phone, first_ping_today, last_ping_at (라이브 카운트)
+- **op_pings**: user_phone, first_ping_today, last_ping_at, **name**, **cards_today**, **cards_date** (라이브 카운트 + 실시간 학습 통계)
 
 자세한 컬럼·타입·FK 설정은 [ONEPAGE_SCHEMA.md](ONEPAGE_SCHEMA.md) 참조.
 
@@ -1338,8 +1354,9 @@ PABBLY_RESET_WEBHOOK_URL 이 설정돼 있으면 비밀번호 찾기 SMS 발송�
 | `/understood` | POST | 카드 ● 등록 — 첫 등록 시 review_box=1, next_review_at=내일 자동 세팅 (studyDayPick에서 호출) |
 | `/understood/advance` | POST | 회상 성공(다지기 안 펼치고 패스) → Box +1, next_review_at 갱신 (Leitner 1·2·4·8·16·32일) |
 | `/understood?chapter_id=` | GET | 내 ● 등록 목록 + review_box + next_review_at |
-| `/stats/ping` | POST | 60초마다 학생이 호출 |
-| `/stats/learners-now` | GET | 오늘 학습자 수 |
+| `/stats/ping` | POST | 60초마다 학생이 호출 — body `{cards}` 델타로 `cards_today` 누적 + `name` 저장 |
+| `/stats/learners-now` | GET | 오늘 학습자 수(`count`) + 오늘 카드 합계(`total_cards`) |
+| `/stats/live-feed` | GET | 최근 학습자 마스킹 이름 + 카드 수 + 상대시간 (랜딩·메인 실시간 위젯, 공개) |
 | `/access` | GET | 내 챕터별 접근 상태 |
 | `/access/redeem` | POST | `REDEEM_COST` P → 챕터 30일 연장 |
 | **`/payment/request`** | **POST** | **학생: 챕터 결제 세션 생성 → PayApp payurl 반환 (var1=chapter_id)** |

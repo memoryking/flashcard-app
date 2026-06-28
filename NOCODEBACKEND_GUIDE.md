@@ -392,9 +392,20 @@ CREATE TABLE IF NOT EXISTS `op_pings` (
   `id` INT NOT NULL AUTO_INCREMENT PRIMARY KEY,
   `user_phone` VARCHAR(255) NOT NULL UNIQUE,
   `first_ping_today` DATE NOT NULL,
-  `last_ping_at` DATETIME NULL
+  `last_ping_at` DATETIME NULL,
+  `name` VARCHAR(255) NULL,         -- 실시간 학습 피드 표시용
+  `cards_today` INT NULL DEFAULT 0, -- 오늘 학습한 카드 누적 수
+  `cards_date` VARCHAR(255) NULL    -- cards_today 기준 KST 날짜
 );
 ```
+
+> **기존 인스턴스 업그레이드 (v2 실시간 통계 위젯):** `op_pings`가 이미 있으면 아래 3개 컬럼만 추가. nocodebackend 대시보드 "Add columns"로도 가능 (`cards_today`=INT/Default 0, 나머지=VARCHAR(255)). **추가 전에 새 Worker를 배포하면 ping이 깨질 수 있으니 컬럼 추가 → 배포 순서.**
+> ```sql
+> ALTER TABLE `op_pings`
+>   ADD COLUMN `name` VARCHAR(255) NULL,
+>   ADD COLUMN `cards_today` INT NULL DEFAULT 0,
+>   ADD COLUMN `cards_date` VARCHAR(255) NULL;
+> ```
 
 → Run SQL 창에 통째로 붙여 한 번에 실행. 기존에 만든 테이블이 있어도 `IF NOT EXISTS`라 건너뜀.
 
@@ -457,6 +468,9 @@ CREATE TABLE IF NOT EXISTS `op_pings` (
 | user_phone | VARCHAR(255) | ✅ | ✅ | | |
 | first_ping_today | DATE | ✅ | | | |
 | last_ping_at | DATETIME | | | | |
+| name | VARCHAR(255) | | | | |
+| cards_today | INT | | | | 0 |
+| cards_date | VARCHAR(255) | | | | |
 
 ---
 
