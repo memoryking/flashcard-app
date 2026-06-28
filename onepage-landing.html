@@ -560,6 +560,62 @@
     #opRoot .op-points-grid { grid-template-columns: 1fr; gap: 10px; }
     #opRoot .op-point-box { padding: 14px; }
 }
+
+/* ========== 실시간 사회적 증거 (LIVE) ========== */
+#opRoot .op-live {
+    background: linear-gradient(135deg, #0a0a1a 0%, #16213e 100%);
+    padding: 26px 18px 30px; text-align: center; border-top: 1px solid rgba(255,255,255,0.06);
+}
+#opRoot .op-live-inner { max-width: 520px; margin: 0 auto; }
+#opRoot .op-live-pulse {
+    display: inline-flex; align-items: center; gap: 7px;
+    font-size: 12px; font-weight: 700; letter-spacing: 0.04em;
+    color: #81c784; background: rgba(76,175,80,0.12);
+    border: 1px solid rgba(76,175,80,0.3); padding: 5px 13px; border-radius: 50px;
+}
+#opRoot .op-live-dot {
+    width: 7px; height: 7px; border-radius: 50%;
+    background: #4caf50; box-shadow: 0 0 0 0 rgba(76,175,80,0.6);
+    animation: opLivePulse 1.6s ease-in-out infinite;
+}
+@keyframes opLivePulse {
+    0% { box-shadow: 0 0 0 0 rgba(76,175,80,0.5); }
+    70% { box-shadow: 0 0 0 8px rgba(76,175,80,0); }
+    100% { box-shadow: 0 0 0 0 rgba(76,175,80,0); }
+}
+#opRoot .op-live-stats {
+    display: flex; justify-content: center; gap: 14px; margin-top: 18px; flex-wrap: wrap;
+}
+#opRoot .op-live-stat {
+    flex: 1; min-width: 140px; max-width: 220px;
+    background: rgba(255,255,255,0.04); border: 1px solid rgba(255,255,255,0.08);
+    border-radius: 16px; padding: 18px 12px;
+}
+#opRoot .op-live-num {
+    display: block; font-size: 38px; font-weight: 900; line-height: 1.05;
+    background: linear-gradient(90deg, #ff6b6b, #ffb347);
+    -webkit-background-clip: text; background-clip: text; -webkit-text-fill-color: transparent;
+    font-variant-numeric: tabular-nums;
+}
+#opRoot .op-live-stat:last-child .op-live-num {
+    background: linear-gradient(90deg, #4fc3f7, #81c784);
+    -webkit-background-clip: text; background-clip: text; -webkit-text-fill-color: transparent;
+}
+#opRoot .op-live-lbl { display: block; font-size: 12.5px; color: #b8c0d8; margin-top: 6px; font-weight: 600; }
+#opRoot .op-live-feed {
+    margin-top: 16px; height: 24px; overflow: hidden; position: relative;
+    font-size: 13px; color: #cfd6ea;
+}
+#opRoot .op-live-feed-item {
+    position: absolute; left: 0; right: 0; opacity: 0;
+    transition: opacity 0.5s ease, transform 0.5s ease; transform: translateY(8px);
+}
+#opRoot .op-live-feed-item.show { opacity: 1; transform: translateY(0); }
+#opRoot .op-live-feed-item b { color: #ffd54f; font-weight: 800; }
+@media (max-width: 600px) {
+    #opRoot .op-live-num { font-size: 32px; }
+    #opRoot .op-live-stat { padding: 15px 10px; }
+}
 </style>
 
 <!-- ========== HERO ========== -->
@@ -576,6 +632,24 @@
         <div class="op-hero-trust-item"><span>📱</span> 설치 불필요</div>
         <div class="op-hero-trust-item"><span>🔄</span> 실시간 업데이트</div>
         <div class="op-hero-trust-item"><span>💸</span> 자동결제 없음</div>
+    </div>
+</section>
+
+<!-- ========== 실시간 사회적 증거 (LIVE) ========== -->
+<section class="op-live" id="opLive" style="display:none">
+    <div class="op-live-inner">
+        <div class="op-live-pulse"><span class="op-live-dot"></span> 지금 이 순간</div>
+        <div class="op-live-stats">
+            <div class="op-live-stat">
+                <span class="op-live-num" id="opLiveUsers">0</span>
+                <span class="op-live-lbl">명이 오늘 함께 공부 중</span>
+            </div>
+            <div class="op-live-stat">
+                <span class="op-live-num" id="opLiveCards">0</span>
+                <span class="op-live-lbl">장 오늘 함께 외운 카드</span>
+            </div>
+        </div>
+        <div class="op-live-feed" id="opLiveFeed"></div>
     </div>
 </section>
 
@@ -1232,6 +1306,88 @@
         });
     });
 
+})();
+</script>
+
+<!-- ========== 실시간 LIVE 위젯 ========== -->
+<script>
+(function () {
+    var API = 'https://onepage-api.memoryking.workers.dev';
+    var sec = document.getElementById('opLive');
+    if (!sec) return;
+    var elUsers = document.getElementById('opLiveUsers');
+    var elCards = document.getElementById('opLiveCards');
+    var elFeed = document.getElementById('opLiveFeed');
+
+    // 숫자 카운트업 — 이전 값에서 새 값으로 부드럽게
+    function animateNum(el, to) {
+        var from = Number(el.getAttribute('data-v')) || 0;
+        if (from === to) { el.textContent = to.toLocaleString(); return; }
+        el.setAttribute('data-v', to);
+        var start = null, dur = 900;
+        function step(ts) {
+            if (start === null) start = ts;
+            var p = Math.min((ts - start) / dur, 1);
+            var eased = 1 - Math.pow(1 - p, 3);
+            el.textContent = Math.round(from + (to - from) * eased).toLocaleString();
+            if (p < 1) requestAnimationFrame(step);
+        }
+        requestAnimationFrame(step);
+    }
+
+    function relTime(s) {
+        if (!s) return '방금';
+        var t = new Date(String(s).replace(' ', 'T')).getTime();
+        if (isNaN(t)) return '방금';
+        var min = Math.floor((Date.now() - t) / 60000);
+        if (min <= 1) return '방금';
+        if (min < 60) return min + '분 전';
+        var h = Math.floor(min / 60);
+        return h + '시간 전';
+    }
+
+    var feedItems = [], feedIdx = 0, feedTimer = null, curEl = null;
+    function renderFeedTick() {
+        if (!feedItems.length) return;
+        var f = feedItems[feedIdx % feedItems.length];
+        feedIdx++;
+        var txt = f.cards > 0
+            ? '🔥 <b>' + f.name + '</b>님이 ' + relTime(f.last_ping_at) + ' <b>' + f.cards + '장</b> 학습'
+            : '🔥 <b>' + f.name + '</b>님이 ' + relTime(f.last_ping_at) + ' 학습 중';
+        var item = document.createElement('div');
+        item.className = 'op-live-feed-item';
+        item.innerHTML = txt;
+        elFeed.appendChild(item);
+        var prev = curEl;
+        curEl = item;
+        requestAnimationFrame(function () { item.classList.add('show'); });
+        if (prev) {
+            prev.classList.remove('show');
+            setTimeout(function () { if (prev.parentNode) prev.parentNode.removeChild(prev); }, 600);
+        }
+    }
+
+    function load() {
+        fetch(API + '/stats/learners-now').then(function (r) { return r.json(); }).then(function (d) {
+            var users = Number(d && d.count) || 0;
+            var cards = Number(d && d.total_cards) || 0;
+            if (users <= 0) { sec.style.display = 'none'; return; }
+            sec.style.display = 'block';
+            animateNum(elUsers, users);
+            animateNum(elCards, cards);
+        }).catch(function () {});
+
+        fetch(API + '/stats/live-feed').then(function (r) { return r.json(); }).then(function (d) {
+            feedItems = (d && d.feed) || [];
+            if (feedItems.length && !feedTimer) {
+                renderFeedTick();
+                feedTimer = setInterval(renderFeedTick, 2800);
+            }
+        }).catch(function () {});
+    }
+
+    load();
+    setInterval(load, 20000);   // 20초마다 갱신 — 계속 살아 움직임
 })();
 </script>
 </div>

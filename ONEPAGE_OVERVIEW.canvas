@@ -27,7 +27,7 @@
       "y": -1200,
       "width": 320,
       "height": 200,
-      "text": "## 📣 랜딩 페이지\n`onepage-landing.html`\n\n- 5단계 기억 시스템 설득 구조\n- 후킹 통계형: '70%는 다음 날 사라집니다'\n- 인지과학 PAIN 3가지 → 5가지 해법 → 정교화\n- 일러스트 6장 (Gemini 생성)\n  `onepage-landing-media/*.webp`\n- vipup.site/onepage iframe\n- UTM 자동 캡쳐 + 학생앱 reroute",
+      "text": "## 📣 랜딩 페이지\n`onepage-landing.html`\n\n- 5단계 기억 시스템 설득 구조\n- 후킹 통계형: '70%는 다음 날 사라집니다'\n- 인지과학 PAIN 3가지 → 5가지 해법 → 정교화\n- 일러스트 6장 (Gemini 생성)\n  `onepage-landing-media/*.webp`\n- vipup.site/onepage iframe\n- UTM 자동 캡쳐 + 학생앱 reroute\n- 🔴 **실시간 LIVE 위젯** (히어로 직하)\n  · 오늘 학습자 수 + 카드 수 카운트업\n  · 최근 학습 피드 (이름 마스킹)\n  · `/stats/learners-now` `/stats/live-feed`",
       "color": "1"
     },
     {
@@ -67,8 +67,18 @@
       "y": -850,
       "width": 600,
       "height": 240,
-      "text": "## ☁️ Cloudflare Worker\n`onepage-worker/worker.js`\n\n**인증 · API · 결제 게이트 · 추천 · 진도**\n\n주요 엔드포인트:\n- `/auth/*` 로그인·회원가입·구글\n- `/chapters/*` 챕터 목록·접근\n  · **Edge Cache 5분 TTL** (role별)\n  · 변경 시 자동 purge\n- `/understood/*` SRS 패스·박스 갱신\n- `/access/*` 구독·포인트 결제\n- `/points/*` 포인트 적립·사용\n- `/payment/*` `/payapp/webhook` 결제",
+      "text": "## ☁️ Cloudflare Worker\n`onepage-worker/worker.js`\n\n**인증 · API · 결제 게이트 · 추천 · 진도**\n\n주요 엔드포인트:\n- `/auth/*` 로그인·회원가입·구글\n- `/chapters/*` 챕터 목록·접근\n  · **Edge Cache 5분 TTL** (role별)\n  · 변경 시 자동 purge\n- `/understood/*` SRS 패스·박스 갱신\n- `/access/*` 구독·포인트 결제\n- `/points/*` 포인트 적립·사용\n- `/payment/*` `/payapp/webhook` 결제\n- `/stats/*` 실시간 통계 (ping·learners-now·live-feed)",
       "color": "3"
+    },
+    {
+      "id": "liveStats",
+      "type": "text",
+      "x": 420,
+      "y": -850,
+      "width": 340,
+      "height": 240,
+      "text": "## 🔴 실시간 통계 (사회적 증거)\n`/stats/*` · `op_pings`\n\n- `/stats/ping` 60초 하트비트\n  · 학습 카드 델타 누적 (`cards_today`)\n  · 탭 숨김 시 flush\n- `/stats/learners-now` 오늘 학습자·카드 합계\n- `/stats/live-feed` 최근 학습 피드 (이름 마스킹)\n\n**노출**\n- 랜딩: 히어로 직하 카운트업 위젯\n- 학생앱: 헤더 라이브 칩 (N명·카드)\n\n→ 마케팅 전환 (간절함 유발)",
+      "color": "1"
     },
     {
       "id": "airtable",
@@ -87,7 +97,7 @@
       "y": -480,
       "width": 360,
       "height": 280,
-      "text": "## 🗄️ nocodebackend\n**콘텐츠 도메인**\n\n- `chapters` 챕터 본체\n- `topics` 목차\n- `subtopics` 학습 카드 (제목)\n- `subtopic_items` 본문/이미지\n- `op_understood` SRS 상태\n  · `box` 1~6\n  · `next_review_at`\n  · `miss_count` `last_moved_at`\n  · 챕터 `voice_quiz_*` 설정",
+      "text": "## 🗄️ nocodebackend\n**콘텐츠 도메인**\n\n- `chapters` 챕터 본체\n- `topics` 목차\n- `subtopics` 학습 카드 (제목)\n- `subtopic_items` 본문/이미지\n- `op_understood` SRS 상태\n  · `box` 1~6\n  · `next_review_at`\n  · `miss_count` `last_moved_at`\n  · 챕터 `voice_quiz_*` 설정\n- `op_pings` 실시간 활동\n  · `first_ping_today` `last_ping_at`\n  · `name` `cards_today` `cards_date`",
       "color": "4"
     },
     {
@@ -391,6 +401,15 @@
       "toNode": "ncbackend",
       "toSide": "top",
       "label": "콘텐츠"
+    },
+    {
+      "id": "e-worker-live",
+      "fromNode": "worker",
+      "fromSide": "right",
+      "toNode": "liveStats",
+      "toSide": "left",
+      "label": "실시간",
+      "color": "1"
     },
     {
       "id": "e-student-modes",

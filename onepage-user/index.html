@@ -88,6 +88,7 @@ a { color: #4fc3f7; text-decoration: none; }
   width: 6px; height: 6px; border-radius: 50%;
   background: #4caf50; animation: pulse 1.5s ease-in-out infinite;
 }
+.app-header .live-cards { color: #ffd54f; font-weight: 700; white-space: nowrap; }
 @keyframes pulse { 0%,100%{opacity:1}50%{opacity:0.4} }
 .app-header .spacer { flex: 1; }
 .app-header .icon-btn {
@@ -2540,7 +2541,7 @@ a { color: #4fc3f7; text-decoration: none; }
   <header class="app-header">
     <div class="brand">원페이지 <em>학습</em></div>
     <div class="live-chip" id="liveChip" style="display:none">
-      <div class="live-dot"></div><span id="liveCount">0</span>명 학습 중
+      <div class="live-dot"></div><span id="liveCount">0</span>명 학습 중<span id="liveCards" class="live-cards"></span>
     </div>
     <div class="spacer"></div>
     <button class="icon-btn" id="guideBtn" onclick="openGuide()" title="사용법 가이드">📖 가이드</button>
@@ -2567,7 +2568,7 @@ a { color: #4fc3f7; text-decoration: none; }
     </button>
     <button class="icon-btn" onclick="refreshChapter()" title="최신 콘텐츠 불러오기">↻</button>
     <div class="live-chip" id="liveChipCh" style="display:none">
-      <div class="live-dot"></div><span id="liveCountCh">0</span>명 학습 중
+      <div class="live-dot"></div><span id="liveCountCh">0</span>명 학습 중<span id="liveCardsCh" class="live-cards"></span>
     </div>
     <div class="spacer"></div>
     <button class="icon-btn collapse-center" onclick="collapseAll()" title="모두 접기">
@@ -2679,6 +2680,8 @@ const state = {
   peekedPassedSet: new Set(), // 펼친 뒤 패스해서 "틀린 단어"로 확정된 카드 — 챕터 뷰 정렬·색 구분용. 펼치는 순간이 아니라 패스 후에야 추가
   expanded: { topic: new Set(), subtopic: new Set() },
   liveCount: 0,
+  liveCards: 0,           // 오늘 전체가 학습한 카드 수 (learners-now total_cards)
+  studyDelta: 0,          // 마지막 ping 이후 내가 학습(pass)한 카드 수 — 다음 ping에 실어 전송
   pingTimer: null,
   liveTimer: null,
   interests: [],          // 사용자가 저장한 관심 주제 (subject 배열)
@@ -3076,17 +3079,21 @@ async function loadLiveCount() {
   try {
     const r = await api('GET', '/stats/learners-now');
     state.liveCount = Number(r.count) || 0;
+    state.liveCards = Number(r.total_cards) || 0;
     updateLiveChips();
   } catch {}
 }
 function updateLiveChips() {
   const show = state.liveCount > 0;
+  const cardsTxt = state.liveCards > 0 ? ' · 오늘 ' + state.liveCards.toLocaleString() + '장' : '';
   // 홈 헤더 + 챕터 헤더 양쪽 동기화 (한 곳만 보이지만 둘 다 갱신해두면 화면 전환 시 즉시 반영)
-  for (const [chipId, countId] of [['liveChip', 'liveCount'], ['liveChipCh', 'liveCountCh']]) {
+  for (const [chipId, countId, cardsId] of [['liveChip', 'liveCount', 'liveCards'], ['liveChipCh', 'liveCountCh', 'liveCardsCh']]) {
     const chip = $(chipId);
     const count = $(countId);
     if (!chip || !count) continue;
     count.textContent = state.liveCount;
+    const cardsEl = $(cardsId);
+    if (cardsEl) cardsEl.textContent = cardsTxt;
     chip.style.display = show ? 'flex' : 'none';
   }
 }
@@ -5058,6 +5065,7 @@ function memorizedPass(subId, options) {
   }
   // 서버 동기화 (백그라운드, 통계는 이미 낙관적 처리됨 — apiPass 중복 호출 X)
   api('POST', '/understood/pass', { subtopic_id: sid, was_peeked: wasPeeked }).catch(() => {});
+  state.studyDelta++;   // 실시간 통계 — 카드 1장 학습 (다음 ping에 전송)
 
   // 다지기 처리 이력 — celebration 판정용 (박스 이동과 무관하게 "이번 라운드에서 처리한 카드")
   state.memorizedAddressedSet.add(sid);
@@ -6069,6 +6077,7 @@ async function apiPass(subId, wasPeeked) {
   }
   try {
     const r = await api('POST', '/understood/pass', { subtopic_id: subId, was_peeked: !!wasPeeked });
+    state.studyDelta++;   // 실시간 통계 — 카드 1장 학습 (다음 ping에 전송)
     if (r && r.ok) {
       if (typeof r.review_box === 'number') {
         state.understoodSet.add(sid);
@@ -6812,11 +6821,25 @@ function closeModal() { $('modal').innerHTML = ''; }
 // ============================================================
 // 타이머 — ping 60초마다 + live count 30초마다
 // ============================================================
+function sendPing() {
+  // 마지막 ping 이후 학습한 카드 수(델타)를 실어 보내고 즉시 0으로 리셋
+  const cards = state.studyDelta;
+  state.studyDelta = 0;
+  api('POST', '/stats/ping', { cards }).catch(() => {
+    state.studyDelta += cards;   // 실패 시 델타 복구 — 다음 ping에서 재전송
+  });
+}
+// 탭이 숨겨질 때(앱 종료·전환) 남은 델타를 즉시 전송 — 한 번만 등록
+if (!window.__opPingFlush) {
+  window.__opPingFlush = true;
+  document.addEventListener('visibilitychange', () => {
+    if (document.visibilityState === 'hidden' && state.user && state.studyDelta > 0) sendPing();
+  });
+}
 function startTimers() {
   stopTimers();
-  // 즉시 1회
-  api('POST', '/stats/ping').catch(() => {});
-  state.pingTimer = setInterval(() => api('POST', '/stats/ping').catch(() => {}), 60000);
+  sendPing();   // 즉시 1회
+  state.pingTimer = setInterval(sendPing, 60000);
   state.liveTimer = setInterval(loadLiveCount, 30000);
 }
 function stopTimers() {

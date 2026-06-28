@@ -1595,20 +1595,33 @@ async function handleStatsPing(request, env) {
   const today = kstDateStr();
   const now = kstDateTime();
 
+  // 클라이언트가 마지막 ping 이후 학습한 카드 수(델타) — 음수·과도값 방어
+  const body = await request.json().catch(() => ({}));
+  const delta = Math.max(0, Math.min(Number(body && body.cards) || 0, 5000));
+  const name = String((auth && auth.name) || '').slice(0, 40);
+
   const r = await ncbRead(env, 'op_pings',
     `user_phone=${encodeURIComponent(phone)}&limit=1`);
   const existing = (r.data || [])[0];
 
   if (existing) {
+    // 날짜가 바뀌었으면 오늘 카드 수를 0부터 다시 누적
+    const base = (existing.cards_date === today) ? (Number(existing.cards_today) || 0) : 0;
     await ncbUpdate(env, 'op_pings', existing.id, {
       first_ping_today: today,
       last_ping_at: now,
+      name,
+      cards_today: base + delta,
+      cards_date: today,
     });
   } else {
     await ncbCreate(env, 'op_pings', {
       user_phone: phone,
       first_ping_today: today,
       last_ping_at: now,
+      name,
+      cards_today: delta,
+      cards_date: today,
     });
   }
   return json({ ok: true }, 200, request);
@@ -1618,7 +1631,40 @@ async function handleLearnersNow(request, env) {
   const today = kstDateStr();
   const r = await ncbRead(env, 'op_pings',
     `first_ping_today=${today}&limit=2000`);
-  return json({ count: (r.data || []).length, date: today }, 200, request);
+  const rows = r.data || [];
+  let totalCards = 0;
+  for (const p of rows) {
+    if (p.cards_date === today) totalCards += Number(p.cards_today) || 0;
+  }
+  return json({ count: rows.length, total_cards: totalCards, date: today }, 200, request);
+}
+
+// GET /stats/live-feed — 최근 학습한 사람들의 마스킹 이름 + 오늘 카드 수 (공개)
+// 랜딩/메인의 "실시간 학습 피드"용. 이름은 첫 글자만 노출.
+function maskName(name) {
+  const n = String(name || '').trim();
+  if (!n) return '익명';
+  if (n.length === 1) return n + '○';
+  return n[0] + '○'.repeat(Math.min(n.length - 1, 2));
+}
+
+async function handleLiveFeed(request, env) {
+  const today = kstDateStr();
+  // last_ping_at 최신순 — 최근 활동한 학습자 우선
+  const r = await ncbRead(env, 'op_pings',
+    `first_ping_today=${today}&sort=last_ping_at&order=desc&limit=30`);
+  const rows = r.data || [];
+  const feed = [];
+  for (const p of rows) {
+    const cards = (p.cards_date === today) ? (Number(p.cards_today) || 0) : 0;
+    feed.push({
+      name: maskName(p.name),
+      cards,
+      last_ping_at: p.last_ping_at || '',
+    });
+    if (feed.length >= 15) break;
+  }
+  return json({ date: today, feed }, 200, request);
 }
 
 // ============================================================
@@ -3067,6 +3113,7 @@ async function route(request, env, ctx) {
   if (m === 'POST' && path === '/auth/reset-password') return handleResetPassword(request, env);
   if (m === 'GET' && path === '/referral/info') return handleReferralInfo(request, env);
   if (m === 'GET' && path === '/stats/learners-now') return handleLearnersNow(request, env);
+  if (m === 'GET' && path === '/stats/live-feed') return handleLiveFeed(request, env);
   if (m === 'POST' && path === '/stats/ping') return handleStatsPing(request, env);
 
   // ── PayApp webhook (공개, 페이앱 서버가 직접 호출) ──
