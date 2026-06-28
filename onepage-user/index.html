@@ -5741,6 +5741,7 @@ async function studyDayPick(subId, targetBox) {
     state.expanded.subtopic.delete(sid);
     state.recentlyFailedFromMemo.delete(sid);
     savePassed();
+    state.studyDelta++;   // 실시간 통계 — 첫 학습(오늘/내일)도 카드 1장 학습 (다음 ping에 전송)
 
     // 서버 동기화 — box=1은 /understood, box=2는 /understood/promote
     //   시나리오 1: 오늘 학습(box=1)만 miss=1 — "한 번 더 봐야지" 신호
