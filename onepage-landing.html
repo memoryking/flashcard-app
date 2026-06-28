@@ -563,43 +563,82 @@
 
 /* ========== 실시간 사회적 증거 (LIVE) ========== */
 #opRoot .op-live {
-    background: linear-gradient(135deg, #0a0a1a 0%, #16213e 100%);
-    padding: 26px 18px 30px; text-align: center; border-top: 1px solid rgba(255,255,255,0.06);
+    margin: 22px 14px 10px;            /* ↑ 위 섹션과 간격 + 좌우 여백 → 떠 있는 카드 */
+    background: linear-gradient(135deg, #0e1838 0%, #16244c 55%, #1a2d57 100%);
+    padding: 26px 18px 28px; text-align: center;
+    border: 1px solid rgba(129,199,132,0.28);
+    border-radius: 22px;
+    box-shadow: 0 14px 40px rgba(0,0,0,0.4), inset 0 0 0 1px rgba(255,255,255,0.03),
+                0 0 36px rgba(76,175,80,0.12);
+    position: relative; overflow: hidden;
+    animation: opLiveIn 0.6s cubic-bezier(.2,.7,.3,1) both, opLiveBreathe 4s ease-in-out 0.6s infinite;
 }
-#opRoot .op-live-inner { max-width: 520px; margin: 0 auto; }
+@keyframes opLiveIn { from { opacity: 0; transform: translateY(16px); } to { opacity: 1; transform: translateY(0); } }
+@keyframes opLiveBreathe {
+    0%,100% { box-shadow: 0 14px 40px rgba(0,0,0,0.4), inset 0 0 0 1px rgba(255,255,255,0.03), 0 0 30px rgba(76,175,80,0.10); }
+    50%     { box-shadow: 0 14px 44px rgba(0,0,0,0.45), inset 0 0 0 1px rgba(255,255,255,0.05), 0 0 50px rgba(76,175,80,0.22); }
+}
+/* 상단 반짝이는 그라데이션 라인 */
+#opRoot .op-live::before {
+    content: ''; position: absolute; top: 0; left: 0; right: 0; height: 3px;
+    background: linear-gradient(90deg, transparent, #81c784, #4fc3f7, #ffb347, transparent);
+    background-size: 200% 100%;
+    animation: opLiveTopline 3s linear infinite;
+}
+@keyframes opLiveTopline { 0% { background-position: 200% 0; } 100% { background-position: -200% 0; } }
+#opRoot .op-live-inner { max-width: 520px; margin: 0 auto; position: relative; }
 #opRoot .op-live-pulse {
     display: inline-flex; align-items: center; gap: 7px;
-    font-size: 12px; font-weight: 700; letter-spacing: 0.04em;
-    color: #81c784; background: rgba(76,175,80,0.12);
-    border: 1px solid rgba(76,175,80,0.3); padding: 5px 13px; border-radius: 50px;
+    font-size: 13px; font-weight: 800; letter-spacing: 0.04em;
+    color: #b9f6ca; background: rgba(76,175,80,0.16);
+    border: 1px solid rgba(129,199,132,0.5); padding: 6px 16px; border-radius: 50px;
+    position: relative; overflow: hidden;
+    box-shadow: 0 0 10px rgba(76,175,80,0.35);
+    animation: opLiveBadgeGlow 2s ease-in-out infinite;
 }
+@keyframes opLiveBadgeGlow {
+    0%,100% { box-shadow: 0 0 8px rgba(76,175,80,0.30); }
+    50%     { box-shadow: 0 0 22px rgba(76,175,80,0.75); }
+}
+/* 배지 위를 쓸고 지나가는 반짝임 (sparkle sweep) */
+#opRoot .op-live-pulse::after {
+    content: ''; position: absolute; top: 0; bottom: 0; left: -70%; width: 45%;
+    background: linear-gradient(90deg, transparent, rgba(255,255,255,0.55), transparent);
+    transform: skewX(-22deg);
+    animation: opLiveShimmer 2.6s ease-in-out infinite;
+}
+@keyframes opLiveShimmer { 0% { left: -70%; } 55%,100% { left: 145%; } }
 #opRoot .op-live-dot {
-    width: 7px; height: 7px; border-radius: 50%;
-    background: #4caf50; box-shadow: 0 0 0 0 rgba(76,175,80,0.6);
+    width: 8px; height: 8px; border-radius: 50%;
+    background: #69f0ae; box-shadow: 0 0 0 0 rgba(105,240,174,0.7);
     animation: opLivePulse 1.6s ease-in-out infinite;
 }
 @keyframes opLivePulse {
-    0% { box-shadow: 0 0 0 0 rgba(76,175,80,0.5); }
-    70% { box-shadow: 0 0 0 8px rgba(76,175,80,0); }
-    100% { box-shadow: 0 0 0 0 rgba(76,175,80,0); }
+    0% { box-shadow: 0 0 0 0 rgba(105,240,174,0.6); }
+    70% { box-shadow: 0 0 0 9px rgba(105,240,174,0); }
+    100% { box-shadow: 0 0 0 0 rgba(105,240,174,0); }
 }
 #opRoot .op-live-stats {
     display: flex; justify-content: center; gap: 14px; margin-top: 18px; flex-wrap: wrap;
 }
 #opRoot .op-live-stat {
     flex: 1; min-width: 140px; max-width: 220px;
-    background: rgba(255,255,255,0.04); border: 1px solid rgba(255,255,255,0.08);
-    border-radius: 16px; padding: 18px 12px;
+    background: linear-gradient(160deg, rgba(255,255,255,0.07), rgba(255,255,255,0.02));
+    border: 1px solid rgba(255,255,255,0.12);
+    border-radius: 16px; padding: 20px 12px;
+    box-shadow: inset 0 1px 0 rgba(255,255,255,0.06);
 }
 #opRoot .op-live-num {
-    display: block; font-size: 38px; font-weight: 900; line-height: 1.05;
+    display: block; font-size: 44px; font-weight: 900; line-height: 1.05;
     background: linear-gradient(90deg, #ff6b6b, #ffb347);
     -webkit-background-clip: text; background-clip: text; -webkit-text-fill-color: transparent;
     font-variant-numeric: tabular-nums;
+    filter: drop-shadow(0 0 14px rgba(255,107,71,0.45));
 }
 #opRoot .op-live-stat:last-child .op-live-num {
     background: linear-gradient(90deg, #4fc3f7, #81c784);
     -webkit-background-clip: text; background-clip: text; -webkit-text-fill-color: transparent;
+    filter: drop-shadow(0 0 14px rgba(79,195,247,0.45));
 }
 #opRoot .op-live-lbl { display: block; font-size: 12.5px; color: #b8c0d8; margin-top: 6px; font-weight: 600; }
 #opRoot .op-live-feed {
@@ -613,8 +652,9 @@
 #opRoot .op-live-feed-item.show { opacity: 1; transform: translateY(0); }
 #opRoot .op-live-feed-item b { color: #ffd54f; font-weight: 800; }
 @media (max-width: 600px) {
-    #opRoot .op-live-num { font-size: 32px; }
-    #opRoot .op-live-stat { padding: 15px 10px; }
+    #opRoot .op-live { margin: 18px 10px 8px; }
+    #opRoot .op-live-num { font-size: 37px; }
+    #opRoot .op-live-stat { padding: 16px 10px; }
 }
 </style>
 
