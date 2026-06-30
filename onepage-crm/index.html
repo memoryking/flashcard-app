@@ -2774,6 +2774,15 @@ function flyerApplyHtml(html) {
   renderFlyerSlots();
 }
 function flyerSerialize() { return '<!DOCTYPE html>\n' + flyer.doc.documentElement.outerHTML; }
+// 틀 저장용 — 무거운 업로드 이미지(base64)를 placeholder로 치환해 용량(413) 방지
+function flyerSerializeForTemplate() {
+  const d = new DOMParser().parseFromString(flyerSerialize(), 'text/html');
+  d.querySelectorAll('[data-image-id]').forEach(el => {
+    el.setAttribute('src', flyerPlaceholder('이미지 슬롯 · ' + el.getAttribute('data-image-id')));
+    el.removeAttribute('style');   // 업로드 시 넣었던 맞춤/높이 인라인도 초기화(틀 기본 상태로)
+  });
+  return '<!DOCTYPE html>\n' + d.documentElement.outerHTML;
+}
 function flyerFrameDoc() { const f = $('flyerFrame'); return f && f.contentDocument; }
 function flyerIds(attr) { return [...flyer.doc.querySelectorAll('[' + attr + ']')].map(e => e.getAttribute(attr)); }
 
@@ -3031,8 +3040,8 @@ function flyerTplRefresh() {
 function flyerTplSave() {
   const name = ($('flyerTplName').value || '').trim();
   if (!name) { alert('틀 이름을 입력하세요'); return; }
-  api('POST', '/admin/flyer-templates', { name, html: flyerSerialize(), size: flyer.size })
-    .then(() => { $('flyerTplName').value = ''; flyerTplRefresh(); })
+  api('POST', '/admin/flyer-templates', { name, html: flyerSerializeForTemplate(), size: flyer.size })
+    .then(() => { $('flyerTplName').value = ''; flyerTplRefresh(); alert('틀 저장 완료. (이미지는 placeholder로 저장됩니다 — 완성본에서 업로드하세요)'); })
     .catch(e => alert('저장 실패: ' + e.message));
 }
 function flyerTplLoad(id) {
