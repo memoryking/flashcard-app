@@ -2876,8 +2876,14 @@ function flyerSetImgPos(id, pct) { flyerSetImgStyle(id, 'objectPosition', 'cente
 function flyerPickImage(id) { flyer.uploadTarget = id; const u = $('flyerUpload'); u.value = ''; u.click(); }
 function flyerOnUpload(e) {
   const file = e.target.files && e.target.files[0]; if (!file || !flyer.uploadTarget) return;
+  const target = flyer.uploadTarget;
   const reader = new FileReader();
-  reader.onload = () => flyerSetImage(flyer.uploadTarget, reader.result);
+  reader.onload = async () => {
+    const src = reader.result;
+    let out = src;
+    try { const small = await flyerCompressImage(src, 1600, 0.85); if (small && small.length < src.length) out = small; } catch (e2) {}
+    flyerSetImage(target, out);
+  };
   reader.readAsDataURL(file);
 }
 function flyerSetImage(id, src) {
@@ -2948,16 +2954,54 @@ function flyerGenImagePrompt(id) {
     + '- 결과는 영어 프롬프트 1개만, 설명 없이';
   flyerShowOut('flyerSlotOut_' + id, text);
 }
+// ── 이미지 압축 (용량 절감 — localStorage/서버 한도 방지) ──
+function flyerCompressImage(dataUrl, maxDim, quality) {
+  return new Promise(res => {
+    const img = new Image();
+    img.onload = () => {
+      let w = img.naturalWidth, h = img.naturalHeight;
+      if (!w || !h) { res(dataUrl); return; }
+      if (Math.max(w, h) > maxDim) { const r = maxDim / Math.max(w, h); w = Math.round(w * r); h = Math.round(h * r); }
+      try {
+        const c = document.createElement('canvas'); c.width = w; c.height = h;
+        c.getContext('2d').drawImage(img, 0, 0, w, h);
+        res(c.toDataURL('image/jpeg', quality));
+      } catch (e) { res(dataUrl); }
+    };
+    img.onerror = () => res(dataUrl);
+    img.src = dataUrl;
+  });
+}
+// 문서 내 업로드 이미지(큰 raster)를 일괄 재압축. QR·SVG placeholder는 건너뜀.
+async function flyerCompressDocImages() {
+  for (const el of [...flyer.doc.querySelectorAll('[data-image-id]')]) {
+    const id = el.getAttribute('data-image-id');
+    const src = el.getAttribute('src') || '';
+    if (id === 'barcode') continue;
+    if (!/^data:image\/(png|jpe?g|webp)/i.test(src)) continue;  // svg placeholder 제외
+    if (src.length < 120000) continue;                          // 이미 작으면 스킵
+    const small = await flyerCompressImage(src, 1600, 0.82);
+    if (small && small.length < src.length) flyerSetImage(id, small);
+  }
+}
+
 // ── 저장 / A·B 테스트 (localStorage) ──────────────────────
 function flyerNowStr() {
   const d = new Date(), p = n => String(n).padStart(2, '0');
   return d.getFullYear() + '-' + p(d.getMonth() + 1) + '-' + p(d.getDate()) + ' ' + p(d.getHours()) + ':' + p(d.getMinutes());
 }
 function flyerGetSaves() { try { return JSON.parse(localStorage.getItem(FLYER_SAVE_KEY) || '[]'); } catch (e) { return []; } }
-function flyerPutSaves(a) { try { localStorage.setItem(FLYER_SAVE_KEY, JSON.stringify(a)); } catch (e) { alert('브라우저 저장 공간이 부족합니다. 오래된 버전을 삭제해 주세요.'); } }
+function flyerPutSaves(a) {
+  try { localStorage.setItem(FLYER_SAVE_KEY, JSON.stringify(a)); return true; }
+  catch (e) {
+    alert('브라우저 저장 공간이 가득 찼습니다.\n아래 목록에서 오래된 완성본을 🗑로 몇 개 삭제한 뒤 다시 저장하세요.\n(이제 이미지는 자동 압축되어 새 저장본은 훨씬 작습니다.)');
+    return false;
+  }
+}
 function flyerNextId(saves) { return saves.reduce((m, s) => Math.max(m, Number(s.id) || 0), 0) + 1; }
 
-function flyerSaveCurrent(asNew) {
+async function flyerSaveCurrent(asNew) {
+  try { await flyerCompressDocImages(); } catch (e) {}
   const saves = flyerGetSaves();
   const name = ($('flyerSaveName').value || '').trim();
   const html = flyerSerialize();
