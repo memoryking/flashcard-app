@@ -2780,10 +2780,9 @@ async function loadWordImages() {
     if (r.ok) WORD_IMAGES = await r.json();
   } catch { /* 매핑표 없으면 단어 이미지 기능만 비활성, 나머지는 정상 */ }
 }
-// 학습 카드 대표 이미지 src — 업로드된 이미지(image_b64) 우선, 없으면 단어 매핑표에서 자동 조회
-function subImageSrc(s) {
-  const own = unwrapImage(s && s.image_b64);
-  if (own) return own;
+// 단어 자동 이미지 조회 — 교사 대표이미지(image_b64)가 없을 때만 제목으로 매핑표 조회
+function wordImageFor(s) {
+  if (unwrapImage(s && s.image_b64)) return '';
   return WORD_IMAGES[normWord(s && s.title)] || '';
 }
 
@@ -4312,12 +4311,18 @@ function voiceQuizContinue(sid) {
 function renderFocusCard(s, remaining, hasAccess) {
   const sid = Number(s.id);
   const items = state.itemsBySubtopic[sid];
-  // 학습 카드 대표 이미지 (업로드 이미지 또는 단어 자동 매핑) — 본문 맨 위에 노출
-  const imgSrc = subImageSrc(s);
-  const previewHtml = imgSrc
-    ? `<div class="focus-preview"><img src="${escapeHtml(imgSrc)}" alt="" loading="lazy" oncontextmenu="return false">${s.caption ? `<div class="focus-preview-cap">${escapeHtml(s.caption)}</div>` : ''}</div>`
+  // 교사 대표이미지(커버)는 제목 아래 노출(큐 역할). 단어 자동 이미지는 본문 맨 끝(확대 가능).
+  const ownImg = unwrapImage(s.image_b64);
+  const wordImg = wordImageFor(s);
+  const previewHtml = ownImg
+    ? `<div class="focus-preview"><img src="${escapeHtml(ownImg)}" alt="" loading="lazy" oncontextmenu="return false">${s.caption ? `<div class="focus-preview-cap">${escapeHtml(s.caption)}</div>` : ''}</div>`
     : '';
-  // body = items만 (대표 이미지는 큐 역할 — 제목 바로 아래, 블러 영역 밖에 따로 렌더)
+  const wordImgBlock = wordImg ? `
+    <div class="item">
+      <img class="item-image" src="${escapeHtml(wordImg)}" alt="" loading="lazy" oncontextmenu="return false">
+      ${s.caption ? `<div class="item-caption">${escapeHtml(s.caption)}</div>` : ''}
+    </div>` : '';
+  // body = items + (있으면) 단어 이미지. 능동 회상 시 함께 블러 → 정답과 같이 공개.
   let body = '';
   let bodyReady = false;
   if (items === undefined) {
@@ -4333,10 +4338,11 @@ function renderFocusCard(s, remaining, hasAccess) {
     body = `<div class="empty-state">오류: ${escapeHtml(items.error)}</div>`;
   } else if (!items.length) {
     // 이미지만 있고 items 없는 경우 — 본문 없이도 학습 OK/더 학습 평가 가능
-    if (imgSrc) { body = ''; bodyReady = true; }
+    if (wordImg) { body = wordImgBlock; bodyReady = true; }       // 단어 이미지: 본문에 노출(확대 가능)
+    else if (ownImg) { body = ''; bodyReady = true; }             // 커버만: 상단 previewHtml로 노출
     else body = '<div class="empty-state">아직 내용이 없습니다.</div>';
   } else {
-    body = items.map(it => renderItem(it)).join('');
+    body = items.map(it => renderItem(it)).join('') + wordImgBlock;
     bodyReady = true;
   }
 
@@ -5294,15 +5300,24 @@ function renderSubtopic(s, isCurrent) {
     + (showCurrent ? ' current' : '')
     + (failedFromMemo ? ' failed-from-memo' : '')
     + (peeked ? ' peeked' : '');
-  const imgSrc = subImageSrc(s);
+  // 교사 대표이미지(커버, image_b64)는 기존처럼 제목 아래 항상 노출.
+  // 단어 자동 매핑 이미지는 본문 맨 끝에 노출 → 카드 접으면 같이 닫히고, 클릭 시 확대.
+  const ownImg = unwrapImage(s.image_b64);
+  const wordImg = wordImageFor(s);
 
-  // 항상 보이는 미리보기 (제목 아래) — 업로드 이미지 또는 단어 자동 매핑
-  const preview = imgSrc ? `
+  const preview = ownImg ? `
     <div class="subtopic-preview" onclick="subClick(event,${s.id})">
-      <img src="${escapeHtml(imgSrc)}" alt="" loading="lazy" oncontextmenu="return false">
+      <img src="${escapeHtml(ownImg)}" alt="" loading="lazy" oncontextmenu="return false">
       ${s.caption ? `<div class="cap">${escapeHtml(s.caption)}</div>` : ''}
     </div>
   ` : '';
+
+  // 단어 자동 이미지 블록 — .item-image 라서 기존 라이트박스(확대)가 그대로 적용됨
+  const wordImgBlock = wordImg ? `
+    <div class="item">
+      <img class="item-image" src="${escapeHtml(wordImg)}" alt="" loading="lazy" oncontextmenu="return false">
+      ${s.caption ? `<div class="item-caption">${escapeHtml(s.caption)}</div>` : ''}
+    </div>` : '';
 
   // 펼침 시 본문 (items만)
   let body = '';
@@ -5320,9 +5335,9 @@ function renderSubtopic(s, isCurrent) {
     } else if (items.error) {
       body = `<div class="empty-state">오류: ${escapeHtml(items.error)}</div>`;
     } else if (!items.length) {
-      body = '<div class="empty-state">아직 내용이 없습니다.</div>';
+      body = wordImgBlock || '<div class="empty-state">아직 내용이 없습니다.</div>';
     } else {
-      body = items.map(it => renderItem(it)).join('');
+      body = items.map(it => renderItem(it)).join('') + wordImgBlock;
     }
 
     // 신규 단어용 — 본문 하단에 '오늘 학습 / 내일 학습' 버튼
