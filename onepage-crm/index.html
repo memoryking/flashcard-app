@@ -411,6 +411,11 @@ table { border-collapse: collapse; width: 100%; }
   border-radius: 6px; padding: 7px 8px; font-size: 11.5px; font-weight: 600; cursor: pointer;
 }
 .flyer-slot-btns button:hover { background: rgba(255,255,255,0.15); }
+.flyer-img-ctrl { display: flex; flex-direction: column; gap: 7px; margin-top: 9px; padding-top: 9px; border-top: 1px dashed rgba(255,255,255,0.12); }
+.flyer-img-ctrl label { display: flex; align-items: center; gap: 8px; font-size: 11px; font-weight: 700; color: #9fa6b8; }
+.flyer-img-ctrl label > span { width: 52px; flex: 0 0 auto; }
+.flyer-img-ctrl select { flex: 1; background: #1c2029; color: #f0f0f4; border: 1px solid rgba(255,255,255,0.14); border-radius: 5px; padding: 4px 6px; font-size: 11.5px; }
+.flyer-img-ctrl input[type=range] { flex: 1; accent-color: #e94560; }
 .flyer-out { width: 100%; box-sizing: border-box; background: #11141b; color: #b9f6ca; border: 1px solid rgba(129,199,132,0.3);
   border-radius: 6px; padding: 9px 10px; font-size: 11.5px; font-family: ui-monospace, monospace; white-space: pre-wrap;
   max-height: 180px; overflow: auto; margin-top: 8px; }
@@ -2601,6 +2606,7 @@ const FLYER_SIZES = {
 const FLYER_LABELS = {
   brand: '브랜드 / 로고 텍스트', headline: '헤드라인', subheadline: '서브 헤드라인',
   benefit1: '혜택 1', benefit2: '혜택 2', benefit3: '혜택 3', benefit4: '혜택 4',
+  giftstitle: '선물 제목', gift1: '선물 1', gift2: '선물 2', gift3: '선물 3', gift4: '선물 4', gift5: '선물 5',
   socialproof: '실시간 사회적 증거', offer: '오퍼 배너', cta: '행동유도(CTA)', contact: '연락처 / 주소',
 };
 const FLYER_LONG = new Set(['subheadline', 'benefit1', 'benefit2', 'benefit3', 'benefit4', 'offer']);
@@ -2625,22 +2631,27 @@ function flyerCss(size) {
     + "@page{size:" + size + ";margin:0}"
     + "html,body{height:100%}"
     + "body{font-family:'Pretendard','Apple SD Gothic Neo','Malgun Gothic',sans-serif;-webkit-print-color-adjust:exact;print-color-adjust:exact}"
-    + ".page{width:" + s.w + ";height:" + s.h + ";font-size:" + s.fs + ";background:linear-gradient(160deg,#0e1838,#16244c 55%,#1f3b73);color:#fff;padding:2.2em;display:flex;flex-direction:column;position:relative;overflow:hidden;word-break:keep-all;line-break:strict}"
+    + ".page{width:" + s.w + ";height:" + s.h + ";font-size:" + s.fs + ";background:linear-gradient(160deg,#0e1838,#16244c 55%,#1f3b73);color:#fff;padding:1.9em;display:flex;flex-direction:column;position:relative;overflow:hidden;word-break:keep-all;line-break:strict}"
     + ".page::before{content:'';position:absolute;inset:0;background:radial-gradient(circle at 82% 4%,rgba(233,69,96,.28),transparent 46%);pointer-events:none}"
     + ".brand{font-size:1.05em;font-weight:800;letter-spacing:.02em;color:#ffd54f;position:relative}"
-    + ".headline{font-size:2.65em;font-weight:900;line-height:1.18;margin-top:.4em;position:relative;letter-spacing:-.01em}"
-    + ".sub{font-size:1.25em;color:#cdd6ea;margin-top:.55em;line-height:1.5;position:relative}"
-    + ".hero{width:100%;height:10.5em;object-fit:cover;border-radius:.6em;margin:1em 0 1.1em;border:1px solid rgba(255,255,255,.15)}"
-    + ".benefits{display:flex;flex-direction:column;gap:.8em;position:relative;background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.09);border-radius:.7em;padding:1.1em 1.2em}"
-    + ".benefit{display:flex;align-items:center;gap:.65em;font-size:1.28em;line-height:1.35;font-weight:600}"
-    + ".benefit .ic{flex:0 0 auto;width:1.7em;height:1.7em;border-radius:.45em;background:linear-gradient(135deg,#4caf50,#81c784);display:flex;align-items:center;justify-content:center;color:#0e1838;font-weight:900;font-size:.85em}"
-    + ".social{margin-top:1em;display:flex;align-items:center;gap:.6em;background:rgba(76,175,80,.14);border:1px solid rgba(129,199,132,.42);border-radius:.6em;padding:.7em 1em;font-size:1.18em;font-weight:700;color:#b9f6ca}"
-    + ".social .dot{width:.7em;height:.7em;border-radius:50%;background:#69f0ae;flex:0 0 auto;box-shadow:0 0 0 .26em rgba(105,240,174,.22)}"
-    + ".offer{margin:0 0 .7em;background:linear-gradient(135deg,#e94560,#ff6b6b);border-radius:.6em;padding:.9em 1.1em;font-size:1.5em;font-weight:800;text-align:center;box-shadow:0 .4em 1.2em rgba(233,69,96,.4)}"
-    + ".spacer{flex:1;min-height:.8em}"
-    + ".cta{font-size:1.55em;font-weight:900;text-align:center;background:linear-gradient(135deg,#ffd54f,#ffb300);color:#1a1a2e;border-radius:.6em;padding:.72em;margin-bottom:1em;box-shadow:0 .4em 1.2em rgba(255,193,7,.35)}"
-    + ".footer{display:flex;align-items:center;gap:1em;border-top:1px solid rgba(255,255,255,.15);padding-top:1em}"
-    + ".footer .qr{width:7em;height:7em;background:#fff;border-radius:.4em;flex:0 0 auto;object-fit:contain;padding:.3em}"
+    + ".headline{font-size:2.4em;font-weight:900;line-height:1.18;margin-top:.35em;position:relative;letter-spacing:-.01em}"
+    + ".sub{font-size:1.15em;color:#cdd6ea;margin-top:.45em;line-height:1.5;position:relative}"
+    + ".hero{width:100%;height:8em;object-fit:cover;border-radius:.6em;margin:.8em 0 .85em;border:1px solid rgba(255,255,255,.15)}"
+    + ".benefits{display:flex;flex-direction:column;gap:.5em;position:relative;background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.09);border-radius:.7em;padding:.85em 1em}"
+    + ".benefit{display:flex;align-items:center;gap:.6em;font-size:1.1em;line-height:1.3;font-weight:600}"
+    + ".benefit .ic{flex:0 0 auto;width:1.55em;height:1.55em;border-radius:.4em;background:linear-gradient(135deg,#4caf50,#81c784);display:flex;align-items:center;justify-content:center;color:#0e1838;font-weight:900;font-size:.82em}"
+    + ".gifts{margin-top:.8em;background:linear-gradient(135deg,rgba(255,213,79,.17),rgba(255,179,71,.07));border:1px solid rgba(255,213,79,.42);border-radius:.7em;padding:.8em .95em}"
+    + ".gifts-title{font-size:1.2em;font-weight:900;color:#ffd54f;margin-bottom:.5em;display:flex;align-items:center;gap:.25em}"
+    + ".gifts-list{display:grid;grid-template-columns:1fr 1fr;gap:.4em .9em}"
+    + ".gift{display:flex;align-items:center;gap:.4em;font-size:1.02em;font-weight:600;line-height:1.28}"
+    + ".gift .gx{flex:0 0 auto;color:#69f0ae;font-weight:900}"
+    + ".social{margin-top:.75em;display:flex;align-items:center;gap:.55em;background:rgba(76,175,80,.14);border:1px solid rgba(129,199,132,.42);border-radius:.6em;padding:.55em .85em;font-size:1.02em;font-weight:700;color:#b9f6ca}"
+    + ".social .dot{width:.65em;height:.65em;border-radius:50%;background:#69f0ae;flex:0 0 auto;box-shadow:0 0 0 .24em rgba(105,240,174,.22)}"
+    + ".offer{margin:0 0 .55em;background:linear-gradient(135deg,#e94560,#ff6b6b);border-radius:.6em;padding:.75em 1em;font-size:1.3em;font-weight:800;text-align:center;box-shadow:0 .4em 1.2em rgba(233,69,96,.4)}"
+    + ".spacer{flex:1;min-height:.2em}"
+    + ".cta{font-size:1.35em;font-weight:900;text-align:center;background:linear-gradient(135deg,#ffd54f,#ffb300);color:#1a1a2e;border-radius:.6em;padding:.62em;margin-bottom:.7em;box-shadow:0 .4em 1.2em rgba(255,193,7,.35)}"
+    + ".footer{display:flex;align-items:center;gap:1em;border-top:1px solid rgba(255,255,255,.15);padding-top:.8em}"
+    + ".footer .qr{width:6.2em;height:6.2em;background:#fff;border-radius:.4em;flex:0 0 auto;object-fit:contain;padding:.3em}"
     + ".footer .finfo{font-size:1.05em;color:#cdd6ea;line-height:1.5}"
     + ".footer .finfo b{color:#fff;font-size:1.15em}";
 }
@@ -2659,6 +2670,15 @@ function flyerDefaultHtml() {
     + '<div class="benefit"><span class="ic">3</span><span data-edit-id="benefit3">말하기·첫글자 퀴즈로 능동 회상</span></div>'
     + '<div class="benefit"><span class="ic">4</span><span data-edit-id="benefit4">매일 학습 그래프로 성취감 시각화</span></div>'
     + '</div>'
+    + '<div class="gifts">'
+    + '<div class="gifts-title" data-edit-id="giftstitle">🎁 특별 선물 5가지</div>'
+    + '<div class="gifts-list">'
+    + '<div class="gift"><span class="gx">✓</span><span data-edit-id="gift1">영문법 완전정복</span></div>'
+    + '<div class="gift"><span class="gx">✓</span><span data-edit-id="gift2">듣기평가에 꼭 나오는 단어 50개</span></div>'
+    + '<div class="gift"><span class="gx">✓</span><span data-edit-id="gift3">원어민 발음 음원</span></div>'
+    + '<div class="gift"><span class="gx">✓</span><span data-edit-id="gift4">오답 단어장 PDF</span></div>'
+    + '<div class="gift"><span class="gx">✓</span><span data-edit-id="gift5">하루 10분 학습 플래너</span></div>'
+    + '</div></div>'
     + '<div class="social"><span class="dot"></span><span data-edit-id="socialproof">지금도 많은 학생이 함께 공부하고 있어요</span></div>'
     + '<div class="spacer"></div>'
     + '<div class="offer" data-edit-id="offer">지금 가입하면 첫 단원 무료 체험</div>'
@@ -2790,6 +2810,7 @@ function flyerEditText(id, val) {
   if (d) { const live = d.querySelector('[data-edit-id="' + id + '"]'); if (live) live.textContent = val; }
 }
 
+const FLYER_DEF_IMG_H = { hero: 8, barcode: 6.2 };
 function renderFlyerSlots() {
   const host = $('flyerSlots'); if (!host) return;
   const els = [...flyer.doc.querySelectorAll('[data-image-id]')];
@@ -2797,14 +2818,32 @@ function renderFlyerSlots() {
     const id = el.getAttribute('data-image-id');
     const src = el.getAttribute('src') || '';
     const meta = FLYER_SLOT_META[id] || '권장 비율 자유';
+    const curFit = el.style.objectFit || 'cover';
+    const curH = parseFloat(el.style.height) || FLYER_DEF_IMG_H[id] || 10;
+    const posM = (el.style.objectPosition || '').match(/(\d+)%\s*$/);
+    const curPos = posM ? +posM[1] : 50;
+    const opt = (v, t) => '<option value="' + v + '"' + (curFit === v ? ' selected' : '') + '>' + t + '</option>';
     return '<div class="flyer-slot">'
       + '<div class="flyer-slot-head"><img class="flyer-slot-thumb" id="flyerThumb_' + id + '" src="' + escapeHtml(src) + '" alt="">'
       + '<div><div class="flyer-slot-id">' + escapeHtml(id) + '</div><div class="flyer-slot-meta">' + escapeHtml(meta) + '</div></div></div>'
       + '<div class="flyer-slot-btns"><button onclick="flyerGenImagePrompt(\'' + id + '\')">🎨 프롬프트 요청문</button>'
       + '<button onclick="flyerPickImage(\'' + id + '\')">⬆️ 이미지 업로드</button></div>'
+      + '<div class="flyer-img-ctrl">'
+      + '<label><span>맞춤</span><select onchange="flyerSetImgStyle(\'' + id + '\',\'objectFit\',this.value)">'
+      + opt('cover', '채우기(잘림)') + opt('contain', '전체 보기 (안 잘림)') + opt('fill', '늘리기') + '</select></label>'
+      + '<label><span>높이</span><input type="range" min="4" max="22" step="0.5" value="' + curH + '" oninput="flyerSetImgStyle(\'' + id + '\',\'height\',this.value+\'em\')"></label>'
+      + '<label><span>세로위치</span><input type="range" min="0" max="100" value="' + curPos + '" oninput="flyerSetImgPos(\'' + id + '\',this.value)"></label>'
+      + '</div>'
       + '<div class="flyer-out" id="flyerSlotOut_' + id + '" style="display:none"></div></div>';
   }).join('') || '<p class="hint">이미지 슬롯(data-image-id)이 없습니다.</p>';
 }
+function flyerSetImgStyle(id, prop, val) {
+  const el = flyer.doc.querySelector('[data-image-id="' + id + '"]');
+  if (el) el.style[prop] = val;
+  const d = flyerFrameDoc();
+  if (d) { const live = d.querySelector('[data-image-id="' + id + '"]'); if (live) live.style[prop] = val; }
+}
+function flyerSetImgPos(id, pct) { flyerSetImgStyle(id, 'objectPosition', 'center ' + pct + '%'); }
 function flyerPickImage(id) { flyer.uploadTarget = id; const u = $('flyerUpload'); u.value = ''; u.click(); }
 function flyerOnUpload(e) {
   const file = e.target.files && e.target.files[0]; if (!file || !flyer.uploadTarget) return;
@@ -2974,6 +3013,8 @@ window.flyerResetDefault = flyerResetDefault;
 window.flyerEditText = flyerEditText;
 window.flyerPickImage = flyerPickImage;
 window.flyerOnUpload = flyerOnUpload;
+window.flyerSetImgStyle = flyerSetImgStyle;
+window.flyerSetImgPos = flyerSetImgPos;
 window.flyerGenImagePrompt = flyerGenImagePrompt;
 window.flyerInsertQr = flyerInsertQr;
 window.flyerUseAttrUrl = flyerUseAttrUrl;
