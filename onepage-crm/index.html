@@ -2662,12 +2662,12 @@ function flyerCss(size) {
     + ".offer{margin:0 0 .55em;background:#fff;border:2px solid #e94560;border-radius:.6em;padding:.7em 1em;font-size:1.3em;font-weight:800;text-align:center;color:#e94560}"
     + ".spacer{flex:1;min-height:.2em}"
     + ".cta{font-size:1.35em;font-weight:900;text-align:center;background:#e94560;color:#fff;border-radius:.6em;padding:.62em;margin-bottom:.7em}"
-    + ".footer{display:flex;align-items:center;gap:.9em;border-top:1.5px solid #e3e7ef;padding-top:.8em}"
+    + ".footer{display:flex;align-items:center;justify-content:space-between;gap:.8em;border-top:1.5px solid #e3e7ef;padding-top:.8em}"
     + ".qr-item{display:flex;flex-direction:column;align-items:center;gap:.3em;flex:0 0 auto}"
-    + ".footer .qr{width:5.4em;height:5.4em;background:#fff;border-radius:.4em;object-fit:contain;border:1px solid #e3e7ef}"
+    + ".footer .qr{width:5.2em;height:5.2em;background:#fff;border-radius:.4em;object-fit:contain;border:1px solid #e3e7ef}"
     + ".qr-cap{font-size:.82em;font-weight:700;color:#16213e;text-align:center;line-height:1.2}"
-    + ".footer .finfo{font-size:1em;color:#5b6378;line-height:1.5;margin-left:.2em}"
-    + ".footer .finfo b{color:#16213e;font-size:1.1em}"
+    + ".footer .finfo{flex:1;text-align:center;font-size:1em;color:#5b6378;line-height:1.55}"
+    + ".footer .finfo b{color:#16213e;font-size:1.15em}"
     + ".page.back{padding:0;display:block;overflow:hidden;background:#fff}"
     + ".backimg{width:100%;height:100%;object-fit:contain;display:block;background:#fff}"
     + "@media print{.page{break-after:page}.page:last-child{break-after:auto}}";
@@ -2703,8 +2703,8 @@ function flyerDefaultHtml() {
     + '<div class="cta" data-edit-id="cta">QR 스캔하고 지금 시작하기 →</div>'
     + '<div class="footer">'
     + '<div class="qr-item"><img class="qr" data-image-id="barcode" src="' + qph + '" alt="가입 QR"><span class="qr-cap" data-edit-id="qrcap1">가입하고 시작</span></div>'
-    + '<div class="qr-item"><img class="qr" data-image-id="barcode2" src="' + qph2 + '" alt="소개영상 QR"><span class="qr-cap" data-edit-id="qrcap2">📺 소개영상 보기</span></div>'
     + '<div class="finfo"><b data-edit-id="contact">memoryking.kr</b><br>QR을 스캔하세요</div>'
+    + '<div class="qr-item"><img class="qr" data-image-id="barcode2" src="' + qph2 + '" alt="소개영상 QR"><span class="qr-cap" data-edit-id="qrcap2">📺 소개영상 보기</span></div>'
     + '</div></div>';
   return '<!DOCTYPE html><html lang="ko"><head><meta charset="utf-8"><title>전단지</title><style>'
     + flyerCss(flyer.size) + '</style></head><body>' + body + '</body></html>';
