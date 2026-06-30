@@ -2625,7 +2625,7 @@ const FLYER_SLOT_META = {
 };
 const FLYER_SLOT_RATIO = { hero: '3:2 가로형', barcode: '1:1 정사각' };
 
-const flyer = { inited: false, size: 'A4', doc: null, uploadTarget: null, currentSaveId: null };
+const flyer = { inited: false, size: 'A4', doc: null, uploadTarget: null, currentSaveId: null, currentCopyId: null, _copysets: [] };
 const FLYER_SAVE_KEY = 'op_flyer_saves_v1';
 
 function flyerPlaceholder(label) {
@@ -2738,10 +2738,12 @@ function initFlyer() {
     + '        <button onclick="flyerTplRefresh()">목록 새로고침</button></div>'
     + '      <div id="flyerTplList" style="margin-top:10px"></div></div></details>'
     + '    <details class="flyer-acc"><summary>📝 문구 세트 · 서버</summary><div class="flyer-acc-body">'
-    + '      <p class="hint">현재 전단지의 모든 문구를 세트로 저장. 틀을 불러온 뒤 "적용"하면 <b>틀+문구</b>가 조합됩니다.</p>'
+    + '      <p class="hint">"적용"으로 문구를 불러온 뒤, 위 <b>✏️ 문구 편집</b>에서 고치고 <b>현재 세트 업데이트</b>를 누르면 그 세트에 저장됩니다.</p>'
+    + '      <div class="flyer-save-cur" id="flyerCopyCur">선택된 문구 세트 없음 (새 세트로 저장됨)</div>'
     + '      <div class="flyer-field"><label>문구 세트 이름</label><input id="flyerCopyName" placeholder="예: 봄학기 카피"></div>'
-    + '      <div class="flyer-slot-btns"><button class="primary" onclick="flyerCopySave()">현재 문구를 세트로 저장</button>'
-    + '        <button onclick="flyerCopyRefresh()">목록 새로고침</button></div>'
+    + '      <div class="flyer-slot-btns"><button class="primary" onclick="flyerCopyUpdate()">현재 세트 업데이트</button>'
+    + '        <button onclick="flyerCopySave()">새 세트로 저장</button>'
+    + '        <button onclick="flyerCopyRefresh()">새로고침</button></div>'
     + '      <div id="flyerCopyList" style="margin-top:10px"></div></div></details>'
     + '    <details class="flyer-acc" open><summary>💾 완성본 저장 / A·B 테스트 (로컬)</summary><div class="flyer-acc-body">'
     + '      <div class="flyer-save-cur" id="flyerSaveCur">새 전단지 (저장 안 됨)</div>'
@@ -3022,8 +3024,9 @@ function flyerUpdateSaveCur() {
   } else el.textContent = '새 전단지 (저장 안 됨)';
 }
 // ── 서버: 기본틀(템플릿) 라이브러리 ──────────────────────
-function flyerSrvRow(o, loadFn, delFn, loadLabel) {
-  return '<div class="flyer-save-item"><div class="flyer-save-meta"><b>#' + o.id + '</b> ' + escapeHtml(o.name || '')
+function flyerSrvRow(o, loadFn, delFn, loadLabel, curId) {
+  const cur = (curId != null && o.id === curId) ? ' cur' : '';
+  return '<div class="flyer-save-item' + cur + '"><div class="flyer-save-meta"><b>#' + o.id + '</b> ' + escapeHtml(o.name || '')
     + '<span>' + (o.size ? escapeHtml(o.size) + ' · ' : '') + escapeHtml(o.updated_at || '') + '</span></div>'
     + '<div class="flyer-save-btns"><button onclick="' + loadFn + '(' + o.id + ')">' + loadLabel + '</button>'
     + '<button onclick="' + delFn + '(' + o.id + ')" title="삭제">🗑</button></div></div>';
@@ -3065,22 +3068,37 @@ function flyerCurrentCopy() {
   [...flyer.doc.querySelectorAll('[data-edit-id]')].forEach(el => { o[el.getAttribute('data-edit-id')] = el.textContent || ''; });
   return o;
 }
+function flyerCopyUpdateCur() {
+  const el = $('flyerCopyCur'); if (!el) return;
+  if (flyer.currentCopyId) {
+    const c = (flyer._copysets || []).find(x => x.id === flyer.currentCopyId);
+    el.textContent = '편집 중 문구 세트: #' + flyer.currentCopyId + (c ? ' ' + (c.name || '') : '');
+  } else el.textContent = '선택된 문구 세트 없음 (새 세트로 저장됨)';
+}
 function flyerCopyRefresh() {
   const host = $('flyerCopyList'); if (!host) return;
   host.innerHTML = '<p class="hint">불러오는 중…</p>';
   api('GET', '/admin/flyer-copysets').then(r => {
     flyer._copysets = r.copysets || [];
     host.innerHTML = flyer._copysets.length
-      ? flyer._copysets.map(c => flyerSrvRow(c, 'flyerCopyApply', 'flyerCopyDelete', '적용')).join('')
+      ? flyer._copysets.map(c => flyerSrvRow(c, 'flyerCopyApply', 'flyerCopyDelete', '적용', flyer.currentCopyId)).join('')
       : '<p class="hint">저장된 문구 세트가 없습니다.</p>';
+    flyerCopyUpdateCur();
   }).catch(e => { host.innerHTML = '<div class="flyer-msg err">서버 저장소 미설정/오류: ' + escapeHtml(e.message) + '</div>'; });
 }
 function flyerCopySave() {
   const name = ($('flyerCopyName').value || '').trim();
   if (!name) { alert('문구 세트 이름을 입력하세요'); return; }
   api('POST', '/admin/flyer-copysets', { name, data: JSON.stringify(flyerCurrentCopy()) })
-    .then(() => { $('flyerCopyName').value = ''; flyerCopyRefresh(); })
+    .then(r => { flyer.currentCopyId = r.id || null; flyerCopyRefresh(); alert('새 문구 세트 #' + (r.id || '') + ' 저장됨'); })
     .catch(e => alert('저장 실패: ' + e.message));
+}
+function flyerCopyUpdate() {
+  if (!flyer.currentCopyId) { alert('먼저 목록에서 "적용"으로 세트를 불러오거나 "새 세트로 저장"하세요.'); return; }
+  const name = ($('flyerCopyName').value || '').trim();
+  api('PUT', '/admin/flyer-copysets/' + flyer.currentCopyId, { name, data: JSON.stringify(flyerCurrentCopy()) })
+    .then(() => { flyerCopyRefresh(); alert('문구 세트 #' + flyer.currentCopyId + ' 업데이트 완료'); })
+    .catch(e => alert('업데이트 실패: ' + e.message));
 }
 function flyerCopyApply(id) {
   const c = (flyer._copysets || []).find(x => x.id === id);
@@ -3092,11 +3110,17 @@ function flyerCopyApply(id) {
     if (flyer.doc.querySelector('[data-edit-id="' + k + '"]')) { flyerEditText(k, data[k]); applied++; }
   });
   renderFlyerEditPanel();
-  alert(applied + '개 문구를 현재 전단지에 적용했습니다.');
+  flyer.currentCopyId = id;
+  const nm = $('flyerCopyName'); if (nm) nm.value = c.name || '';
+  flyerCopyRefresh();
+  alert(applied + '개 문구 적용 — ✏️ 문구 편집에서 고친 뒤 "현재 세트 업데이트"로 저장하세요.');
 }
 function flyerCopyDelete(id) {
   if (!confirm('이 문구 세트를 삭제할까요?')) return;
-  api('DELETE', '/admin/flyer-copysets/' + id).then(() => flyerCopyRefresh()).catch(e => alert(e.message));
+  api('DELETE', '/admin/flyer-copysets/' + id).then(() => {
+    if (flyer.currentCopyId === id) flyer.currentCopyId = null;
+    flyerCopyRefresh();
+  }).catch(e => alert(e.message));
 }
 
 function flyerRenderSaves() {
@@ -3165,6 +3189,7 @@ window.flyerTplLoad = flyerTplLoad;
 window.flyerTplDelete = flyerTplDelete;
 window.flyerCopyRefresh = flyerCopyRefresh;
 window.flyerCopySave = flyerCopySave;
+window.flyerCopyUpdate = flyerCopyUpdate;
 window.flyerCopyApply = flyerCopyApply;
 window.flyerCopyDelete = flyerCopyDelete;
 
