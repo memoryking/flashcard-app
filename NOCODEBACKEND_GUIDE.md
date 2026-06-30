@@ -409,6 +409,31 @@ CREATE TABLE IF NOT EXISTS `op_pings` (
 
 → Run SQL 창에 통째로 붙여 한 번에 실행. 기존에 만든 테이블이 있어도 `IF NOT EXISTS`라 건너뜀.
 
+### 9.A-2 전단지 생성기 (CRM) — 기본틀·문구 세트 (FK 없음, UI로도 가능)
+
+CRM 전단지 탭의 "🧱 기본틀(템플릿) · 서버", "📝 문구 세트 · 서버"가 사용. **이 2개를 만들기 전에는 서버 라이브러리만 비활성(에러 메시지)이고 나머지 전단지 기능은 정상.**
+
+```sql
+-- 전단지 기본틀(레이아웃·디자인 HTML)
+CREATE TABLE IF NOT EXISTS `op_flyer_templates` (
+  `id` INT NOT NULL AUTO_INCREMENT PRIMARY KEY,
+  `name` VARCHAR(255) NOT NULL,
+  `html` LONGTEXT NULL,            -- 전단지 전체 HTML (이미지는 placeholder 권장)
+  `size` VARCHAR(8) NULL,          -- A4 / A3
+  `updated_at` DATETIME NULL
+);
+
+-- 전단지 문구 세트 (data-edit-id → 텍스트 매핑 JSON)
+CREATE TABLE IF NOT EXISTS `op_flyer_copysets` (
+  `id` INT NOT NULL AUTO_INCREMENT PRIMARY KEY,
+  `name` VARCHAR(255) NOT NULL,
+  `data` LONGTEXT NULL,            -- JSON: {"headline":"…","benefit1":"…",...}
+  `updated_at` DATETIME NULL
+);
+```
+
+> 조합 흐름: **틀 불러오기**(레이아웃) → **문구 세트 적용**(텍스트 덮어쓰기) → 완성본은 **로컬(브라우저)에 저장**. Worker 엔드포인트는 모두 `/admin/flyer-templates*`, `/admin/flyer-copysets*` (teacherGate 보호).
+
 ### 9.1 `op_chapters`
 
 | 컬럼 | Type | Not null | Unique | FK | Default |

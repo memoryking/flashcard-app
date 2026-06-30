@@ -2731,7 +2731,19 @@ function initFlyer() {
     + '      <p class="hint">전단지의 "실시간 사회적 증거" 문구에 현재 학습 수치를 넣습니다. (인쇄 시점의 스냅샷)</p>'
     + '      <div class="flyer-slot-btns"><button onclick="flyerLoadStats()">현재 수치 불러와 삽입</button></div>'
     + '      <div id="flyerStatsMsg"></div></div></details>'
-    + '    <details class="flyer-acc" open><summary>💾 저장 / A·B 테스트</summary><div class="flyer-acc-body">'
+    + '    <details class="flyer-acc"><summary>🧱 기본틀(템플릿) · 서버</summary><div class="flyer-acc-body">'
+    + '      <p class="hint">레이아웃·디자인 틀을 서버에 저장해 어느 PC에서나 공유. (이미지는 가벼운 placeholder 권장)</p>'
+    + '      <div class="flyer-field"><label>틀 이름</label><input id="flyerTplName" placeholder="예: 혜택강조형"></div>'
+    + '      <div class="flyer-slot-btns"><button class="primary" onclick="flyerTplSave()">현재를 틀로 저장</button>'
+    + '        <button onclick="flyerTplRefresh()">목록 새로고침</button></div>'
+    + '      <div id="flyerTplList" style="margin-top:10px"></div></div></details>'
+    + '    <details class="flyer-acc"><summary>📝 문구 세트 · 서버</summary><div class="flyer-acc-body">'
+    + '      <p class="hint">현재 전단지의 모든 문구를 세트로 저장. 틀을 불러온 뒤 "적용"하면 <b>틀+문구</b>가 조합됩니다.</p>'
+    + '      <div class="flyer-field"><label>문구 세트 이름</label><input id="flyerCopyName" placeholder="예: 봄학기 카피"></div>'
+    + '      <div class="flyer-slot-btns"><button class="primary" onclick="flyerCopySave()">현재 문구를 세트로 저장</button>'
+    + '        <button onclick="flyerCopyRefresh()">목록 새로고침</button></div>'
+    + '      <div id="flyerCopyList" style="margin-top:10px"></div></div></details>'
+    + '    <details class="flyer-acc" open><summary>💾 완성본 저장 / A·B 테스트 (로컬)</summary><div class="flyer-acc-body">'
     + '      <div class="flyer-save-cur" id="flyerSaveCur">새 전단지 (저장 안 됨)</div>'
     + '      <div class="flyer-field"><label>버전 이름 (예: A안 / B안)</label><input id="flyerSaveName" placeholder="A안"></div>'
     + '      <div class="flyer-slot-btns">'
@@ -2747,6 +2759,7 @@ function initFlyer() {
   flyerApplyHtml(flyerDefaultHtml());
   flyerLoadStats(true);   // 현재 학습 수치 자동 삽입(있을 때만, 조용히)
   flyerRenderSaves(); flyerUpdateSaveCur();
+  flyerTplRefresh(); flyerCopyRefresh();   // 서버 라이브러리 로드
   if (!flyer._resizeBound) {
     flyer._resizeBound = true;
     window.addEventListener('resize', () => { if (flyer.inited && state.currentTab === 'flyer') flyerScale(); });
@@ -2999,6 +3012,84 @@ function flyerUpdateSaveCur() {
     el.textContent = e ? ('편집 중: #' + e.id + ' ' + (e.name || '') + ' (' + (e.size || 'A4') + ')') : '새 전단지 (저장 안 됨)';
   } else el.textContent = '새 전단지 (저장 안 됨)';
 }
+// ── 서버: 기본틀(템플릿) 라이브러리 ──────────────────────
+function flyerSrvRow(o, loadFn, delFn, loadLabel) {
+  return '<div class="flyer-save-item"><div class="flyer-save-meta"><b>#' + o.id + '</b> ' + escapeHtml(o.name || '')
+    + '<span>' + (o.size ? escapeHtml(o.size) + ' · ' : '') + escapeHtml(o.updated_at || '') + '</span></div>'
+    + '<div class="flyer-save-btns"><button onclick="' + loadFn + '(' + o.id + ')">' + loadLabel + '</button>'
+    + '<button onclick="' + delFn + '(' + o.id + ')" title="삭제">🗑</button></div></div>';
+}
+function flyerTplRefresh() {
+  const host = $('flyerTplList'); if (!host) return;
+  host.innerHTML = '<p class="hint">불러오는 중…</p>';
+  api('GET', '/admin/flyer-templates').then(r => {
+    const list = r.templates || [];
+    host.innerHTML = list.length ? list.map(t => flyerSrvRow(t, 'flyerTplLoad', 'flyerTplDelete', '불러오기')).join('')
+      : '<p class="hint">저장된 틀이 없습니다. "현재를 틀로 저장"으로 만들어 보세요.</p>';
+  }).catch(e => { host.innerHTML = '<div class="flyer-msg err">서버 저장소 미설정/오류: ' + escapeHtml(e.message) + '</div>'; });
+}
+function flyerTplSave() {
+  const name = ($('flyerTplName').value || '').trim();
+  if (!name) { alert('틀 이름을 입력하세요'); return; }
+  api('POST', '/admin/flyer-templates', { name, html: flyerSerialize(), size: flyer.size })
+    .then(() => { $('flyerTplName').value = ''; flyerTplRefresh(); })
+    .catch(e => alert('저장 실패: ' + e.message));
+}
+function flyerTplLoad(id) {
+  api('GET', '/admin/flyer-templates/' + id).then(r => {
+    const t = r.template; if (!t) return;
+    flyer.size = t.size || 'A4';
+    const sel = $('flyerSize'); if (sel) sel.value = flyer.size;
+    flyerApplyHtml(t.html);
+    flyer.currentSaveId = null;
+    flyerUpdateSaveCur(); flyerRenderSaves();
+  }).catch(e => alert('불러오기 실패: ' + e.message));
+}
+function flyerTplDelete(id) {
+  if (!confirm('이 틀을 삭제할까요?')) return;
+  api('DELETE', '/admin/flyer-templates/' + id).then(() => flyerTplRefresh()).catch(e => alert(e.message));
+}
+
+// ── 서버: 문구 세트 라이브러리 ──────────────────────────
+function flyerCurrentCopy() {
+  const o = {};
+  [...flyer.doc.querySelectorAll('[data-edit-id]')].forEach(el => { o[el.getAttribute('data-edit-id')] = el.textContent || ''; });
+  return o;
+}
+function flyerCopyRefresh() {
+  const host = $('flyerCopyList'); if (!host) return;
+  host.innerHTML = '<p class="hint">불러오는 중…</p>';
+  api('GET', '/admin/flyer-copysets').then(r => {
+    flyer._copysets = r.copysets || [];
+    host.innerHTML = flyer._copysets.length
+      ? flyer._copysets.map(c => flyerSrvRow(c, 'flyerCopyApply', 'flyerCopyDelete', '적용')).join('')
+      : '<p class="hint">저장된 문구 세트가 없습니다.</p>';
+  }).catch(e => { host.innerHTML = '<div class="flyer-msg err">서버 저장소 미설정/오류: ' + escapeHtml(e.message) + '</div>'; });
+}
+function flyerCopySave() {
+  const name = ($('flyerCopyName').value || '').trim();
+  if (!name) { alert('문구 세트 이름을 입력하세요'); return; }
+  api('POST', '/admin/flyer-copysets', { name, data: JSON.stringify(flyerCurrentCopy()) })
+    .then(() => { $('flyerCopyName').value = ''; flyerCopyRefresh(); })
+    .catch(e => alert('저장 실패: ' + e.message));
+}
+function flyerCopyApply(id) {
+  const c = (flyer._copysets || []).find(x => x.id === id);
+  if (!c) { flyerCopyRefresh(); return; }
+  let data = {};
+  try { data = JSON.parse(c.data || '{}'); } catch (e) {}
+  let applied = 0;
+  Object.keys(data).forEach(k => {
+    if (flyer.doc.querySelector('[data-edit-id="' + k + '"]')) { flyerEditText(k, data[k]); applied++; }
+  });
+  renderFlyerEditPanel();
+  alert(applied + '개 문구를 현재 전단지에 적용했습니다.');
+}
+function flyerCopyDelete(id) {
+  if (!confirm('이 문구 세트를 삭제할까요?')) return;
+  api('DELETE', '/admin/flyer-copysets/' + id).then(() => flyerCopyRefresh()).catch(e => alert(e.message));
+}
+
 function flyerRenderSaves() {
   const host = $('flyerSavesList'); if (!host) return;
   const saves = flyerGetSaves().slice().sort((a, b) => a.id - b.id);
@@ -3059,6 +3150,14 @@ window.flyerDuplicateSave = flyerDuplicateSave;
 window.flyerDeleteSave = flyerDeleteSave;
 window.flyerDownloadSave = flyerDownloadSave;
 window.flyerNewFlyer = flyerNewFlyer;
+window.flyerTplRefresh = flyerTplRefresh;
+window.flyerTplSave = flyerTplSave;
+window.flyerTplLoad = flyerTplLoad;
+window.flyerTplDelete = flyerTplDelete;
+window.flyerCopyRefresh = flyerCopyRefresh;
+window.flyerCopySave = flyerCopySave;
+window.flyerCopyApply = flyerCopyApply;
+window.flyerCopyDelete = flyerCopyDelete;
 
 // ============================================================
 // 시작

@@ -2561,6 +2561,70 @@ async function handleDeleteCampaign(request, env, id) {
   return json({ ok: true }, 200, request);
 }
 
+// ── 전단지 기본틀(템플릿) — nocodebackend op_flyer_templates ──
+//   { name, html(LONGTEXT), size, updated_at }
+async function handleFlyerTplList(request, env) {
+  const r = await ncbRead(env, 'op_flyer_templates', 'limit=500');
+  const list = (r.data || []).map(t => ({ id: t.id, name: t.name || '', size: t.size || 'A4', updated_at: t.updated_at || '' }));
+  list.sort((a, b) => (b.updated_at || '').localeCompare(a.updated_at || ''));
+  return json({ templates: list }, 200, request);
+}
+async function handleFlyerTplGet(request, env, id) {
+  const t = await ncbReadById(env, 'op_flyer_templates', id);
+  if (!t) return json({ error: 'not_found' }, 404, request);
+  return json({ template: { id: t.id, name: t.name || '', size: t.size || 'A4', html: t.html || '' } }, 200, request);
+}
+async function handleFlyerTplCreate(request, env) {
+  const b = await request.json().catch(() => ({}));
+  const name = String(b.name || '').trim().slice(0, 200);
+  const html = String(b.html || '');
+  if (!name || !html) return json({ error: 'name·html이 필요합니다' }, 400, request);
+  const r = await ncbCreate(env, 'op_flyer_templates', { name, html, size: String(b.size || 'A4').slice(0, 8), updated_at: kstDateTime() });
+  return json({ ok: true, id: r.id || (r.data && r.data.id) }, 200, request);
+}
+async function handleFlyerTplUpdate(request, env, id) {
+  const b = await request.json().catch(() => ({}));
+  const patch = { updated_at: kstDateTime() };
+  if (b.name !== undefined) patch.name = String(b.name).trim().slice(0, 200);
+  if (b.html !== undefined) patch.html = String(b.html);
+  if (b.size !== undefined) patch.size = String(b.size).slice(0, 8);
+  await ncbUpdate(env, 'op_flyer_templates', id, patch);
+  return json({ ok: true }, 200, request);
+}
+async function handleFlyerTplDelete(request, env, id) {
+  await ncbDelete(env, 'op_flyer_templates', id);
+  return json({ ok: true }, 200, request);
+}
+
+// ── 전단지 문구 세트 — nocodebackend op_flyer_copysets ──
+//   { name, data(LONGTEXT JSON: {edit-id: text}), updated_at }
+async function handleFlyerCopyList(request, env) {
+  const r = await ncbRead(env, 'op_flyer_copysets', 'limit=500');
+  const list = (r.data || []).map(c => ({ id: c.id, name: c.name || '', data: c.data || '{}', updated_at: c.updated_at || '' }));
+  list.sort((a, b) => (b.updated_at || '').localeCompare(a.updated_at || ''));
+  return json({ copysets: list }, 200, request);
+}
+async function handleFlyerCopyCreate(request, env) {
+  const b = await request.json().catch(() => ({}));
+  const name = String(b.name || '').trim().slice(0, 200);
+  if (!name) return json({ error: 'name이 필요합니다' }, 400, request);
+  const data = (typeof b.data === 'string') ? b.data : JSON.stringify(b.data || {});
+  const r = await ncbCreate(env, 'op_flyer_copysets', { name, data, updated_at: kstDateTime() });
+  return json({ ok: true, id: r.id || (r.data && r.data.id) }, 200, request);
+}
+async function handleFlyerCopyUpdate(request, env, id) {
+  const b = await request.json().catch(() => ({}));
+  const patch = { updated_at: kstDateTime() };
+  if (b.name !== undefined) patch.name = String(b.name).trim().slice(0, 200);
+  if (b.data !== undefined) patch.data = (typeof b.data === 'string') ? b.data : JSON.stringify(b.data);
+  await ncbUpdate(env, 'op_flyer_copysets', id, patch);
+  return json({ ok: true }, 200, request);
+}
+async function handleFlyerCopyDelete(request, env, id) {
+  await ncbDelete(env, 'op_flyer_copysets', id);
+  return json({ ok: true }, 200, request);
+}
+
 // 관리자가 사용자에게 챕터 권한 지급/연장
 async function handleAdminAccessGrant(request, env, admin) {
   const b = await request.json().catch(() => ({}));
@@ -3236,6 +3300,23 @@ async function route(request, env, ctx) {
     if (p) {
       if (m === 'PUT') return handleUpdateCampaign(request, env, p.id);
       if (m === 'DELETE') return handleDeleteCampaign(request, env, p.id);
+    }
+    // 전단지 기본틀(템플릿) — 서버 저장
+    if (m === 'GET' && path === '/admin/flyer-templates') return handleFlyerTplList(request, env);
+    if (m === 'POST' && path === '/admin/flyer-templates') return handleFlyerTplCreate(request, env);
+    p = pathMatch(path, '/admin/flyer-templates/:id');
+    if (p) {
+      if (m === 'GET') return handleFlyerTplGet(request, env, p.id);
+      if (m === 'PUT') return handleFlyerTplUpdate(request, env, p.id);
+      if (m === 'DELETE') return handleFlyerTplDelete(request, env, p.id);
+    }
+    // 전단지 문구 세트 — 서버 저장
+    if (m === 'GET' && path === '/admin/flyer-copysets') return handleFlyerCopyList(request, env);
+    if (m === 'POST' && path === '/admin/flyer-copysets') return handleFlyerCopyCreate(request, env);
+    p = pathMatch(path, '/admin/flyer-copysets/:id');
+    if (p) {
+      if (m === 'PUT') return handleFlyerCopyUpdate(request, env, p.id);
+      if (m === 'DELETE') return handleFlyerCopyDelete(request, env, p.id);
     }
   }
 
