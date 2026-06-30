@@ -2719,7 +2719,6 @@ function initFlyer() {
     + '      <select class="flyer-size-sel" id="flyerSize" onchange="flyerSetSize(this.value)">'
     + '        <option value="A4">A4 (210×297mm)</option><option value="A3">A3 (297×420mm)</option></select>'
     + '      <button onclick="flyerPrint()">🖨️ 인쇄</button>'
-    + '      <button onclick="flyerDownload()">⬇️ HTML 저장</button>'
     + '      <button onclick="flyerResetDefault()">↺ 기본값</button>'
     + '    </div>'
     + '    <div class="flyer-preview-scroll"><div class="flyer-scaler" id="flyerScaler">'
@@ -3305,14 +3304,6 @@ function flyerRenderSaves() {
   }).join('');
 }
 
-function flyerDownload() {
-  const blob = new Blob([flyerSerialize()], { type: 'text/html;charset=utf-8' });
-  const a = document.createElement('a');
-  a.href = URL.createObjectURL(blob);
-  a.download = 'flyer-' + flyer.size + '.html';
-  document.body.appendChild(a); a.click();
-  setTimeout(() => { URL.revokeObjectURL(a.href); a.remove(); }, 500);
-}
 function flyerPrint() {
   const backCount = flyer.doc ? flyer.doc.querySelectorAll('.page.back').length : 0;
   if (backCount > 0) {
@@ -3344,7 +3335,6 @@ function flyerResetDefault() {
 window.initFlyer = initFlyer;
 window.flyerSetSize = flyerSetSize;
 window.flyerPrint = flyerPrint;
-window.flyerDownload = flyerDownload;
 window.flyerResetDefault = flyerResetDefault;
 window.flyerEditText = flyerEditText;
 window.flyerPickImage = flyerPickImage;
