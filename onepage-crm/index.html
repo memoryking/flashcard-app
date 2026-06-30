@@ -362,6 +362,64 @@ table { border-collapse: collapse; width: 100%; }
   font-size: 12px; color: rgba(255,255,255,0.4);
   padding: 8px 0; text-align: center;
 }
+/* ── 전단지 생성기 ──────────────────────────────────────── */
+.flyer-wrap { display: grid; grid-template-columns: minmax(0,1fr) 380px; gap: 18px; align-items: start; }
+@media (max-width: 980px) { .flyer-wrap { grid-template-columns: 1fr; } }
+.flyer-stage {
+  background: #2a2f3a; border-radius: 12px; padding: 16px;
+  display: flex; flex-direction: column; align-items: center; gap: 12px;
+  position: sticky; top: 12px;
+}
+.flyer-toolbar { display: flex; flex-wrap: wrap; gap: 6px; justify-content: center; width: 100%; }
+.flyer-toolbar button, .flyer-size-sel {
+  background: rgba(255,255,255,0.08); color: #e8e8ee; border: 1px solid rgba(255,255,255,0.12);
+  padding: 7px 11px; border-radius: 7px; font-size: 12.5px; font-weight: 600; cursor: pointer;
+}
+.flyer-toolbar button:hover { background: rgba(255,255,255,0.15); }
+.flyer-toolbar button.primary { background: linear-gradient(135deg,#e94560,#ff6b6b); border-color: transparent; color:#fff; }
+.flyer-preview-scroll { width: 100%; overflow: auto; display: flex; justify-content: center; }
+.flyer-scaler { transform-origin: top center; }
+.flyer-scaler iframe { border: 0; background: #fff; box-shadow: 0 10px 40px rgba(0,0,0,0.5); display: block; }
+
+.flyer-panel { background: #2a2f3a; border-radius: 12px; padding: 16px; }
+.flyer-panel h3 { font-size: 14px; margin: 0 0 4px; color: #fff; }
+.flyer-panel .hint { font-size: 11.5px; color: rgba(255,255,255,0.45); margin: 0 0 12px; line-height: 1.5; }
+.flyer-acc { border: 1px solid rgba(255,255,255,0.1); border-radius: 9px; margin-bottom: 10px; overflow: hidden; }
+.flyer-acc > summary {
+  list-style: none; cursor: pointer; padding: 11px 13px; font-size: 13px; font-weight: 700; color: #e8e8ee;
+  background: rgba(255,255,255,0.04); display: flex; align-items: center; gap: 7px;
+}
+.flyer-acc > summary::-webkit-details-marker { display: none; }
+.flyer-acc > summary::before { content: '▸'; color: #ff8a9e; transition: transform .15s; }
+.flyer-acc[open] > summary::before { transform: rotate(90deg); }
+.flyer-acc-body { padding: 12px 13px; }
+.flyer-field { margin-bottom: 11px; }
+.flyer-field label { display: block; font-size: 11px; font-weight: 700; color: #9fa6b8; margin-bottom: 4px; text-transform: uppercase; letter-spacing: .03em; }
+.flyer-field input, .flyer-field textarea, .flyer-panel textarea.flyer-paste {
+  width: 100%; box-sizing: border-box; background: #1c2029; color: #f0f0f4;
+  border: 1px solid rgba(255,255,255,0.14); border-radius: 6px; padding: 8px 10px; font-size: 13px; font-family: inherit;
+}
+.flyer-field textarea { resize: vertical; min-height: 46px; line-height: 1.4; }
+.flyer-slot { border: 1px solid rgba(255,255,255,0.1); border-radius: 8px; padding: 10px; margin-bottom: 10px; }
+.flyer-slot-head { display: flex; align-items: center; gap: 8px; margin-bottom: 8px; }
+.flyer-slot-thumb { width: 42px; height: 42px; border-radius: 5px; object-fit: cover; background: #1c2029; flex-shrink: 0; border: 1px solid rgba(255,255,255,0.12); }
+.flyer-slot-id { font-size: 12.5px; font-weight: 700; color: #e8e8ee; }
+.flyer-slot-meta { font-size: 10.5px; color: rgba(255,255,255,0.4); }
+.flyer-slot-btns { display: flex; gap: 6px; flex-wrap: wrap; }
+.flyer-slot-btns button {
+  flex: 1; min-width: 90px; background: rgba(255,255,255,0.08); color: #ddd; border: 1px solid rgba(255,255,255,0.14);
+  border-radius: 6px; padding: 7px 8px; font-size: 11.5px; font-weight: 600; cursor: pointer;
+}
+.flyer-slot-btns button:hover { background: rgba(255,255,255,0.15); }
+.flyer-out { width: 100%; box-sizing: border-box; background: #11141b; color: #b9f6ca; border: 1px solid rgba(129,199,132,0.3);
+  border-radius: 6px; padding: 9px 10px; font-size: 11.5px; font-family: ui-monospace, monospace; white-space: pre-wrap;
+  max-height: 180px; overflow: auto; margin-top: 8px; }
+.flyer-msg { font-size: 12px; padding: 8px 10px; border-radius: 6px; margin-top: 8px; }
+.flyer-msg.ok { background: rgba(76,175,80,0.15); color: #a5d6a7; border: 1px solid rgba(76,175,80,0.3); }
+.flyer-msg.err { background: rgba(233,69,96,0.15); color: #ff8a9e; border: 1px solid rgba(233,69,96,0.35); }
+.flyer-row { display: flex; gap: 6px; }
+.flyer-row input { flex: 1; }
+
 .attr-presets {
   display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
   gap: 6px; margin-bottom: 12px;
@@ -444,6 +502,7 @@ table { border-collapse: collapse; width: 100%; }
     <button class="tab-btn" data-tab="content" onclick="switchTab('content')">📚 콘텐츠</button>
     <button class="tab-btn" data-tab="campaigns" onclick="switchTab('campaigns')">📤 캠페인</button>
     <button class="tab-btn" data-tab="attribution" onclick="switchTab('attribution')">🎯 마케팅 추적</button>
+    <button class="tab-btn" data-tab="flyer" onclick="switchTab('flyer')">🖨️ 전단지</button>
   </nav>
 
   <main class="app-main">
@@ -492,6 +551,11 @@ table { border-collapse: collapse; width: 100%; }
     <!-- 마케팅 어트리뷰션 -->
     <section class="tab-pane" id="tabAttribution">
       <div id="attributionBody"></div>
+    </section>
+
+    <!-- 전단지 생성기 -->
+    <section class="tab-pane" id="tabFlyer">
+      <div id="flyerBody"></div>
     </section>
   </main>
 </div>
@@ -675,6 +739,7 @@ function switchTab(tab) {
   else if (tab === 'content') loadContent();
   else if (tab === 'campaigns') renderCampaigns();
   else if (tab === 'attribution') loadAttribution();
+  else if (tab === 'flyer') initFlyer();
 }
 
 // ============================================================
@@ -2521,6 +2586,375 @@ window.loadSavedCampaign = loadSavedCampaign;
 window.deleteSavedCampaign = deleteSavedCampaign;
 window.exportSavedCampaigns = exportSavedCampaigns;
 window.loadAttribution = loadAttribution;
+
+// ============================================================
+// 전단지 생성기 (Flyer Builder)
+//  - 전단지 = 단일 HTML 문서(flyer.doc)로 관리 (source of truth)
+//  - data-edit-id: 편집 가능한 텍스트 / data-image-id: 이미지 슬롯
+//  - 이미지 생성은 앱 밖(GPT)에서 — 여기선 '요청문'만 생성 (OpenAI 직접 호출 X)
+//  - QR(바코드) 삽입 · A4/A3 인쇄 · HTML 다운로드 · 재설계 요청문 · 붙여넣기 검증
+// ============================================================
+const FLYER_SIZES = {
+  A4: { w: '210mm', h: '297mm', fs: '4.0mm', pxW: 794, pxH: 1123 },
+  A3: { w: '297mm', h: '420mm', fs: '5.66mm', pxW: 1123, pxH: 1587 },
+};
+const FLYER_LABELS = {
+  brand: '브랜드 / 로고 텍스트', headline: '헤드라인', subheadline: '서브 헤드라인',
+  benefit1: '혜택 1', benefit2: '혜택 2', benefit3: '혜택 3',
+  offer: '오퍼 배너', cta: '행동유도(CTA)', contact: '연락처 / 주소',
+};
+const FLYER_LONG = new Set(['subheadline', 'benefit1', 'benefit2', 'benefit3', 'offer']);
+const FLYER_SLOT_META = {
+  hero: '가로형 · 권장 3:2 (예: 1200×800)',
+  barcode: 'QR · 정사각 (QR 삽입 권장)',
+};
+const FLYER_SLOT_RATIO = { hero: '3:2 가로형', barcode: '1:1 정사각' };
+
+const flyer = { inited: false, size: 'A4', doc: null, uploadTarget: null };
+
+function flyerPlaceholder(label) {
+  const svg = "<svg xmlns='http://www.w3.org/2000/svg' width='800' height='534'>"
+    + "<rect width='100%' height='100%' fill='#26324d'/>"
+    + "<text x='50%' y='50%' fill='#7e8aa8' font-family='sans-serif' font-size='30' text-anchor='middle' dominant-baseline='middle'>" + label + "</text></svg>";
+  return 'data:image/svg+xml;utf8,' + encodeURIComponent(svg);
+}
+
+function flyerCss(size) {
+  const s = FLYER_SIZES[size];
+  return "*{margin:0;padding:0;box-sizing:border-box}"
+    + "@page{size:" + size + ";margin:0}"
+    + "html,body{height:100%}"
+    + "body{font-family:'Pretendard','Apple SD Gothic Neo','Malgun Gothic',sans-serif;-webkit-print-color-adjust:exact;print-color-adjust:exact}"
+    + ".page{width:" + s.w + ";height:" + s.h + ";font-size:" + s.fs + ";background:linear-gradient(160deg,#0e1838,#16244c 55%,#1f3b73);color:#fff;padding:2.4em;display:flex;flex-direction:column;position:relative;overflow:hidden}"
+    + ".page::before{content:'';position:absolute;inset:0;background:radial-gradient(circle at 82% 4%,rgba(233,69,96,.28),transparent 46%);pointer-events:none}"
+    + ".brand{font-size:1.05em;font-weight:800;letter-spacing:.02em;color:#ffd54f;position:relative}"
+    + ".headline{font-size:3em;font-weight:900;line-height:1.14;margin-top:.45em;position:relative}"
+    + ".sub{font-size:1.3em;color:#cdd6ea;margin-top:.6em;line-height:1.5;position:relative}"
+    + ".hero{width:100%;height:9.2em;object-fit:cover;border-radius:.6em;margin:1.1em 0;border:1px solid rgba(255,255,255,.15)}"
+    + ".benefits{display:flex;flex-direction:column;gap:.65em;position:relative}"
+    + ".benefit{display:flex;align-items:flex-start;gap:.6em;font-size:1.25em;line-height:1.4}"
+    + ".benefit .ic{flex:0 0 auto;width:1.6em;height:1.6em;border-radius:.4em;background:rgba(129,199,132,.22);display:flex;align-items:center;justify-content:center;color:#a5d6a7;font-weight:800;font-size:.9em}"
+    + ".offer{margin:1.1em 0;background:linear-gradient(135deg,#e94560,#ff6b6b);border-radius:.6em;padding:.85em 1.1em;font-size:1.5em;font-weight:800;text-align:center}"
+    + ".spacer{flex:1}"
+    + ".cta{font-size:1.55em;font-weight:900;text-align:center;background:#ffd54f;color:#1a1a2e;border-radius:.6em;padding:.7em;margin-bottom:1em}"
+    + ".footer{display:flex;align-items:center;gap:1em;border-top:1px solid rgba(255,255,255,.15);padding-top:1em}"
+    + ".footer .qr{width:7em;height:7em;background:#fff;border-radius:.4em;flex:0 0 auto;object-fit:contain;padding:.3em}"
+    + ".footer .finfo{font-size:1.05em;color:#cdd6ea;line-height:1.5}"
+    + ".footer .finfo b{color:#fff;font-size:1.15em}";
+}
+
+function flyerDefaultHtml() {
+  const ph = flyerPlaceholder('이미지 슬롯 · hero');
+  const qph = flyerPlaceholder('QR');
+  const body = '<div class="page">'
+    + '<div class="brand" data-edit-id="brand">원페이지 학습 · 메모리킹</div>'
+    + '<h1 class="headline" data-edit-id="headline">외운 단어의 70%는 다음 날 사라집니다</h1>'
+    + '<p class="sub" data-edit-id="subheadline">잊을 때쯤 다시 보는 간격 반복으로, 진짜 오래 기억하세요.</p>'
+    + '<img class="hero" data-image-id="hero" src="' + ph + '" alt="대표 이미지">'
+    + '<div class="benefits">'
+    + '<div class="benefit"><span class="ic">1</span><span data-edit-id="benefit1">1·2·4·8·16·32일 자동 간격 반복</span></div>'
+    + '<div class="benefit"><span class="ic">2</span><span data-edit-id="benefit2">약점 단어만 따로 모아 집중 학습</span></div>'
+    + '<div class="benefit"><span class="ic">3</span><span data-edit-id="benefit3">말하기·첫글자 퀴즈로 능동 회상</span></div>'
+    + '</div>'
+    + '<div class="offer" data-edit-id="offer">지금 가입하면 첫 단원 무료 체험</div>'
+    + '<div class="spacer"></div>'
+    + '<div class="cta" data-edit-id="cta">QR 스캔하고 지금 시작하기 →</div>'
+    + '<div class="footer">'
+    + '<img class="qr" data-image-id="barcode" src="' + qph + '" alt="QR 코드">'
+    + '<div class="finfo"><b data-edit-id="contact">memoryking.kr</b><br>QR을 스캔해 바로 시작하세요</div>'
+    + '</div></div>';
+  return '<!DOCTYPE html><html lang="ko"><head><meta charset="utf-8"><title>전단지</title><style>'
+    + flyerCss(flyer.size) + '</style></head><body>' + body + '</body></html>';
+}
+
+function initFlyer() {
+  if (flyer.inited) { flyerScale(); return; }
+  $('flyerBody').innerHTML = ''
+    + '<div class="flyer-wrap">'
+    + '  <div class="flyer-stage">'
+    + '    <div class="flyer-toolbar">'
+    + '      <select class="flyer-size-sel" id="flyerSize" onchange="flyerSetSize(this.value)">'
+    + '        <option value="A4">A4 (210×297mm)</option><option value="A3">A3 (297×420mm)</option></select>'
+    + '      <button onclick="flyerPrint()">🖨️ 인쇄</button>'
+    + '      <button onclick="flyerDownload()">⬇️ HTML 저장</button>'
+    + '      <button onclick="flyerResetDefault()">↺ 기본값</button>'
+    + '    </div>'
+    + '    <div class="flyer-preview-scroll"><div class="flyer-scaler" id="flyerScaler">'
+    + '      <iframe id="flyerFrame" title="전단지 미리보기"></iframe></div></div>'
+    + '  </div>'
+    + '  <div class="flyer-panel">'
+    + '    <h3>전단지 편집</h3>'
+    + '    <p class="hint">문구는 입력 즉시 반영됩니다. 이미지는 GPT로 생성한 뒤 업로드하세요.<br>이 버전은 OpenAI를 직접 호출하지 않고 <b>요청문(프롬프트)만 생성</b>합니다.</p>'
+    + '    <details class="flyer-acc" open><summary>✏️ 문구 편집</summary><div class="flyer-acc-body" id="flyerEditFields"></div></details>'
+    + '    <details class="flyer-acc"><summary>🖼️ 이미지 슬롯</summary><div class="flyer-acc-body" id="flyerSlots"></div></details>'
+    + '    <details class="flyer-acc"><summary>🔳 QR(바코드) 삽입</summary><div class="flyer-acc-body">'
+    + '      <div class="flyer-field"><label>QR이 가리킬 URL</label><div class="flyer-row">'
+    + '        <input id="flyerQrUrl" value="' + escapeHtml(LANDING_BASE_URL) + '">'
+    + '        <button class="flyer-size-sel" onclick="flyerUseAttrUrl()" title="마케팅 추적 탭에서 만든 URL 가져오기">추적탭</button></div></div>'
+    + '      <div class="flyer-slot-btns"><button onclick="flyerInsertQr()">QR 생성·삽입</button></div>'
+    + '      <p class="hint" style="margin:8px 0 0">data-image-id="barcode" 슬롯에 QR 이미지(데이터URL)가 삽입됩니다.</p></div></details>'
+    + '    <details class="flyer-acc"><summary>🎨 전체 재설계 요청문</summary><div class="flyer-acc-body">'
+    + '      <p class="hint">버튼으로 만든 요청문을 ChatGPT에 붙여넣어 새 전단지 HTML을 받으세요.</p>'
+    + '      <div class="flyer-slot-btns"><button onclick="flyerGenRedesign()">재설계 요청문 생성·복사</button></div>'
+    + '      <div class="flyer-out" id="flyerRedesignOut" style="display:none"></div></div></details>'
+    + '    <details class="flyer-acc"><summary>📥 새 HTML 적용 / 소스 분석</summary><div class="flyer-acc-body">'
+    + '      <div class="flyer-field"><label>새 전단지 HTML 붙여넣기</label>'
+    + '        <textarea class="flyer-paste" id="flyerPaste" rows="5" placeholder="GPT가 만든 전체 HTML을 여기에…"></textarea></div>'
+    + '      <div class="flyer-slot-btns"><button class="primary" onclick="flyerApplyPaste()">검사 후 적용</button></div>'
+    + '      <div id="flyerPasteMsg"></div>'
+    + '      <hr style="border:0;border-top:1px solid rgba(255,255,255,.1);margin:14px 0">'
+    + '      <div class="flyer-field"><label>소스(랜딩·가이드) HTML → 전단지 생성 요청문</label>'
+    + '        <textarea class="flyer-paste" id="flyerSrc" rows="4" placeholder="랜딩/가이드 HTML을 붙여넣으면 분석 요청문을 만듭니다…"></textarea></div>'
+    + '      <div class="flyer-slot-btns"><button onclick="flyerGenFromSource()">분석·생성 요청문 만들기</button></div>'
+    + '      <div class="flyer-out" id="flyerSrcOut" style="display:none"></div></div></details>'
+    + '  </div>'
+    + '  <input type="file" id="flyerUpload" accept="image/*" style="display:none" onchange="flyerOnUpload(event)">'
+    + '</div>';
+  flyer.inited = true;
+  flyerApplyHtml(flyerDefaultHtml());
+  if (!flyer._resizeBound) {
+    flyer._resizeBound = true;
+    window.addEventListener('resize', () => { if (flyer.inited && state.currentTab === 'flyer') flyerScale(); });
+  }
+}
+
+function flyerApplyHtml(html) {
+  flyer.doc = new DOMParser().parseFromString(html, 'text/html');
+  flyerApplySizeToDoc();
+  renderFlyerPreview();
+  renderFlyerEditPanel();
+  renderFlyerSlots();
+}
+function flyerSerialize() { return '<!DOCTYPE html>\n' + flyer.doc.documentElement.outerHTML; }
+function flyerFrameDoc() { const f = $('flyerFrame'); return f && f.contentDocument; }
+function flyerIds(attr) { return [...flyer.doc.querySelectorAll('[' + attr + ']')].map(e => e.getAttribute(attr)); }
+
+function flyerApplySizeToDoc() {
+  const s = FLYER_SIZES[flyer.size];
+  const pg = flyer.doc.querySelector('.page');
+  if (pg) { pg.style.width = s.w; pg.style.height = s.h; pg.style.fontSize = s.fs; }
+  const st = flyer.doc.querySelector('style');
+  if (st && /@page/.test(st.textContent)) {
+    st.textContent = st.textContent.replace(/@page\s*\{[^}]*\}/, '@page{size:' + flyer.size + ';margin:0}');
+  }
+}
+function flyerSetSize(size) {
+  if (!FLYER_SIZES[size]) return;
+  flyer.size = size;
+  flyerApplySizeToDoc();
+  renderFlyerPreview();
+}
+function renderFlyerPreview() {
+  const f = $('flyerFrame'); if (!f) return;
+  f.onload = () => flyerScale();
+  f.srcdoc = flyerSerialize();
+}
+function flyerScale() {
+  const f = $('flyerFrame'), scaler = $('flyerScaler'); if (!f || !scaler) return;
+  const s = FLYER_SIZES[flyer.size];
+  const scroll = scaler.parentElement;
+  const avail = (scroll ? scroll.clientWidth : s.pxW) - 4;
+  const scale = Math.min(1, avail / s.pxW);
+  f.style.width = s.pxW + 'px'; f.style.height = s.pxH + 'px';
+  f.style.transform = 'scale(' + scale + ')'; f.style.transformOrigin = 'top left';
+  scaler.style.width = (s.pxW * scale) + 'px';
+  scaler.style.height = (s.pxH * scale) + 'px';
+}
+
+function renderFlyerEditPanel() {
+  const host = $('flyerEditFields'); if (!host) return;
+  const els = [...flyer.doc.querySelectorAll('[data-edit-id]')];
+  host.innerHTML = els.map(el => {
+    const id = el.getAttribute('data-edit-id');
+    const label = FLYER_LABELS[id] || id;
+    const val = el.textContent || '';
+    const ctrl = FLYER_LONG.has(id)
+      ? '<textarea rows="2" oninput="flyerEditText(\'' + id + '\', this.value)">' + escapeHtml(val) + '</textarea>'
+      : '<input value="' + escapeHtml(val) + '" oninput="flyerEditText(\'' + id + '\', this.value)">';
+    return '<div class="flyer-field"><label>' + escapeHtml(label) + '</label>' + ctrl + '</div>';
+  }).join('') || '<p class="hint">편집 가능한 텍스트(data-edit-id)가 없습니다.</p>';
+}
+function flyerEditText(id, val) {
+  const node = flyer.doc.querySelector('[data-edit-id="' + id + '"]');
+  if (node) node.textContent = val;
+  const d = flyerFrameDoc();
+  if (d) { const live = d.querySelector('[data-edit-id="' + id + '"]'); if (live) live.textContent = val; }
+}
+
+function renderFlyerSlots() {
+  const host = $('flyerSlots'); if (!host) return;
+  const els = [...flyer.doc.querySelectorAll('[data-image-id]')];
+  host.innerHTML = els.map(el => {
+    const id = el.getAttribute('data-image-id');
+    const src = el.getAttribute('src') || '';
+    const meta = FLYER_SLOT_META[id] || '권장 비율 자유';
+    return '<div class="flyer-slot">'
+      + '<div class="flyer-slot-head"><img class="flyer-slot-thumb" id="flyerThumb_' + id + '" src="' + escapeHtml(src) + '" alt="">'
+      + '<div><div class="flyer-slot-id">' + escapeHtml(id) + '</div><div class="flyer-slot-meta">' + escapeHtml(meta) + '</div></div></div>'
+      + '<div class="flyer-slot-btns"><button onclick="flyerGenImagePrompt(\'' + id + '\')">🎨 프롬프트 요청문</button>'
+      + '<button onclick="flyerPickImage(\'' + id + '\')">⬆️ 이미지 업로드</button></div>'
+      + '<div class="flyer-out" id="flyerSlotOut_' + id + '" style="display:none"></div></div>';
+  }).join('') || '<p class="hint">이미지 슬롯(data-image-id)이 없습니다.</p>';
+}
+function flyerPickImage(id) { flyer.uploadTarget = id; const u = $('flyerUpload'); u.value = ''; u.click(); }
+function flyerOnUpload(e) {
+  const file = e.target.files && e.target.files[0]; if (!file || !flyer.uploadTarget) return;
+  const reader = new FileReader();
+  reader.onload = () => flyerSetImage(flyer.uploadTarget, reader.result);
+  reader.readAsDataURL(file);
+}
+function flyerSetImage(id, src) {
+  const node = flyer.doc.querySelector('[data-image-id="' + id + '"]');
+  if (node) node.setAttribute('src', src);
+  const d = flyerFrameDoc();
+  if (d) { const live = d.querySelector('[data-image-id="' + id + '"]'); if (live) live.setAttribute('src', src); }
+  const thumb = $('flyerThumb_' + id); if (thumb) thumb.src = src;
+}
+
+function flyerInsertQr() {
+  const url = ($('flyerQrUrl').value || '').trim() || LANDING_BASE_URL;
+  if (typeof qrcode === 'undefined') { alert('QR 라이브러리 로드 실패'); return; }
+  if (!flyer.doc.querySelector('[data-image-id="barcode"]')) { alert('이 전단지에 data-image-id="barcode" 슬롯이 없습니다.'); return; }
+  const qr = qrcode(0, 'M'); qr.addData(url); qr.make();
+  flyerSetImage('barcode', qr.createDataURL(6, 4));
+}
+function flyerUseAttrUrl() {
+  const el = $('qrUrl');
+  const url = el && el.textContent && el.textContent.trim();
+  $('flyerQrUrl').value = url || LANDING_BASE_URL;
+  flyerInsertQr();
+}
+
+function flyerFieldText(id) { const el = flyer.doc.querySelector('[data-edit-id="' + id + '"]'); return el ? (el.textContent || '').trim() : ''; }
+function flyerCopy(text, note) {
+  if (navigator.clipboard) navigator.clipboard.writeText(text).catch(() => {});
+}
+function flyerShowOut(elId, text) {
+  const out = $(elId); if (!out) return;
+  out.style.display = 'block';
+  out.textContent = text;
+  flyerCopy(text);
+}
+function flyerGenImagePrompt(id) {
+  const benefits = ['benefit1', 'benefit2', 'benefit3'].map(flyerFieldText).filter(Boolean).join(' / ');
+  const ratio = FLYER_SLOT_RATIO[id] || '자유 비율';
+  const text =
+    '[GPT 이미지 프롬프트 생성 요청]\n\n'
+    + '아래 전단지 정보를 바탕으로, 이미지 슬롯 "' + id + '"에 들어갈 이미지를 만들기 위한\n'
+    + '"영문 이미지 생성 프롬프트"를 작성해 주세요. (gpt-image 계열에 그대로 붙여넣을 영어 프롬프트)\n\n'
+    + '· 헤드라인: ' + (flyerFieldText('headline') || '(없음)') + '\n'
+    + '· 서브 카피: ' + (flyerFieldText('subheadline') || '(없음)') + '\n'
+    + '· 핵심 혜택: ' + (benefits || '(없음)') + '\n'
+    + '· 오퍼: ' + (flyerFieldText('offer') || '(없음)') + '\n'
+    + '· 슬롯/용도: ' + id + ' (' + ratio + ')\n\n'
+    + '요구사항:\n'
+    + '- 신뢰감 있는 교육 브랜드 톤에 맞는 사진 또는 깔끔한 일러스트\n'
+    + '- 이미지 안에 글자(텍스트)는 넣지 말 것\n'
+    + '- 전단지에 자연스럽게 얹히도록 배경은 단순하게\n'
+    + '- 권장 비율: ' + ratio + '\n'
+    + '- 결과는 영어 프롬프트 1개만, 설명 없이';
+  flyerShowOut('flyerSlotOut_' + id, text);
+}
+function flyerGenRedesign() {
+  const editIds = flyerIds('data-edit-id').join(', ');
+  const imgIds = flyerIds('data-image-id').join(', ');
+  const s = FLYER_SIZES[flyer.size];
+  const text =
+    '[전단지 전체 재설계 요청]\n\n'
+    + '아래 전단지 HTML을 더 매력적이고 전문적으로 재디자인해 주세요.\n\n'
+    + '반드시 지킬 규칙:\n'
+    + '- 모든 data-edit-id 속성과 값 유지 (' + editIds + ')\n'
+    + '- 모든 data-image-id 속성과 값 유지, img src는 기존 값 그대로 (' + imgIds + ')\n'
+    + '- 단일 HTML 파일, 인라인 CSS만 (외부 JS/CSS 금지)\n'
+    + '- 인쇄용: @page { size: ' + flyer.size + '; margin: 0 } 포함, 최상위 .page 는 ' + s.w + ' × ' + s.h + ' 고정\n'
+    + '- 한국어 카피 유지(다듬어도 의미 유지)\n'
+    + '- 결과는 전체 HTML 코드만 (코드블록)\n\n'
+    + '현재 HTML:\n' + flyerSerialize();
+  flyerShowOut('flyerRedesignOut', text);
+}
+function flyerGenFromSource() {
+  const src = ($('flyerSrc').value || '').trim();
+  if (!src) { flyerShowOut('flyerSrcOut', '먼저 랜딩/가이드 HTML을 붙여넣어 주세요.'); return; }
+  const editIds = flyerIds('data-edit-id').join(', ');
+  const imgIds = flyerIds('data-image-id').join(', ');
+  const text =
+    '[랜딩/가이드 → 전단지 변환 요청]\n\n'
+    + '아래 웹페이지(랜딩 또는 가이드) HTML의 핵심 메시지를 분석해, 인쇄용 A4 전단지 HTML 한 파일을 만들어 주세요.\n\n'
+    + '반드시 포함할 편집 슬롯 (이 data-edit-id를 가진 요소): ' + editIds + '\n'
+    + '반드시 포함할 이미지 슬롯 (이 data-image-id를 가진 img, src는 placeholder): ' + imgIds + '\n\n'
+    + '규칙:\n'
+    + '- 단일 HTML, 인라인 CSS만 (외부 JS/CSS 금지)\n'
+    + '- @page { size: A4; margin: 0 }, 최상위 .page 는 width:210mm; height:297mm\n'
+    + '- 이미지는 회색 placeholder\n'
+    + '- 한국어, 신뢰감 있는 교육 브랜드 톤\n'
+    + '- 결과는 전체 HTML 코드만\n\n'
+    + '소스 HTML:\n' + src.slice(0, 12000);
+  flyerShowOut('flyerSrcOut', text);
+}
+
+function flyerApplyPaste() {
+  const raw = ($('flyerPaste').value || '').trim();
+  const msg = $('flyerPasteMsg');
+  if (!raw) { msg.innerHTML = '<div class="flyer-msg err">붙여넣은 HTML이 없습니다.</div>'; return; }
+  let doc;
+  try { doc = new DOMParser().parseFromString(raw, 'text/html'); }
+  catch (e) { msg.innerHTML = '<div class="flyer-msg err">HTML 파싱 실패</div>'; return; }
+  const needEdit = flyerIds('data-edit-id');
+  const needImg = flyerIds('data-image-id');
+  const haveEdit = new Set([...doc.querySelectorAll('[data-edit-id]')].map(e => e.getAttribute('data-edit-id')));
+  const haveImg = new Set([...doc.querySelectorAll('[data-image-id]')].map(e => e.getAttribute('data-image-id')));
+  const missE = needEdit.filter(x => !haveEdit.has(x));
+  const missI = needImg.filter(x => !haveImg.has(x));
+  if (missE.length || missI.length) {
+    msg.innerHTML = '<div class="flyer-msg err">적용 취소 — 누락된 슬롯이 있습니다.<br>'
+      + (missE.length ? 'data-edit-id: ' + escapeHtml(missE.join(', ')) + '<br>' : '')
+      + (missI.length ? 'data-image-id: ' + escapeHtml(missI.join(', ')) : '') + '</div>';
+    return;
+  }
+  flyer.doc = doc;
+  flyerApplySizeToDoc();
+  renderFlyerPreview(); renderFlyerEditPanel(); renderFlyerSlots();
+  msg.innerHTML = '<div class="flyer-msg ok">적용 완료 — 모든 슬롯 유지됨 ✓</div>';
+  $('flyerPaste').value = '';
+}
+
+function flyerDownload() {
+  const blob = new Blob([flyerSerialize()], { type: 'text/html;charset=utf-8' });
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = 'flyer-' + flyer.size + '.html';
+  document.body.appendChild(a); a.click();
+  setTimeout(() => { URL.revokeObjectURL(a.href); a.remove(); }, 500);
+}
+function flyerPrint() {
+  const html = flyerSerialize();
+  const ifr = document.createElement('iframe');
+  ifr.style.cssText = 'position:fixed;right:0;bottom:0;width:0;height:0;border:0;';
+  document.body.appendChild(ifr);
+  ifr.onload = () => { try { ifr.contentWindow.focus(); ifr.contentWindow.print(); } catch (e) {} setTimeout(() => ifr.remove(), 1500); };
+  ifr.srcdoc = html;
+}
+function flyerResetDefault() {
+  if (!confirm('기본 전단지로 되돌립니다. 편집 내용이 사라집니다.')) return;
+  flyer.size = 'A4';
+  const sel = $('flyerSize'); if (sel) sel.value = 'A4';
+  flyerApplyHtml(flyerDefaultHtml());
+}
+
+window.initFlyer = initFlyer;
+window.flyerSetSize = flyerSetSize;
+window.flyerPrint = flyerPrint;
+window.flyerDownload = flyerDownload;
+window.flyerResetDefault = flyerResetDefault;
+window.flyerEditText = flyerEditText;
+window.flyerPickImage = flyerPickImage;
+window.flyerOnUpload = flyerOnUpload;
+window.flyerGenImagePrompt = flyerGenImagePrompt;
+window.flyerInsertQr = flyerInsertQr;
+window.flyerUseAttrUrl = flyerUseAttrUrl;
+window.flyerGenRedesign = flyerGenRedesign;
+window.flyerGenFromSource = flyerGenFromSource;
+window.flyerApplyPaste = flyerApplyPaste;
 
 // ============================================================
 // 시작
