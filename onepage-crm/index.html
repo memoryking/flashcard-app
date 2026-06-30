@@ -583,8 +583,6 @@ table { border-collapse: collapse; width: 100%; }
 
 <!-- QR 코드 생성 라이브러리 (CDN, 동기식) -->
 <script src="https://cdn.jsdelivr.net/npm/qrcode-generator@1.4.4/qrcode.min.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/pdfjs-dist@3.11.174/build/pdf.min.js"></script>
-
 <script>
 const API = 'https://onepage-api.memoryking.workers.dev';
 const TOKEN_KEY = 'op_crm_token';
@@ -2668,8 +2666,6 @@ function flyerCss(size) {
     + ".qr-cap{font-size:.82em;font-weight:700;color:#16213e;text-align:center;line-height:1.2}"
     + ".footer .finfo{flex:1;text-align:center;font-size:1em;color:#5b6378;line-height:1.55}"
     + ".footer .finfo b{color:#16213e;font-size:1.15em}"
-    + ".page.back{padding:0;display:block;overflow:hidden;background:#fff}"
-    + ".backimg{width:100%;height:100%;object-fit:contain;display:block;background:#fff}"
     + "@media print{.page{break-after:page}.page:last-child{break-after:auto}}";
 }
 
@@ -2743,13 +2739,6 @@ function initFlyer() {
     + '      <p class="hint">전단지의 "실시간 사회적 증거" 문구에 현재 학습 수치를 넣습니다. (인쇄 시점의 스냅샷)</p>'
     + '      <div class="flyer-slot-btns"><button onclick="flyerLoadStats()">현재 수치 불러와 삽입</button></div>'
     + '      <div id="flyerStatsMsg"></div></div></details>'
-    + '    <details class="flyer-acc"><summary>📄 뒷장 (PDF · 양면인쇄)</summary><div class="flyer-acc-body">'
-    + '      <p class="hint">PDF를 올리면 각 페이지가 <b>뒷장</b>으로 추가됩니다. 여러 PDF를 올려 순서대로 조합 가능. 인쇄 시 프린터에서 <b>양면(긴 가장자리로 넘김)</b>을 선택하세요.</p>'
-    + '      <div class="flyer-slot-btns"><button class="primary" onclick="$(\'flyerPdfInput\').click()">＋ PDF 올리기 (여러 개)</button>'
-    + '        <button onclick="flyerClearBack()">뒷장 비우기</button></div>'
-    + '      <div id="flyerPdfStatus" class="hint" style="margin-top:6px"></div>'
-    + '      <div id="flyerBackList" style="margin-top:8px"></div>'
-    + '      <input type="file" id="flyerPdfInput" accept="application/pdf" multiple style="display:none" onchange="flyerOnPdfUpload(event)"></div></details>'
     + '    <details class="flyer-acc"><summary>🧱 기본틀(템플릿) · 서버</summary><div class="flyer-acc-body">'
     + '      <p class="hint">레이아웃·디자인 틀을 서버에 저장해 어느 PC에서나 공유. (이미지는 가벼운 placeholder 권장)</p>'
     + '      <div class="flyer-field"><label>틀 이름</label><input id="flyerTplName" placeholder="예: 혜택강조형"></div>'
@@ -2793,13 +2782,11 @@ function flyerApplyHtml(html) {
   renderFlyerPreview();
   renderFlyerEditPanel();
   renderFlyerSlots();
-  flyerRenderBackList();
 }
 function flyerSerialize() { return '<!DOCTYPE html>\n' + flyer.doc.documentElement.outerHTML; }
 // 틀 저장용 — 무거운 업로드 이미지(base64)를 placeholder로 치환해 용량(413) 방지
 function flyerSerializeForTemplate() {
   const d = new DOMParser().parseFromString(flyerSerialize(), 'text/html');
-  d.querySelectorAll('.page.back').forEach(el => el.remove());   // 틀엔 뒷장(PDF) 제외
   d.querySelectorAll('[data-image-id]').forEach(el => {
     el.setAttribute('src', flyerPlaceholder('이미지 슬롯 · ' + el.getAttribute('data-image-id')));
     el.removeAttribute('style');   // 업로드 시 넣었던 맞춤/높이 인라인도 초기화(틀 기본 상태로)
@@ -2956,87 +2943,6 @@ function flyerUseAttrUrl() {
   flyerInsertQr();
 }
 
-// ── 뒷장 (PDF → 이미지 페이지) · 양면인쇄 ──────────────────
-function flyerEnsurePdfWorker() {
-  if (window.pdfjsLib && !flyer._pdfWorkerSet) {
-    pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdn.jsdelivr.net/npm/pdfjs-dist@3.11.174/build/pdf.worker.min.js';
-    flyer._pdfWorkerSet = true;
-  }
-}
-async function flyerRenderPdf(arrayBuffer, onPage) {
-  flyerEnsurePdfWorker();
-  const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
-  for (let i = 1; i <= pdf.numPages; i++) {
-    const page = await pdf.getPage(i);
-    const base = page.getViewport({ scale: 1 });
-    const scale = Math.min(2.4, 1654 / base.width);   // A4폭 ≈ 1654px(200dpi) 목표
-    const vp = page.getViewport({ scale });
-    const canvas = document.createElement('canvas');
-    canvas.width = Math.round(vp.width); canvas.height = Math.round(vp.height);
-    await page.render({ canvasContext: canvas.getContext('2d'), viewport: vp }).promise;
-    onPage(canvas.toDataURL('image/jpeg', 0.82));
-  }
-}
-function flyerAddBackPage(dataUrl) {
-  const div = flyer.doc.createElement('div');
-  div.className = 'page back';
-  const img = flyer.doc.createElement('img');
-  img.className = 'backimg'; img.setAttribute('src', dataUrl);
-  div.appendChild(img);
-  flyer.doc.body.appendChild(div);
-}
-function flyerOnPdfUpload(e) {
-  const files = [...(e.target.files || [])];
-  e.target.value = '';
-  if (!files.length) return;
-  if (typeof pdfjsLib === 'undefined') { alert('PDF 라이브러리 로드 실패 — 새로고침 후 다시 시도하세요.'); return; }
-  const status = $('flyerPdfStatus');
-  (async () => {
-    let n = 0;
-    for (const f of files) {
-      if (status) status.textContent = 'PDF 변환 중… (' + f.name + ')';
-      try {
-        const buf = await f.arrayBuffer();
-        await flyerRenderPdf(buf, img => { flyerAddBackPage(img); n++; });
-      } catch (err) { console.error(err); alert('PDF 변환 실패: ' + f.name); }
-    }
-    if (status) status.textContent = n ? (n + '개 뒷장 페이지 추가됨') : '';
-    renderFlyerPreview(); flyerRenderBackList();
-  })();
-}
-function flyerRenderBackList() {
-  const host = $('flyerBackList'); if (!host) return;
-  const imgs = [...flyer.doc.querySelectorAll('.page.back .backimg')];
-  if (!imgs.length) { host.innerHTML = '<p class="hint">뒷장이 없습니다. PDF를 올리면 페이지별로 추가됩니다.</p>'; return; }
-  host.innerHTML = imgs.map((im, i) =>
-    '<div class="flyer-save-item"><div class="flyer-save-meta" style="display:flex;align-items:center;gap:8px">'
-    + '<img src="' + im.getAttribute('src') + '" style="width:34px;height:46px;object-fit:cover;border:1px solid rgba(255,255,255,.18);border-radius:3px">'
-    + '<b>뒷장 ' + (i + 1) + '</b></div>'
-    + '<div class="flyer-save-btns"><button onclick="flyerMoveBack(' + i + ',-1)" title="위로">▲</button>'
-    + '<button onclick="flyerMoveBack(' + i + ',1)" title="아래로">▼</button>'
-    + '<button onclick="flyerRemoveBack(' + i + ')" title="삭제">🗑</button></div></div>'
-  ).join('');
-}
-function flyerMoveBack(idx, dir) {
-  const backs = [...flyer.doc.querySelectorAll('.page.back')];
-  const j = idx + dir;
-  if (j < 0 || j >= backs.length) return;
-  const a = backs[idx], b = backs[j];
-  if (dir < 0) a.parentNode.insertBefore(a, b); else a.parentNode.insertBefore(b, a);
-  renderFlyerPreview(); flyerRenderBackList();
-}
-function flyerRemoveBack(idx) {
-  const backs = [...flyer.doc.querySelectorAll('.page.back')];
-  if (backs[idx]) backs[idx].remove();
-  renderFlyerPreview(); flyerRenderBackList();
-}
-function flyerClearBack() {
-  if (!flyer.doc.querySelector('.page.back')) return;
-  if (!confirm('뒷장을 모두 비울까요?')) return;
-  flyer.doc.querySelectorAll('.page.back').forEach(el => el.remove());
-  renderFlyerPreview(); flyerRenderBackList();
-}
-
 function flyerFieldText(id) { const el = flyer.doc.querySelector('[data-edit-id="' + id + '"]'); return el ? (el.textContent || '').trim() : ''; }
 function flyerCopy(text, note) {
   if (navigator.clipboard) navigator.clipboard.writeText(text).catch(() => {});
@@ -3095,13 +3001,6 @@ async function flyerCompressDocImages() {
     if (!/^data:image\/(png|jpe?g|webp)/i.test(src)) continue;  // svg placeholder 제외
     if (src.length < 120000) continue;                          // 이미 작으면 스킵
     const small = await flyerCompressImage(src, 1600, 0.82);
-    if (small && small.length < src.length) el.setAttribute('src', small);
-  }
-  // 뒷장(PDF 렌더 이미지)
-  for (const el of [...flyer.doc.querySelectorAll('.backimg')]) {
-    const src = el.getAttribute('src') || '';
-    if (!/^data:image\//i.test(src) || src.length < 120000) continue;
-    const small = await flyerCompressImage(src, 1654, 0.8);     // A4 ≈ 1654px @ 200dpi
     if (small && small.length < src.length) el.setAttribute('src', small);
   }
 }
@@ -3305,19 +3204,6 @@ function flyerRenderSaves() {
 }
 
 function flyerPrint() {
-  const backCount = flyer.doc ? flyer.doc.querySelectorAll('.page.back').length : 0;
-  if (backCount > 0) {
-    const ok = confirm(
-      '🖨️ 양면 인쇄 안내\n\n'
-      + '앞면(전단지)과 뒷면(PDF)은 서로 다른 페이지로 출력됩니다.\n'
-      + '한 장의 “양면”으로 뽑으려면, 다음에 뜨는 인쇄 창에서:\n\n'
-      + '   ① 양면(Double-sided / 양면 인쇄)  켜기\n'
-      + '   ② 넘김 방향: “긴 가장자리(Long edge)”\n\n'
-      + '단면(한 면)으로 두면 앞·뒤가 따로 두 장으로 나옵니다.\n'
-      + '계속할까요?'
-    );
-    if (!ok) return;
-  }
   const html = flyerSerialize();
   const ifr = document.createElement('iframe');
   ifr.style.cssText = 'position:fixed;right:0;bottom:0;width:0;height:0;border:0;';
@@ -3345,10 +3231,6 @@ window.flyerGenImagePrompt = flyerGenImagePrompt;
 window.flyerInsertQr = flyerInsertQr;
 window.flyerInsertVideoQr = flyerInsertVideoQr;
 window.flyerUseAttrUrl = flyerUseAttrUrl;
-window.flyerOnPdfUpload = flyerOnPdfUpload;
-window.flyerClearBack = flyerClearBack;
-window.flyerMoveBack = flyerMoveBack;
-window.flyerRemoveBack = flyerRemoveBack;
 window.flyerLoadStats = flyerLoadStats;
 window.flyerSaveCurrent = flyerSaveCurrent;
 window.flyerLoadSave = flyerLoadSave;
