@@ -385,7 +385,7 @@ Type 드롭다운에 보이는 옵션: `INT`, `BIGINT`, `VARCHAR(255)`, `DROPDOW
 | `subtopic_id` | INT | ✅ | **FK → op_subtopics.id (CASCADE)** | — | INT (Run SQL의 id에 맞춤) |
 | `kind` | VARCHAR(255) | ✅ | — | — | `'text'` / `'image'` / `'link'` |
 | `text` | TEXT | — | — | — | `kind='text'` → 본문 (마크다운). `kind='link'` → URL. `kind='image'` 면 빈값 |
-| `image_b64` | **LONGTEXT** | — | — | — | image 블록의 data URL. **JSON 타입이 base64 문자열을 거부하므로 LONGTEXT 사용**. UI에 LONGTEXT 옵션이 없으면 일단 JSON으로 만든 뒤 `ALTER TABLE op_items MODIFY image_b64 LONGTEXT NULL;` |
+| `image_b64` | **LONGTEXT** | — | — | — | image 블록의 `<img src>` 값. **(A) base64 data URL**(파일 업로드·붙여넣기) 또는 **(B) 공개 이미지 URL**(`+ 이미지(URL)`). **JSON 타입이 base64 문자열을 거부하므로 LONGTEXT 사용**. UI에 LONGTEXT 옵션이 없으면 일단 JSON으로 만든 뒤 `ALTER TABLE op_items MODIFY image_b64 LONGTEXT NULL;` |
 | `caption` | VARCHAR(255) | — | — | — | 작은 설명 라인. **모든 kind에서 사용** — image 캡션 / link 제목·설명 / text 보조 설명 |
 | `sort_order` | INT | ✅ | — | `0` | 같은 학습 카드 안 순서 (예약어 `order` 회피) |
 | `updated_at` | DATETIME | — | — | — | |

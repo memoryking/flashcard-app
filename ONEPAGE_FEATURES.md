@@ -872,11 +872,38 @@ function wrapImg(s) { return s ? JSON.stringify(String(s)) : null; }
 function unwrapImg(s) { ... }
 ```
 
-### 두 종류 이미지
+### 세 종류 이미지
 | 용도 | 위치 | 표시 |
 |---|---|---|
-| **대표 이미지** | `op_subtopics.image_b64` | 항상 보임 (펼치지 않아도) |
+| **대표 이미지(커버)** | `op_subtopics.image_b64` | 항상 보임 (펼치지 않아도) |
 | **내용 이미지** | `op_items.kind='image'` | 펼침 시 본문 안에 |
+| **단어 자동 이미지** | `word-images.json` (DB 아님) | 펼침 시 본문 **맨 끝** (커버 없을 때만) |
+
+### 단어 자동 이미지 (word-images.json) — 영단어 등 대량 이미지
+
+**문제**: 영단어 1000개 카드마다 이미지를 넣고 싶은데, base64를 DB에 1000행 넣으면 무거움 + 선생님이 1000번 수작업.
+
+**해법**: 파일명을 단어로 맞춘 이미지를 외부 호스트(sharemyimage)에 일괄 업로드하고, `단어→주소` 매핑표(JSON 파일 1개)만 앱에 둠. **DB 저장 0, 선생님 작업 0.**
+
+```
+[PC 폴더 dog.png …]  ──①── scripts/upload-word-images.js ──②── sharemyimage(이미지 호스팅)
+                                        │
+                                  ③ word-images.json  { "dog": "https://cloud.share.../dog.png", … }
+                                        │ (onepage-user/ 에 배포)
+                              ④ 학생 앱 loadWordImages() 로 1회 로드
+                                        │
+                       ⑤ 카드 제목(단어) → wordImageFor(s) 매칭 → 본문 맨 끝 .item-image
+```
+
+- **매칭**: 카드 제목(`op_subtopics.title`)을 `normWord()`(소문자·공백정리)로 정규화 → `WORD_IMAGES[단어]`. 업로드 스크립트의 `wordKey()`와 **동일 규칙**.
+- **우선순위**: 교사 대표이미지(`image_b64`)가 있으면 그것을 쓰고, 없을 때만 단어 자동 이미지를 본문 맨 끝에 표시. (`wordImageFor()`가 이 분기 담당)
+- **렌더**: `.item-image` 클래스 → 기존 라이트박스(§23.16) 확대가 자동 적용. 접히는 본문 안에 있어 **카드 접으면 같이 닫힘**.
+- **업로드 스크립트** (`scripts/upload-word-images.js`):
+  - sharemyimage 업로드 API. **엔드포인트 주의**: `https://sharemyimage.com/api/1/upload` (apex·끝슬래시 없음 — `www`·끝슬래시는 301 리다이렉트로 POST 본문이 사라져 "Empty upload source" 발생). 인증 `X-API-Key` 헤더, multipart `source` 파일.
+  - **변경 감지**: 파일 내용 md5를 `scripts/.word-images.state.json`(git 제외)에 기록 → 새 파일·바뀐 파일만 재업로드. `--force`로 전체 강제.
+  - **이어하기**: 매 건 저장, 중단돼도 재실행 시 남은 것만.
+  - sharemyimage 앨범 "embed codes" 1000개 export 제한과 **무관** — 업로드 응답에서 주소를 즉시 수집하므로 개수 제한 없음.
+- **참고**: 무료 호스트라 삭제·핫링크·속도제한 리스크 있음. 중요해지면 Cloudflare R2 등으로 전환 가능(스크립트만 교체).
 
 ---
 

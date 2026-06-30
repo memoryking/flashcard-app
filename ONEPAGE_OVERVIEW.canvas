@@ -295,7 +295,7 @@
       "type": "text",
       "x": -700,
       "y": 1320,
-      "width": 1400,
+      "width": 1800,
       "height": 60,
       "text": "## 🌐 외부 서비스 통합 (결제 · 알림 · 캠페인)",
       "color": "6"
@@ -358,6 +358,16 @@
       "width": 320,
       "height": 220,
       "text": "### 📧 Gmail\n이메일 발송 서비스\n\n- Pabbly가 호출\n- 캠페인 이메일 분기\n- 마케팅 · 공지 · 알림",
+      "color": "4"
+    },
+    {
+      "id": "wordImages",
+      "type": "text",
+      "x": 760,
+      "y": 1420,
+      "width": 340,
+      "height": 280,
+      "text": "### 🖼️ sharemyimage\n단어 이미지 호스팅 (영단어 대량)\n\n- `scripts/upload-word-images.js` 일괄 업로드\n- → `word-images.json` (단어→주소)\n- 학생 앱이 카드 제목으로 자동 매칭\n- DB 저장 0 · 본문 맨 끝 · 클릭 확대",
       "color": "4"
     }
   ],
@@ -565,6 +575,14 @@
       "toNode": "gmail",
       "toSide": "left",
       "label": "Email"
+    },
+    {
+      "id": "e-words-student",
+      "fromNode": "wordImages",
+      "fromSide": "top",
+      "toNode": "studentApp",
+      "toSide": "bottom",
+      "label": "word-images.json"
     }
   ]
 }
