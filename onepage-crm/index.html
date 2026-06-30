@@ -3314,6 +3314,19 @@ function flyerDownload() {
   setTimeout(() => { URL.revokeObjectURL(a.href); a.remove(); }, 500);
 }
 function flyerPrint() {
+  const backCount = flyer.doc ? flyer.doc.querySelectorAll('.page.back').length : 0;
+  if (backCount > 0) {
+    const ok = confirm(
+      '🖨️ 양면 인쇄 안내\n\n'
+      + '앞면(전단지)과 뒷면(PDF)은 서로 다른 페이지로 출력됩니다.\n'
+      + '한 장의 “양면”으로 뽑으려면, 다음에 뜨는 인쇄 창에서:\n\n'
+      + '   ① 양면(Double-sided / 양면 인쇄)  켜기\n'
+      + '   ② 넘김 방향: “긴 가장자리(Long edge)”\n\n'
+      + '단면(한 면)으로 두면 앞·뒤가 따로 두 장으로 나옵니다.\n'
+      + '계속할까요?'
+    );
+    if (!ok) return;
+  }
   const html = flyerSerialize();
   const ifr = document.createElement('iframe');
   ifr.style.cssText = 'position:fixed;right:0;bottom:0;width:0;height:0;border:0;';
