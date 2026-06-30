@@ -2600,10 +2600,10 @@ const FLYER_SIZES = {
 };
 const FLYER_LABELS = {
   brand: '브랜드 / 로고 텍스트', headline: '헤드라인', subheadline: '서브 헤드라인',
-  benefit1: '혜택 1', benefit2: '혜택 2', benefit3: '혜택 3',
-  offer: '오퍼 배너', cta: '행동유도(CTA)', contact: '연락처 / 주소',
+  benefit1: '혜택 1', benefit2: '혜택 2', benefit3: '혜택 3', benefit4: '혜택 4',
+  socialproof: '실시간 사회적 증거', offer: '오퍼 배너', cta: '행동유도(CTA)', contact: '연락처 / 주소',
 };
-const FLYER_LONG = new Set(['subheadline', 'benefit1', 'benefit2', 'benefit3', 'offer']);
+const FLYER_LONG = new Set(['subheadline', 'benefit1', 'benefit2', 'benefit3', 'benefit4', 'offer']);
 const FLYER_SLOT_META = {
   hero: '가로형 · 권장 3:2 (예: 1200×800)',
   barcode: 'QR · 정사각 (QR 삽입 권장)',
@@ -2634,6 +2634,8 @@ function flyerCss(size) {
     + ".benefits{display:flex;flex-direction:column;gap:.8em;position:relative;background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.09);border-radius:.7em;padding:1.1em 1.2em}"
     + ".benefit{display:flex;align-items:center;gap:.65em;font-size:1.28em;line-height:1.35;font-weight:600}"
     + ".benefit .ic{flex:0 0 auto;width:1.7em;height:1.7em;border-radius:.45em;background:linear-gradient(135deg,#4caf50,#81c784);display:flex;align-items:center;justify-content:center;color:#0e1838;font-weight:900;font-size:.85em}"
+    + ".social{margin-top:1em;display:flex;align-items:center;gap:.6em;background:rgba(76,175,80,.14);border:1px solid rgba(129,199,132,.42);border-radius:.6em;padding:.7em 1em;font-size:1.18em;font-weight:700;color:#b9f6ca}"
+    + ".social .dot{width:.7em;height:.7em;border-radius:50%;background:#69f0ae;flex:0 0 auto;box-shadow:0 0 0 .26em rgba(105,240,174,.22)}"
     + ".offer{margin:0 0 .7em;background:linear-gradient(135deg,#e94560,#ff6b6b);border-radius:.6em;padding:.9em 1.1em;font-size:1.5em;font-weight:800;text-align:center;box-shadow:0 .4em 1.2em rgba(233,69,96,.4)}"
     + ".spacer{flex:1;min-height:.8em}"
     + ".cta{font-size:1.55em;font-weight:900;text-align:center;background:linear-gradient(135deg,#ffd54f,#ffb300);color:#1a1a2e;border-radius:.6em;padding:.72em;margin-bottom:1em;box-shadow:0 .4em 1.2em rgba(255,193,7,.35)}"
@@ -2655,7 +2657,9 @@ function flyerDefaultHtml() {
     + '<div class="benefit"><span class="ic">1</span><span data-edit-id="benefit1">1·2·4·8·16·32일 자동 간격 반복</span></div>'
     + '<div class="benefit"><span class="ic">2</span><span data-edit-id="benefit2">약점 단어만 따로 모아 집중 학습</span></div>'
     + '<div class="benefit"><span class="ic">3</span><span data-edit-id="benefit3">말하기·첫글자 퀴즈로 능동 회상</span></div>'
+    + '<div class="benefit"><span class="ic">4</span><span data-edit-id="benefit4">매일 학습 그래프로 성취감 시각화</span></div>'
     + '</div>'
+    + '<div class="social"><span class="dot"></span><span data-edit-id="socialproof">지금도 많은 학생이 함께 공부하고 있어요</span></div>'
     + '<div class="spacer"></div>'
     + '<div class="offer" data-edit-id="offer">지금 가입하면 첫 단원 무료 체험</div>'
     + '<div class="cta" data-edit-id="cta">QR 스캔하고 지금 시작하기 →</div>'
@@ -2693,6 +2697,10 @@ function initFlyer() {
     + '        <button class="flyer-size-sel" onclick="flyerUseAttrUrl()" title="마케팅 추적 탭에서 만든 URL 가져오기">추적탭</button></div></div>'
     + '      <div class="flyer-slot-btns"><button onclick="flyerInsertQr()">QR 생성·삽입</button></div>'
     + '      <p class="hint" style="margin:8px 0 0">data-image-id="barcode" 슬롯에 QR 이미지(데이터URL)가 삽입됩니다.</p></div></details>'
+    + '    <details class="flyer-acc"><summary>📊 실시간 사회적 증거</summary><div class="flyer-acc-body">'
+    + '      <p class="hint">전단지의 "실시간 사회적 증거" 문구에 현재 학습 수치를 넣습니다. (인쇄 시점의 스냅샷)</p>'
+    + '      <div class="flyer-slot-btns"><button onclick="flyerLoadStats()">현재 수치 불러와 삽입</button></div>'
+    + '      <div id="flyerStatsMsg"></div></div></details>'
     + '    <details class="flyer-acc"><summary>🎨 전체 재설계 요청문</summary><div class="flyer-acc-body">'
     + '      <p class="hint">버튼으로 만든 요청문을 ChatGPT에 붙여넣어 새 전단지 HTML을 받으세요.</p>'
     + '      <div class="flyer-slot-btns"><button onclick="flyerGenRedesign()">재설계 요청문 생성·복사</button></div>'
@@ -2712,6 +2720,7 @@ function initFlyer() {
     + '</div>';
   flyer.inited = true;
   flyerApplyHtml(flyerDefaultHtml());
+  flyerLoadStats(true);   // 현재 학습 수치 자동 삽입(있을 때만, 조용히)
   if (!flyer._resizeBound) {
     flyer._resizeBound = true;
     window.addEventListener('resize', () => { if (flyer.inited && state.currentTab === 'flyer') flyerScale(); });
@@ -2817,6 +2826,22 @@ function flyerInsertQr() {
   if (!flyer.doc.querySelector('[data-image-id="barcode"]')) { alert('이 전단지에 data-image-id="barcode" 슬롯이 없습니다.'); return; }
   const qr = qrcode(0, 'M'); qr.addData(url); qr.make();
   flyerSetImage('barcode', qr.createDataURL(6, 4));
+}
+function flyerSetEditValue(id, val) { flyerEditText(id, val); renderFlyerEditPanel(); }
+function flyerLoadStats(silent) {
+  const note = $('flyerStatsMsg');
+  if (!flyer.doc.querySelector('[data-edit-id="socialproof"]')) {
+    if (note && !silent) note.innerHTML = '<div class="flyer-msg err">이 전단지에 socialproof 문구 슬롯이 없습니다.</div>';
+    return;
+  }
+  fetch(API + '/stats/learners-now').then(r => r.json()).then(d => {
+    const users = Number(d && d.count) || 0;
+    const cards = Number(d && d.total_cards) || 0;
+    if (users <= 0) { if (note && !silent) note.innerHTML = '<div class="flyer-msg err">아직 오늘 학습자가 없어 수치를 넣지 않았습니다.</div>'; return; }
+    const txt = '🔥 오늘 ' + users + '명이 함께 공부 · 외운 카드 ' + cards.toLocaleString() + '장';
+    flyerSetEditValue('socialproof', txt);
+    if (note) note.innerHTML = '<div class="flyer-msg ok">삽입됨 — ' + escapeHtml(txt) + '</div>';
+  }).catch(() => { if (note && !silent) note.innerHTML = '<div class="flyer-msg err">통계를 불러오지 못했습니다.</div>'; });
 }
 function flyerUseAttrUrl() {
   const el = $('qrUrl');
@@ -2952,6 +2977,7 @@ window.flyerOnUpload = flyerOnUpload;
 window.flyerGenImagePrompt = flyerGenImagePrompt;
 window.flyerInsertQr = flyerInsertQr;
 window.flyerUseAttrUrl = flyerUseAttrUrl;
+window.flyerLoadStats = flyerLoadStats;
 window.flyerGenRedesign = flyerGenRedesign;
 window.flyerGenFromSource = flyerGenFromSource;
 window.flyerApplyPaste = flyerApplyPaste;
