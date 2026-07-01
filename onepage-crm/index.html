@@ -2674,9 +2674,9 @@ function flyerDefaultHtml() {
   const qph = flyerPlaceholder('가입 QR');
   const qph2 = flyerPlaceholder('영상 QR');
   const body = '<div class="page">'
-    + '<div class="brand" data-edit-id="brand">원페이지 학습 · 메모리킹</div>'
-    + '<h1 class="headline" data-edit-id="headline">외운 단어의 70%는 다음 날 사라집니다</h1>'
-    + '<p class="sub" data-edit-id="subheadline">잊을 때쯤 다시 보는 간격 반복으로, 진짜 오래 기억하세요.</p>'
+    + '<div class="brand" data-edit-id="brand">영어단어 학습 · 메모리킹</div>'
+    + '<h1 class="headline" data-edit-id="headline">어제 외운 단어, 오늘도 기억나게</h1>'
+    + '<p class="sub" data-edit-id="subheadline">1·2·4·8·16·32일 자동 복습으로, 잊을 때쯤 다시 봅니다.</p>'
     + '<img class="hero" data-image-id="hero" src="' + ph + '" alt="대표 이미지">'
     + '<div class="benefits">'
     + '<div class="benefit"><span class="ic">1</span><span data-edit-id="benefit1">1·2·4·8·16·32일 자동 간격 반복</span></div>'
@@ -2695,7 +2695,6 @@ function flyerDefaultHtml() {
     + '</div></div>'
     + '<div class="social"><span class="dot"></span><span data-edit-id="socialproof">지금도 많은 학생이 함께 공부하고 있어요</span></div>'
     + '<div class="spacer"></div>'
-    + '<div class="offer" data-edit-id="offer">지금 가입하면 첫 단원 무료 체험</div>'
     + '<div class="cta" data-edit-id="cta">QR 스캔하고 지금 시작하기 →</div>'
     + '<div class="footer">'
     + '<div class="qr-item"><img class="qr" data-image-id="barcode" src="' + qph + '" alt="가입 QR"><span class="qr-cap" data-edit-id="qrcap1">가입하고 시작</span></div>'
@@ -2767,7 +2766,8 @@ function initFlyer() {
     + '</div>';
   flyer.inited = true;
   flyerApplyHtml(flyerDefaultHtml());
-  flyerLoadStats(true);   // 현재 학습 수치 자동 삽입(있을 때만, 조용히)
+  // 초록 박스는 기본 감성 문구 유지 — 작은 숫자는 신뢰보다 불안 요소라 자동 삽입 안 함.
+  // (수치가 충분히 커지면 '📊 실시간 사회적 증거' 패널에서 수동 삽입 가능)
   flyerRenderSaves(); flyerUpdateSaveCur();
   flyerTplRefresh(); flyerCopyRefresh();   // 서버 라이브러리 로드
   if (!flyer._resizeBound) {
