@@ -20,3 +20,8 @@ Thumbs.db
 # 백업이 필요하면 토큰을 제거한 뒤 별도 비공개 위치에 보관할 것.
 # ─────────────────────────────────────────────────────────────
 flashcard/*teacher*.html
+
+# 단어 이미지 업로드 — 로컬 전용 (상태·API키 설정·실행 배치)
+scripts/.word-images.state.json
+scripts/.word-images.config.json
+단어이미지-자동배포.bat
