@@ -185,6 +185,18 @@
     #opRoot .op-hero-visual { max-width: 100%; margin: 18px auto 12px; border-radius: 14px; }
 }
 
+/* ========== 소개 영상 ========== */
+#opRoot .op-video-wrap {
+    position: relative; width: 100%; max-width: 720px;
+    margin: 24px auto 4px; aspect-ratio: 16 / 9;
+    border-radius: 16px; overflow: hidden; background: #000;
+    box-shadow: 0 16px 44px rgba(0,0,0,0.22), 0 0 0 1px rgba(255,255,255,0.06);
+}
+#opRoot .op-video-wrap iframe { position: absolute; inset: 0; width: 100%; height: 100%; border: 0; }
+@media (max-width: 480px) {
+    #opRoot .op-video-wrap { margin: 18px auto 4px; border-radius: 12px; }
+}
+
 /* ========== Section ========== */
 #opRoot .op-section { display: block; padding: 56px 24px; }
 #opRoot .op-section-dark {
@@ -672,6 +684,18 @@
         <div class="op-hero-trust-item"><span>📱</span> 설치 불필요</div>
         <div class="op-hero-trust-item"><span>🔄</span> 실시간 업데이트</div>
         <div class="op-hero-trust-item"><span>💸</span> 자동결제 없음</div>
+    </div>
+</section>
+
+<!-- ========== 소개 영상 (OP_INTRO_VIDEO 설정 시 노출) ========== -->
+<section class="op-section" id="opVideoSection" style="display:none">
+    <span class="op-section-tag">1분 소개 영상</span>
+    <h2>어떻게 <em style="color:#e94560;font-style:normal">기억에 남는지</em><br>영상으로 먼저 보세요</h2>
+    <p class="op-section-lead">QR로 들어오셨다면, 딱 1분만 보고 시작하세요.</p>
+    <div class="op-video-wrap">
+        <iframe id="opIntroVideo" src="" title="메모리킹 소개 영상"
+            allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
+            allowfullscreen loading="lazy"></iframe>
     </div>
 </section>
 
@@ -1272,6 +1296,30 @@
 (function () {
     var root = document.getElementById('opRoot');
     if (!root) return;
+
+    // ── 소개 영상 ──────────────────────────────────────────────
+    // 아래 OP_INTRO_VIDEO 에 유튜브 또는 Gumlet 주소만 넣으면 히어로 아래에 영상이 노출됩니다.
+    //   유튜브: https://youtu.be/ID · https://www.youtube.com/watch?v=ID · shorts/ID
+    //   Gumlet: https://play.gumlet.io/embed/ID (또는 /ID)
+    //   비워두면 영상 섹션은 숨겨집니다.
+    var OP_INTRO_VIDEO = '';
+    function opVideoEmbedUrl(url) {
+        var s = String(url || '').trim();
+        if (!s) return '';
+        var yt = s.match(/(?:youtube\.com\/(?:watch\?v=|embed\/|shorts\/)|youtu\.be\/)([A-Za-z0-9_-]{6,})/);
+        if (yt) return 'https://www.youtube.com/embed/' + yt[1];
+        var gm = s.match(/play\.gumlet\.io\/(?:embed\/)?([A-Za-z0-9_-]+)/);
+        if (gm) return 'https://play.gumlet.io/embed/' + gm[1];
+        return s;   // 이미 임베드 주소면 그대로
+    }
+    try {
+        var _embed = opVideoEmbedUrl(OP_INTRO_VIDEO);
+        if (_embed) {
+            var _vf = document.getElementById('opIntroVideo');
+            var _vs = document.getElementById('opVideoSection');
+            if (_vf && _vs) { _vf.src = _embed; _vs.style.display = ''; }
+        }
+    } catch (e) {}
 
     // ── 최종 CTA 보일 때 sticky 바 자동 숨김 ──
     try {
