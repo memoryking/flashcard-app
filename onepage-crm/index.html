@@ -2612,19 +2612,20 @@ const FLYER_SIZES = {
   A3: { w: '297mm', h: '420mm', fs: '5.66mm', pxW: 1123, pxH: 1587 },
 };
 const FLYER_LABELS = {
-  brand: '브랜드 / 로고 텍스트', headline: '헤드라인', subheadline: '서브 헤드라인',
-  highlight: '이미지 아래 강조 문구', feattitle: '섹션 제목 (왜 오래 기억?)',
-  feat1icon: '기능 1 아이콘(이모지)', benefit1: '기능 1 문구',
-  feat2icon: '기능 2 아이콘(이모지)', benefit2: '기능 2 문구',
-  feat3icon: '기능 3 아이콘(이모지)', benefit3: '기능 3 문구',
-  feat4icon: '기능 4 아이콘(이모지)', benefit4: '기능 4 문구',
-  giftstitle: '선물 제목', gift1: '선물 1', gift2: '선물 2', gift3: '선물 3', gift4: '선물 4', gift5: '선물 5',
-  socialproof: 'CTA 위 문구', cta: '행동유도(CTA)', qrline: 'QR 옆 강조 문구', contact: '연락처 / 주소',
-  qrcap1: 'QR① 캡션 (구형)', qrcap2: 'QR② 캡션 (구형)', offer: '오퍼 배너(구형)',
+  brand: '로고 텍스트',
+  headline: '헤드라인 1줄', headline2: '헤드라인 2줄', subheadline: '서브 헤드라인',
+  feat1icon: '기능1 아이콘(이모지)', feat1title: '기능1 제목', benefit1: '기능1 설명',
+  feat2icon: '기능2 아이콘(이모지)', feat2title: '기능2 제목', benefit2: '기능2 설명',
+  feat3icon: '기능3 아이콘(이모지)', feat3title: '기능3 제목', benefit3: '기능3 설명',
+  feat4icon: '기능4 아이콘(이모지)', feat4title: '기능4 제목', benefit4: '기능4 설명',
+  giftstitle: '선물 헤더', gift1: '선물 1', gift2: '선물 2', gift3: '선물 3', gift4: '선물 4', gift5: '선물 5',
+  testititle: '후기 제목', testi1: '후기 1', testi2: '후기 2',
+  qrline: 'QR 옆 문구', contact: '도메인/연락처', freemo: '무료 강조 문구', cta: 'CTA 버튼', bottombar: '하단 바 문구',
+  socialproof: '(구형)CTA 위 문구', qrcap1: '(구형)', qrcap2: '(구형)', offer: '(구형)', feattitle: '(구형)', highlight: '(구형)',
 };
-const FLYER_LONG = new Set(['subheadline', 'highlight']);
+const FLYER_LONG = new Set(['subheadline', 'testi1', 'testi2', 'benefit1', 'benefit2', 'benefit3', 'benefit4']);
 const FLYER_SLOT_META = {
-  hero: '가로형 · 권장 3:2 (예: 1200×800)',
+  hero: '가로 배너 · 학생+그래프 (권장 2:1~2.5:1)',
   barcode: 'QR 가입/랜딩 · 정사각',
   feat1img: '기능① 아이콘 · 정사각 PNG', feat2img: '기능② 아이콘 · 정사각 PNG',
   feat3img: '기능③ 아이콘 · 정사각 PNG', feat4img: '기능④ 아이콘 · 정사각 PNG',
@@ -2647,78 +2648,93 @@ function flyerPlaceholder(label) {
 
 function flyerCss(size) {
   const s = FLYER_SIZES[size];
+  var NAVY = '#1b2a63', CREAM = '#f4efe3', RED = '#cf2e37', BORD = '#d9d2c2';
   return "*{margin:0;padding:0;box-sizing:border-box}"
     + "@page{size:" + size + ";margin:0}"
     + "html,body{height:100%}"
     + "body{font-family:'Pretendard','Apple SD Gothic Neo','Malgun Gothic',sans-serif;-webkit-print-color-adjust:exact;print-color-adjust:exact}"
-    + ".page{width:" + s.w + ";height:" + s.h + ";font-size:" + s.fs + ";background:#ffffff;color:#1f2433;padding:1.9em;display:flex;flex-direction:column;position:relative;overflow:hidden;word-break:keep-all;line-break:strict}"
-    + ".brand{font-size:1.05em;font-weight:800;letter-spacing:.02em;color:#e94560}"
-    + ".headline{font-size:2.4em;font-weight:900;line-height:1.18;margin-top:.35em;color:#16213e;letter-spacing:-.01em}"
-    + ".sub{font-size:1.15em;color:#5b6378;margin-top:.45em;line-height:1.5}"
-    + ".hero{width:100%;height:8em;object-fit:cover;border-radius:.6em;margin:.8em 0 .85em;border:1px solid #e3e7ef}"
-    + ".highlight{display:flex;align-items:flex-start;gap:.4em;margin:.7em 0 .1em;font-size:1.06em;font-weight:700;color:#2a3142;line-height:1.4}"
-    + ".highlight .hi-ic{color:#e94560;flex:0 0 auto}"
-    + ".sec-title{font-size:1.25em;font-weight:900;color:#16213e;margin:.5em 0 .5em}"
-    + ".benefits{display:grid;grid-template-columns:repeat(4,1fr);gap:.5em .35em;border:1.5px solid #e3e7ef;border-radius:.7em;padding:1em .5em .85em;background:#fbfdfb}"
-    + ".feat{display:flex;flex-direction:column;align-items:center;text-align:center;gap:.38em}"
-    + ".feat-num{width:1.5em;height:1.5em;border-radius:50%;background:#2e9e5b;color:#fff;font-size:.76em;font-weight:800;display:flex;align-items:center;justify-content:center}"
-    + ".feat-ic{display:flex;align-items:center;justify-content:center;height:1.95em}"
-    + ".feat-ic-emoji{font-size:1.85em;line-height:1}"
-    + ".feat-ic-img{width:1.95em;height:1.95em;object-fit:contain}"
-    + ".feat-label{font-size:.98em;font-weight:700;line-height:1.25;color:#2a3142;word-break:keep-all}"
-    + ".gifts{margin-top:.75em;background:#fff0f0;border:2px solid #f2b8b8;border-radius:.7em;padding:.85em .95em}"
-    + ".gifts-title{font-size:1.2em;font-weight:900;color:#c0392b;margin-bottom:.5em;display:flex;align-items:center;gap:.25em}"
-    + ".gifts-list{display:grid;grid-template-columns:1fr 1fr;gap:.45em .9em}"
-    + ".gift{display:flex;align-items:center;gap:.45em;font-size:1.02em;font-weight:600;line-height:1.28;color:#3a3322}"
-    + ".gift .gx{flex:0 0 auto;width:1.2em;height:1.2em;border-radius:50%;background:#2e9e5b;color:#fff;font-size:.72em;font-weight:900;display:flex;align-items:center;justify-content:center}"
-    + ".social{margin-top:.75em;display:flex;align-items:center;gap:.55em;background:#eefaf1;border:1px solid #9bd6ab;border-radius:.6em;padding:.55em .85em;font-size:1.02em;font-weight:700;color:#1f7a3d}"
-    + ".social .dot{width:.65em;height:.65em;border-radius:50%;background:#2e9e5b;flex:0 0 auto}"
-    + ".reassure{margin:.5em 0 .35em;text-align:center;font-size:1.05em;font-weight:800;color:#e94560}"
-    + ".offer{margin:0 0 .55em;background:#fff;border:2px solid #e94560;border-radius:.6em;padding:.7em 1em;font-size:1.3em;font-weight:800;text-align:center;color:#e94560}"
-    + ".spacer{flex:1;min-height:.2em}"
-    + ".cta{font-size:1.45em;font-weight:900;text-align:center;background:#e94560;color:#fff;border-radius:.7em;padding:.7em;margin-bottom:.7em;box-shadow:0 6px 16px rgba(233,69,96,.28)}"
-    + ".footer{display:flex;align-items:center;gap:1.1em;border-top:1.5px solid #e3e7ef;padding-top:.9em}"
-    + ".footer .qr-big{width:9.5em;height:9.5em;background:#fff;border-radius:.5em;object-fit:contain;border:1px solid #e3e7ef;flex:0 0 auto}"
-    + ".footer .finfo{flex:1;text-align:left;font-size:1em;color:#5b6378;line-height:1.5}"
-    + ".footer .finfo b{display:block;color:#16213e;font-size:1.32em;font-weight:800;line-height:1.3;margin-bottom:.2em}"
-    + ".qr-item{display:flex;flex-direction:column;align-items:center;gap:.3em;flex:0 0 auto}"
-    + ".footer .qr{width:5.2em;height:5.2em;background:#fff;border-radius:.4em;object-fit:contain;border:1px solid #e3e7ef}"
-    + ".qr-cap{font-size:.82em;font-weight:700;color:#16213e;text-align:center;line-height:1.2}"
+    + ".page{width:" + s.w + ";height:" + s.h + ";font-size:" + s.fs + ";background:" + CREAM + ";color:" + NAVY + ";padding:1.3em 1.3em 0;display:flex;flex-direction:column;position:relative;overflow:hidden;word-break:keep-all;line-break:strict;box-shadow:inset 0 0 0 2px #cbc2ac}"
+    // 로고
+    + ".brand{align-self:center;background:" + NAVY + ";color:#fff;font-size:1.15em;font-weight:800;letter-spacing:.02em;padding:.35em 1.15em;border-radius:.55em;display:flex;align-items:center;gap:.35em;box-shadow:0 3px 8px rgba(27,42,99,.25)}"
+    + ".brand .crown{font-size:.95em}"
+    // 헤드라인
+    + ".headline{text-align:center;font-size:2.15em;font-weight:900;line-height:1.16;margin-top:.5em;color:" + NAVY + ";letter-spacing:-.01em}"
+    + ".sub{text-align:center;font-size:1.32em;font-weight:800;color:" + NAVY + ";margin-top:.35em}"
+    // 히어로
+    + ".hero{width:100%;height:11em;object-fit:cover;border-radius:.5em;margin:.7em 0 1.1em;border:1px solid " + BORD + ";background:#e9e4d6}"
+    // 기능 카드 4개
+    + ".feats{display:grid;grid-template-columns:repeat(4,1fr);gap:.55em}"
+    + ".fcard{position:relative;background:#fff;border:1px solid " + BORD + ";border-radius:.6em;padding:1.2em .5em .7em;display:flex;flex-direction:column;align-items:center;text-align:center;gap:.32em;box-shadow:0 2px 5px rgba(0,0,0,.05)}"
+    + ".fcard .fnum{position:absolute;top:-.6em;left:.5em;width:1.6em;height:1.6em;border-radius:50%;background:" + NAVY + ";color:#fff;font-size:.82em;font-weight:800;display:flex;align-items:center;justify-content:center;box-shadow:0 2px 4px rgba(27,42,99,.3)}"
+    + ".feat-ic{display:flex;align-items:center;justify-content:center;height:2.1em}"
+    + ".feat-ic-emoji{font-size:2em;line-height:1}"
+    + ".feat-ic-img{width:2.1em;height:2.1em;object-fit:contain}"
+    + ".fcard .ftitle{font-size:1.03em;font-weight:800;color:" + NAVY + ";line-height:1.2}"
+    + ".fcard .fdesc{font-size:.82em;font-weight:500;color:#5b6378;line-height:1.28}"
+    // 선물 박스
+    + ".gifts{margin-top:1.1em;border-radius:.55em;overflow:hidden;border:1.5px solid " + RED + "}"
+    + ".gifts-head{background:" + RED + ";color:#fff;font-size:1.14em;font-weight:800;text-align:center;padding:.5em .6em}"
+    + ".gifts-body{background:#fff;padding:.8em 1.1em}"
+    + ".gifts-list{display:grid;grid-template-columns:1fr 1fr;gap:.42em 1.1em}"
+    + ".gift{display:flex;align-items:center;gap:.45em;font-size:1.04em;font-weight:700;color:" + NAVY + ";line-height:1.25}"
+    + ".gift .gx{flex:0 0 auto;color:" + RED + ";font-weight:900;font-size:1.05em}"
+    // 후기
+    + ".testi{margin-top:.85em}"
+    + ".testi-title{font-size:1.12em;font-weight:800;color:" + NAVY + ";margin-bottom:.15em}"
+    + ".testi-q{font-size:.86em;color:#3a4258;line-height:1.4;margin-top:.28em}"
+    + ".spacer{flex:1;min-height:.3em}"
+    // 푸터 (QR + CTA)
+    + ".footer{display:flex;align-items:center;gap:1em;padding:.75em 0 .85em}"
+    + ".footer .qr-big{width:7.4em;height:7.4em;background:#fff;border-radius:.4em;object-fit:contain;border:1px solid " + BORD + ";flex:0 0 auto}"
+    + ".footer .qr-info{flex:0 0 auto;font-size:1.02em;color:" + NAVY + ";line-height:1.35;max-width:11em}"
+    + ".footer .qr-info b{display:block;font-size:1.06em;font-weight:800;margin-bottom:.15em}"
+    + ".footer .qr-info .dom{color:#5b6378;font-weight:700}"
+    + ".footer .cta-wrap{flex:1;text-align:right}"
+    + ".footer .freemo{color:" + RED + ";font-size:1.14em;font-weight:800;margin-bottom:.45em}"
+    + ".cta{display:inline-block;font-size:1.5em;font-weight:900;text-align:center;background:" + RED + ";color:#fff;border-radius:.5em;padding:.5em 1.1em;box-shadow:0 5px 14px rgba(207,46,55,.3)}"
+    // 하단 바
+    + ".bottombar{margin:0 -1.3em;background:" + NAVY + ";color:#fff;text-align:center;font-size:1.18em;font-weight:800;padding:.62em}"
     + "@media print{.page{break-after:page}.page:last-child{break-after:auto}}";
 }
 
 function flyerDefaultHtml() {
   const ph = flyerPlaceholder('이미지 슬롯 · hero');
   const qph = flyerPlaceholder('가입 QR');
+  const icon = (n, id, emoji) => '<span class="feat-ic"><img class="feat-ic-img" data-image-id="' + id + '" src="" alt="" style="display:none"><span class="feat-ic-emoji" data-edit-id="feat' + n + 'icon">' + emoji + '</span></span>';
   const body = '<div class="page">'
-    + '<div class="brand" data-edit-id="brand">영어단어 학습 · 메모리킹</div>'
-    + '<h1 class="headline" data-edit-id="headline">어제 외운 단어, 오늘도 기억나게</h1>'
-    + '<p class="sub" data-edit-id="subheadline">잊을 때쯤 다시 보여줘 기억에 오래 남게 합니다</p>'
+    + '<div class="brand"><span class="crown">👑</span><span data-edit-id="brand">메모리킹</span></div>'
+    + '<h1 class="headline"><span data-edit-id="headline">공부한 거 다 까먹어?</span><br><span data-edit-id="headline2">메모리킹으로 한 번에 끝내자!</span></h1>'
+    + '<p class="sub" data-edit-id="subheadline">자동 복습으로 지워지지 않는 기억!</p>'
     + '<img class="hero" data-image-id="hero" src="' + ph + '" alt="대표 이미지">'
-    + '<div class="highlight"><span class="hi-ic">❤️</span><span data-edit-id="highlight">잊기 전에 다시 보고, 오래 기억합니다.</span></div>'
-    + '<div class="sec-title" data-edit-id="feattitle">왜 오래 기억될까요?</div>'
-    + '<div class="benefits">'
-    + '<div class="feat"><span class="feat-num">1</span><span class="feat-ic"><img class="feat-ic-img" data-image-id="feat1img" src="" alt="" style="display:none"><span class="feat-ic-emoji" data-edit-id="feat1icon">📅</span></span><span class="feat-label" data-edit-id="benefit1">잊을 때쯤 자동 복습</span></div>'
-    + '<div class="feat"><span class="feat-num">2</span><span class="feat-ic"><img class="feat-ic-img" data-image-id="feat2img" src="" alt="" style="display:none"><span class="feat-ic-emoji" data-edit-id="feat2icon">🎯</span></span><span class="feat-label" data-edit-id="benefit2">틀린 단어 집중 학습</span></div>'
-    + '<div class="feat"><span class="feat-num">3</span><span class="feat-ic"><img class="feat-ic-img" data-image-id="feat3img" src="" alt="" style="display:none"><span class="feat-ic-emoji" data-edit-id="feat3icon">💬</span></span><span class="feat-label" data-edit-id="benefit3">퀴즈로 직접 떠올리기</span></div>'
-    + '<div class="feat"><span class="feat-num">4</span><span class="feat-ic"><img class="feat-ic-img" data-image-id="feat4img" src="" alt="" style="display:none"><span class="feat-ic-emoji" data-edit-id="feat4icon">📈</span></span><span class="feat-label" data-edit-id="benefit4">그래프로 성장 확인</span></div>'
+    + '<div class="feats">'
+    + '<div class="fcard"><span class="fnum">1</span>' + icon(1, 'feat1img', '🧠') + '<div class="ftitle" data-edit-id="feat1title">AI 스마트 복습</div><div class="fdesc" data-edit-id="benefit1">잊을 때를 AI가 계산해 자동 복습</div></div>'
+    + '<div class="fcard"><span class="fnum">2</span>' + icon(2, 'feat2img', '🎯') + '<div class="ftitle" data-edit-id="feat2title">오답만 집중 학습</div><div class="fdesc" data-edit-id="benefit2">오답만 쏙쏙 골라 집중 학습</div></div>'
+    + '<div class="fcard"><span class="fnum">3</span>' + icon(3, 'feat3img', '💡') + '<div class="ftitle" data-edit-id="feat3title">퀴즈로 뇌 자극</div><div class="fdesc" data-edit-id="benefit3">퀴즈로 뇌를 자극해 확실하게 기억</div></div>'
+    + '<div class="fcard"><span class="fnum">4</span>' + icon(4, 'feat4img', '📋') + '<div class="ftitle" data-edit-id="feat4title">약점 단어장 관리</div><div class="fdesc" data-edit-id="benefit4">내 약점 단어장 자동 생성 및 관리</div></div>'
     + '</div>'
     + '<div class="gifts">'
-    + '<div class="gifts-title" data-edit-id="giftstitle">🎁 무료 체험하면 바로 제공</div>'
-    + '<div class="gifts-list">'
-    + '<div class="gift"><span class="gx">✓</span><span data-edit-id="gift1">첫 단원 무료 체험</span></div>'
-    + '<div class="gift"><span class="gx">✓</span><span data-edit-id="gift2">틀린 단어 자동 저장</span></div>'
-    + '<div class="gift"><span class="gx">✓</span><span data-edit-id="gift3">원어민 발음 듣기</span></div>'
-    + '<div class="gift"><span class="gx">✓</span><span data-edit-id="gift4">오답 단어장 PDF</span></div>'
-    + '<div class="gift"><span class="gx">✓</span><span data-edit-id="gift5">하루 10분 복습 플래너</span></div>'
-    + '</div></div>'
-    + '<div class="reassure" data-edit-id="socialproof">가입 없이 바로 체험 가능 · 첫 단원 무료</div>'
+    + '<div class="gifts-head" data-edit-id="giftstitle">[기간 한정] 지금 가입하면 드리는 특별 선물</div>'
+    + '<div class="gifts-body"><div class="gifts-list">'
+    + '<div class="gift"><span class="gx">✓</span><span data-edit-id="gift1">명사 마스터 클래스 프리패스</span></div>'
+    + '<div class="gift"><span class="gx">✓</span><span data-edit-id="gift2">수학 개념 요약 가이드</span></div>'
+    + '<div class="gift"><span class="gx">✓</span><span data-edit-id="gift3">영어 어원 책 (PDF)</span></div>'
+    + '<div class="gift"><span class="gx">✓</span><span data-edit-id="gift4">명문 대생의 비밀 공부법</span></div>'
+    + '<div class="gift"><span class="gx">✓</span><span data-edit-id="gift5">영어 말하기 자신감 부스터</span></div>'
+    + '</div></div></div>'
+    + '<div class="testi">'
+    + '<div class="testi-title" data-edit-id="testititle">"친구들의 생생한 후기"</div>'
+    + '<div class="testi-q" data-edit-id="testi1">*Kim J. (High School 1): "Before, I\'d forget a word the next day. Now I remember them for months! My grade went from a C to an A."</div>'
+    + '<div class="testi-q" data-edit-id="testi2">*Lee S. (Middle School 3): "The automatic review is a lifesaver. It makes studying feel like a game. I actually look forward to it!"</div>'
+    + '</div>'
     + '<div class="spacer"></div>'
-    + '<div class="cta" data-edit-id="cta">무료로 첫 단원 체험하기 →</div>'
     + '<div class="footer">'
     + '<img class="qr-big" data-image-id="barcode" src="' + qph + '" alt="가입 QR">'
-    + '<div class="finfo"><b data-edit-id="qrline">QR 스캔하면 바로 무료 체험 시작</b><span data-edit-id="contact">memoryking.kr</span></div>'
-    + '</div></div>';
+    + '<div class="qr-info"><b data-edit-id="qrline">QR 스캔하고 지금 바로 다운로드</b><span class="dom" data-edit-id="contact">memoryking.kr</span></div>'
+    + '<div class="cta-wrap"><div class="freemo" data-edit-id="freemo">신규 가입 즉시 1개월 무료!</div>'
+    + '<div class="cta" data-edit-id="cta">지금 바로 시작하기</div></div>'
+    + '</div>'
+    + '<div class="bottombar" data-edit-id="bottombar">가입은 무료, 혜택은 무한!</div>'
+    + '</div>';
   return '<!DOCTYPE html><html lang="ko"><head><meta charset="utf-8"><title>전단지</title><style>'
     + flyerCss(flyer.size) + '</style></head><body>' + body + '</body></html>';
 }
@@ -2868,7 +2884,7 @@ function flyerEditText(id, val) {
   if (d) { const live = d.querySelector('[data-edit-id="' + id + '"]'); if (live) live.textContent = val; }
 }
 
-const FLYER_DEF_IMG_H = { hero: 8, barcode: 9.5 };
+const FLYER_DEF_IMG_H = { hero: 11, barcode: 7.4 };
 function renderFlyerSlots() {
   const host = $('flyerSlots'); if (!host) return;
   const els = [...flyer.doc.querySelectorAll('[data-image-id]')];
