@@ -141,7 +141,7 @@ function gitPush() {
     execSync('git add "' + OUT + '"', { cwd: REPO, stdio: 'pipe' });
     try { execSync('git diff --cached --quiet -- "' + OUT + '"', { cwd: REPO, stdio: 'pipe' }); return; }  // 변경 없음 → 종료
     catch { /* exit 1 = 스테이징된 변경 있음 → 커밋 진행 */ }
-    execSync('git commit -m "단어 이미지 매핑 자동 업데이트"', { cwd: REPO, stdio: 'pipe' });
+    execSync('git commit -m "단어 이미지 매핑 자동 업데이트" -- "' + OUT + '"', { cwd: REPO, stdio: 'pipe' });
     execSync('git push origin HEAD', { cwd: REPO, stdio: 'pipe' });
     log('☁️  배포 완료 (git push)');
   } catch (e) {
