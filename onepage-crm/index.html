@@ -2626,8 +2626,13 @@ const FLYER_LONG = new Set(['subheadline', 'highlight']);
 const FLYER_SLOT_META = {
   hero: '가로형 · 권장 3:2 (예: 1200×800)',
   barcode: 'QR 가입/랜딩 · 정사각',
+  feat1img: '기능① 아이콘 · 정사각 PNG', feat2img: '기능② 아이콘 · 정사각 PNG',
+  feat3img: '기능③ 아이콘 · 정사각 PNG', feat4img: '기능④ 아이콘 · 정사각 PNG',
 };
-const FLYER_SLOT_RATIO = { hero: '3:2 가로형', barcode: '1:1 정사각' };
+const FLYER_SLOT_RATIO = {
+  hero: '3:2 가로형', barcode: '1:1 정사각',
+  feat1img: '1:1 정사각', feat2img: '1:1 정사각', feat3img: '1:1 정사각', feat4img: '1:1 정사각',
+};
 
 const flyer = { inited: false, size: 'A4', doc: null, uploadTarget: null, currentSaveId: null, currentCopyId: null, _copysets: [] };
 const FLYER_SAVE_KEY = 'op_flyer_saves_v1';
@@ -2656,7 +2661,9 @@ function flyerCss(size) {
     + ".benefits{display:grid;grid-template-columns:repeat(4,1fr);gap:.5em .35em;border:1.5px solid #e3e7ef;border-radius:.7em;padding:1em .5em .85em;background:#fbfdfb}"
     + ".feat{display:flex;flex-direction:column;align-items:center;text-align:center;gap:.38em}"
     + ".feat-num{width:1.5em;height:1.5em;border-radius:50%;background:#2e9e5b;color:#fff;font-size:.76em;font-weight:800;display:flex;align-items:center;justify-content:center}"
-    + ".feat-ic{font-size:1.85em;line-height:1}"
+    + ".feat-ic{display:flex;align-items:center;justify-content:center;height:1.95em}"
+    + ".feat-ic-emoji{font-size:1.85em;line-height:1}"
+    + ".feat-ic-img{width:1.95em;height:1.95em;object-fit:contain}"
     + ".feat-label{font-size:.98em;font-weight:700;line-height:1.25;color:#2a3142;word-break:keep-all}"
     + ".gifts{margin-top:.75em;background:#fff0f0;border:2px solid #f2b8b8;border-radius:.7em;padding:.85em .95em}"
     + ".gifts-title{font-size:1.2em;font-weight:900;color:#c0392b;margin-bottom:.5em;display:flex;align-items:center;gap:.25em}"
@@ -2690,10 +2697,10 @@ function flyerDefaultHtml() {
     + '<div class="highlight"><span class="hi-ic">❤️</span><span data-edit-id="highlight">잊기 전에 다시 보고, 오래 기억합니다.</span></div>'
     + '<div class="sec-title" data-edit-id="feattitle">왜 오래 기억될까요?</div>'
     + '<div class="benefits">'
-    + '<div class="feat"><span class="feat-num">1</span><span class="feat-ic" data-edit-id="feat1icon">📅</span><span class="feat-label" data-edit-id="benefit1">잊을 때쯤 자동 복습</span></div>'
-    + '<div class="feat"><span class="feat-num">2</span><span class="feat-ic" data-edit-id="feat2icon">🎯</span><span class="feat-label" data-edit-id="benefit2">틀린 단어 집중 학습</span></div>'
-    + '<div class="feat"><span class="feat-num">3</span><span class="feat-ic" data-edit-id="feat3icon">💬</span><span class="feat-label" data-edit-id="benefit3">퀴즈로 직접 떠올리기</span></div>'
-    + '<div class="feat"><span class="feat-num">4</span><span class="feat-ic" data-edit-id="feat4icon">📈</span><span class="feat-label" data-edit-id="benefit4">그래프로 성장 확인</span></div>'
+    + '<div class="feat"><span class="feat-num">1</span><span class="feat-ic"><img class="feat-ic-img" data-image-id="feat1img" src="" alt="" style="display:none"><span class="feat-ic-emoji" data-edit-id="feat1icon">📅</span></span><span class="feat-label" data-edit-id="benefit1">잊을 때쯤 자동 복습</span></div>'
+    + '<div class="feat"><span class="feat-num">2</span><span class="feat-ic"><img class="feat-ic-img" data-image-id="feat2img" src="" alt="" style="display:none"><span class="feat-ic-emoji" data-edit-id="feat2icon">🎯</span></span><span class="feat-label" data-edit-id="benefit2">틀린 단어 집중 학습</span></div>'
+    + '<div class="feat"><span class="feat-num">3</span><span class="feat-ic"><img class="feat-ic-img" data-image-id="feat3img" src="" alt="" style="display:none"><span class="feat-ic-emoji" data-edit-id="feat3icon">💬</span></span><span class="feat-label" data-edit-id="benefit3">퀴즈로 직접 떠올리기</span></div>'
+    + '<div class="feat"><span class="feat-num">4</span><span class="feat-ic"><img class="feat-ic-img" data-image-id="feat4img" src="" alt="" style="display:none"><span class="feat-ic-emoji" data-edit-id="feat4icon">📈</span></span><span class="feat-label" data-edit-id="benefit4">그래프로 성장 확인</span></div>'
     + '</div>'
     + '<div class="gifts">'
     + '<div class="gifts-title" data-edit-id="giftstitle">🎁 무료 체험하면 바로 제공</div>'
@@ -2785,6 +2792,7 @@ function initFlyer() {
 function flyerApplyHtml(html) {
   flyer.doc = new DOMParser().parseFromString(html, 'text/html');
   flyerApplySizeToDoc();
+  flyerSyncFeatIconsIn(flyer.doc);   // 저장본/기본값 로드 시 아이콘(이모지↔이미지) 상태 반영
   renderFlyerPreview();
   renderFlyerEditPanel();
   renderFlyerSlots();
@@ -2794,7 +2802,9 @@ function flyerSerialize() { return '<!DOCTYPE html>\n' + flyer.doc.documentEleme
 function flyerSerializeForTemplate() {
   const d = new DOMParser().parseFromString(flyerSerialize(), 'text/html');
   d.querySelectorAll('[data-image-id]').forEach(el => {
-    el.setAttribute('src', flyerPlaceholder('이미지 슬롯 · ' + el.getAttribute('data-image-id')));
+    const iid = el.getAttribute('data-image-id');
+    if (/^feat\d+img$/.test(iid)) return;   // 기능 아이콘은 작아서 그대로 유지 (이모지↔이미지 상태 보존)
+    el.setAttribute('src', flyerPlaceholder('이미지 슬롯 · ' + iid));
     el.removeAttribute('style');   // 업로드 시 넣었던 맞춤/높이 인라인도 초기화(틀 기본 상태로)
   });
   return '<!DOCTYPE html>\n' + d.documentElement.outerHTML;
@@ -2873,13 +2883,16 @@ function renderFlyerSlots() {
       + '<div class="flyer-slot-head"><img class="flyer-slot-thumb" id="flyerThumb_' + id + '" src="' + escapeHtml(src) + '" alt="">'
       + '<div><div class="flyer-slot-id">' + escapeHtml(id) + '</div><div class="flyer-slot-meta">' + escapeHtml(meta) + '</div></div></div>'
       + '<div class="flyer-slot-btns"><button onclick="flyerGenImagePrompt(\'' + id + '\')">🎨 프롬프트 요청문</button>'
-      + '<button onclick="flyerPickImage(\'' + id + '\')">⬆️ 이미지 업로드</button></div>'
-      + '<div class="flyer-img-ctrl">'
-      + '<label><span>맞춤</span><select onchange="flyerSetImgStyle(\'' + id + '\',\'objectFit\',this.value)">'
-      + opt('cover', '채우기(잘림)') + opt('contain', '전체 보기 (안 잘림)') + opt('fill', '늘리기') + '</select></label>'
-      + '<label><span>높이</span><input type="range" min="4" max="22" step="0.5" value="' + curH + '" oninput="flyerSetImgStyle(\'' + id + '\',\'height\',this.value+\'em\')"></label>'
-      + '<label><span>세로위치</span><input type="range" min="0" max="100" value="' + curPos + '" oninput="flyerSetImgPos(\'' + id + '\',this.value)"></label>'
-      + '</div>'
+      + '<button onclick="flyerPickImage(\'' + id + '\')">⬆️ 이미지 업로드</button>'
+      + (/^feat\d+img$/.test(id) ? '<button onclick="flyerClearImage(\'' + id + '\')" title="이모지로 되돌리기">↺ 이모지</button>' : '') + '</div>'
+      // 기능 아이콘은 크기가 고정(CSS)이라 맞춤/높이/위치 컨트롤 생략
+      + (/^feat\d+img$/.test(id) ? '<div class="flyer-slot-meta" style="margin-top:4px">PNG 업로드 시 이모지 대신 표시 · 투명 배경 정사각 권장</div>'
+        : '<div class="flyer-img-ctrl">'
+          + '<label><span>맞춤</span><select onchange="flyerSetImgStyle(\'' + id + '\',\'objectFit\',this.value)">'
+          + opt('cover', '채우기(잘림)') + opt('contain', '전체 보기 (안 잘림)') + opt('fill', '늘리기') + '</select></label>'
+          + '<label><span>높이</span><input type="range" min="4" max="22" step="0.5" value="' + curH + '" oninput="flyerSetImgStyle(\'' + id + '\',\'height\',this.value+\'em\')"></label>'
+          + '<label><span>세로위치</span><input type="range" min="0" max="100" value="' + curPos + '" oninput="flyerSetImgPos(\'' + id + '\',this.value)"></label>'
+          + '</div>')
       + '<div class="flyer-out" id="flyerSlotOut_' + id + '" style="display:none"></div></div>';
   }).join('') || '<p class="hint">이미지 슬롯(data-image-id)이 없습니다.</p>';
 }
@@ -2898,22 +2911,55 @@ function flyerOnUpload(e) {
   reader.onload = async () => {
     const src = reader.result;
     let out = src;
-    try { const small = await flyerCompressImage(src, 1600, 0.85); if (small && small.length < src.length) out = small; } catch (e2) {}
+    if (/^feat\d+img$/.test(target)) {
+      // 아이콘: 256px PNG로 축소 (투명 배경 유지)
+      try { const small = await flyerCompressImage(src, 256, 0.92, 'image/png'); if (small) out = small; } catch (e2) {}
+    } else {
+      try { const small = await flyerCompressImage(src, 1600, 0.85); if (small && small.length < src.length) out = small; } catch (e2) {}
+    }
     flyerSetImage(target, out);
   };
   reader.readAsDataURL(file);
 }
+// 기능 아이콘 표시 동기화 — 실제 업로드 이미지(래스터/URL)가 있으면 이미지, 없으면 이모지.
+//   (SVG placeholder는 업로드로 치지 않음)
+function flyerSyncFeatIconsIn(doc) {
+  if (!doc) return;
+  doc.querySelectorAll('.feat-ic').forEach(ic => {
+    const img = ic.querySelector('.feat-ic-img');
+    const emo = ic.querySelector('.feat-ic-emoji');
+    const src = (img && img.getAttribute('src')) || '';
+    const hasImg = /^(data:image\/(png|jpe?g|webp|gif|avif)|https?:)/i.test(src);
+    if (img) img.style.display = hasImg ? 'block' : 'none';
+    if (emo) emo.style.display = hasImg ? 'none' : '';
+  });
+}
+
 function flyerSetImage(id, src) {
   const node = flyer.doc.querySelector('[data-image-id="' + id + '"]');
   if (node) node.setAttribute('src', src);
-  const d = flyerFrameDoc();
-  if (d) { const live = d.querySelector('[data-image-id="' + id + '"]'); if (live) live.setAttribute('src', src); }
+  if (/^feat\d+img$/.test(id)) {
+    // 아이콘 교체 — 이모지/이미지 전환 반영 위해 전체 재직렬화
+    flyerSyncFeatIconsIn(flyer.doc);
+    renderFlyerPreview();
+  } else {
+    const d = flyerFrameDoc();
+    if (d) { const live = d.querySelector('[data-image-id="' + id + '"]'); if (live) live.setAttribute('src', src); }
+  }
   const thumb = $('flyerThumb_' + id); if (thumb) thumb.src = src;
+}
+// 아이콘 이미지 제거 → 이모지로 되돌리기
+function flyerClearImage(id) {
+  const node = flyer.doc.querySelector('[data-image-id="' + id + '"]');
+  if (node) node.setAttribute('src', '');
+  flyerSyncFeatIconsIn(flyer.doc);
+  renderFlyerPreview();
+  const thumb = $('flyerThumb_' + id); if (thumb) thumb.src = '';
 }
 
 function flyerMakeQr(slotId, url) {
   if (typeof qrcode === 'undefined') { alert('QR 라이브러리 로드 실패'); return; }
-  if (!flyer.doc.querySelector('[data-image-id="' + slotId + '"]')) { alert('이 전단지에 ' + slotId + ' 슬롯이 없습니다. (＋ 새 전단지로 최신 틀을 쓰면 가입·영상 QR이 모두 있습니다)'); return; }
+  if (!flyer.doc.querySelector('[data-image-id="' + slotId + '"]')) { alert('이 전단지에 ' + slotId + ' 슬롯이 없습니다. (＋ 새 전단지로 최신 틀을 쓰세요)'); return; }
   const qr = qrcode(0, 'M'); qr.addData(url); qr.make();
   flyerSetImage(slotId, qr.createDataURL(6, 4));
 }
@@ -2975,7 +3021,7 @@ function flyerGenImagePrompt(id) {
   flyerShowOut('flyerSlotOut_' + id, text);
 }
 // ── 이미지 압축 (용량 절감 — localStorage/서버 한도 방지) ──
-function flyerCompressImage(dataUrl, maxDim, quality) {
+function flyerCompressImage(dataUrl, maxDim, quality, mime) {
   return new Promise(res => {
     const img = new Image();
     img.onload = () => {
@@ -2985,7 +3031,7 @@ function flyerCompressImage(dataUrl, maxDim, quality) {
       try {
         const c = document.createElement('canvas'); c.width = w; c.height = h;
         c.getContext('2d').drawImage(img, 0, 0, w, h);
-        res(c.toDataURL('image/jpeg', quality));
+        res(c.toDataURL(mime || 'image/jpeg', quality));   // 아이콘은 'image/png'으로 투명 유지
       } catch (e) { res(dataUrl); }
     };
     img.onerror = () => res(dataUrl);
@@ -3226,6 +3272,7 @@ window.flyerResetDefault = flyerResetDefault;
 window.flyerEditText = flyerEditText;
 window.flyerPickImage = flyerPickImage;
 window.flyerOnUpload = flyerOnUpload;
+window.flyerClearImage = flyerClearImage;
 window.flyerSetImgStyle = flyerSetImgStyle;
 window.flyerSetImgPos = flyerSetImgPos;
 window.flyerGenImagePrompt = flyerGenImagePrompt;
