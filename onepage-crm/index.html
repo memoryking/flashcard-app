@@ -2634,8 +2634,9 @@ const FLYER_SLOT_RATIO = {
   feat1img: '1:1 정사각', feat2img: '1:1 정사각', feat3img: '1:1 정사각', feat4img: '1:1 정사각',
 };
 
-const flyer = { inited: false, size: 'A4', doc: null, uploadTarget: null, currentSaveId: null, currentCopyId: null, _copysets: [] };
+const flyer = { inited: false, size: 'A4', doc: null, uploadTarget: null, currentSaveId: null, currentCopyId: null, _copysets: [], _reassureBackup: '' };
 const FLYER_SAVE_KEY = 'op_flyer_saves_v1';
+const FLYER_REASSURE_DEFAULT = '가입 없이 바로 체험 가능 · 첫 단원 무료';   // CTA 위 기본 문구 (통계 제거 시 복원)
 
 function flyerPlaceholder(label) {
   const svg = "<svg xmlns='http://www.w3.org/2000/svg' width='800' height='534'>"
@@ -2748,8 +2749,9 @@ function initFlyer() {
     + '      <div class="flyer-slot-btns"><button onclick="flyerInsertQr()">QR 생성·삽입</button></div>'
     + '      <p class="hint" style="margin:8px 0 0">전단지 하단에 큰 QR 하나로 들어갑니다. 소개영상은 랜딩페이지에서 재생되니, 이 QR은 랜딩페이지 주소로만 두세요.</p></div></details>'
     + '    <details class="flyer-acc"><summary>📊 실시간 사회적 증거</summary><div class="flyer-acc-body">'
-    + '      <p class="hint">전단지의 "실시간 사회적 증거" 문구에 현재 학습 수치를 넣습니다. (인쇄 시점의 스냅샷)</p>'
-    + '      <div class="flyer-slot-btns"><button onclick="flyerLoadStats()">현재 수치 불러와 삽입</button></div>'
+    + '      <p class="hint">CTA 위 문구에 현재 학습 수치를 넣거나(스냅샷), 다시 빼서 원래 문구로 되돌립니다.</p>'
+    + '      <div class="flyer-slot-btns"><button class="primary" onclick="flyerLoadStats()">＋ 현재 수치 삽입</button>'
+    + '        <button onclick="flyerClearStats()">－ 빼기 (원래 문구로)</button></div>'
     + '      <div id="flyerStatsMsg"></div></div></details>'
     + '    <details class="flyer-acc"><summary>🧱 기본틀(템플릿) · 서버</summary><div class="flyer-acc-body">'
     + '      <p class="hint">레이아웃·디자인 틀을 서버에 저장해 어느 PC에서나 공유. (이미지는 가벼운 placeholder 권장)</p>'
@@ -2968,6 +2970,7 @@ function flyerInsertQr() {
   flyerMakeQr('barcode', url);
 }
 function flyerSetEditValue(id, val) { flyerEditText(id, val); renderFlyerEditPanel(); }
+function flyerIsStatsText(t) { return /오늘\s*\d+\s*명이 함께 공부/.test(String(t || '')); }
 function flyerLoadStats(silent) {
   const note = $('flyerStatsMsg');
   if (!flyer.doc.querySelector('[data-edit-id="socialproof"]')) {
@@ -2978,10 +2981,24 @@ function flyerLoadStats(silent) {
     const users = Number(d && d.count) || 0;
     const cards = Number(d && d.total_cards) || 0;
     if (users <= 0) { if (note && !silent) note.innerHTML = '<div class="flyer-msg err">아직 오늘 학습자가 없어 수치를 넣지 않았습니다.</div>'; return; }
+    // 삽입 전 원래 문구 백업 (이미 통계 문구면 백업 안 함 → 제거 시 항상 일반 문구로 복원)
+    const cur = flyerFieldText('socialproof');
+    if (!flyerIsStatsText(cur)) flyer._reassureBackup = cur;
     const txt = '🔥 오늘 ' + users + '명이 함께 공부 · 외운 카드 ' + cards.toLocaleString() + '장';
     flyerSetEditValue('socialproof', txt);
     if (note) note.innerHTML = '<div class="flyer-msg ok">삽입됨 — ' + escapeHtml(txt) + '</div>';
   }).catch(() => { if (note && !silent) note.innerHTML = '<div class="flyer-msg err">통계를 불러오지 못했습니다.</div>'; });
+}
+// 실시간 사회적 증거 제거 → 원래(백업) 문구, 없으면 기본 문구로 복원
+function flyerClearStats() {
+  const note = $('flyerStatsMsg');
+  if (!flyer.doc.querySelector('[data-edit-id="socialproof"]')) {
+    if (note) note.innerHTML = '<div class="flyer-msg err">이 전단지에 socialproof 문구 슬롯이 없습니다.</div>';
+    return;
+  }
+  const restore = flyer._reassureBackup || FLYER_REASSURE_DEFAULT;
+  flyerSetEditValue('socialproof', restore);
+  if (note) note.innerHTML = '<div class="flyer-msg ok">제거됨 — 문구를 원래대로 되돌렸습니다.</div>';
 }
 function flyerUseAttrUrl() {
   const el = $('qrUrl');
@@ -3122,8 +3139,8 @@ function flyerNewFlyer() {
   const sel = $('flyerSize'); if (sel) sel.value = 'A4';
   flyer.currentSaveId = null;
   const nm = $('flyerSaveName'); if (nm) nm.value = '';
+  flyer._reassureBackup = '';
   flyerApplyHtml(flyerDefaultHtml());
-  flyerLoadStats(true);
   flyerRenderSaves(); flyerUpdateSaveCur();
 }
 function flyerUpdateSaveCur() {
@@ -3279,6 +3296,7 @@ window.flyerGenImagePrompt = flyerGenImagePrompt;
 window.flyerInsertQr = flyerInsertQr;
 window.flyerUseAttrUrl = flyerUseAttrUrl;
 window.flyerLoadStats = flyerLoadStats;
+window.flyerClearStats = flyerClearStats;
 window.flyerSaveCurrent = flyerSaveCurrent;
 window.flyerLoadSave = flyerLoadSave;
 window.flyerDuplicateSave = flyerDuplicateSave;
