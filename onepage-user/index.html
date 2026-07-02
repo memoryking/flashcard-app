@@ -5827,7 +5827,18 @@ async function studyDayPick(subId, targetBox) {
     } catch {}
 
     // 재렌더 + 학습한 카드 다음으로 스크롤
-    if (state.currentChapter) { renderTree(state.currentChapter.id); scrollToCardAfter(nextSid); }
+    if (state.currentChapter) {
+      // 재렌더로 펼친 카드가 사라지며 생기는 '위로 점프'를 상쇄 — 다음 카드를 화면상 같은 위치에 고정.
+      // 그 뒤 한 번의 부드러운 스크롤만 남아 자연스럽게 이동.
+      const sel = nextSid ? '.subtopic[data-sub="' + nextSid + '"]' : null;
+      const beforeTop = (sel && document.querySelector(sel)) ? document.querySelector(sel).getBoundingClientRect().top : null;
+      renderTree(state.currentChapter.id);
+      if (beforeTop != null) {
+        const afterEl = document.querySelector(sel);
+        if (afterEl) window.scrollBy(0, afterEl.getBoundingClientRect().top - beforeTop);   // 즉시 상쇄(점프 제거)
+      }
+      scrollToCardAfter(nextSid);
+    }
   }, 1400);
 }
 
