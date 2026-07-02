@@ -79,10 +79,11 @@ a { color: #4fc3f7; text-decoration: none; }
 .app-header .home-btn:hover { background: rgba(255,255,255,0.12); }
 .app-header .home-btn:active { transform: scale(0.92); }
 .app-header .live-chip {
-  display: flex; align-items: center; gap: 5px;
+  display: inline-flex; align-items: center; gap: 5px;
   background: rgba(76,175,80,0.15); border: 1px solid rgba(76,175,80,0.3);
-  padding: 4px 10px; border-radius: 50px; font-size: 11px; color: #81c784;
+  padding: 4px 11px; border-radius: 50px; font-size: 11px; color: #81c784;
   font-weight: 600;
+  white-space: nowrap; flex-shrink: 0;   /* 세로로 쪼개지지 않게 + 안 찌그러지게 */
 }
 .app-header .live-dot {
   width: 6px; height: 6px; border-radius: 50%;
@@ -95,6 +96,7 @@ a { color: #4fc3f7; text-decoration: none; }
   background: rgba(255,255,255,0.05); color: #ddd;
   padding: 6px 10px; border-radius: 6px; font-size: 12px;
   display: inline-flex; align-items: center; gap: 4px;
+  white-space: nowrap; flex-shrink: 0;
 }
 .app-header .icon-btn:hover { background: rgba(255,255,255,0.1); }
 /* 가이드 버튼 펄스 힌트 — 첫 방문 사용자 '둘러보기' 선택 시 10초간 */
@@ -2513,6 +2515,12 @@ a { color: #4fc3f7; text-decoration: none; }
   .app-header .memorized-toggle { padding: 5px 10px; }
   .app-header .memorized-toggle .cc-label { display: none; }
   .app-header #chStatus { font-size: 11px; padding: 5px 8px; }
+  /* 실시간 칩 — 모바일에선 '학습 중' 생략해 컴팩트 (예: 🟢 2명 · 오늘 172장) */
+  .app-header .live-chip { font-size: 10.5px; padding: 3px 9px; gap: 4px; }
+  .app-header .live-chip .lc-sub { display: none; }
+  .app-header .live-cards { font-size: 10.5px; }
+  .app-header .home-btn { width: 32px; height: 32px; }
+  .app-header .icon-btn { padding: 5px 8px; }
 }
 
 /* ── 자동 업데이트 배너 ─────────────────────────────────── */
@@ -2630,7 +2638,7 @@ a { color: #4fc3f7; text-decoration: none; }
     </button>
     <button class="icon-btn" onclick="refreshChapter()" title="최신 콘텐츠 불러오기">↻</button>
     <div class="live-chip" id="liveChipCh" style="display:none">
-      <div class="live-dot"></div><span id="liveCountCh">0</span>명 학습 중<span id="liveCardsCh" class="live-cards"></span>
+      <div class="live-dot"></div><span id="liveCountCh">0</span>명<span class="lc-sub"> 학습 중</span><span id="liveCardsCh" class="live-cards"></span>
     </div>
     <div class="spacer"></div>
     <button class="icon-btn collapse-center" onclick="collapseAll()" title="모두 접기">
