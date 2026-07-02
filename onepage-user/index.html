@@ -3518,14 +3518,18 @@ function scrollCardIntoView(el) {
 function scrollToStudyCard() {
   requestAnimationFrame(() => { window.scrollTo({ top: 0, behavior: 'smooth' }); });
 }
-// 일반(new): 학습한 카드 바로 '다음' 카드로 스크롤 (리스트 중간 카드를 학습해도 이어서 보이게).
-//   nextSid = 학습 직전 DOM에서 그 카드 다음이던 subtopic id. 없으면(마지막) 다음 학습 대상(current).
-function scrollToCardAfter(nextSid) {
-  requestAnimationFrame(() => {
-    let el = nextSid ? document.querySelector('.subtopic[data-sub="' + nextSid + '"]') : null;
-    if (!el) el = document.querySelector('.subtopic.current');
-    scrollCardIntoView(el);
-  });
+// 스크롤 앵커 — 화면 상단(헤더 아래)에 보이기 시작하는 첫 카드(학습 카드 제외)를 기준으로 잡음.
+// 재렌더 후 이 카드를 같은 화면 위치로 되돌리면 뷰가 위/아래로 튀지 않음 (표준 스크롤 앵커링).
+function pickScrollAnchor(excludeSid) {
+  const header = [...document.querySelectorAll('.app-header')].find(h => h.offsetParent !== null);
+  const headerBottom = header ? header.getBoundingClientRect().bottom : 0;
+  const cards = document.querySelectorAll('.subtopic[data-sub]');
+  for (const el of cards) {
+    if (Number(el.getAttribute('data-sub')) === Number(excludeSid)) continue;
+    const r = el.getBoundingClientRect();
+    if (r.bottom > headerBottom + 4) return { id: el.getAttribute('data-sub'), top: r.top };
+  }
+  return null;
 }
 
 // 기억 각인 연출 — 학습한 카드의 '단어'(없으면 이미지)를 화면 중앙 전면에 크게 띄웠다가 한 점으로 저장.
@@ -5881,14 +5885,6 @@ async function studyDayPick(subId, targetBox) {
 
   // 1) 각인 오버레이 + 카드 페이드
   const cardEl = document.querySelector(`.subtopic[data-sub="${sid}"]`);
-  // 학습 카드 '바로 아래' 카드 — 학습 후 이 카드(및 그 아래)를 화면에 '고정'시킬 기준.
-  // (아래는 고정, 학습 카드가 빠진 만큼 위 카드가 내려와 붙음)
-  let nextSid = null;
-  {
-    const all = [...document.querySelectorAll('.subtopic[data-sub]')];
-    const i = cardEl ? all.indexOf(cardEl) : -1;
-    if (i >= 0 && i + 1 < all.length) nextSid = all[i + 1].getAttribute('data-sub');
-  }
   if (cardEl) { cardEl.classList.add('srs-memorize'); playMemorizeEffect(cardEl); }
 
   // 2) 1.4초 후 state + 서버 동시 처리 + 재렌더
@@ -5917,16 +5913,17 @@ async function studyDayPick(subId, targetBox) {
     //   내일 학습(box=2)은 "안다 → 내일로" 긍정 신호라 miss 0 유지
     if (box === 1) state.understoodMissCount[sid] = 1;
 
-    // 재렌더 — '아래 콘텐츠(다음 카드 이하)'를 화면에 고정.
-    // 학습 카드만 목록에서 빠지고, 그 높이만큼 '위' 카드가 내려와 붙음. 아래 리스트는 안 움직임.
-    // scrollBy는 즉시(보이지 않게) 레이아웃 이동을 상쇄 → 부드러운 스크롤 없음. 각인 뒤에서 감쪽같이 정리.
+    // 재렌더 — 화면 상단에 보이는 카드(학습 카드 제외)를 기준으로 스크롤 위치를 고정(앵커).
+    // → 뷰가 위로/아래로 튀지 않음. 학습 카드만 빠지고:
+    //    학습 카드가 앵커보다 '위'면 → 위가 내려와 붙고(아래 고정),
+    //    학습 카드가 앵커보다 '아래'면 → 아래가 올라와 붙음(위 고정).
+    // scrollBy는 즉시(보이지 않게) 레이아웃 이동을 상쇄 → 부드러운 스크롤 없음. 각인 뒤에서 정리.
     if (state.currentChapter) {
-      const sel = nextSid ? '.subtopic[data-sub="' + nextSid + '"]' : null;
-      const before = (sel && document.querySelector(sel)) ? document.querySelector(sel).getBoundingClientRect().top : null;
+      const anchor = pickScrollAnchor(sid);
       renderTree(state.currentChapter.id);
-      if (before != null) {
-        const after = document.querySelector(sel);
-        if (after) window.scrollBy(0, after.getBoundingClientRect().top - before);
+      if (anchor) {
+        const el = document.querySelector('.subtopic[data-sub="' + anchor.id + '"]');
+        if (el) window.scrollBy(0, el.getBoundingClientRect().top - anchor.top);
       }
     }
 
