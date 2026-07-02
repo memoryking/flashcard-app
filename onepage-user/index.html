@@ -3446,8 +3446,9 @@ function renderTree(chapterId) {
 // 카드 하나를 sticky 헤더 바로 아래로 스크롤.
 function scrollCardIntoView(el) {
   if (!el) return;
-  const header = document.querySelector('.app-header');
-  const offset = (header ? header.getBoundingClientRect().height : 0) + 8;
+  // .app-header 는 home/chapter 두 화면에 각각 있음 → 지금 '보이는' 헤더만 골라 그 높이만큼 여백.
+  const header = [...document.querySelectorAll('.app-header')].find(h => h.offsetParent !== null);
+  const offset = (header ? header.getBoundingClientRect().height : 0) + 10;
   const y = window.scrollY + el.getBoundingClientRect().top - offset;
   window.scrollTo({ top: Math.max(0, y), behavior: 'smooth' });
 }
