@@ -3442,26 +3442,26 @@ function renderTree(chapterId) {
   $('chapterTree').innerHTML = topics.map(t => renderTopic(t, hasAccess)).join('');
 }
 
-// 학습 버튼 후 다음 카드로 넘어갈 때 스크롤 보정 — 다음 단어가 화면 위쪽에 오도록.
-// (긴 내용+이미지를 보려 아래로 내린 상태에서 버튼을 눌러도 다음 단어가 바로 보이게)
+// 학습 버튼 후 스크롤 보정 — 긴 내용+이미지 본 뒤 버튼을 눌러도 다음 단어가 화면 위쪽에 오도록.
+// 카드 하나를 sticky 헤더 바로 아래로 스크롤.
+function scrollCardIntoView(el) {
+  if (!el) return;
+  const header = document.querySelector('.app-header');
+  const offset = (header ? header.getBoundingClientRect().height : 0) + 8;
+  const y = window.scrollY + el.getBoundingClientRect().top - offset;
+  window.scrollTo({ top: Math.max(0, y), behavior: 'smooth' });
+}
+// 다지기(정교화): 다음 포커스 카드가 맨 위 → 최상단으로
 function scrollToStudyCard() {
+  requestAnimationFrame(() => { window.scrollTo({ top: 0, behavior: 'smooth' }); });
+}
+// 일반(new): 학습한 카드 바로 '다음' 카드로 스크롤 (리스트 중간 카드를 학습해도 이어서 보이게).
+//   nextSid = 학습 직전 DOM에서 그 카드 다음이던 subtopic id. 없으면(마지막) 다음 학습 대상(current).
+function scrollToCardAfter(nextSid) {
   requestAnimationFrame(() => {
-    // 다지기(정교화): 포커스 카드가 맨 위 → 최상단으로
-    if (state.memorizedView) { window.scrollTo({ top: 0, behavior: 'smooth' }); return; }
-    // 일반(new): 다음 학습 카드(주황 current)를 sticky 헤더 바로 아래로.
-    // 여러 목차가 열려 있으면 지금 스크롤 위치에 가장 가까운 current(= 학습 중이던 목차) 선택.
-    const currents = [...document.querySelectorAll('.subtopic.current')];
-    if (!currents.length) { window.scrollTo({ top: 0, behavior: 'smooth' }); return; }
-    let best = currents[0], bestD = Infinity;
-    for (const el of currents) {
-      const top = window.scrollY + el.getBoundingClientRect().top;
-      const d = Math.abs(top - window.scrollY);
-      if (d < bestD) { bestD = d; best = el; }
-    }
-    const header = document.querySelector('.app-header');
-    const offset = (header ? header.getBoundingClientRect().height : 0) + 8;
-    const y = window.scrollY + best.getBoundingClientRect().top - offset;
-    window.scrollTo({ top: Math.max(0, y), behavior: 'smooth' });
+    let el = nextSid ? document.querySelector('.subtopic[data-sub="' + nextSid + '"]') : null;
+    if (!el) el = document.querySelector('.subtopic.current');
+    scrollCardIntoView(el);
   });
 }
 
@@ -5781,7 +5781,14 @@ async function studyDayPick(subId, targetBox) {
   if (state.understoodSet.has(sid)) { toast('이미 처리된 카드', true); return; }
 
   // 1) 신비로운 dissolve 애니메이션 (다지기 미래박스 강등과 동일)
-  const cardEl = document.querySelector(`[data-sub="${sid}"]`);
+  const cardEl = document.querySelector(`.subtopic[data-sub="${sid}"]`);
+  // 이 카드 바로 '다음' 카드 id 를 미리 기억 → 학습 후 그 카드로 스크롤 (맨 위로 튀지 않게)
+  let nextSid = null;
+  {
+    const all = [...document.querySelectorAll('.subtopic[data-sub]')];
+    const i = cardEl ? all.indexOf(cardEl) : -1;
+    if (i >= 0 && i + 1 < all.length) nextSid = all[i + 1].getAttribute('data-sub');
+  }
   if (cardEl) cardEl.classList.add('srs-demoting');
 
   // 2) 1.4초 후 state + 서버 동시 처리 + 재렌더
@@ -5818,8 +5825,8 @@ async function studyDayPick(subId, targetBox) {
       }
     } catch {}
 
-    // 재렌더
-    if (state.currentChapter) { renderTree(state.currentChapter.id); scrollToStudyCard(); }
+    // 재렌더 + 학습한 카드 다음으로 스크롤
+    if (state.currentChapter) { renderTree(state.currentChapter.id); scrollToCardAfter(nextSid); }
   }, 1400);
 }
 
