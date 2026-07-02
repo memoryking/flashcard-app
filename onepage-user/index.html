@@ -1847,47 +1847,66 @@ a { color: #4fc3f7; text-decoration: none; }
   60%  { opacity: 0.7; transform: scale(1.15); }
   100% { opacity: 0; transform: scale(1.35); }
 }
-/* 학습(오늘/내일) 카드 닫힘 — "각인 후 저장".
-   ① 각인: 단어/이미지를 잠깐 크게+밝게 (마지막 강한 노출 → 기억 강화)
-   ② 저장: 한 점으로 줄며 위로 빨려 들어가듯 사라짐 (머릿속에 저장되는 은유 + 완료감)
-   transform 기반이라 레이아웃이 접히지 않음 → 스크롤 드리프트 없음. */
+/* 학습(오늘/내일) 카드 닫힘 — 카드는 발광 후 페이드 (실제 히어로 각인은 아래 overlay가 담당) */
 .subtopic.srs-memorize {
   animation: srsMemorize 0.72s cubic-bezier(0.45, 0, 0.3, 1) forwards;
   pointer-events: none; position: relative; z-index: 3; overflow: visible;
 }
-.subtopic.srs-memorize::before {   /* 보랏빛 발광 halo (각인 순간 밝게) */
+.subtopic.srs-memorize::before {   /* 보랏빛 발광 halo */
   content: ''; position: absolute; inset: -6px; border-radius: 16px;
   background: radial-gradient(ellipse at center,
     rgba(186,156,245,0.6) 0%, rgba(149,117,219,0.28) 45%, transparent 72%);
-  opacity: 0; animation: srsMemorizeHalo 0.72s ease-out forwards;
+  opacity: 0; animation: srsMemorizeHalo 0.6s ease-out forwards;
   pointer-events: none; z-index: -1; filter: blur(10px);
 }
-/* 단어·이미지(내용) — 각인(크게) 후 저장(점으로 줄며 위로 빨려 올라감).
-   '단어가 큰 상태에서 줄어듦' + 이미지 카드도 동일. 카드는 발광·페이드만 해서 halo 크기 유지. */
-.subtopic.srs-memorize .subtopic-title,
-.subtopic.srs-memorize .item-image,
-.subtopic.srs-memorize .focus-preview img,
-.subtopic.srs-memorize .subtopic-preview img {
-  animation: srsStore 0.72s cubic-bezier(0.5, 0, 0.25, 1) both;
-  transform-origin: center; will-change: transform; position: relative; z-index: 2;
-}
-@keyframes srsMemorize {   /* 카드: 각인 때 밝아지고 이후 페이드 (스케일 X → halo 정상) */
+@keyframes srsMemorize {
   0%   { opacity: 1; filter: brightness(1); }
-  26%  { opacity: 1; filter: brightness(1.25); }
-  55%  { opacity: 0.9; filter: brightness(1.12); }
+  20%  { opacity: 1; filter: brightness(1.2); }
   100% { opacity: 0; filter: brightness(1.05); }
 }
 @keyframes srsMemorizeHalo {
   0%   { opacity: 0; transform: scale(0.85); }
-  28%  { opacity: 0.95; transform: scale(1.06); }
-  70%  { opacity: 0.4; transform: scale(1.22); }
-  100% { opacity: 0; transform: scale(1.5); }
+  30%  { opacity: 0.9; transform: scale(1.06); }
+  100% { opacity: 0; transform: scale(1.4); }
 }
-@keyframes srsStore {
-  0%   { transform: translateY(0) scale(1); }
-  26%  { transform: translateY(-4px) scale(1.24); }   /* 각인: 단어/이미지 크게 */
-  46%  { transform: translateY(-8px) scale(1.14); }
-  100% { transform: translateY(-48px) scale(0.06); opacity: 0; }  /* 저장: 한 점으로 위로 빨려듦 */
+
+/* 기억 각인 overlay — 단어(또는 이미지)를 화면 전면 중앙에 크게 띄웠다가 한 점으로 저장.
+   카드 레이아웃과 분리(fixed)라 위치·크기 제약 없이 확실하게 크게 보임. */
+.memorize-fx {
+  position: fixed; z-index: 9998; pointer-events: none;
+  transform: translate(-50%, -50%);
+  animation: mfxLift 0.85s cubic-bezier(0.4, 0, 0.2, 1) forwards;
+}
+.memorize-fx-word {
+  font-size: 34px; font-weight: 900; color: #fff; white-space: nowrap; letter-spacing: -0.01em;
+  text-shadow: 0 0 24px rgba(186,156,245,0.95), 0 0 48px rgba(149,117,219,0.7);
+  animation: mfxPop 0.85s cubic-bezier(0.34, 1.3, 0.5, 1) forwards;
+}
+.memorize-fx-img {
+  width: 150px; height: 150px; object-fit: contain; border-radius: 12px;
+  filter: drop-shadow(0 0 24px rgba(186,156,245,0.9));
+  animation: mfxPop 0.85s cubic-bezier(0.34, 1.3, 0.5, 1) forwards;
+}
+.memorize-fx-glow {
+  position: absolute; left: 50%; top: 50%; width: 220px; height: 220px;
+  transform: translate(-50%, -50%); border-radius: 50%; z-index: -1;
+  background: radial-gradient(circle, rgba(186,156,245,0.55) 0%, rgba(149,117,219,0.2) 45%, transparent 70%);
+  filter: blur(12px); opacity: 0; animation: mfxGlow 0.85s ease-out forwards;
+}
+@keyframes mfxPop {   /* 전면에 크게(각인) → 한 점으로(저장) */
+  0%   { transform: scale(0.7); opacity: 0; }
+  16%  { transform: scale(1.35); opacity: 1; }
+  40%  { transform: scale(1.15); opacity: 1; }
+  100% { transform: scale(0.04); opacity: 0; }
+}
+@keyframes mfxLift {   /* 마지막에 위로 살짝 빨려 올라감 (머릿속으로 저장) */
+  0%, 45% { transform: translate(-50%, -50%); }
+  100%    { transform: translate(-50%, -150%); }
+}
+@keyframes mfxGlow {
+  0%   { opacity: 0; transform: translate(-50%, -50%) scale(0.7); }
+  22%  { opacity: 1; transform: translate(-50%, -50%) scale(1.1); }
+  100% { opacity: 0; transform: translate(-50%, -50%) scale(1.5); }
 }
 /* 챕터에서 펼친 미암기 카드 ("틀린 단어") — 앰버 톤 */
 .subtopic.peeked {
@@ -3506,6 +3525,42 @@ function scrollToCardAfter(nextSid) {
     if (!el) el = document.querySelector('.subtopic.current');
     scrollCardIntoView(el);
   });
+}
+
+// 기억 각인 연출 — 학습한 카드의 '단어'(없으면 이미지)를 화면 중앙 전면에 크게 띄웠다가 한 점으로 저장.
+// 카드 레이아웃과 분리된 fixed overlay라 위치·크기 제약 없이 확실히 크게 보임.
+function playMemorizeEffect(cardEl) {
+  if (!cardEl) return;
+  const rect = cardEl.getBoundingClientRect();
+  const cx = rect.left + rect.width / 2;
+  let cy = rect.top + rect.height / 2;
+  cy = Math.max(140, Math.min(cy, window.innerHeight - 140));   // 화면 밖으로 안 나가게
+  const titleEl = cardEl.querySelector('.subtopic-title');
+  const imgEl = cardEl.querySelector('.item-image, .subtopic-preview img, .focus-preview img');
+  const word = titleEl ? (titleEl.textContent || '').trim() : '';
+  const imgSrc = imgEl ? imgEl.getAttribute('src') : '';
+  if (!word && !imgSrc) return;
+
+  const fx = document.createElement('div');
+  fx.className = 'memorize-fx';
+  fx.style.left = cx + 'px';
+  fx.style.top = cy + 'px';
+  const glow = document.createElement('div');
+  glow.className = 'memorize-fx-glow';
+  fx.appendChild(glow);
+  if (word) {                                   // 히어로: 단어 우선(암기 대상)
+    const w = document.createElement('div');
+    w.className = 'memorize-fx-word';
+    w.textContent = word;
+    fx.appendChild(w);
+  } else {                                       // 단어 없으면 이미지 카드 → 이미지
+    const im = document.createElement('img');
+    im.className = 'memorize-fx-img';
+    im.src = imgSrc;
+    fx.appendChild(im);
+  }
+  document.body.appendChild(fx);
+  setTimeout(() => fx.remove(), 950);
 }
 
 // 다지기 모드 v2 — 6박스 (오늘/내일/4/8/16/32일) + 오늘 클리어율 진행바
@@ -5832,7 +5887,7 @@ async function studyDayPick(subId, targetBox) {
     const i = cardEl ? all.indexOf(cardEl) : -1;
     if (i >= 0 && i + 1 < all.length) nextSid = all[i + 1].getAttribute('data-sub');
   }
-  if (cardEl) cardEl.classList.add('srs-memorize');
+  if (cardEl) { cardEl.classList.add('srs-memorize'); playMemorizeEffect(cardEl); }
 
   // 2) 1.4초 후 state + 서버 동시 처리 + 재렌더
   setTimeout(async () => {
