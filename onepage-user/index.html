@@ -1849,14 +1849,14 @@ a { color: #4fc3f7; text-decoration: none; }
 }
 /* 학습(오늘/내일) 카드 닫힘 — 카드는 발광 후 페이드 (실제 히어로 각인은 아래 overlay가 담당) */
 .subtopic.srs-memorize {
-  animation: srsMemorize 0.72s cubic-bezier(0.45, 0, 0.3, 1) forwards;
+  animation: srsMemorize 0.3s ease-out forwards;
   pointer-events: none; position: relative; z-index: 3; overflow: visible;
 }
 .subtopic.srs-memorize::before {   /* 보랏빛 발광 halo */
   content: ''; position: absolute; inset: -6px; border-radius: 16px;
   background: radial-gradient(ellipse at center,
     rgba(186,156,245,0.6) 0%, rgba(149,117,219,0.28) 45%, transparent 72%);
-  opacity: 0; animation: srsMemorizeHalo 0.6s ease-out forwards;
+  opacity: 0; animation: srsMemorizeHalo 0.35s ease-out forwards;
   pointer-events: none; z-index: -1; filter: blur(10px);
 }
 @keyframes srsMemorize {
@@ -5879,15 +5879,8 @@ async function studyDayPick(subId, targetBox) {
   const box = (Number(targetBox) === 2) ? 2 : 1;
   if (state.understoodSet.has(sid)) { toast('이미 처리된 카드', true); return; }
 
-  // 1) 닫힘 애니메이션 — "각인 후 저장"(srs-memorize). transform 기반이라 레이아웃 안 밀림
+  // 1) 각인 오버레이 + 카드 페이드 (스크롤은 건드리지 않음)
   const cardEl = document.querySelector(`.subtopic[data-sub="${sid}"]`);
-  // 이 카드 바로 '다음' 카드 id 를 미리 기억 → 학습 후 그 카드로 스크롤 (맨 위로 튀지 않게)
-  let nextSid = null;
-  {
-    const all = [...document.querySelectorAll('.subtopic[data-sub]')];
-    const i = cardEl ? all.indexOf(cardEl) : -1;
-    if (i >= 0 && i + 1 < all.length) nextSid = all[i + 1].getAttribute('data-sub');
-  }
   if (cardEl) { cardEl.classList.add('srs-memorize'); playMemorizeEffect(cardEl); }
 
   // 2) 1.4초 후 state + 서버 동시 처리 + 재렌더
@@ -5915,6 +5908,14 @@ async function studyDayPick(subId, targetBox) {
     //   시나리오 1: 오늘 학습(box=1)만 miss=1 — "한 번 더 봐야지" 신호
     //   내일 학습(box=2)은 "안다 → 내일로" 긍정 신호라 miss 0 유지
     if (box === 1) state.understoodMissCount[sid] = 1;
+
+    // 재렌더만 — 스크롤을 절대 건드리지 않음.
+    // 학습 카드(passed)는 목록에서 빠지므로, 아래 내용이 그 높이만큼 자연스럽게 올라와
+    // '다음 단어'가 '학습한 단어' 자리로 오고, 위 카드들은 딱 그 자리에 유지됨.
+    // 각인 오버레이가 덮고 있는 동안 반영 → 각인이 사라지면 감쪽같이 정리된 화면.
+    if (state.currentChapter) renderTree(state.currentChapter.id);
+
+    // 서버 동기화 (렌더 후 백그라운드)
     try {
       if (box === 1) {
         await api('POST', '/understood', { subtopic_id: sid });
@@ -5923,21 +5924,7 @@ async function studyDayPick(subId, targetBox) {
         await api('POST', '/understood/promote', { subtopic_id: sid });
       }
     } catch {}
-
-    // 재렌더 + 학습한 카드 다음으로 스크롤
-    if (state.currentChapter) {
-      // 재렌더로 펼친 카드가 사라지며 생기는 '위로 점프'를 상쇄 — 다음 카드를 화면상 같은 위치에 고정.
-      // 그 뒤 한 번의 부드러운 스크롤만 남아 자연스럽게 이동.
-      const sel = nextSid ? '.subtopic[data-sub="' + nextSid + '"]' : null;
-      const beforeTop = (sel && document.querySelector(sel)) ? document.querySelector(sel).getBoundingClientRect().top : null;
-      renderTree(state.currentChapter.id);
-      if (beforeTop != null) {
-        const afterEl = document.querySelector(sel);
-        if (afterEl) window.scrollBy(0, afterEl.getBoundingClientRect().top - beforeTop);   // 즉시 상쇄(점프 제거)
-      }
-      scrollToCardAfter(nextSid);
-    }
-  }, 900);
+  }, 300);
 }
 
 function studyPass(subId, topicId) {
