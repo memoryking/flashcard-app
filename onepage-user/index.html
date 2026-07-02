@@ -5924,6 +5924,15 @@ async function studyDayPick(subId, targetBox) {
       if (anchor) {
         const el = document.querySelector('.subtopic[data-sub="' + anchor.id + '"]');
         if (el) window.scrollBy(0, el.getBoundingClientRect().top - anchor.top);
+      } else {
+        // 학습 카드가 화면 상단의 '유일한' 단어였음(아래엔 목차 헤더뿐 = 그 목차의 마지막 단어).
+        // 남은 단어들이 보이도록, 다음 학습 대상(current, 없으면 첫 단어)을 헤더 바로 아래로 즉시 이동.
+        const cur = document.querySelector('.subtopic.current') || document.querySelector('.subtopic[data-sub]');
+        if (cur) {
+          const header = [...document.querySelectorAll('.app-header')].find(h => h.offsetParent !== null);
+          const off = (header ? header.getBoundingClientRect().height : 0) + 10;
+          window.scrollBy(0, cur.getBoundingClientRect().top - off);
+        }
       }
     }
 
