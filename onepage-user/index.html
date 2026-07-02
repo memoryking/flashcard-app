@@ -1847,23 +1847,47 @@ a { color: #4fc3f7; text-decoration: none; }
   60%  { opacity: 0.7; transform: scale(1.15); }
   100% { opacity: 0; transform: scale(1.35); }
 }
-/* 학습(오늘/내일) 카드 사라짐 — 레이아웃을 접지 않고(공간 유지) 페이드+플로트만.
-   → 사라지는 동안 아래 내용이 위로 밀리는 드리프트가 없어, 다음 카드로 한 번에 부드럽게 이동. */
-.subtopic.srs-vanish {
-  animation: srsVanishAnim 0.6s cubic-bezier(0.45, 0.05, 0.55, 0.95) forwards;
-  pointer-events: none; position: relative; z-index: 1;
+/* 학습(오늘/내일) 카드 닫힘 — "각인 후 저장".
+   ① 각인: 단어/이미지를 잠깐 크게+밝게 (마지막 강한 노출 → 기억 강화)
+   ② 저장: 한 점으로 줄며 위로 빨려 들어가듯 사라짐 (머릿속에 저장되는 은유 + 완료감)
+   transform 기반이라 레이아웃이 접히지 않음 → 스크롤 드리프트 없음. */
+.subtopic.srs-memorize {
+  animation: srsMemorize 0.72s cubic-bezier(0.45, 0, 0.3, 1) forwards;
+  pointer-events: none; position: relative; z-index: 3; overflow: visible;
 }
-.subtopic.srs-vanish::before {
-  content: ''; position: absolute; inset: -4px; border-radius: 14px;
+.subtopic.srs-memorize::before {   /* 보랏빛 발광 halo (각인 순간 밝게) */
+  content: ''; position: absolute; inset: -6px; border-radius: 16px;
   background: radial-gradient(ellipse at center,
-    rgba(186,156,245,0.55) 0%, rgba(149,117,219,0.25) 40%, transparent 70%);
-  opacity: 0; animation: srsDemoteHalo 0.6s ease-out forwards;
-  pointer-events: none; z-index: -1; filter: blur(8px);
+    rgba(186,156,245,0.6) 0%, rgba(149,117,219,0.28) 45%, transparent 72%);
+  opacity: 0; animation: srsMemorizeHalo 0.72s ease-out forwards;
+  pointer-events: none; z-index: -1; filter: blur(10px);
 }
-@keyframes srsVanishAnim {
-  0%   { opacity: 1; transform: translateY(0) scale(1); filter: blur(0) brightness(1); }
-  25%  { opacity: 1; transform: translateY(-3px) scale(1.012); filter: blur(0) brightness(1.16); }
-  100% { opacity: 0; transform: translateY(-16px) scale(0.92); filter: blur(10px) brightness(1); }
+/* 단어·이미지(내용) — 각인(크게) 후 저장(점으로 줄며 위로 빨려 올라감).
+   '단어가 큰 상태에서 줄어듦' + 이미지 카드도 동일. 카드는 발광·페이드만 해서 halo 크기 유지. */
+.subtopic.srs-memorize .subtopic-title,
+.subtopic.srs-memorize .item-image,
+.subtopic.srs-memorize .focus-preview img,
+.subtopic.srs-memorize .subtopic-preview img {
+  animation: srsStore 0.72s cubic-bezier(0.5, 0, 0.25, 1) both;
+  transform-origin: center; will-change: transform; position: relative; z-index: 2;
+}
+@keyframes srsMemorize {   /* 카드: 각인 때 밝아지고 이후 페이드 (스케일 X → halo 정상) */
+  0%   { opacity: 1; filter: brightness(1); }
+  26%  { opacity: 1; filter: brightness(1.25); }
+  55%  { opacity: 0.9; filter: brightness(1.12); }
+  100% { opacity: 0; filter: brightness(1.05); }
+}
+@keyframes srsMemorizeHalo {
+  0%   { opacity: 0; transform: scale(0.85); }
+  28%  { opacity: 0.95; transform: scale(1.06); }
+  70%  { opacity: 0.4; transform: scale(1.22); }
+  100% { opacity: 0; transform: scale(1.5); }
+}
+@keyframes srsStore {
+  0%   { transform: translateY(0) scale(1); }
+  26%  { transform: translateY(-4px) scale(1.24); }   /* 각인: 단어/이미지 크게 */
+  46%  { transform: translateY(-8px) scale(1.14); }
+  100% { transform: translateY(-48px) scale(0.06); opacity: 0; }  /* 저장: 한 점으로 위로 빨려듦 */
 }
 /* 챕터에서 펼친 미암기 카드 ("틀린 단어") — 앰버 톤 */
 .subtopic.peeked {
@@ -5799,7 +5823,7 @@ async function studyDayPick(subId, targetBox) {
   const box = (Number(targetBox) === 2) ? 2 : 1;
   if (state.understoodSet.has(sid)) { toast('이미 처리된 카드', true); return; }
 
-  // 1) 사라짐 애니메이션 — 레이아웃 접힘 없는 페이드(srs-vanish)라 아래 내용이 안 밀림
+  // 1) 닫힘 애니메이션 — "각인 후 저장"(srs-memorize). transform 기반이라 레이아웃 안 밀림
   const cardEl = document.querySelector(`.subtopic[data-sub="${sid}"]`);
   // 이 카드 바로 '다음' 카드 id 를 미리 기억 → 학습 후 그 카드로 스크롤 (맨 위로 튀지 않게)
   let nextSid = null;
@@ -5808,7 +5832,7 @@ async function studyDayPick(subId, targetBox) {
     const i = cardEl ? all.indexOf(cardEl) : -1;
     if (i >= 0 && i + 1 < all.length) nextSid = all[i + 1].getAttribute('data-sub');
   }
-  if (cardEl) cardEl.classList.add('srs-vanish');
+  if (cardEl) cardEl.classList.add('srs-memorize');
 
   // 2) 1.4초 후 state + 서버 동시 처리 + 재렌더
   setTimeout(async () => {
@@ -5857,7 +5881,7 @@ async function studyDayPick(subId, targetBox) {
       }
       scrollToCardAfter(nextSid);
     }
-  }, 600);
+  }, 720);
 }
 
 function studyPass(subId, topicId) {
