@@ -3671,9 +3671,9 @@ function renderMemorizedView(chapterId, hasAccess) {
     const stopFn = state.voiceQuizActive ? 'stopVoiceQuiz' : 'stopFirstLetterQuiz';
     const stopBtnHtml = `<button class="vq-stop-small" onclick="event.stopPropagation();${stopFn}()" title="퀴즈 중단">× 중단</button>`;
     if (state.voiceQuizActive) {
-      todayStageHtml = `<div class="srs-today-stage open vq-active"><div class="stage-head"><span class="stage-name">🎤 음성 퀴즈</span>${stopBtnHtml}<div class="stage-counts">${todayStack}${voiceStack}${flStack}</div></div>${renderVoiceQuizCard(pendingCards, currentQuizSid)}</div>`;
+      todayStageHtml = `<div class="srs-today-stage open vq-active"><div class="stage-head"><span class="stage-name">🎤 음성 퀴즈</span>${stopBtnHtml}<div class="stage-counts">${voiceStack}</div></div>${renderVoiceQuizCard(pendingCards, currentQuizSid)}</div>`;
     } else {
-      todayStageHtml = `<div class="srs-today-stage open fl-active"><div class="stage-head"><span class="stage-name">✏️ 첫글자 퀴즈</span>${stopBtnHtml}<div class="stage-counts">${todayStack}${voiceStack}${flStack}</div></div>${renderFirstLetterQuizCard(pendingCards, currentQuizSid)}</div>`;
+      todayStageHtml = `<div class="srs-today-stage open fl-active"><div class="stage-head"><span class="stage-name">✏️ 첫글자 퀴즈</span>${stopBtnHtml}<div class="stage-counts">${flStack}</div></div>${renderFirstLetterQuizCard(pendingCards, currentQuizSid)}</div>`;
     }
   } else {
     todayStageHtml = renderTodayStage(byBox[1], hasAccess);
@@ -4973,7 +4973,7 @@ function renderTodayStage(byBox1, hasAccess) {
     <div class="stage-head">
       <span class="stage-name">${stageName}</span>
       ${stopBtnHtml}
-      <div class="stage-counts">${todayStack}${voiceStack}${flStack}</div>
+      <div class="stage-counts">${state.elaborationActive ? todayStack : `${todayStack}${voiceStack}${flStack}`}</div>
     </div>
   `;
 
