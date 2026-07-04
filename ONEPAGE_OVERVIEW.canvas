@@ -27,7 +27,7 @@
       "y": -1200,
       "width": 320,
       "height": 200,
-      "text": "## 📣 랜딩 페이지\n`onepage-landing.html`\n\n- 5단계 기억 시스템 설득 구조\n- 후킹 통계형: '70%는 다음 날 사라집니다'\n- 인지과학 PAIN 3가지 → 5가지 해법 → 정교화\n- 일러스트 6장 (Gemini 생성)\n  `onepage-landing-media/*.webp`\n- vipup.site/onepage iframe\n- UTM 자동 캡쳐 + 학생앱 reroute\n- 🔴 **실시간 LIVE 위젯** (히어로 직하)\n  · 오늘 학습자 수 + 카드 수 카운트업\n  · 최근 학습 피드 (이름 마스킹)\n  · `/stats/learners-now` `/stats/live-feed`",
+      "text": "## 📣 랜딩 페이지\n`onepage-landing.html`\n\n- 5단계 기억 시스템 설득 구조\n- 후킹 통계형: 망각 곡선 충격\n- 인지과학 PAIN 3가지 → 5가지 해법 → 정교화\n- 일러스트 6장 (Gemini 생성)\n- **소개 영상 섹션** (히어로 아래, 16:9)\n  · OP_INTRO_VIDEO에 유튜브/Gumlet 주소\n  · 비우면 자동 숨김 · 전단지 QR이 유도\n- vipup.site/onepage iframe · UTM 캡쳐\n- 🔴 실시간 LIVE 위젯 (/stats/*)",
       "color": "1"
     },
     {
@@ -307,7 +307,7 @@
       "y": 1420,
       "width": 320,
       "height": 280,
-      "text": "### 🛠️ CRM 어드민\n`onepage-crm/index.html`\n\n관리자용 대시보드\n- 사용자 목록·검색\n- 챕터 액세스 부여/회수\n- 포인트 수동 조정\n- 캠페인 발송 (SMS/이메일)\n- Airtable 직접 조회\n- **QR + 관심 주제 자동 추가**\n  · 챕터 DB에서 subject 자동 로드\n  · `?interest=A&interest=B` URL 부착\n\n→ 캠페인 페이로드 → Pabbly",
+      "text": "### 🛠️ CRM 어드민\n`onepage-crm/index.html`\n\n관리자용 대시보드\n- 사용자 목록·검색\n- 챕터 액세스 부여/회수\n- 포인트 수동 조정\n- 캠페인 발송 (SMS/이메일)\n- Airtable 직접 조회\n- **QR + 관심 주제 자동 추가**\n- **🖨️ 전단지 생성기**\n  · 문구/이미지/QR/아이콘(PNG) 편집\n  · 실시간 수치 삽입·빼기\n  · 템플릿·A/B 저장, A4/A3 인쇄\n\n→ 캠페인 페이로드 → Pabbly",
       "color": "1"
     },
     {
@@ -367,7 +367,7 @@
       "y": 1420,
       "width": 340,
       "height": 280,
-      "text": "### 🖼️ sharemyimage\n단어 이미지 호스팅 (영단어 대량)\n\n- `scripts/upload-word-images.js` 일괄 업로드\n- → `word-images.json` (단어→주소)\n- 학생 앱이 카드 제목으로 자동 매칭\n- DB 저장 0 · 본문 맨 끝 · 클릭 확대",
+      "text": "### 🖼️ sharemyimage\n단어 이미지 호스팅 (영단어 대량)\n\n- `scripts/upload-word-images.js` 일괄 업로드\n- → `word-images.json` (단어→주소)\n- 학생 앱이 카드 제목으로 자동 매칭\n- DB 저장 0 · 본문 맨 끝 · 클릭 확대\n- **완전 자동화**: `--watch --push`\n  · 폴더 감시 → 업로드 → git push 배포\n  · `단어이미지-자동배포.bat` 더블클릭\n  · 변경(md5) 감지·이어하기",
       "color": "4"
     }
   ],
