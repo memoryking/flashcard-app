@@ -956,6 +956,76 @@ async function handleDeleteSubtopic(request, env, id) {
 // 핸들러 — 내용 블록 (items) + 구독 게이트
 // ============================================================
 
+// ── 단어풀(op_pool) 참조 — 영단어·한자 카드 뒷면을 풀에서 조합 ─────────────
+// op_items.text 가 "@@WORD:ability@@" 마커면, 서빙 시 op_pool[ability] 로 뒷면 HTML 조합해 치환.
+// → 풀 수정 후 op_pool 갱신만으로 그 단어가 든 모든 콘텐츠가 자동 반영. (앞면=subtopic.name, 이미지=앱 자동)
+const OP_WORD_RE = /^@@WORD:([^@]+)@@$/;
+function opHtmlEsc(s) {
+  return String(s == null ? '' : s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+}
+function composeWordCardHTML(r) {
+  const e = opHtmlEsc, p = [];
+  if (r.pronunciation)      p.push(`<p class="wp-pron">${e(r.pronunciation)}</p>`);
+  if (r.meaning)            p.push(`<p class="wp-meaning"><b>뜻</b> ${e(r.meaning)}</p>`);
+  if (r.sound_association)  p.push(`<p class="wp-sa"><b>암기법</b> ${e(r.sound_association)}</p>`);
+  if (r.mnemonic_detail)    p.push(`<p class="wp-detail">${e(r.mnemonic_detail)}</p>`);
+  if (r.example1_en)        p.push(`<p class="wp-ex">${e(r.example1_en)}${r.example1_ko ? `<br><span class="wp-ex-ko">${e(r.example1_ko)}</span>` : ''}</p>`);
+  if (r.example2_en)        p.push(`<p class="wp-ex">${e(r.example2_en)}${r.example2_ko ? `<br><span class="wp-ex-ko">${e(r.example2_ko)}</span>` : ''}</p>`);
+  if (r.video_url)          p.push(`<p class="wp-video"><a href="${e(r.video_url)}" target="_blank" rel="noopener">▶ 동영상</a></p>`);
+  return p.join('\n');   // 이미지는 학생 앱이 wordImageFor(subtopic)로 자동 삽입 → 여기 미포함
+}
+function opPoolCacheKey(word) { return new Request(`https://oppool.local/w/${encodeURIComponent(word)}`); }
+async function getPoolRow(env, word) {
+  const cache = caches.default, key = opPoolCacheKey(word);
+  try { const hit = await cache.match(key); if (hit) return await hit.json(); } catch {}
+  let row = null;
+  try {
+    const r = await ncbRead(env, 'op_pool', `word=${encodeURIComponent(word)}&limit=1`);
+    row = (r.data && r.data[0]) || null;
+  } catch {}
+  try { await cache.put(key, new Response(JSON.stringify(row), { headers: { 'Content-Type': 'application/json', 'Cache-Control': 's-maxage=600' } })); } catch {}
+  return row;
+}
+async function derefWordItems(env, items) {
+  const out = [];
+  for (const it of items) {
+    const m = String(it.text || '').trim().match(OP_WORD_RE);
+    if (m) {
+      const row = await getPoolRow(env, m[1].trim().toLowerCase());
+      out.push({ ...it, kind: 'html', text: row ? composeWordCardHTML(row) : '', word: m[1].trim().toLowerCase() });
+    } else out.push(it);
+  }
+  return out;
+}
+// POST /admin/op_pool/sync — 로컬 push_op_pool.py 가 배치(≤20)로 op_pool upsert (word 키). teacherGate 뒤.
+async function handleOpPoolSync(request, env) {
+  const b = await request.json().catch(() => ({}));
+  const rows = Array.isArray(b.rows) ? b.rows : [];
+  if (!rows.length) return json({ error: 'rows required' }, 400, request);
+  let created = 0, updated = 0, failed = 0;
+  const cache = caches.default;
+  for (const r0 of rows.slice(0, 20)) {   // 서브리퀘스트 한도 감안 배치 ≤20
+    const word = String(r0.word || '').trim().toLowerCase();
+    if (!word) { failed++; continue; }
+    const data = {
+      word, display_word: r0.display_word || '', meaning: r0.meaning || '', pronunciation: r0.pronunciation || '',
+      sound_association: r0.sound_association || '', mnemonic_detail: r0.mnemonic_detail || '',
+      example1_en: r0.example1_en || '', example1_ko: r0.example1_ko || '',
+      example2_en: r0.example2_en || '', example2_ko: r0.example2_ko || '',
+      image_url: r0.image_url || '', video_url: r0.video_url || '', subject: r0.subject || 'en',
+      updated_at: kstDateTime(),
+    };
+    try {
+      const found = await ncbRead(env, 'op_pool', `word=${encodeURIComponent(word)}&limit=1`);
+      const ex = found && found.data && found.data[0];
+      if (ex && ex.id) { await ncbUpdate(env, 'op_pool', ex.id, data); updated++; }
+      else { await ncbCreate(env, 'op_pool', data); created++; }
+      try { await cache.delete(opPoolCacheKey(word)); } catch {}
+    } catch (e) { failed++; }
+  }
+  return json({ ok: true, created, updated, failed, took: Math.min(rows.length, 20) }, 200, request);
+}
+
 async function handleListItems(request, env) {
   const url = new URL(request.url);
   const subId = url.searchParams.get('subtopic_id');
@@ -972,7 +1042,7 @@ async function handleListItems(request, env) {
         (Number(a.sort_order) || 0) - (Number(b.sort_order) || 0) ||
         (Number(a.id) || 0) - (Number(b.id) || 0)
       );
-    return json({ items }, 200, request);
+    return json({ items: await derefWordItems(env, items) }, 200, request);
   }
 
   // 학생: 게이트 체크 + items fetch를 병렬로 (게이트 실패 시 items 버림)
@@ -996,7 +1066,7 @@ async function handleListItems(request, env) {
       (Number(a.sort_order) || 0) - (Number(b.sort_order) || 0) ||
       (Number(a.id) || 0) - (Number(b.id) || 0)
     );
-  return json({ items }, 200, request);
+  return json({ items: await derefWordItems(env, items) }, 200, request);
 }
 
 // nocodebackend REST API가 image_b64를 JSON-유효 값으로 검증 →
@@ -3277,6 +3347,7 @@ async function route(request, env, ctx) {
   // ── 관리자 CRM ──
   if (path.startsWith('/admin/')) {
     const g = teacherGate(); if (g) return g;
+    if (m === 'POST' && path === '/admin/op_pool/sync') return handleOpPoolSync(request, env);
     if (m === 'GET' && path === '/admin/overview') return handleAdminOverview(request, env);
     if (m === 'GET' && path === '/admin/users') return handleAdminUsers(request, env);
     p = pathMatch(path, '/admin/user/:phone');
