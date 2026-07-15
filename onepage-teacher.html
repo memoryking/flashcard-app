@@ -85,6 +85,36 @@ a { color: #4fc3f7; text-decoration: none; }
 .toolbar {
   display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 16px;
 }
+/* ── 뷰 전환 네비 ── */
+.view-nav { display: flex; gap: 4px; margin-left: 14px; }
+.view-btn { background: rgba(255,255,255,0.06); color: #cbd5e1; padding: 6px 14px; border-radius: 8px; font-size: 13px; font-weight: 700; border: none; cursor: pointer; }
+.view-btn.active { background: linear-gradient(135deg,#3b82f6,#6366f1); color: #fff; }
+/* ── 단어풀 뷰 ── */
+.pool-bar { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; margin-bottom: 14px; }
+.pool-bar input, .pool-bar select { background: rgba(255,255,255,0.06); border: 1px solid rgba(255,255,255,0.12); color: #e5e7eb; padding: 8px 12px; border-radius: 8px; font-size: 13px; }
+.pool-bar input { min-width: 200px; }
+.pool-counts { font-size: 12px; color: #94a3b8; display: flex; gap: 8px; flex-wrap: wrap; }
+.pool-counts b { color: #cbd5e1; }
+.pool-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 14px; }
+.pcard { background: #14152b; border: 2px solid #23233f; border-radius: 12px; overflow: hidden; }
+.pcard.st-approved { border-color: #2e9e5b; }
+.pcard.st-reject { border-color: #e0556f; opacity: .72; }
+.pcard.st-published { border-color: #3b82f6; }
+.pcard-img { width: 100%; aspect-ratio: 16/9; object-fit: cover; background: #000; display: block; }
+.pcard-noimg { width: 100%; aspect-ratio: 16/9; display: flex; align-items: center; justify-content: center; color: #556; font-size: 12px; background: repeating-linear-gradient(45deg,#111225,#111225 8px,#16172e 8px,#16172e 16px); }
+.pcard-body { padding: 9px 11px; }
+.pcard-w { font-size: 16px; font-weight: 800; color: #fff; }
+.pcard-m { font-size: 12px; color: #94a3b8; margin: 2px 0 5px; }
+.pcard-sa { font-size: 11.5px; color: #c7c7e6; line-height: 1.4; max-height: 3.1em; overflow: hidden; }
+.pcard-badge { display: inline-block; font-size: 10px; font-weight: 800; padding: 1px 7px; border-radius: 10px; margin-top: 6px; }
+.bg-generated { background: #2a2a55; color: #b9b9ff; } .bg-approved { background: #16351f; color: #7fe0a0; }
+.bg-reject { background: #3a1620; color: #ff9db0; } .bg-published { background: #16294a; color: #93c5fd; } .bg-none { background: #2a2a2a; color: #999; }
+.pcard-acts { display: flex; gap: 6px; margin-top: 8px; }
+.pcard-acts button { flex: 1; padding: 6px; border: none; border-radius: 6px; font-weight: 700; font-size: 12px; cursor: pointer; }
+.pb-ok { background: #1f7a3d; color: #fff; } .pb-no { background: #7a1f30; color: #fff; }
+.pcard.st-approved .pb-ok { box-shadow: 0 0 0 2px #2e9e5b; }
+.pcard.st-reject .pb-no { box-shadow: 0 0 0 2px #e0556f; }
+.pool-empty { padding: 50px; text-align: center; color: #64748b; grid-column: 1/-1; }
 .btn-primary {
   background: linear-gradient(135deg, #e94560, #ff6b6b);
   color: #fff; padding: 10px 18px; border-radius: 8px;
@@ -412,6 +442,10 @@ a { color: #4fc3f7; text-decoration: none; }
 <div id="appScreen" style="display:none">
   <header class="app-header">
     <div class="brand">OnePage <em>편집기</em></div>
+    <nav class="view-nav">
+      <button id="navEditor" class="view-btn active" onclick="showView('editor')">✏️ 편집</button>
+      <button id="navPool" class="view-btn" onclick="showView('pool')">🗂️ 단어풀</button>
+    </nav>
     <div class="user-chip">
       <span id="userName">-</span>
       <span class="role">선생님</span>
@@ -419,13 +453,32 @@ a { color: #4fc3f7; text-decoration: none; }
     </div>
   </header>
 
-  <main class="app-main">
+  <main class="app-main" id="editorMain">
     <div class="toolbar">
       <button class="btn-primary" onclick="openChapterModal()">+ 챕터 추가</button>
       <button class="btn-secondary" onclick="reloadChapters()">↻ 새로고침</button>
       <button class="btn-secondary" onclick="collapseAll()" title="펼친 모든 챕터·목차·학습 카드 접기">📂 모두 접기</button>
     </div>
     <div id="chapterList"></div>
+  </main>
+
+  <main class="app-main" id="poolMain" style="display:none">
+    <div class="pool-bar">
+      <input id="poolSearch" placeholder="🔍 단어·뜻 검색" oninput="renderPool()">
+      <select id="poolFilter" onchange="renderPool()">
+        <option value="all">전체</option>
+        <option value="generated">검토 대기</option>
+        <option value="approved">승인</option>
+        <option value="reject">재생성</option>
+        <option value="published">배포됨</option>
+        <option value="noimg">이미지 없음</option>
+      </select>
+      <span id="poolCounts" class="pool-counts"></span>
+      <span style="flex:1"></span>
+      <button class="btn-secondary" onclick="exportReviews()" title="승인/재생성 결정을 파일로 내려받아 로컬 풀에 반영">⬇ 검수결정 내보내기</button>
+      <button class="btn-secondary" onclick="loadWordPool(true)">↻ 새로고침</button>
+    </div>
+    <div id="poolGrid" class="pool-grid"></div>
   </main>
 </div>
 
@@ -830,6 +883,7 @@ function renderSubtopic(s) {
         <div style="margin:6px 0;display:flex;gap:6px;flex-wrap:wrap;">
           <button class="btn-secondary btn-small" onclick="event.stopPropagation();addTextItem(${s.id})">+ 텍스트</button>
           <button class="btn-secondary btn-small" onclick="event.stopPropagation();triggerImagePick(${s.id})">+ 이미지 (파일)</button>
+          <button class="btn-secondary btn-small" onclick="event.stopPropagation();addImageUrl(${s.id})">+ 이미지 (URL)</button>
           <button class="btn-secondary btn-small" onclick="event.stopPropagation();triggerHtmlPick(${s.id})">+ 📄 HTML/SVG</button>
           <button class="btn-secondary btn-small" onclick="event.stopPropagation();addLinkItem(${s.id})">+ 🔗 링크</button>
           <span style="font-size:11px;color:rgba(255,255,255,0.4);align-self:center;">← Ctrl+V로 화면 캡쳐 붙여넣기 가능</span>
@@ -1600,6 +1654,26 @@ async function uploadImage(subId, fileOrBlob) {
   finally { showLoading(false); }
 }
 
+// 공개 이미지 URL 붙여넣기 — base64 없이 URL만 저장 (학생 앱이 <img src>로 그대로 렌더)
+async function addImageUrl(subId) {
+  const raw = prompt('이미지 URL (공개 주소):\n예) https://images.unsplash.com/photo-...jpg');
+  if (!raw) return;
+  let url = raw.trim();
+  if (!/^https?:\/\//i.test(url)) url = 'https://' + url;
+  try { new URL(url); } catch { toast('올바른 URL이 아닙니다.', true); return; }
+  showLoading(true);
+  try {
+    const items = state.itemsBySubtopic[subId] || [];
+    const order = items.length ? Math.max(...items.map(i => Number(i.sort_order) || 0)) + 1 : 1;
+    await api('POST', '/items', {
+      subtopic_id: subId, kind: 'image', image_b64: url, sort_order: order,
+    });
+    await loadItems(subId);
+    toast('이미지(URL) 추가됨');
+  } catch (e) { toast('이미지 추가 실패: ' + e.message, true); }
+  finally { showLoading(false); }
+}
+
 async function compressImage(blob) {
   const bmp = await createImageBitmap(blob);
   const MAX_W = 1200;
@@ -1855,6 +1929,7 @@ window.editItemLink = editItemLink;
 window.editItemText = editItemText;
 window.editItemCaption = editItemCaption;
 window.triggerImagePick = triggerImagePick;
+window.addImageUrl = addImageUrl;
 window.pickSubImage = pickSubImage;
 window.pasteSubImage = pasteSubImage;
 window.removeSubImage = removeSubImage;
@@ -1862,6 +1937,129 @@ window.toggle = toggle;
 window.collapseAll = collapseAll;
 window.reloadChapters = reloadChapters;
 window.closeModal = closeModal;
+
+// ============================================================
+// 🗂️ 단어풀 뷰 (word-pool.json 브라우즈 + 이미지 검수)
+// ============================================================
+const POOL_REVIEW_KEY = 'op_pool_reviews_v1';   // { word: 'approved' | 'reject' }
+const poolState = { loaded: false, words: [], reviews: {} };
+
+function loadReviews() {
+  try { poolState.reviews = JSON.parse(localStorage.getItem(POOL_REVIEW_KEY) || '{}'); }
+  catch { poolState.reviews = {}; }
+}
+function saveReviews() { localStorage.setItem(POOL_REVIEW_KEY, JSON.stringify(poolState.reviews)); }
+
+function showView(v) {
+  const isPool = v === 'pool';
+  document.getElementById('editorMain').style.display = isPool ? 'none' : '';
+  document.getElementById('poolMain').style.display = isPool ? '' : 'none';
+  document.getElementById('navEditor').classList.toggle('active', !isPool);
+  document.getElementById('navPool').classList.toggle('active', isPool);
+  if (isPool && !poolState.loaded) loadWordPool();
+}
+
+async function loadWordPool(force) {
+  const grid = document.getElementById('poolGrid');
+  grid.innerHTML = '<div class="pool-empty">단어풀 로딩…</div>';
+  loadReviews();
+  try {
+    const r = await fetch('word-pool.json' + (force ? '?t=' + Date.now() : ''), { cache: force ? 'no-cache' : 'default' });
+    if (!r.ok) throw new Error('word-pool.json 없음 (export 필요)');
+    const data = await r.json();
+    poolState.words = data.words || [];
+    poolState.loaded = true;
+    renderPool();
+  } catch (e) {
+    grid.innerHTML = `<div class="pool-empty">단어풀을 불러오지 못했습니다: ${e.message}<br><br>로컬에서 <code>python scripts/export_pool.py</code> 실행 후 배포하세요.</div>`;
+  }
+}
+
+// 단어의 표시 상태 = 로컬 검수 결정 우선, 없으면 풀의 image_status
+function effStatus(w) {
+  const dec = poolState.reviews[w.word];
+  if (dec) return dec;                 // approved / reject
+  return w.image_status || 'none';
+}
+
+function renderPool() {
+  if (!poolState.loaded) return;
+  const q = (document.getElementById('poolSearch').value || '').trim().toLowerCase();
+  const f = document.getElementById('poolFilter').value;
+  const cnt = { generated: 0, approved: 0, reject: 0, published: 0, none: 0 };
+  const list = poolState.words.filter(w => {
+    const st = effStatus(w);
+    if (cnt[st] !== undefined) cnt[st]++;
+    if (q && !((w.word || '').toLowerCase().includes(q) || (w.meaning || '').toLowerCase().includes(q))) return false;
+    if (f === 'all') return true;
+    if (f === 'noimg') return !w.image_url;
+    return st === f;
+  });
+  document.getElementById('poolCounts').innerHTML =
+    `총 <b>${poolState.words.length}</b> · 검토대기 <b>${cnt.generated}</b> · 승인 <b>${cnt.approved}</b> · 재생성 <b>${cnt.reject}</b> · 배포됨 <b>${cnt.published}</b>`;
+  const grid = document.getElementById('poolGrid');
+  if (!list.length) { grid.innerHTML = '<div class="pool-empty">조건에 맞는 단어가 없습니다.</div>'; return; }
+  const badgeLabel = { generated: '검토대기', approved: '승인', reject: '재생성', published: '배포됨', none: '이미지없음' };
+  grid.innerHTML = list.slice(0, 600).map(w => {
+    const st = effStatus(w);
+    const img = w.image_url
+      ? `<img class="pcard-img" loading="lazy" src="${escapeHtml(w.image_url)}" alt="">`
+      : `<div class="pcard-noimg">이미지 없음</div>`;
+    const acts = w.image_url
+      ? `<div class="pcard-acts">
+           <button class="pb-ok" onclick="poolDecide('${escapeHtml(w.word)}','approved')">✓ 승인</button>
+           <button class="pb-no" onclick="poolDecide('${escapeHtml(w.word)}','reject')">✗ 재생성</button>
+         </div>` : '';
+    return `<div class="pcard st-${st}" data-w="${escapeHtml(w.word)}">
+      ${img}
+      <div class="pcard-body">
+        <div class="pcard-w">${escapeHtml(w.display_word || w.word)}</div>
+        <div class="pcard-m">${escapeHtml(w.meaning || '')} · <span style="color:#64748b">${escapeHtml(w.pronunciation || '')}</span></div>
+        <div class="pcard-sa">${escapeHtml(w.sound_association || '')}</div>
+        <span class="pcard-badge bg-${st}">${badgeLabel[st] || st}</span>
+        ${acts}
+      </div></div>`;
+  }).join('') + (list.length > 600 ? `<div class="pool-empty">…앞 600개만 표시 (검색·필터로 좁히세요, 총 ${list.length})</div>` : '');
+}
+
+function poolDecide(word, dec) {
+  // 배포됨(published)은 검수 대상 아님 — 되돌리기 방지
+  const w = poolState.words.find(x => x.word === word);
+  if (w && effStatus(w) === dec) { delete poolState.reviews[word]; }  // 같은 결정 다시 누르면 취소
+  else poolState.reviews[word] = dec;
+  saveReviews();
+  const card = document.querySelector(`.pcard[data-w="${CSS.escape(word)}"]`);
+  if (card) {
+    const st = effStatus(w);
+    card.className = 'pcard st-' + st;
+    const badge = card.querySelector('.pcard-badge');
+    if (badge) { badge.className = 'pcard-badge bg-' + st; badge.textContent = { generated:'검토대기', approved:'승인', reject:'재생성', published:'배포됨', none:'이미지없음' }[st] || st; }
+  }
+  // 카운트 갱신
+  const q = document.getElementById('poolSearch').value, f = document.getElementById('poolFilter').value;
+  if (f !== 'all' && f !== 'noimg') renderPool(); else renderPoolCounts();
+}
+function renderPoolCounts() {
+  const cnt = { generated: 0, approved: 0, reject: 0, published: 0, none: 0 };
+  poolState.words.forEach(w => { const st = effStatus(w); if (cnt[st] !== undefined) cnt[st]++; });
+  document.getElementById('poolCounts').innerHTML =
+    `총 <b>${poolState.words.length}</b> · 검토대기 <b>${cnt.generated}</b> · 승인 <b>${cnt.approved}</b> · 재생성 <b>${cnt.reject}</b> · 배포됨 <b>${cnt.published}</b>`;
+}
+
+function exportReviews() {
+  const n = Object.keys(poolState.reviews).length;
+  if (!n) { toast('내보낼 검수 결정이 없습니다.', true); return; }
+  const blob = new Blob([JSON.stringify(poolState.reviews, null, 0)], { type: 'application/json' });
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob); a.download = 'reviews.json'; a.click();
+  toast(`검수결정 ${n}건 내보냄 — 로컬에서 python scripts/apply_reviews.py reviews.json`);
+}
+
+window.showView = showView;
+window.loadWordPool = loadWordPool;
+window.renderPool = renderPool;
+window.poolDecide = poolDecide;
+window.exportReviews = exportReviews;
 
 tryAutoLogin();
 </script>
