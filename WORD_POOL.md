@@ -1,13 +1,15 @@
 # 단어풀(Word Pool) 연동 — 이 저장소에서 알아야 할 것
 
-> **영단어·한자 콘텐츠는 이 저장소에 없습니다.** 별도 로컬 프로젝트에서 관리합니다.
-> 📁 **`C:\Users\memoryking\00_DEV\word-pool`** (flashcard-app과 **형제 폴더**, 로컬 전용 git)
+> **영단어·한자 콘텐츠는 이 저장소에 없습니다.** 별도 프로젝트에서 관리합니다.
+> 📁 **`C:\Users\memoryking\00_DEV\word-pool`** (flashcard-app과 **형제 폴더**)
+> 🔐 백업: **`github.com/memoryking/word-pool` (Private)** — `word_pool.db` 포함
 >
 > 문서: `word-pool/README.md`(사용법) · `SETS_PLAN.md`(아키텍처) · `WORKLOG.md`(주제별·함정) · `DEVLOG.md`(시간순 개발기록)
 
 ## 왜 분리되어 있나 (합치면 안 되는 이유)
 - **이 저장소(flashcard-app)는 공개(public)** 다. word-pool 에는 **교사 토큰**(`scripts/.worker.config.json`)과
   **`word_pool.db`(전체 단어 자산)** 가 있어, 밑에 두면 `.gitignore` 실수 한 번에 유출된다.
+  → word-pool 은 **비공개 저장소**로 따로 백업한다.
 - 배포 방식도 다르다 — 이 저장소는 **push = 배포**(GitHub Pages/Vercel), word-pool 은 로컬 도구.
 
 ## 어떻게 연결되나 (풀 참조 아키텍처)

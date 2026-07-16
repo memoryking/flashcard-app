@@ -376,9 +376,9 @@
       "x": 1140,
       "y": 1420,
       "width": 360,
-      "height": 300,
+      "height": 320,
       "color": "4",
-      "text": "### 🗂️ 단어풀 (word-pool)\n**영단어·한자 콘텐츠 원천** (별도 로컬 프로젝트)\n`00_DEV/word-pool` — 공개 저장소와 분리\n\n- `word_pool.db` 단어당 전체 자료\n  · 뜻·발음·암기법·예문\n  · image_url · video_url · 프롬프트\n- `관리콘솔.bat` 로컬 웹 관리 UI\n  · 검색·편집·검수·이미지/동영상 생성\n- **☁️ 서버 반영** → `op_pool`\n  · 풀 수정 = 전 콘텐츠 자동 갱신\n- 문서: `WORD_POOL.md`(이 저장소)\n  `word-pool/README·SETS_PLAN·WORKLOG·DEVLOG`"
+      "text": "### 🗂️ 단어풀 (word-pool)\n**영단어·한자 콘텐츠 원천** (별도 로컬 프로젝트)\n`00_DEV/word-pool` — 공개 저장소와 분리\n🔐 백업: github.com/memoryking/word-pool (**Private**)\n\n- `word_pool.db` 단어당 전체 자료\n  · 뜻·발음·암기법·예문\n  · image_url · video_url · 프롬프트\n- `관리콘솔.bat` 로컬 웹 관리 UI\n  · 검색·편집·검수·이미지/동영상 생성\n- **☁️ 서버 반영** → `op_pool`\n  · 풀 수정 = 전 콘텐츠 자동 갱신\n- 문서: `WORD_POOL.md`(이 저장소)\n  `word-pool/README·SETS_PLAN·WORKLOG·DEVLOG`"
     }
   ],
   "edges": [
