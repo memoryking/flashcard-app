@@ -18,10 +18,17 @@
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="msapplication-TileColor" content="#0a0a1a">
 <meta name="msapplication-TileImage" content="android-chrome-192x192.png">
+<!-- API 원본에 미리 연결 — DNS+TCP+TLS를 HTML 파싱 중에 끝내둠.
+     첫 api() 호출이 곧바로 요청을 보낼 수 있어 모바일 콜드 스타트에서 수백 ms 절약. -->
+<link rel="preconnect" href="https://onepage-api.memoryking.workers.dev" crossorigin>
+<link rel="preconnect" href="https://cdn.jsdelivr.net" crossorigin>
+<!-- 아래 두 라이브러리는 defer — 없으면 파서가 여기서 멈춰 첫 화면이 그만큼 늦어진다.
+     둘 다 첫 페인트에 불필요하고(드래그 재정렬 / 콘텐츠 새니타이즈), 호출부에 typeof 가드가 있다.
+     defer 스크립트는 파싱 완료 후 DOMContentLoaded 전에 실행 → renderHome(네트워크 왕복 뒤) 시점엔 항상 준비됨. -->
 <!-- 챕터 카드 드래그 재정렬 (모바일 터치 지원) — Sortable.js -->
-<script src="https://cdn.jsdelivr.net/npm/sortablejs@1.15.2/Sortable.min.js"></script>
+<script defer src="https://cdn.jsdelivr.net/npm/sortablejs@1.15.2/Sortable.min.js"></script>
 <!-- HTML/SVG 콘텐츠 새니타이즈 — 수학 등 외부 컴파일 HTML 안전 렌더 -->
-<script src="https://cdn.jsdelivr.net/npm/dompurify@3.2.4/dist/purify.min.js"></script>
+<script defer src="https://cdn.jsdelivr.net/npm/dompurify@3.2.4/dist/purify.min.js"></script>
 <style>
 * { box-sizing: border-box; margin: 0; padding: 0; }
 html, body { height: 100%; font-family: -apple-system, BlinkMacSystemFont, 'Pretendard', 'Segoe UI', sans-serif; background: #0a0a1a; color: #e5e7eb; }
@@ -3247,9 +3254,21 @@ async function tryAutoLogin() {
   }
 }
 
+// 부팅 백그라운드 — understood·단어이미지. 홈 렌더는 기다리지 않고,
+// 챕터 진입 직전에만 준비를 보장한다. (홈 화면은 이 둘을 전혀 쓰지 않음)
+let BOOT_BG = null;
+
 async function loadMeAndEnter() {
   showLoading(true);
   try {
+    // ── 부팅 병렬화 ──────────────────────────────────────────
+    // api()는 매 호출마다 localStorage에서 토큰을 직접 읽는다 → /auth/me 완료를 기다릴 이유가 없다.
+    // 예전엔 /auth/me(왕복1) → enterHome의 4개(왕복2) 로 직렬이었다. 이제 전부 동시에 출발.
+    // 토큰이 무효면 이 요청들도 401로 실패하지만 각자 catch 하므로 부작용 없음.
+    const chaptersP = loadChapters();
+    chaptersP.catch(() => {});   // 아래 await 전에 rejection이 나도 경고만 막음 (처리는 enterHome에서)
+    BOOT_BG = Promise.all([loadUnderstood(), loadWordImages()]);   // 둘 다 내부 catch → 절대 reject 안 함
+
     const r = await api('GET', '/auth/me');
     state.user = r.user;
     state.point = Number(r.user.point) || 0;
@@ -3269,7 +3288,7 @@ async function loadMeAndEnter() {
       } catch {}
     }
     renderWatermark();
-    await enterHome();
+    await enterHome(chaptersP);
   } finally {
     showLoading(false);
   }
@@ -3278,17 +3297,18 @@ async function loadMeAndEnter() {
 // ============================================================
 // 홈 화면
 // ============================================================
-async function enterHome() {
+async function enterHome(chaptersP) {
   $('authScreen').style.display = 'none';
   $('chapterScreen').style.display = 'none';
   $('homeScreen').style.display = 'block';
   startTimers();
-  await Promise.all([
-    loadChapters(),
-    loadUnderstood(),
-    loadLiveCount(),
-    loadWordImages(),
-  ]);
+  // 홈 화면(renderHome/renderChapterCard)이 실제로 쓰는 건 chapters 뿐이다.
+  //   - understood·word-images.json(69KB) → 챕터 안에서만 필요 → BOOT_BG 로 미룸
+  //   - liveCount → 사회적 증거 위젯. 도착하면 스스로 갱신(updateLiveChips) + 30초 타이머로도 갱신
+  // 예전엔 이 4개를 Promise.all 로 다 기다려서 홈이 가장 느린 것에 묶여 있었다.
+  if (!BOOT_BG) BOOT_BG = Promise.all([loadUnderstood(), loadWordImages()]);
+  loadLiveCount();
+  await (chaptersP || loadChapters());
   renderHome();
   // 첫 방문자 환영 모달 — 가이드 안 본 사용자에게 1회만
   setTimeout(maybeShowWelcome, 350);
@@ -3519,6 +3539,13 @@ function renderChapterCard(c) {
 async function enterChapter(chapterId) {
   state.currentChapter = state.chapters.find(x => x.id === chapterId);
   if (!state.currentChapter) return;
+  // 홈 렌더가 기다리지 않고 미뤄둔 understood·단어이미지를 여기서만 보장한다.
+  // 부팅 때 이미 출발했고 사용자가 챕터를 고르는 시간이 있어 보통 즉시 통과.
+  if (BOOT_BG) {
+    const p = BOOT_BG; BOOT_BG = null;
+    showLoading(true);
+    try { await p; } catch {} finally { showLoading(false); }
+  }
   loadPassed(chapterId);  // 저장된 패스 위치 복원 (마지막 학습 위치)
   // 챕터 진입 시 정상 모드로 시작
   state.memorizedView = false;

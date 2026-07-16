@@ -72,6 +72,43 @@
 > - 특히 **루트에 `sw.js`를 두면 안 된다.** scope가 `/flashcard-app/` 가 되어
 >   **선생님앱·학생앱 요청까지 가로채고 캐시**한다 ("배포했는데 옛날 게 나온다"의 원인).
 
+### 부팅 시퀀스 — 첫 화면까지 (학생 앱)
+
+**원칙: 첫 화면이 실제로 쓰는 것만 기다린다.** `renderHome`/`renderChapterCard`가 쓰는 건 **`chapters` 뿐**이다
+(understood·word-images·liveCount는 **홈에서 안 쓴다** — 챕터 안에서만 쓴다).
+
+```
+HTML 파싱 (CDN 스크립트는 defer → 파서를 막지 않음)
+  + <link rel=preconnect> 로 워커 API DNS+TCP+TLS 를 파싱 중에 미리 끝냄
+        │
+tryAutoLogin → loadMeAndEnter
+        │
+        ├── /auth/me ─────────┐   ← 이 둘만 기다림
+        ├── /chapters ────────┤
+        ├── /understood ──┐   │
+        ├── word-images.json │  (BOOT_BG — 챕터 진입 직전에만 보장)
+        └── /stats/learners-now  (fire-and-forget, 30초 타이머로도 갱신)
+        │                     │
+      renderHome ◀────────────┘   왕복 1회
+```
+
+**왜 이렇게 됐나 (예전 구조의 문제)**
+
+- `await api('/auth/me')` **완료 후** `enterHome()`의 `Promise.all([...4개])` → **직렬 왕복 2회**.
+  `api()`는 매 호출마다 localStorage 토큰을 직접 읽으므로 **`/auth/me` 를 기다릴 이유가 없었다.**
+- `Promise.all` 이 4개를 다 기다려서 홈이 **가장 느린 것에 묶였다.** 그중 3개는 홈에 불필요.
+  특히 `word-images.json`(69KB)을 `cache:'no-cache'`로 **매번 강제 재검증**하며 기다렸다.
+- CDN 스크립트 2개(Sortable 44KB · DOMPurify 22KB)가 `<head>`에 **`defer` 없이** 있어 파서를 막았다.
+  → 둘 다 첫 페인트에 불필요하고 호출부에 `typeof` 가드가 있어 `defer` 안전.
+  (폴백도 fail-closed: DOMPurify 없으면 `escapeHtml`/`''` → XSS 아님)
+
+**유지 규칙**
+
+- 홈 렌더 경로(`enterHome`)에 **새 `await` 를 추가하지 말 것.** 챕터 안에서만 필요한 데이터는
+  `BOOT_BG` 에 얹고 `enterChapter` 초입에서 보장한다.
+- `defer` 스크립트는 파싱 완료 후 DOMContentLoaded 전에 실행 → `renderHome`(네트워크 왕복 뒤)에선 항상 준비됨.
+- MathJax(1MB급)는 **LaTeX 패턴이 실제로 있을 때만** 지연 로드(`_ensureMathJax`). 부팅 비용 아님 — 이대로 유지.
+
                           │
                           ▼
               onepage-api.memoryking.workers.dev
