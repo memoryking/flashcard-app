@@ -36,8 +36,8 @@
       "x": -700,
       "y": -1200,
       "width": 360,
-      "height": 240,
-      "text": "## 🎓 학생 앱\n`onepage-user/index.html`\n\n메인 학습 인터페이스 (PWA)\n\n흐름:\n- 홈 → 챕터 카드 → 학습\n- 일반 모드 / 다지기 모드\n- 오프라인 + 홈 화면 설치\n\n**콘텐츠 풍부화**\n- HTML/SVG 카드 (kind)\n- MathJax LaTeX 자동 렌더\n- 카드 이미지/SVG 터치 라이트박스",
+      "height": 300,
+      "text": "## 🎓 학생 앱\n`onepage-user/index.html`\n\n메인 학습 인터페이스 (PWA)\n\n흐름:\n- 홈 → 챕터 카드 → 학습\n- 일반 모드 / 다지기 모드\n- **집중 학습 세션** (골라서 한 장씩)\n- 오프라인 + 홈 화면 설치\n\n**콘텐츠 풍부화**\n- HTML/SVG 카드 (kind)\n- MathJax LaTeX 자동 렌더\n- 카드 이미지/SVG 터치 라이트박스",
       "color": "1"
     },
     {
@@ -379,6 +379,16 @@
       "height": 320,
       "color": "4",
       "text": "### 🗂️ 단어풀 (word-pool)\n**영단어·한자 콘텐츠 원천** (별도 로컬 프로젝트)\n`00_DEV/word-pool` — 공개 저장소와 분리\n🔐 백업: github.com/memoryking/word-pool (**Private**)\n\n- `word_pool.db` 단어당 전체 자료\n  · 뜻·발음·암기법·예문\n  · image_url · video_url · 프롬프트\n- `관리콘솔.bat` 로컬 웹 관리 UI\n  · 검색·편집·검수·이미지/동영상 생성\n- **☁️ 서버 반영** → `op_pool`\n  · 풀 수정 = 전 콘텐츠 자동 갱신\n- 문서: `WORD_POOL.md`(이 저장소)\n  `word-pool/README·SETS_PLAN·WORKLOG·DEVLOG`"
+    },
+    {
+      "id": "archive",
+      "type": "text",
+      "x": 900,
+      "y": 960,
+      "width": 380,
+      "height": 320,
+      "color": "2",
+      "text": "### 🗄️ 참고용 아카이브 (배포 금지)\n`flashcard/` → [[flashcard/README.md]]\n\n옛 세대 앱 보관. **수정·루트 반출 금지**\n\n**배포 표면이 둘 — 범위가 다르다**\n- Vercel(학생앱): Root Dir = `onepage-user/`\n  → 루트 다른 폴더는 **미포함**\n- GitHub Pages(선생님앱·랜딩):\n  **저장소 루트 전체** → 다 공개됨\n\n⚠️ **루트에 `sw.js` 두지 말 것**\nscope가 `/flashcard-app/` 이 되어\n선생님앱·학생앱 요청까지 가로채 캐시함"
     }
   ],
   "edges": [

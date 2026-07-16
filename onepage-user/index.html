@@ -1471,6 +1471,158 @@ a { color: #4fc3f7; text-decoration: none; }
   padding: 14px 18px 16px;
   text-align: center;
 }
+/* ───── 선택 학습(집중 세션) — new 탭 전용 ───── */
+/* 컨트롤 바: 자동선택 + 학습하기 */
+.pick-bar {
+  display: flex; gap: 6px; align-items: center;
+  padding: 0 10px 8px; margin: 0 4px 4px;
+}
+.pick-bar.hide { display: none; }
+.pick-auto {
+  display: flex; align-items: center; gap: 4px;
+  background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.10);
+  color: #cbd5e1; border-radius: 8px; padding: 5px 8px; font-size: 12px; font-weight: 700;
+  white-space: nowrap;
+}
+.pick-auto-btn {
+  background: none; border: none; color: inherit; font-size: 12px; font-weight: 700;
+  cursor: pointer; padding: 2px 0; white-space: nowrap;
+  transition: color .15s, transform .1s;
+}
+.pick-auto-btn:hover { color: #fff; }
+.pick-auto-btn:active { transform: scale(0.94); }
+.pick-auto input {
+  width: 34px; background: rgba(0,0,0,0.35); border: 1px solid rgba(255,255,255,0.14);
+  color: #fff; border-radius: 5px; padding: 2px 3px; font-size: 12px; text-align: center;
+  font-weight: 700; -moz-appearance: textfield;
+}
+.pick-auto input::-webkit-outer-spin-button, .pick-auto input::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
+.pick-start {
+  flex: 1; padding: 8px 10px; border: none; border-radius: 8px; cursor: pointer;
+  background: linear-gradient(135deg, #e94560, #ff8a9e); color: #fff;
+  font-size: 13px; font-weight: 800; letter-spacing: -0.2px;
+  box-shadow: 0 4px 14px rgba(233,69,96,0.35);
+  transition: filter .15s, transform .1s, opacity .15s;
+}
+.pick-start:hover { filter: brightness(1.08); }
+.pick-start:active { transform: scale(0.98); }
+.pick-start:disabled { opacity: .4; cursor: default; box-shadow: none; filter: grayscale(0.6); }
+.pick-clear {
+  background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.10);
+  color: rgba(255,255,255,0.6); border-radius: 8px; padding: 6px 9px; font-size: 12px;
+  font-weight: 700; cursor: pointer; white-space: nowrap;
+}
+.pick-clear:hover { background: rgba(255,255,255,0.10); color: #fff; }
+
+/* 체크박스 (카드 왼쪽) */
+.pick-box {
+  width: 20px; height: 20px; flex-shrink: 0; margin-right: 2px;
+  border: 2px solid rgba(255,255,255,0.28); border-radius: 6px;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 12px; color: transparent; background: rgba(255,255,255,0.03);
+  transition: background .15s, border-color .15s, transform .12s, color .15s;
+  pointer-events: auto !important;
+}
+.pick-box:hover { border-color: rgba(233,69,96,0.7); transform: scale(1.1); }
+.subtopic.picked .pick-box {
+  background: linear-gradient(135deg,#e94560,#ff8a9e); border-color: #ff8a9e; color: #fff;
+  animation: pickPop .22s cubic-bezier(.34,1.56,.64,1);
+}
+@keyframes pickPop { 0% { transform: scale(0.7); } 60% { transform: scale(1.18); } 100% { transform: scale(1); } }
+.subtopic.picked {
+  border-color: rgba(233,69,96,0.55) !important;
+  box-shadow: 0 0 0 1px rgba(233,69,96,0.25), 0 4px 16px rgba(233,69,96,0.14);
+}
+
+/* ───── 학습 세션 오버레이 ───── */
+.ses-overlay {
+  position: fixed; inset: 0; z-index: 3000;
+  background: radial-gradient(1200px 700px at 50% 0%, #1a1a3a 0%, #0a0a1a 70%);
+  display: flex; flex-direction: column;
+  animation: sesIn .28s ease;
+}
+@keyframes sesIn { from { opacity: 0; transform: scale(0.98); } to { opacity: 1; transform: scale(1); } }
+.ses-overlay.closing { animation: sesOut .26s ease forwards; }
+@keyframes sesOut { to { opacity: 0; transform: scale(1.02); } }
+
+.ses-top {
+  display: flex; align-items: center; justify-content: space-between; gap: 8px;
+  padding: 12px 14px; border-bottom: 1px solid rgba(255,255,255,0.07);
+  background: rgba(10,10,26,0.6); backdrop-filter: blur(8px);
+}
+.ses-count {
+  display: flex; flex-direction: column; align-items: center; gap: 1px;
+  min-width: 62px; padding: 5px 8px; border-radius: 10px;
+  transition: transform .18s;
+}
+.ses-count b { font-size: 18px; font-weight: 900; line-height: 1; }
+.ses-count span { font-size: 10px; font-weight: 700; opacity: .75; }
+.ses-count.today { background: rgba(233,69,96,0.14); border: 1px solid rgba(233,69,96,0.3); color: #ff8a9e; }
+.ses-count.tomo  { background: rgba(149,117,219,0.14); border: 1px solid rgba(149,117,219,0.3); color: #b39ddb; }
+.ses-count.bump { animation: cntBump .42s cubic-bezier(.34,1.56,.64,1); }
+@keyframes cntBump { 0% { transform: scale(1); } 45% { transform: scale(1.35); } 100% { transform: scale(1); } }
+.ses-mid { flex: 1; text-align: center; }
+.ses-remain { font-size: 13px; font-weight: 800; color: #fff; }
+.ses-remain em { color: #ffd54f; font-style: normal; font-size: 17px; }
+.ses-progress { height: 4px; border-radius: 3px; background: rgba(255,255,255,0.08); margin-top: 6px; overflow: hidden; }
+.ses-progress > i { display: block; height: 100%; border-radius: 3px; background: linear-gradient(90deg,#e94560,#ffd54f); transition: width .35s ease; }
+.ses-close {
+  background: rgba(255,255,255,0.06); border: none; color: #fff; cursor: pointer;
+  border-radius: 8px; padding: 6px 10px; font-size: 13px; font-weight: 700;
+}
+.ses-close:hover { background: rgba(255,255,255,0.13); }
+
+.ses-stage { flex: 1; overflow-y: auto; -webkit-overflow-scrolling: touch; padding: 16px 12px 12px; }
+.ses-card {
+  max-width: 640px; margin: 0 auto; background: rgba(255,255,255,0.035);
+  border: 1px solid rgba(255,255,255,0.10); border-radius: 16px; padding: 16px;
+  box-shadow: 0 12px 40px rgba(0,0,0,0.4);
+  animation: cardIn .34s cubic-bezier(.2,.9,.3,1);
+}
+@keyframes cardIn { from { opacity: 0; transform: translateY(26px) scale(0.97); } to { opacity: 1; transform: none; } }
+.ses-card.fly-today { animation: flyLeft .5s cubic-bezier(.5,0,.75,0) forwards; }
+.ses-card.fly-tomo  { animation: flyRight .5s cubic-bezier(.5,0,.75,0) forwards; }
+@keyframes flyLeft  { to { opacity: 0; transform: translateX(-130%) rotate(-14deg) scale(0.8); } }
+@keyframes flyRight { to { opacity: 0; transform: translateX(130%) rotate(14deg) scale(0.8); } }
+.ses-word {
+  font-size: 30px; font-weight: 900; color: #fff; text-align: center;
+  letter-spacing: -0.5px; margin: 6px 0 12px; word-break: break-word;
+}
+.ses-word .speak-btn { vertical-align: middle; margin-left: 8px; }
+.ses-body { color: #e5e7eb; font-size: 15px; line-height: 1.65; }
+.ses-body.blur { filter: blur(9px); opacity: .55; pointer-events: none; user-select: none; }
+.ses-reveal {
+  display: block; margin: 12px auto 0; padding: 10px 22px; border: none; border-radius: 10px;
+  background: rgba(255,255,255,0.10); color: #fff; font-size: 14px; font-weight: 800; cursor: pointer;
+}
+.ses-reveal:hover { background: rgba(255,255,255,0.18); }
+
+.ses-actions {
+  display: flex; gap: 10px; padding: 12px 14px calc(12px + env(safe-area-inset-bottom));
+  border-top: 1px solid rgba(255,255,255,0.07); background: rgba(10,10,26,0.75); backdrop-filter: blur(8px);
+}
+.ses-btn {
+  flex: 1; padding: 15px 10px; border: none; border-radius: 12px; cursor: pointer;
+  font-size: 15px; font-weight: 900; color: #fff; letter-spacing: -0.3px;
+  transition: filter .15s, transform .1s;
+}
+.ses-btn:active { transform: scale(0.97); }
+.ses-btn.today { background: linear-gradient(135deg,#e94560,#ff6b81); box-shadow: 0 6px 20px rgba(233,69,96,0.4); }
+.ses-btn.tomo  { background: linear-gradient(135deg,#7e57c2,#9575db); box-shadow: 0 6px 20px rgba(149,117,219,0.4); }
+.ses-btn:hover { filter: brightness(1.09); }
+.ses-btn:disabled { opacity: .45; cursor: default; }
+
+/* 완료 화면 */
+.ses-done { text-align: center; padding: 40px 16px; animation: cardIn .4s ease; }
+.ses-done .big { font-size: 52px; animation: doneBounce .7s cubic-bezier(.34,1.56,.64,1); }
+@keyframes doneBounce { 0% { transform: scale(0.2); opacity: 0; } 60% { transform: scale(1.2); } 100% { transform: scale(1); opacity: 1; } }
+.ses-done h3 { color: #fff; font-size: 21px; margin: 12px 0 6px; font-weight: 900; }
+.ses-done p { color: rgba(255,255,255,0.6); font-size: 14px; margin: 0 0 18px; }
+.ses-done .sum { display: flex; gap: 10px; justify-content: center; margin-bottom: 20px; }
+.ses-done .sum > div { padding: 10px 16px; border-radius: 12px; font-weight: 800; font-size: 14px; }
+.ses-done .sum .t { background: rgba(233,69,96,0.16); border: 1px solid rgba(233,69,96,0.35); color: #ff8a9e; }
+.ses-done .sum .m { background: rgba(149,117,219,0.16); border: 1px solid rgba(149,117,219,0.35); color: #b39ddb; }
+
 /* 일반 모드 3탭 — new / 별표 / all (각 목차 안 학습 카드 위) */
 .mode-tabs {
   display: flex; gap: 5px;
@@ -2708,6 +2860,8 @@ const state = {
   understoodMissCount: {},    // subtopic_id → miss_count (v2: 누적 펼친 횟수, 별표 표시용)
   understoodLastMovedAt: {},  // subtopic_id → last_moved_at (v2: 박스 이동 시각, 다지기 박스 안 정렬용)
   normalMode: 'new',          // v2: 'new' | 'star' | 'all' — 일반 모드 탭. 챕터 진입 시 'new' 기본
+  picked: new Set(),          // 집중 세션: 체크된 subtopic id (new 탭에서만 사용)
+  session: null,              // 집중 세션 진행 상태 { queue, idx, today, tomo, total, busy, revealed }
   memorizedBoxOpen: {1:false, 2:false, 3:false, 4:false, 5:false, 6:false}, // v2: 다지기 6박스 펼침 상태. 모드 버튼으로만 펼침
   todayStatsCleared: 0,       // v2: 오늘 박스에서 내일 박스로 진급한 카드 (분자). 분모는 동적 계산
   todayStatsDate: '',         // v2: KST 날짜 키 — 자정 지나면 자동 리셋
@@ -3374,6 +3528,7 @@ async function enterChapter(chapterId) {
   state.recentlyFailedFromMemo = new Set();  // 다지기 실패 → 챕터 뷰 복귀 표시 초기화
   state.peekedPassedSet = new Set();   // 펼친 뒤 패스 = "틀린 단어" 표시 초기화
   state.normalMode = 'new';            // 챕터 진입 시 new 탭 기본
+  state.picked.clear();                // 챕터가 바뀌면 선택도 초기화
   state.memorizedBoxOpen = {1:false, 2:false, 3:false, 4:false, 5:false, 6:false}; // 기본 모두 닫힘 — 모드 버튼 클릭 시 자동 펼침
   loadTodayStats(chapterId);
   refreshModeTabsUI();
@@ -5431,12 +5586,16 @@ function renderSubtopic(s, isCurrent) {
   // 펼치는 순간이 아니라 패스 후에야 색 변경 → state.peekedPassedSet 기준
   const peeked = !state.memorizedView && !understood && !failedFromMemo
               && state.peekedPassedSet.has(Number(s.id));
+  // 집중 세션 선택 체크박스 — new 탭(미학습 카드)에서만
+  const canPick = !state.memorizedView && (state.normalMode || 'new') === 'new' && !understood;
+  const isPicked = canPick && state.picked.has(Number(s.id));
   const cls = 'subtopic'
     + (opened ? ' opened' : '')
     + (understood ? ' understood' : '')
     + (showCurrent ? ' current' : '')
     + (failedFromMemo ? ' failed-from-memo' : '')
-    + (peeked ? ' peeked' : '');
+    + (peeked ? ' peeked' : '')
+    + (isPicked ? ' picked' : '');
   // 교사 대표이미지(커버, image_b64)는 기존처럼 제목 아래 항상 노출.
   // 단어 자동 매핑 이미지는 본문 맨 끝에 노출 → 카드 접으면 같이 닫히고, 클릭 시 확대.
   const ownImg = unwrapImage(s.image_b64);
@@ -5503,6 +5662,11 @@ function renderSubtopic(s, isCurrent) {
   return `
     <div class="${cls}" data-sub="${s.id}">
       <div class="subtopic-head" onclick="subClick(event,${s.id})">
+        ${canPick ? `<div class="pick-box"
+             onclick="event.stopPropagation();togglePick(${s.id})"
+             onmousedown="event.stopPropagation()"
+             ontouchstart="event.stopPropagation()"
+             title="학습할 단어 선택">✔</div>` : ''}
         <div class="subtopic-dot"></div>
         <div class="subtopic-arrow">▶</div>
         ${failedFromMemo ? `<span class="failed-memo-badge" title="다지기에서 다시 보고 싶다고 한 카드">↺</span>` : ''}
@@ -5885,6 +6049,46 @@ function withTopicAnchor(topicId, callback) {
 //   srs-demoting 신비로운 dissolve → state/서버 갱신 → 다지기 박스로 자동 분류
 //   - 1 → /understood (POST) → box=1, due 내일 → effective box=1 = "오늘 학습"
 //   - 2 → /understood/promote (POST) → box=2, due 내일 → "내일 학습"
+// 오늘/내일 선택의 '적용' 부분만 분리 — 클라이언트 낙관 갱신 + 서버 동기화.
+//   리스트(studyDayPick)와 집중 세션(sessionPick)이 함께 쓴다. 화면 갱신은 호출자 몫.
+function applyDayPick(sid, box) {
+  // 클라이언트 낙관 갱신 — 서버 응답 대기 없이 즉시 반영
+  state.understoodSet.add(sid);
+  state.understoodBox[sid] = box;
+  const BOX_DUE_DAYS = [null, 0, 1, 4, 8, 16, 32];
+  const days = BOX_DUE_DAYS[box] || 0;
+  const due = new Date(Date.now() + 9 * 3600 * 1000 + days * 86400 * 1000);
+  state.understoodNextReview[sid] = due.toISOString().slice(0, 19).replace('T', ' ');
+  const nowKst = new Date(Date.now() + 9 * 3600 * 1000)
+    .toISOString().replace('T', ' ').slice(0, 19);
+  state.understoodMarkedAt[sid] = nowKst;
+  state.understoodLastMovedAt[sid] = nowKst;
+
+  // 세션 패스 + 펼침 정리 (자연 닫힘)
+  state.passedSet.add(sid);
+  state.expanded.subtopic.delete(sid);
+  state.recentlyFailedFromMemo.delete(sid);
+  state.picked.delete(sid);
+  savePassed();
+  state.studyDelta++;   // 실시간 통계 — 첫 학습(오늘/내일)도 카드 1장 학습 (다음 ping에 전송)
+
+  //   시나리오 1: 오늘 학습(box=1)만 miss=1 — "한 번 더 봐야지" 신호
+  //   내일 학습(box=2)은 "안다 → 내일로" 긍정 신호라 miss 0 유지
+  if (box === 1) state.understoodMissCount[sid] = 1;
+
+  // 서버 동기화 — box=1은 /understood, box=2는 /understood/promote. 백그라운드.
+  return (async () => {
+    try {
+      if (box === 1) {
+        await api('POST', '/understood', { subtopic_id: sid });
+        api('POST', '/understood/peek', { subtopic_id: sid }).catch(() => {}); // 서버 miss +1
+      } else {
+        await api('POST', '/understood/promote', { subtopic_id: sid });
+      }
+    } catch {}
+  })();
+}
+
 async function studyDayPick(subId, targetBox) {
   if (!state.user) return;
   const sid = Number(subId);
@@ -5895,31 +6099,9 @@ async function studyDayPick(subId, targetBox) {
   const cardEl = document.querySelector(`.subtopic[data-sub="${sid}"]`);
   if (cardEl) { cardEl.classList.add('srs-memorize'); playMemorizeEffect(cardEl); }
 
-  // 2) 1.4초 후 state + 서버 동시 처리 + 재렌더
+  // 2) 0.3초 후 state + 서버 동시 처리 + 재렌더
   setTimeout(async () => {
-    // 클라이언트 낙관 갱신 — 서버 응답 대기 없이 즉시 반영
-    state.understoodSet.add(sid);
-    state.understoodBox[sid] = box;
-    const BOX_DUE_DAYS = [null, 0, 1, 4, 8, 16, 32];
-    const days = BOX_DUE_DAYS[box] || 0;
-    const due = new Date(Date.now() + 9 * 3600 * 1000 + days * 86400 * 1000);
-    state.understoodNextReview[sid] = due.toISOString().slice(0, 19).replace('T', ' ');
-    const nowKst = new Date(Date.now() + 9 * 3600 * 1000)
-      .toISOString().replace('T', ' ').slice(0, 19);
-    state.understoodMarkedAt[sid] = nowKst;
-    state.understoodLastMovedAt[sid] = nowKst;
-
-    // 세션 패스 + 펼침 정리 (자연 닫힘)
-    state.passedSet.add(sid);
-    state.expanded.subtopic.delete(sid);
-    state.recentlyFailedFromMemo.delete(sid);
-    savePassed();
-    state.studyDelta++;   // 실시간 통계 — 첫 학습(오늘/내일)도 카드 1장 학습 (다음 ping에 전송)
-
-    // 서버 동기화 — box=1은 /understood, box=2는 /understood/promote
-    //   시나리오 1: 오늘 학습(box=1)만 miss=1 — "한 번 더 봐야지" 신호
-    //   내일 학습(box=2)은 "안다 → 내일로" 긍정 신호라 miss 0 유지
-    if (box === 1) state.understoodMissCount[sid] = 1;
+    applyDayPick(sid, box);
 
     // 재렌더 — 화면 상단에 보이는 카드(학습 카드 제외)를 기준으로 스크롤 위치를 고정(앵커).
     // → 뷰가 위로/아래로 튀지 않음. 학습 카드만 빠지고:
@@ -5943,17 +6125,261 @@ async function studyDayPick(subId, targetBox) {
         }
       }
     }
-
-    // 서버 동기화 (렌더 후 백그라운드)
-    try {
-      if (box === 1) {
-        await api('POST', '/understood', { subtopic_id: sid });
-        api('POST', '/understood/peek', { subtopic_id: sid }).catch(() => {}); // 서버 miss +1
-      } else {
-        await api('POST', '/understood/promote', { subtopic_id: sid });
-      }
-    } catch {}
   }, 300);
+}
+
+// ═══════════════════════════════════════════════════════════
+//  집중 학습 세션 — new 탭에서 단어를 골라 한 장씩 몰입 학습
+//    선택(체크박스/자동선택) → 학습하기 → 전체화면 세션
+//    오늘/내일 판정 → 카드가 좌/우로 날아가고 다음 카드 자동 등장
+//    큐가 비면 리스트 복귀 (학습한 단어는 understoodSet 이라 new 탭에서 사라짐)
+// ═══════════════════════════════════════════════════════════
+const AUTOPICK_KEY = 'op_autopick_n';
+function autoPickCount() {
+  const n = parseInt(localStorage.getItem(AUTOPICK_KEY) || '10', 10);
+  return (n >= 1 && n <= 100) ? n : 10;
+}
+function setAutoPickCount(v) {
+  let n = parseInt(v, 10);
+  if (!(n >= 1)) n = 1;
+  if (n > 100) n = 100;
+  localStorage.setItem(AUTOPICK_KEY, String(n));
+}
+
+// 화면에 보이는 선택 가능 카드의 id — DOM 순서 = 사용자가 보는 정렬 순서
+function visiblePickIds() {
+  return [...document.querySelectorAll('.subtopic .pick-box')]
+    .map(b => Number(b.closest('.subtopic')?.dataset.sub))
+    .filter(n => Number.isFinite(n));
+}
+
+function findSubtopic(sid) {
+  sid = Number(sid);
+  for (const list of Object.values(state.subtopicsByTopic || {})) {
+    const f = (list || []).find(s => Number(s.id) === sid);
+    if (f) return f;
+  }
+  return null;
+}
+
+// 선택 상태만 DOM에 반영 — renderTree 재호출 없이(스크롤 위치 보존)
+function refreshPickUI() {
+  document.querySelectorAll('.subtopic[data-sub]').forEach(el => {
+    if (!el.querySelector('.pick-box')) return;
+    el.classList.toggle('picked', state.picked.has(Number(el.dataset.sub)));
+  });
+  document.querySelectorAll('.pick-bar').forEach(bar => { bar.outerHTML = renderPickBar(); });
+}
+
+function togglePick(sid) {
+  sid = Number(sid);
+  if (state.picked.has(sid)) state.picked.delete(sid);
+  else { state.picked.add(sid); ensureItems(sid, true); }   // 선택 즉시 프리페치
+  refreshPickUI();
+}
+
+function clearPick() {
+  state.picked.clear();
+  refreshPickUI();
+}
+
+// 위에서부터 N개 자동 선택
+function autoPick() {
+  const ids = visiblePickIds();
+  if (!ids.length) { toast('선택할 단어가 없습니다.', true); return; }
+  const n = Math.min(autoPickCount(), ids.length);
+  state.picked.clear();
+  for (let i = 0; i < n; i++) { state.picked.add(ids[i]); ensureItems(ids[i], true); }
+  refreshPickUI();
+  toast(`${n}개 선택했어요`);
+}
+
+function startSession() {
+  if (!state.user) return;
+  // 화면 순서대로 큐 구성 (이미 학습된 건 제외)
+  const queue = visiblePickIds().filter(id => state.picked.has(id) && !state.understoodSet.has(id));
+  if (!queue.length) { toast('학습할 단어를 선택하세요.', true); return; }
+  state.session = { queue, idx: 0, today: 0, tomo: 0, total: queue.length, busy: false, revealed: false };
+  document.body.style.overflow = 'hidden';
+  document.addEventListener('keydown', sessionKey);
+  renderSession();
+}
+
+function sessionKey(e) {
+  if (!state.session) return;
+  if (e.key !== 'Escape') return;
+  // 이미지 라이트박스가 열려 있으면 ESC는 그쪽 몫 — 세션까지 닫히면 안 된다
+  if (document.querySelector('.content-lightbox.open')) return;
+  endSession();
+}
+
+function renderSession() {
+  const ses = state.session;
+  let host = document.getElementById('sesOverlay');
+  if (!ses) { if (host) host.remove(); return; }
+  if (!host) {
+    host = document.createElement('div');
+    host.id = 'sesOverlay';
+    host.className = 'ses-overlay';
+    document.body.appendChild(host);
+  }
+
+  const done = ses.idx >= ses.queue.length;
+  const left = Math.max(0, ses.queue.length - ses.idx);
+  const pct = ses.total ? Math.round((ses.idx / ses.total) * 100) : 100;
+
+  host.innerHTML = `
+    <div class="ses-top">
+      <div class="ses-count today"><b id="sesToday">${ses.today}</b><span>📚 오늘</span></div>
+      <div class="ses-mid">
+        <div class="ses-remain">${done ? '완료!' : `남은 <em>${left}</em> / ${ses.total}`}</div>
+        <div class="ses-progress"><i style="width:${pct}%"></i></div>
+      </div>
+      <div class="ses-count tomo"><b id="sesTomo">${ses.tomo}</b><span>📅 내일</span></div>
+      <button class="ses-close" onclick="endSession()" title="세션 종료 (Esc)">✕</button>
+    </div>
+    <div class="ses-stage" id="sesStage">${sessionCardHTML()}</div>
+    ${done ? '' : `
+    <div class="ses-actions">
+      <button class="ses-btn today" onclick="sessionPick(1)">📚 오늘 학습</button>
+      <button class="ses-btn tomo"  onclick="sessionPick(2)">📅 내일 학습</button>
+    </div>`}
+  `;
+
+  if (done) { setTimeout(() => { if (state.session && state.session.idx >= state.session.queue.length) endSession(); }, 2200); return; }
+
+  // 현재 카드 본문이 아직 없으면 로드 후 그 자리만 다시 그림
+  const sid = ses.queue[ses.idx];
+  if (state.itemsBySubtopic[sid] === undefined) {
+    ensureItems(sid, true).then(() => {
+      if (state.session && state.session.queue[state.session.idx] === sid) {
+        const st = document.getElementById('sesStage');
+        if (st) st.innerHTML = sessionCardHTML();
+      }
+    });
+  }
+  // 다음 2장 미리 로드 → 넘길 때 로딩 없음
+  for (const k of [1, 2]) {
+    const nx = ses.queue[ses.idx + k];
+    if (nx !== undefined) ensureItems(nx, true);
+  }
+}
+
+function sessionCardHTML() {
+  const ses = state.session;
+  if (!ses) return '';
+  if (ses.idx >= ses.queue.length) {
+    return `
+      <div class="ses-done">
+        <div class="big">🎉</div>
+        <h3>${ses.total}개 학습 완료!</h3>
+        <p>선택한 단어를 모두 끝냈어요.</p>
+        <div class="sum">
+          <div class="t">📚 오늘 ${ses.today}</div>
+          <div class="m">📅 내일 ${ses.tomo}</div>
+        </div>
+        <button class="ses-reveal" onclick="endSession()">목록으로 돌아가기</button>
+      </div>`;
+  }
+
+  const sid = ses.queue[ses.idx];
+  const s = findSubtopic(sid);
+  if (!s) return '<div class="empty-state" style="padding:40px 10px;">카드를 찾을 수 없습니다.</div>';
+
+  const items = state.itemsBySubtopic[sid];
+  const ownImg = unwrapImage(s.image_b64);
+  const wordImg = wordImageFor(s);
+  const wordImgBlock = wordImg ? `
+    <div class="item">
+      <img class="item-image" src="${escapeHtml(wordImg)}" alt="" loading="lazy" oncontextmenu="return false">
+      ${s.caption ? `<div class="item-caption">${escapeHtml(s.caption)}</div>` : ''}
+    </div>` : '';
+
+  let body = '', bodyReady = false;
+  if (items === undefined) {
+    body = '<div class="empty-state" style="padding:30px 10px;">로딩…</div>';
+  } else if (items.locked) {
+    body = `<div class="locked-banner"><h4>🔒 구독 후 볼 수 있습니다</h4>
+            <button onclick="event.stopPropagation();endSession();openPayModal(${items.chapter_id})">구독하기 →</button></div>`;
+  } else if (items.error) {
+    body = `<div class="empty-state">오류: ${escapeHtml(items.error)}</div>`;
+  } else if (!items.length) {
+    body = wordImgBlock || '<div class="empty-state">아직 내용이 없습니다.</div>';
+    bodyReady = true;
+  } else {
+    body = items.map(it => renderItem(it)).join('') + wordImgBlock;
+    bodyReady = true;
+  }
+
+  // 능동 회상 모드면 본문을 가리고 '정답 보기'로 공개 (설정을 그대로 따름)
+  const hideBody = !!state.activeRecallMode && bodyReady && !ses.revealed;
+
+  const isAlpha = /[a-zA-Z]/.test(s.title || '') && !/[가-힯ᄀ-ᇿ㄰-㆏]/.test(s.title || '');
+  const speakBtn = isAlpha
+    ? `<button class="speak-btn" onclick="event.stopPropagation();speakText(${JSON.stringify(s.title).replace(/"/g, '&quot;')})" title="발음 듣기">🔊</button>`
+    : '';
+  const coverHtml = ownImg
+    ? `<div class="subtopic-preview"><img src="${escapeHtml(ownImg)}" alt="" loading="lazy" oncontextmenu="return false">${s.caption ? `<div class="cap">${escapeHtml(s.caption)}</div>` : ''}</div>`
+    : '';
+
+  return `
+    <div class="ses-card" data-sub="${sid}" ${hideBody ? 'onclick="sessionReveal()"' : ''}>
+      <div class="ses-word">${escapeHtml(s.title)}${speakBtn}</div>
+      ${coverHtml}
+      <div class="ses-body${hideBody ? ' blur' : ''}">${body}</div>
+      ${hideBody ? `<button class="ses-reveal" onclick="event.stopPropagation();sessionReveal()">정답 보기</button>` : ''}
+    </div>`;
+}
+
+function sessionReveal() {
+  if (!state.session) return;
+  state.session.revealed = true;
+  const st = document.getElementById('sesStage');
+  if (st) st.innerHTML = sessionCardHTML();
+}
+
+// 세션 안에서 오늘/내일 판정 — 리스트와 같은 applyDayPick 을 쓰고,
+// 트리 재렌더 대신 카드를 날려보내고 다음 카드를 띄운다.
+function sessionPick(targetBox) {
+  const ses = state.session;
+  if (!ses || ses.busy) return;
+  const sid = ses.queue[ses.idx];
+  if (sid === undefined) return;
+  const box = Number(targetBox) === 2 ? 2 : 1;
+
+  ses.busy = true;
+  applyDayPick(sid, box);                       // state 낙관 갱신 + 서버 동기화(백그라운드)
+
+  // 카운터 +1 & 튕김
+  if (box === 1) ses.today++; else ses.tomo++;
+  const cnt = document.getElementById(box === 1 ? 'sesToday' : 'sesTomo');
+  if (cnt) {
+    cnt.textContent = String(box === 1 ? ses.today : ses.tomo);
+    const wrap = cnt.closest('.ses-count');
+    if (wrap) { wrap.classList.remove('bump'); void wrap.offsetWidth; wrap.classList.add('bump'); }
+  }
+  // 카드는 오늘=왼쪽 / 내일=오른쪽으로 날아감
+  const card = document.querySelector('#sesStage .ses-card');
+  if (card) card.classList.add(box === 1 ? 'fly-today' : 'fly-tomo');
+  document.querySelectorAll('.ses-btn').forEach(b => { b.disabled = true; });
+
+  setTimeout(() => {
+    ses.idx++;
+    ses.revealed = false;
+    ses.busy = false;
+    if (state.session) renderSession();         // 다음 카드 (또는 완료 화면)
+  }, 480);
+}
+
+function endSession() {
+  const host = document.getElementById('sesOverlay');
+  state.session = null;
+  document.body.style.overflow = '';
+  document.removeEventListener('keydown', sessionKey);
+  if (host) { host.classList.add('closing'); setTimeout(() => host.remove(), 260); }
+  // 학습한 단어는 understoodSet 에 들어가 new 탭에서 자동으로 사라진다.
+  // (중도 종료 시 남은 선택은 그대로 유지 — 다시 '학습하기'로 이어서 가능)
+  if (state.currentChapter) renderTree(state.currentChapter.id);
 }
 
 function studyPass(subId, topicId) {
@@ -6233,7 +6659,29 @@ function bumpTodayStats(prevBox, newBox) {
 function renderModeTabs() {
   const cur = state.normalMode || 'new';
   const mk = (m, label) => `<button class="mode-tab${cur === m ? ' active' : ''}" data-mode="${m}" onclick="event.stopPropagation();switchNormalMode('${m}')">${label}</button>`;
-  return `<div class="mode-tabs">${mk('new', 'new')}${mk('star', '★ 별표')}${mk('all', 'all')}</div>`;
+  const tabs = `<div class="mode-tabs">${mk('new', 'new')}${mk('star', '★ 별표')}${mk('all', 'all')}</div>`;
+  return tabs + renderPickBar();
+}
+
+// 집중 세션 컨트롤 바 — new 탭에서만 (자동선택 · 학습하기)
+function renderPickBar() {
+  if (state.memorizedView || (state.normalMode || 'new') !== 'new') return '';
+  const n = state.picked.size;
+  return `
+    <div class="pick-bar" onclick="event.stopPropagation()">
+      <div class="pick-auto">
+        <button class="pick-auto-btn" onclick="event.stopPropagation();autoPick()"
+                title="위에서부터 이 개수만큼 자동으로 선택">☑ 자동선택</button>
+        <input type="number" min="1" max="100" value="${autoPickCount()}"
+               onclick="event.stopPropagation()"
+               onchange="event.stopPropagation();setAutoPickCount(this.value)"
+               title="자동선택 개수">개
+      </div>
+      ${n ? `<button class="pick-clear" onclick="event.stopPropagation();clearPick()">해제</button>` : ''}
+      <button class="pick-start" ${n ? '' : 'disabled'} onclick="event.stopPropagation();startSession()">
+        ▶ 학습하기${n ? ` (${n})` : ''}
+      </button>
+    </div>`;
 }
 
 // (구) refreshModeTabsUI — 현재는 renderTree 재호출로 충분. 무동작 stub.
@@ -6243,7 +6691,8 @@ function refreshModeTabsUI() {}
 function switchNormalMode(mode) {
   if (state.normalMode === mode) return;
   state.normalMode = mode;
-  // 탭 전환 시 펼친 항목·패스 모두 초기화 (혼선 방지)
+  // 탭 전환 시 펼친 항목·패스·선택 모두 초기화 (혼선 방지)
+  state.picked.clear();
   state.expanded.subtopic.clear();
   state.passedSet.clear();
   savePassed();
@@ -7284,7 +7733,8 @@ setTimeout(async () => {
 
   window.closeContentLightbox = function () {
     lb.classList.remove('open');
-    document.body.style.overflow = '';
+    // 집중 세션이 떠 있으면 배경 스크롤 잠금은 세션이 계속 소유 → 풀지 않는다
+    document.body.style.overflow = state.session ? 'hidden' : '';
     setTimeout(() => { document.getElementById('contentLightboxBody').innerHTML = ''; }, 200);
   };
 })();
