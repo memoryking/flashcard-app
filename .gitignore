@@ -25,3 +25,6 @@ flashcard/*teacher*.html
 scripts/.word-images.state.json
 scripts/.word-images.config.json
 단어이미지-자동배포.bat
+
+# Codex 설정 — 로컬 전용 (나중에 사용 예정)
+.codex/
