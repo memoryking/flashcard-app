@@ -808,6 +808,7 @@ function renderChapter(c) {
             <span>${Number(c.monthly_price || 0).toLocaleString()}원/월</span>
           </div>
           <div class="chapter-actions">
+            <button class="btn-ghost btn-small" title="단어 일괄 추가 (단어풀 참조)" onclick="event.stopPropagation();openWordBulk(${c.id})">📥</button>
             <button class="btn-ghost btn-small" onclick="event.stopPropagation();openChapterModal(${c.id})">✎</button>
             <button class="btn-danger btn-small" onclick="event.stopPropagation();deleteChapter(${c.id})">🗑️</button>
           </div>
@@ -1939,6 +1940,116 @@ window.reloadChapters = reloadChapters;
 window.closeModal = closeModal;
 
 // ============================================================
+// ============================================================
+// 📥 단어 일괄 추가 (단어묶음) — 단어풀 참조 카드 생성
+//   챕터 = 단어묶음(대분류) · 토픽 = 소분류(a·b·c) · subtopic = 단어 · item = "@@WORD:단어@@"
+//   뜻·발음·암기법·예문은 저장하지 않음 → 워커가 서빙 시 op_pool 에서 조합(풀 수정 시 전체 자동 반영).
+// ============================================================
+function openWordBulk(chapterId) {
+  const c = state.chapters.find(x => x.id === chapterId);
+  if (!poolState.loaded) loadWordPool();
+  modal({
+    title: `📥 단어 일괄 추가 — ${c?.title || ''}`,
+    saveLabel: '추가 실행',
+    body: `
+      <div class="form-row">
+        <label>단어 목록 (한 줄에 하나 · 뒤에 뜻이 붙어도 첫 단어만 사용)</label>
+        <textarea id="wb_words" rows="8" placeholder="ability
+absence
+abstract"></textarea>
+      </div>
+      <div class="form-row">
+        <label>정렬</label>
+        <label class="check"><input type="radio" name="wb_mode" value="alpha" checked> 알파벳순 — 첫글자 소분류(a·b·c)에 배치 (기존 a·b·c 밑으로 삽입)</label>
+        <label class="check"><input type="radio" name="wb_mode" value="time"> 입력순 — 마지막 소분류 뒤에 추가</label>
+      </div>
+      <div class="form-row" style="font-size:12px;color:rgba(255,255,255,0.55);">
+        중복 단어는 자동 제외됩니다. 뜻·암기법·이미지는 <b>단어풀</b>에서 자동으로 채워집니다.
+      </div>
+      <pre id="wb_log" style="max-height:170px;overflow:auto;background:rgba(0,0,0,0.3);padding:8px;border-radius:6px;font-size:12px;white-space:pre-wrap;margin:0;"></pre>
+    `,
+    save: () => runWordBulk(chapterId),
+  });
+}
+
+async function runWordBulk(chapterId) {
+  const logEl = $('wb_log');
+  const log = (m) => { logEl.textContent += m + '\n'; logEl.scrollTop = logEl.scrollHeight; };
+  const raw = $('wb_words').value || '';
+  const mode = (document.querySelector('input[name=wb_mode]:checked') || {}).value || 'alpha';
+  // 정규화 + 붙여넣기 내부 중복 제거
+  const words = [...new Set(raw.split(/\r?\n/)
+    .map(l => String(l).split(/[\t,]/)[0].trim().toLowerCase()).filter(Boolean))];
+  if (!words.length) { alert('단어를 입력하세요.'); return false; }
+  logEl.textContent = '';
+  log(`입력 ${words.length}개 (내부 중복 제거됨)`);
+
+  // 1) 이 챕터의 기존 단어 수집 → 중복 제외
+  await loadTopics(chapterId);
+  const topics = state.topicsByChapter[chapterId] || [];
+  const existing = new Set();
+  for (const t of topics) {
+    if (!state.subtopicsByTopic[t.id]) await loadSubtopics(t.id);
+    (state.subtopicsByTopic[t.id] || []).forEach(s => existing.add(String(s.title || '').trim().toLowerCase()));
+  }
+  const fresh = words.filter(w => !existing.has(w));
+  log(`기존 중복 제외 ${words.length - fresh.length} → 추가 대상 ${fresh.length}`);
+  if (!fresh.length) { log('추가할 단어가 없습니다.'); return false; }
+
+  // 2) 풀에 없는 단어 경고 (콘텐츠가 비어 보임 → 먼저 인제스트 필요)
+  if (poolState.loaded) {
+    const poolSet = new Set((poolState.words || []).map(w => String(w.word || '').toLowerCase()));
+    const miss = fresh.filter(w => !poolSet.has(w));
+    if (miss.length) log(`⚠ 단어풀에 없음(콘텐츠 대기) ${miss.length}: ${miss.slice(0, 8).join(', ')}${miss.length > 8 ? ' …' : ''}`);
+  }
+
+  // 3) 생성 — 알파벳순이면 첫글자 소분류, 입력순이면 마지막 소분류 뒤
+  const list = mode === 'alpha' ? fresh.slice().sort() : fresh;
+  const byTitle = {};
+  (state.topicsByChapter[chapterId] || []).forEach(t => { byTitle[String(t.title || '').trim().toLowerCase()] = t; });
+  let lastTopic = (state.topicsByChapter[chapterId] || []).slice(-1)[0] || null;
+  let ok = 0, fail = 0;
+  for (const w of list) {
+    try {
+      let t;
+      if (mode === 'alpha') {
+        const key = (w[0] || '#').toLowerCase();
+        t = byTitle[key];
+        if (!t) {
+          const r = await api('POST', '/topics', { chapter_id: chapterId, title: key, sort_order: Object.keys(byTitle).length + 1 });
+          t = r.topic || { id: r.id, title: key };
+          byTitle[key] = t;
+          state.topicsByChapter[chapterId] = [...(state.topicsByChapter[chapterId] || []), t];
+        }
+      } else {
+        if (!lastTopic) {
+          const r = await api('POST', '/topics', { chapter_id: chapterId, title: '단어', sort_order: 1 });
+          lastTopic = r.topic || { id: r.id, title: '단어' };
+          state.topicsByChapter[chapterId] = [...(state.topicsByChapter[chapterId] || []), lastTopic];
+        }
+        t = lastTopic;
+      }
+      const subs = state.subtopicsByTopic[t.id] || [];
+      const nextOrder = subs.length ? Math.max(...subs.map(s => Number(s.sort_order) || 0)) + 1 : 1;
+      const sr = await api('POST', '/subtopics', { topic_id: t.id, title: w, sort_order: nextOrder, caption: w, image_b64: null });
+      const sid = sr?.subtopic?.id || sr?.id;
+      if (!sid) throw new Error('subtopic id 없음');
+      state.subtopicsByTopic[t.id] = [...subs, { id: sid, title: w, sort_order: nextOrder }];
+      await api('POST', '/items', { subtopic_id: sid, kind: 'html', text: `@@WORD:${w}@@`, caption: '', sort_order: 1 });
+      ok++;
+      if (ok % 10 === 0 || ok === list.length) log(`  진행 ${ok}/${list.length}`);
+    } catch (e) {
+      fail++; log(`  ✗ ${w}: ${String(e?.message || e).slice(0, 60)}`);
+    }
+  }
+  log(`\n완료 — 추가 ${ok} · 실패 ${fail}`);
+  await loadTopics(chapterId);
+  render();
+  toast(`단어 ${ok}개 추가됨`);
+  return false;   // 로그 확인용 — 모달 유지 (닫기는 취소/×)
+}
+window.openWordBulk = openWordBulk;
+
 // 🗂️ 단어풀 뷰 (word-pool.json 브라우즈 + 이미지 검수)
 // ============================================================
 const POOL_REVIEW_KEY = 'op_pool_reviews_v1';   // { word: 'approved' | 'reject' }
