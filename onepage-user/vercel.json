@@ -1,5 +1,4 @@
 {
-  "$comment": "학생앱 캐시 정책. Root Directory가 onepage-user/ 라서 이 파일이 프로젝트 루트 설정이다. index.html은 의도적으로 제외 — Vercel 기본(max-age=0, must-revalidate = ETag 304 재검증)이 push=배포 워크플로에 맞다(배포 즉시 반영, 재검증은 왕복 1회라 저렴).",
   "headers": [
     {
       "source": "/word-images.json",
