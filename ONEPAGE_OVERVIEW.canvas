@@ -46,8 +46,8 @@
       "x": -100,
       "y": -1200,
       "width": 360,
-      "height": 240,
-      "text": "## 👨‍🏫 교사 앱\n`onepage-teacher.html`\n\n콘텐츠 작성/편집\n\n- 챕터/목차/학습카드 CRUD\n- 일괄 입력 (merge 모드)\n- draft 공개/비공개\n- voice_quiz 챕터 설정",
+      "height": 320,
+      "text": "## 👨‍🏫 교사 앱\n`onepage-teacher.html`\n\n콘텐츠 작성/편집\n\n- 챕터/목차/학습카드 CRUD\n- 일괄 입력 (merge 모드)\n- draft 공개/비공개\n- voice_quiz 챕터 설정\n- 📥 **단어 일괄 추가** (중복제외·a·b·c 자동)\n- 🚀 **발행 점검** → 공개 전환\n- 🗂️ 단어풀 탭 (브라우즈·이미지 검수)",
       "color": "1"
     },
     {
@@ -96,8 +96,8 @@
       "x": 390,
       "y": -480,
       "width": 360,
-      "height": 280,
-      "text": "## 🗄️ nocodebackend\n**콘텐츠 도메인**\n\n- `chapters` 챕터 본체\n- `topics` 목차\n- `subtopics` 학습 카드 (제목)\n- `subtopic_items` 본문/이미지\n- `op_understood` SRS 상태\n  · `box` 1~6\n  · `next_review_at`\n  · `miss_count` `last_moved_at`\n  · 챕터 `voice_quiz_*` 설정\n- `op_pings` 실시간 활동\n  · `first_ping_today` `last_ping_at`\n  · `name` `cards_today` `cards_date`",
+      "height": 360,
+      "text": "## 🗄️ nocodebackend\n**콘텐츠 도메인**\n\n- `chapters` 챕터 본체\n- `topics` 목차\n- `subtopics` 학습 카드 (제목)\n- `subtopic_items` 본문/이미지\n- `op_understood` SRS 상태\n  · `box` 1~6\n  · `next_review_at`\n  · `miss_count` `last_moved_at`\n  · 챕터 `voice_quiz_*` 설정\n- `op_pings` 실시간 활동\n  · `first_ping_today` `last_ping_at`\n  · `name` `cards_today` `cards_date`\n- `op_pool` **단어풀 콘텐츠**\n  · 영단어·한자 (word→뜻·암기법…)\n  · `op_items`가 `@@WORD:단어@@`로 참조\n  · 워커가 서빙 시 조합",
       "color": "4"
     },
     {
@@ -286,8 +286,8 @@
       "x": 500,
       "y": 960,
       "width": 360,
-      "height": 260,
-      "text": "### 📣 마케팅 · 문서\n`marketing/scripts.md`\n\n- 영상 스크립트 5편\n- 랜딩페이지 카피\n- v2 신기능 섹션\n- 7가지만 알면 끝 (가이드)\n\n참고:\n- `ONEPAGE_FEATURES.md`\n- `ONEPAGE_SCHEMA.md`\n- `PAYMENT_INTEGRATION_GUIDE.md`",
+      "height": 280,
+      "text": "### 📣 마케팅 · 문서\n`marketing/scripts.md`\n\n- 영상 스크립트 5편\n- 랜딩페이지 카피\n- v2 신기능 섹션\n- 7가지만 알면 끝 (가이드)\n\n참고:\n- `ONEPAGE_FEATURES.md`\n- `ONEPAGE_SCHEMA.md`\n- `PAYMENT_INTEGRATION_GUIDE.md`\n- `WORD_POOL.md` (단어풀 연동)",
       "color": "6"
     },
     {
@@ -369,6 +369,16 @@
       "height": 280,
       "text": "### 🖼️ sharemyimage\n단어 이미지 호스팅 (영단어 대량)\n\n- `scripts/upload-word-images.js` 일괄 업로드\n- → `word-images.json` (단어→주소)\n- 학생 앱이 카드 제목으로 자동 매칭\n- DB 저장 0 · 본문 맨 끝 · 클릭 확대\n- **완전 자동화**: `--watch --push`\n  · 폴더 감시 → 업로드 → git push 배포\n  · `단어이미지-자동배포.bat` 더블클릭\n  · 변경(md5) 감지·이어하기",
       "color": "4"
+    },
+    {
+      "id": "wordPool",
+      "type": "text",
+      "x": 1140,
+      "y": 1420,
+      "width": 360,
+      "height": 300,
+      "color": "4",
+      "text": "### 🗂️ 단어풀 (word-pool)\n**영단어·한자 콘텐츠 원천** (별도 로컬 프로젝트)\n`00_DEV/word-pool` — 공개 저장소와 분리\n\n- `word_pool.db` 단어당 전체 자료\n  · 뜻·발음·암기법·예문\n  · image_url · video_url · 프롬프트\n- `관리콘솔.bat` 로컬 웹 관리 UI\n  · 검색·편집·검수·이미지/동영상 생성\n- **☁️ 서버 반영** → `op_pool`\n  · 풀 수정 = 전 콘텐츠 자동 갱신\n- 문서: `WORD_POOL.md`(이 저장소)\n  `word-pool/README·SETS_PLAN·WORKLOG·DEVLOG`"
     }
   ],
   "edges": [
@@ -583,6 +593,22 @@
       "toNode": "studentApp",
       "toSide": "bottom",
       "label": "word-images.json"
+    },
+    {
+      "id": "e-pool-ncb",
+      "fromNode": "wordPool",
+      "fromSide": "top",
+      "toNode": "ncbackend",
+      "toSide": "bottom",
+      "label": "op_pool sync (☁️ 서버 반영)"
+    },
+    {
+      "id": "e-pool-img",
+      "fromNode": "wordPool",
+      "fromSide": "left",
+      "toNode": "wordImages",
+      "toSide": "right",
+      "label": "이미지 업로드"
     }
   ]
 }

@@ -24,6 +24,7 @@
 | nocodebackend | `op_items` | 내용 블록 (텍스트·이미지·링크) |
 | nocodebackend | `op_understood` | 학생 ● 등록 + SRS 진도 |
 | nocodebackend | `op_pings` | 라이브 학습자 카운트 + 실시간 학습 통계(카드 수·피드) |
+| nocodebackend | `op_pool` | **단어풀 콘텐츠**(영단어·한자) — `op_items`가 `@@WORD:단어@@`로 참조 → 워커가 조합 |
 
 ---
 
@@ -400,6 +401,12 @@ Type 드롭다운에 보이는 옵션: `INT`, `BIGINT`, `VARCHAR(255)`, `DROPDOW
 
 > **`kind='text'` 안의 URL 자동 링크**: `autolinkText()` 가 `http(s)://` / `www.` 패턴을 `<a class="inline-link">` 로 감쌈. 기존 데이터에도 즉시 적용.
 
+> ⭐ **단어풀 참조 규약 (영단어·한자 전용)**: `text` 가 정확히 **`@@WORD:단어@@`** 이면 콘텐츠를 저장하지 않은
+> **참조 카드**다. 워커(`handleListItems` → `derefWordItems`)가 서빙 시 [`op_pool`](#b7-op_pool-단어풀-콘텐츠--영단어한자) 에서
+> 뒷면 HTML(발음·뜻·암기법·예문·동영상)을 조합해 `text` 를 채워 내려준다.
+> → **풀을 고치면 그 단어가 든 모든 콘텐츠가 자동 반영**. 다른 과목(한국사·수학 등)은 기존처럼 `text` 에 본문 저장.
+> 앞면(단어)은 `op_subtopics.title`, 이미지는 학생 앱이 `word-images.json` 으로 자동 매칭.
+
 ---
 
 ### B5. `op_understood` (학생 ● 등록 + 간격 반복 스케줄)
@@ -450,6 +457,41 @@ Type 드롭다운에 보이는 옵션: `INT`, `BIGINT`, `VARCHAR(255)`, `DROPDOW
 > - `/stats/live-feed` → `last_ping_at` 최신순 상위 학습자의 마스킹 이름(`김○○`) + `cards` + 상대시간 (랜딩·메인 실시간 위젯용, 공개 GET)
 >
 > ⚠️ `name`·`cards_today`·`cards_date`는 v2 마케팅 위젯 추가 시 도입 — 기존 인스턴스는 nocodebackend 대시보드에서 이 3개 컬럼을 먼저 추가해야 ping이 정상 동작.
+
+---
+
+### B7. `op_pool` (단어풀 콘텐츠 — 영단어·한자)
+
+> **역할**: 단어 1개 = 1행. `op_items.text = "@@WORD:단어@@"` 참조 카드를 서빙할 때 워커가 여기서 뒷면을 조합한다.
+> **원천은 로컬 `word-pool/word_pool.db`** — 이 테이블은 그 사본(서버 캐시 성격). 갱신은 아래 sync 엔드포인트로만.
+
+| 필드명 | 타입 | 비고 |
+|---|---|---|
+| `word` | VARCHAR(255) | **키** (정규화 소문자). 인덱스 권장 |
+| `display_word` | VARCHAR(255) | 원표기 |
+| `meaning` | TEXT | 뜻 |
+| `pronunciation` | VARCHAR(255) | 발음기호 |
+| `sound_association` | TEXT | 암기법 요약 (한글발음 → 어원/연상) |
+| `mnemonic_detail` | TEXT | 암기법 상세 스토리 |
+| `example1_en` / `example1_ko` | TEXT / TEXT | 예문1 영/한 — **반드시 4개 개별 컬럼** |
+| `example2_en` / `example2_ko` | TEXT / TEXT | 예문2 영/한 |
+| `image_url` | VARCHAR(255) | sharemyimage URL (학생앱은 `word-images.json`으로도 자동 매칭) |
+| `video_url` | VARCHAR(255) | 동영상 URL (있으면 카드에 ▶동영상 링크) |
+| `subject` | VARCHAR(255) | `'en'`(영단어) / `'hanja'`(한자) |
+| `updated_at` | **DATETIME** | 워커가 `YYYY-MM-DD HH:MM:SS` 로 기록 |
+
+> ⚠ **컬럼명에 슬래시 불가** — `example1_en/ko` 처럼 합치면 안 됨(예문 누락). 긴 필드는 VARCHAR(255) 대신 **TEXT**.
+
+**갱신 (로컬 → 서버)**
+```
+cd word-pool
+python scripts/export_op_pool.py     # 풀 → _publish/op_pool.json
+python scripts/push_op_pool.py       # → POST /admin/op_pool/sync (teacher 토큰, 배치 20)
+```
+또는 **관리콘솔의 ☁️ 서버 반영** 버튼 한 번. 워커는 `getPoolRow` 를 10분 캐시하고 sync 시 무효화한다.
+
+**워커 동작**: `composeWordCardHTML(row)` → `<p class="wp-pron|wp-meaning|wp-sa|wp-detail|wp-ex|wp-video">` 조합.
+이미지는 포함하지 않음(학생 앱이 자동 삽입).
 
 ---
 
