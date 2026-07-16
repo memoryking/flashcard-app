@@ -141,6 +141,22 @@ tryAutoLogin → loadMeAndEnter
 - `defer` 스크립트는 파싱 완료 후 DOMContentLoaded 전에 실행 → `renderHome`(네트워크 왕복 뒤)에선 항상 준비됨.
 - MathJax(1MB급)는 **LaTeX 패턴이 실제로 있을 때만** 지연 로드(`_ensureMathJax`). 부팅 비용 아님 — 이대로 유지.
 
+**캐시 정책 (`onepage-user/vercel.json`)** — Root Directory가 `onepage-user/` 라 이 파일이 프로젝트 설정이다.
+
+| 경로 | 정책 | 이유 |
+|---|---|---|
+| `index.html` | **설정 안 함** (기본: ETag 304 재검증) | push=배포 즉시 반영. 재검증은 왕복 1회라 저렴. **HTML에 장기 캐시 주지 말 것** — "배포했는데 옛날 화면" 재발 |
+| `word-images.json` | `max-age=300` + SWR 1일 | 반복 실행 즉시. 이미지 재배포 후 **최대 5분** 옛 매핑 가능(의도된 트레이드오프). `loadWordImages`의 `cache:'no-cache'`를 제거해야 헤더가 먹는다 — **되돌리지 말 것** |
+| `vendor/*` | `immutable` 1년 | **파일명에 버전 포함**(`sortable-1.15.2.min.js`) 전제. 업그레이드는 새 파일명으로 |
+| `guide-media/*` (4.7MB) | 1일 + SWR 1주 | 거의 안 바뀌는 영상 |
+| 아이콘·manifest | 1일 | — |
+
+- Sortable·DOMPurify는 **자체 호스팅**(`vendor/`) — 제3자 DNS+TLS 제거 + jsdelivr 장애·차단(국내 이력)과 무관.
+  다운로드 시 CDN 응답과 바이트 수 일치 검증함(44,581 / 22,216B). jsdelivr preconnect는 MathJax용으로 유지.
+- **service worker는 의도적으로 안 붙였다**: 콘텐츠가 전부 API라 오프라인 가치가 없고,
+  시작 속도를 SW로 얻으려면 캐시된 HTML을 먼저 내줘야 하는데 그건 sw.js 사고("옛날 화면")의 재현이다.
+  HTML 304 재검증이 이미 충분히 저렴하므로 이득 대비 위험이 나쁨.
+
 > **학생앱에는 service worker 가 없다** (`manifest.json` 만 있어 홈 화면 설치는 되지만 **오프라인은 미지원**).
 > 예전 문서의 "오프라인 지원"은 `flashcard/` 로 격리한 **옛 앱(memoryking-user.html)** 시절 서술이다.
 > 붙이면 재실행이 거의 즉시가 되지만, 위 `sw.js` 사고의 근원이므로 **scope 를 `onepage-user/` 로 좁혀** 신중히 설계할 것.

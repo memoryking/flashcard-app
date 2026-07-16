@@ -19,16 +19,19 @@
 <meta name="msapplication-TileColor" content="#0a0a1a">
 <meta name="msapplication-TileImage" content="android-chrome-192x192.png">
 <!-- API 원본에 미리 연결 — DNS+TCP+TLS를 HTML 파싱 중에 끝내둠.
-     첫 api() 호출이 곧바로 요청을 보낼 수 있어 모바일 콜드 스타트에서 수백 ms 절약. -->
+     첫 api() 호출이 곧바로 요청을 보낼 수 있어 모바일 콜드 스타트에서 수백 ms 절약.
+     jsdelivr preconnect는 MathJax(수식 있을 때만 지연 로드)용으로 유지. -->
 <link rel="preconnect" href="https://onepage-api.memoryking.workers.dev" crossorigin>
 <link rel="preconnect" href="https://cdn.jsdelivr.net" crossorigin>
-<!-- 아래 두 라이브러리는 defer — 없으면 파서가 여기서 멈춰 첫 화면이 그만큼 늦어진다.
-     둘 다 첫 페인트에 불필요하고(드래그 재정렬 / 콘텐츠 새니타이즈), 호출부에 typeof 가드가 있다.
-     defer 스크립트는 파싱 완료 후 DOMContentLoaded 전에 실행 → renderHome(네트워크 왕복 뒤) 시점엔 항상 준비됨. -->
+<!-- 아래 두 라이브러리는 자체 호스팅(vendor/) + defer.
+     · defer: 파서를 안 막음. 둘 다 첫 페인트에 불필요하고 호출부에 typeof 가드 있음.
+       defer는 파싱 완료 후 DOMContentLoaded 전에 실행 → renderHome(네트워크 왕복 뒤) 시점엔 항상 준비됨.
+     · 자체 호스팅: 같은 origin이라 제3자 DNS+TLS 왕복 제거 + jsdelivr 장애·차단(국내 이력 있음)과 무관해짐.
+       파일명에 버전 포함 → vercel.json에서 immutable 캐시. 업그레이드 시 새 파일명으로 교체할 것. -->
 <!-- 챕터 카드 드래그 재정렬 (모바일 터치 지원) — Sortable.js -->
-<script defer src="https://cdn.jsdelivr.net/npm/sortablejs@1.15.2/Sortable.min.js"></script>
+<script defer src="vendor/sortable-1.15.2.min.js"></script>
 <!-- HTML/SVG 콘텐츠 새니타이즈 — 수학 등 외부 컴파일 HTML 안전 렌더 -->
-<script defer src="https://cdn.jsdelivr.net/npm/dompurify@3.2.4/dist/purify.min.js"></script>
+<script defer src="vendor/purify-3.2.4.min.js"></script>
 <style>
 * { box-sizing: border-box; margin: 0; padding: 0; }
 html, body { height: 100%; font-family: -apple-system, BlinkMacSystemFont, 'Pretendard', 'Segoe UI', sans-serif; background: #0a0a1a; color: #e5e7eb; }
@@ -3007,7 +3010,10 @@ function normWord(t) {
 }
 async function loadWordImages() {
   try {
-    const r = await fetch('word-images.json', { cache: 'no-cache' });
+    // cache 옵션 없이 — vercel.json의 Cache-Control(max-age+SWR)을 브라우저가 따르게 한다.
+    // 예전 cache:'no-cache'는 헤더를 무시하고 69KB를 매번 강제 재검증했다(부팅 지연 원인 중 하나).
+    // 이미지 재배포 후엔 최대 max-age 동안 옛 매핑이 보일 수 있음 — 의도된 트레이드오프.
+    const r = await fetch('word-images.json');
     if (r.ok) WORD_IMAGES = await r.json();
   } catch { /* 매핑표 없으면 단어 이미지 기능만 비활성, 나머지는 정상 */ }
 }
