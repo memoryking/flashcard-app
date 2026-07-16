@@ -1601,6 +1601,14 @@ a { color: #4fc3f7; text-decoration: none; }
 .ses-word .speak-btn { vertical-align: middle; margin-left: 8px; }
 .ses-body { color: #e5e7eb; font-size: 15px; line-height: 1.65; }
 .ses-body.blur { filter: blur(9px); opacity: .55; pointer-events: none; user-select: none; }
+.ses-body.revealed { animation: revealIn .32s ease; }
+@keyframes revealIn { from { opacity: 0; transform: translateY(14px); } to { opacity: 1; transform: none; } }
+/* 회상 우선 — 정답 공개 전, 생각을 유도하는 프롬프트 */
+.ses-think { text-align: center; padding: 28px 10px 14px; cursor: pointer; }
+.ses-think-icon { font-size: 42px; animation: thinkPulse 1.6s ease-in-out infinite; }
+@keyframes thinkPulse { 0%, 100% { transform: scale(1); opacity: .85; } 50% { transform: scale(1.14); opacity: 1; } }
+.ses-think-msg { color: #fff; font-weight: 800; font-size: 16px; margin-top: 12px; }
+.ses-think-hint { color: rgba(255,255,255,0.42); font-size: 12px; margin-top: 6px; }
 .ses-reveal {
   display: block; margin: 12px auto 0; padding: 10px 22px; border: none; border-radius: 10px;
   background: rgba(255,255,255,0.10); color: #fff; font-size: 14px; font-weight: 800; cursor: pointer;
@@ -6344,8 +6352,10 @@ function sessionCardHTML() {
     bodyReady = true;
   }
 
-  // 능동 회상 모드면 본문을 가리고 '정답 보기'로 공개 (설정을 그대로 따름)
-  const hideBody = !!state.activeRecallMode && bodyReady && !ses.revealed;
+  // 회상 우선 — 세션은 항상 단어만 먼저 보여준다 (능동 회상 설정과 무관).
+  // 생각해 본 뒤 카드를 터치하면 정답(내용) 공개. 블러가 아니라 완전 가림 —
+  // 블러는 암기 이미지가 비쳐서 힌트가 샌다. 커버 이미지도 정답 쪽에 포함.
+  const hideBody = !ses.revealed;
 
   const isAlpha = /[a-zA-Z]/.test(s.title || '') && !/[가-힯ᄀ-ᇿ㄰-㆏]/.test(s.title || '');
   const speakBtn = isAlpha
@@ -6358,9 +6368,14 @@ function sessionCardHTML() {
   return `
     <div class="ses-card" data-sub="${sid}" ${hideBody ? 'onclick="sessionReveal()"' : ''}>
       <div class="ses-word">${escapeHtml(s.title)}${speakBtn}</div>
+      ${hideBody ? `
+      <div class="ses-think">
+        <div class="ses-think-icon">🤔</div>
+        <div class="ses-think-msg">뜻을 떠올려 보세요</div>
+        <div class="ses-think-hint">카드를 터치하면 정답이 나옵니다</div>
+      </div>` : `
       ${coverHtml}
-      <div class="ses-body${hideBody ? ' blur' : ''}">${body}</div>
-      ${hideBody ? `<button class="ses-reveal" onclick="event.stopPropagation();sessionReveal()">정답 보기</button>` : ''}
+      <div class="ses-body revealed">${body}</div>`}
     </div>`;
 }
 
