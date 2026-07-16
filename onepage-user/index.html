@@ -1605,6 +1605,8 @@ a { color: #4fc3f7; text-decoration: none; }
 @keyframes revealIn { from { opacity: 0; transform: translateY(14px); } to { opacity: 1; transform: none; } }
 /* 회상 우선 — 정답 공개 전, 생각을 유도하는 프롬프트 */
 .ses-think { text-align: center; padding: 28px 10px 14px; cursor: pointer; }
+.ses-think.compact { padding: 10px 10px 4px; border-top: 1px dashed rgba(255,255,255,0.14); margin-top: 12px; }
+.ses-think.compact .ses-think-msg { font-size: 14.5px; }
 .ses-think-icon { font-size: 42px; animation: thinkPulse 1.6s ease-in-out infinite; }
 @keyframes thinkPulse { 0%, 100% { transform: scale(1); opacity: .85; } 50% { transform: scale(1.14); opacity: 1; } }
 .ses-think-msg { color: #fff; font-weight: 800; font-size: 16px; margin-top: 12px; }
@@ -6295,10 +6297,11 @@ function renderSession() {
     ensureItems(sid, true).then(() => {
       if (state.session && state.session.queue[state.session.idx] === sid) {
         const st = document.getElementById('sesStage');
-        if (st) st.innerHTML = sessionCardHTML();
+        if (st) { st.innerHTML = sessionCardHTML(); sesTypeset(); }
       }
     });
   }
+  sesTypeset();   // 문제형 카드는 회상 단계(발문)에도 수식이 있다
   // 다음 2장 미리 로드 → 넘길 때 로딩 없음
   for (const k of [1, 2]) {
     const nx = ses.queue[ses.idx + k];
@@ -6314,7 +6317,7 @@ function sessionCardHTML() {
       <div class="ses-done">
         <div class="big">🎉</div>
         <h3>${ses.total}개 학습 완료!</h3>
-        <p>선택한 단어를 모두 끝냈어요.</p>
+        <p>선택한 카드를 모두 끝냈어요.</p>
         <div class="sum">
           <div class="t">📚 오늘 ${ses.today}</div>
           <div class="m">📅 내일 ${ses.tomo}</div>
@@ -6352,10 +6355,16 @@ function sessionCardHTML() {
     bodyReady = true;
   }
 
-  // 회상 우선 — 세션은 항상 단어만 먼저 보여준다 (능동 회상 설정과 무관).
-  // 생각해 본 뒤 카드를 터치하면 정답(내용) 공개. 블러가 아니라 완전 가림 —
-  // 블러는 암기 이미지가 비쳐서 힌트가 샌다. 커버 이미지도 정답 쪽에 포함.
+  // 회상 우선 — 세션은 항상 앞면만 먼저 보여준다 (능동 회상 설정과 무관).
+  // 카드 유형은 카드 스스로 말한다 (별도 설정 없음):
+  //   · 문제형(수학 등): caption='암기카드' item 보유 → 앞면 = 문제 발문 (다지기 hasCardFront와 같은 감지)
+  //   · 단어형(영단어 등): 앞면 = 제목(단어)만
+  // 완전 가림(블러 X — 암기 이미지가 비쳐서 힌트가 샘). 커버 이미지는 정답 쪽.
   const hideBody = !ses.revealed;
+  const hasCardFront = Array.isArray(items) && items.some(it => it && it.caption === '암기카드');
+  const frontHtml = hasCardFront
+    ? items.filter(it => it && it.caption === '암기카드').map(it => renderItem(it)).join('')
+    : '';
 
   const isAlpha = /[a-zA-Z]/.test(s.title || '') && !/[가-힯ᄀ-ᇿ㄰-㆏]/.test(s.title || '');
   const speakBtn = isAlpha
@@ -6368,22 +6377,45 @@ function sessionCardHTML() {
   return `
     <div class="ses-card" data-sub="${sid}" ${hideBody ? 'onclick="sessionReveal()"' : ''}>
       <div class="ses-word">${escapeHtml(s.title)}${speakBtn}</div>
-      ${hideBody ? `
+      ${hideBody ? (hasCardFront ? `
+      <div class="ses-body">${frontHtml}</div>
+      <div class="ses-think compact">
+        <div class="ses-think-msg">✏️ 먼저 풀어보세요</div>
+        <div class="ses-think-hint">카드를 터치하면 풀이가 나옵니다</div>
+      </div>` : `
       <div class="ses-think">
         <div class="ses-think-icon">🤔</div>
         <div class="ses-think-msg">뜻을 떠올려 보세요</div>
         <div class="ses-think-hint">카드를 터치하면 정답이 나옵니다</div>
-      </div>` : `
+      </div>`) : `
       ${coverHtml}
       <div class="ses-body revealed">${body}</div>`}
     </div>`;
+}
+
+// 세션 오버레이 수식 렌더 — MathJax 지연 로더는 chapterTree만 감시하므로
+// #sesStage 는 렌더할 때마다 명시적으로 typeset 해줘야 한다 (수학 카드 필수)
+async function sesTypeset() {
+  const st = document.getElementById('sesStage');
+  if (!st || !/\$|\\\(|\\\[/.test(st.textContent || '')) return;
+  try {
+    await _ensureMathJax();
+    if (window.MathJax && window.MathJax.typesetPromise) await MathJax.typesetPromise([st]);
+  } catch {}
 }
 
 function sessionReveal() {
   if (!state.session) return;
   state.session.revealed = true;
   const st = document.getElementById('sesStage');
-  if (st) st.innerHTML = sessionCardHTML();
+  if (st) {
+    st.innerHTML = sessionCardHTML();
+    // 문제형 카드: "정답 공개"가 곧 풀이 보기 — 토글을 자동으로 펼쳐준다
+    st.querySelectorAll('.solution-toggle:not(.open)').forEach(b => {
+      try { toggleSolution(b); } catch {}
+    });
+    sesTypeset();
+  }
 }
 
 // 세션 안에서 오늘/내일 판정 — 리스트와 같은 applyDayPick 을 쓰고,
