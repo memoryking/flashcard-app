@@ -389,6 +389,16 @@
       "height": 320,
       "color": "2",
       "text": "### 🗄️ 참고용 아카이브 (배포 금지)\n`flashcard/` → [[flashcard/README.md]]\n\n옛 세대 앱 보관. **수정·루트 반출 금지**\n\n**배포 표면이 둘 — 범위가 다르다**\n- Vercel(학생앱): Root Dir = `onepage-user/`\n  → 루트 다른 폴더는 **미포함**\n- GitHub Pages(선생님앱·랜딩):\n  **저장소 루트 전체** → 다 공개됨\n\n⚠️ **루트에 `sw.js` 두지 말 것**\nscope가 `/flashcard-app/` 이 되어\n선생님앱·학생앱 요청까지 가로채 캐시함"
+    },
+    {
+      "id": "mathBank",
+      "type": "text",
+      "x": 1140,
+      "y": 960,
+      "width": 360,
+      "height": 320,
+      "color": "4",
+      "text": "### 📐 수학 문제은행 (math-bank)\n`00_DEV/math-bank` (형제 폴더·비공개)\n\nSQLite 원천 + 관리콘솔 :8801\n문제 = md 원천 + html 재저작 + SVG\n\n흐름:\n- 클로드가 가이드 형식으로 개발\n- 콘솔: 목록·미리보기·편집·상태\n- 📦 합본 → 교사앱 HTML 일괄 추가\n- 📤 MD 내보내기 (왕복 재수입)\n\n서빙은 기존 방식(내용 저장)\n§22.10 · math-bank/README.md"
     }
   ],
   "edges": [
@@ -619,6 +629,14 @@
       "toNode": "wordImages",
       "toSide": "right",
       "label": "이미지 업로드"
+    },
+    {
+      "id": "e-mathbank-teacher",
+      "fromNode": "mathBank",
+      "fromSide": "top",
+      "toNode": "teacherApp",
+      "toSide": "bottom",
+      "label": "합본 일괄 추가"
     }
   ]
 }
