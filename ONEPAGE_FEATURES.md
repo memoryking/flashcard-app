@@ -60,6 +60,18 @@
 │  랜딩:   vipup.site/onepage-study (아임웹 페이지에 iframe)      │
 │          ↳ iframe src = github.io/flashcard-app/onepage-landing.html
 └─────────────────────────┬────────────────────────────────────┘
+
+> ### ⚠️ 배포 표면이 둘이고, 서빙 범위가 다르다
+> | 표면 | 서빙 범위 | 뜻 |
+> |---|---|---|
+> | **Vercel** (학생앱) | 프로젝트 **Root Directory = `onepage-user/`** | 저장소 루트의 **다른 폴더는 배포되지 않는다** |
+> | **GitHub Pages** (선생님앱·랜딩) | **저장소 루트 전체** | 루트에 둔 파일은 **전부 공개 URL이 생긴다** |
+>
+> - Vercel 쪽 보호막은 **대시보드 설정(Root Directory)** 이라 저장소에 안 보인다. 바꾸면 루트가 통째로 노출되니 건드리지 말 것.
+> - Pages 쪽은 필터가 **없다.** 그래서 참고용 옛 버전은 **`flashcard/` 폴더에 격리**한다 → [flashcard/README.md](flashcard/README.md)
+> - 특히 **루트에 `sw.js`를 두면 안 된다.** scope가 `/flashcard-app/` 가 되어
+>   **선생님앱·학생앱 요청까지 가로채고 캐시**한다 ("배포했는데 옛날 게 나온다"의 원인).
+
                           │
                           ▼
               onepage-api.memoryking.workers.dev
