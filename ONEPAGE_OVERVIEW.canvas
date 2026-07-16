@@ -36,8 +36,8 @@
       "x": -700,
       "y": -1200,
       "width": 360,
-      "height": 300,
-      "text": "## 🎓 학생 앱\n`onepage-user/index.html`\n\n메인 학습 인터페이스 (PWA)\n\n흐름:\n- 홈 → 챕터 카드 → 학습\n- 일반 모드 / 다지기 모드\n- **집중 학습 세션** (골라서 한 장씩)\n- 오프라인 + 홈 화면 설치\n\n**콘텐츠 풍부화**\n- HTML/SVG 카드 (kind)\n- MathJax LaTeX 자동 렌더\n- 카드 이미지/SVG 터치 라이트박스",
+      "height": 400,
+      "text": "## 🎓 학생 앱\n`onepage-user/index.html` ★본체\n\n메인 학습 인터페이스 (PWA)\n\n**폴더명 ≠ 도메인**\n→ www.memoryking.kr (실서비스)\n→ onepage-study.vercel.app (같은 배포)\n❌ onepage-user.vercel.app = 남의 사이트\n\n흐름:\n- 홈 → 챕터 카드 → 학습\n- 일반 모드 / 다지기 모드\n- **집중 학습 세션** (골라서 한 장씩)\n- 홈 화면 설치 (manifest.json)\n  ※ service worker 없음 → 오프라인 미지원\n\n**콘텐츠 풍부화**\n- HTML/SVG 카드 (kind)\n- MathJax LaTeX 자동 렌더\n- 카드 이미지/SVG 터치 라이트박스",
       "color": "1"
     },
     {

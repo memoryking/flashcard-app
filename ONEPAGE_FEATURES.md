@@ -53,8 +53,9 @@
 
 ```
 ┌──────────────────────────────────────────────────────────────┐
-│  학생:   https://memoryking.kr                                │   ← Vercel (커스텀 도메인)
-│          + https://onepage-study.vercel.app (백업)            │
+│  학생:   https://www.memoryking.kr                            │   ← Vercel (커스텀 도메인)
+│          ↑ memoryking.kr (apex) 은 308 → www 로 리디렉션        │
+│          + https://onepage-study.vercel.app (같은 배포, 백업)   │
 │  선생님: github.io/flashcard-app/onepage-teacher.html         │   ← GitHub Pages
 │  CRM:    onepage-crm-*.vercel.app                             │   ← Vercel (teacher 전용)
 │  랜딩:   vipup.site/onepage-study (아임웹 페이지에 iframe)      │
@@ -71,6 +72,37 @@
 > - Pages 쪽은 필터가 **없다.** 그래서 참고용 옛 버전은 **`flashcard/` 폴더에 격리**한다 → [flashcard/README.md](flashcard/README.md)
 > - 특히 **루트에 `sw.js`를 두면 안 된다.** scope가 `/flashcard-app/` 가 되어
 >   **선생님앱·학생앱 요청까지 가로채고 캐시**한다 ("배포했는데 옛날 게 나온다"의 원인).
+
+> ### 🚨 폴더명 ≠ 도메인 — `onepage-user.vercel.app` 은 **우리 것이 아니다**
+>
+> `onepage-user` 는 **저장소의 폴더 이름**이지 도메인이 아니다. Vercel **프로젝트 이름은 `onepage-study`** 이고,
+> `onepage-user/` 는 그 프로젝트의 **Root Directory 설정값**일 뿐이다.
+>
+> ```
+> 저장소 flashcard-app
+>    └─ onepage-user/          ← 폴더 (Vercel Root Directory)  ★ 학생앱 본체. 지우면 서비스 내려감
+>           └─ index.html
+>                  ├──▶ https://www.memoryking.kr          (커스텀 도메인 — 학생들이 쓰는 곳)
+>                  └──▶ https://onepage-study.vercel.app   (같은 프로젝트 기본 도메인 = 같은 배포)
+>
+> https://onepage-user.vercel.app   ← ❌ 폴더명과 닮았을 뿐 완전히 남의 사이트
+> ```
+>
+> **같은 배포임을 확인하는 법** — ETag·바이트수가 일치하면 같은 산출물이다:
+> ```
+> www.memoryking.kr         200  Etag "cc1e820e…"  334,198B
+> onepage-study.vercel.app  200  Etag "cc1e820e…"  334,198B   ← 동일 = 같은 프로젝트/배포
+> ```
+> `git push` 한 번이 **두 도메인 모두** 갱신한다.
+>
+> **`onepage-user.vercel.app` 의 실체** (2026-07 확인): Nuxt + Tailwind 로 만든 **IoT 기기 대시보드**.
+> 본문이 "User Access / USER DASHBOARD / Devices / Add New Device". 우리 코드는 **하나도 없다**
+> (집중세션·다지기·단어이미지·실시간통계·관심주제 전부 미검출, 379,868B 로 크기도 다름).
+> `*.vercel.app` 서브도메인은 **전 세계 선착순 선점**이라 이름만 겹친 것.
+> → **⚠️ 제3자 사이트다. "Email Submit" 폼이 있으니 계정 정보를 절대 입력하지 말 것.**
+>
+> **왜 못 박아 두나**: 폴더명과 URL 이 닮아서 `onepage-user.vercel.app` 에 들어가 보면 낯선 화면이 떠
+> "onepage-user 는 이제 안 쓰나?" 하고 **본체 폴더를 지우려는 착각**을 하기 쉽다. 실제로 한 번 겪었다.
 
 ### 부팅 시퀀스 — 첫 화면까지 (학생 앱)
 
@@ -108,6 +140,10 @@ tryAutoLogin → loadMeAndEnter
   `BOOT_BG` 에 얹고 `enterChapter` 초입에서 보장한다.
 - `defer` 스크립트는 파싱 완료 후 DOMContentLoaded 전에 실행 → `renderHome`(네트워크 왕복 뒤)에선 항상 준비됨.
 - MathJax(1MB급)는 **LaTeX 패턴이 실제로 있을 때만** 지연 로드(`_ensureMathJax`). 부팅 비용 아님 — 이대로 유지.
+
+> **학생앱에는 service worker 가 없다** (`manifest.json` 만 있어 홈 화면 설치는 되지만 **오프라인은 미지원**).
+> 예전 문서의 "오프라인 지원"은 `flashcard/` 로 격리한 **옛 앱(memoryking-user.html)** 시절 서술이다.
+> 붙이면 재실행이 거의 즉시가 되지만, 위 `sw.js` 사고의 근원이므로 **scope 를 `onepage-user/` 로 좁혀** 신중히 설계할 것.
 
                           │
                           ▼
