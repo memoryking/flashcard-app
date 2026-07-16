@@ -809,6 +809,7 @@ function renderChapter(c) {
           </div>
           <div class="chapter-actions">
             <button class="btn-ghost btn-small" title="단어 일괄 추가 (단어풀 참조)" onclick="event.stopPropagation();openWordBulk(${c.id})">📥</button>
+            <button class="btn-ghost btn-small" title="발행 점검 / 공개 전환" onclick="event.stopPropagation();openPublishCheck(${c.id})">🚀</button>
             <button class="btn-ghost btn-small" onclick="event.stopPropagation();openChapterModal(${c.id})">✎</button>
             <button class="btn-danger btn-small" onclick="event.stopPropagation();deleteChapter(${c.id})">🗑️</button>
           </div>
@@ -1959,6 +1960,18 @@ absence
 abstract"></textarea>
       </div>
       <div class="form-row">
+        <label>추가 대상</label>
+        <label class="check"><input type="radio" name="wb_target" value="this" checked onchange="wbToggleNew()"> 📚 기존 콘텐츠에 추가 — <b>${escapeHtml(c?.title || '')}</b></label>
+        <label class="check"><input type="radio" name="wb_target" value="new" onchange="wbToggleNew()"> ✨ 새 콘텐츠로 발행 (새 챕터 생성)</label>
+        <div id="wb_newbox" style="display:none;margin-top:8px;padding:8px;background:rgba(255,255,255,0.04);border-radius:6px;">
+          <div class="form-row row-2" style="margin:0;">
+            <div><label>새 콘텐츠 제목 *</label><input type="text" id="wb_newtitle" placeholder="수능영단어 필수동사"></div>
+            <div><label>월 가격(원)</label><input type="number" id="wb_newprice" value="${c?.monthly_price ?? 3000}" min="0" step="500"></div>
+          </div>
+          <div style="font-size:12px;color:rgba(255,255,255,0.5);margin-top:4px;">비공개(작성중)로 생성됩니다 — 완성 후 🚀 발행하세요.</div>
+        </div>
+      </div>
+      <div class="form-row">
         <label>정렬</label>
         <label class="check"><input type="radio" name="wb_mode" value="alpha" checked> 알파벳순 — 첫글자 소분류(a·b·c)에 배치 (기존 a·b·c 밑으로 삽입)</label>
         <label class="check"><input type="radio" name="wb_mode" value="time"> 입력순 — 마지막 소분류 뒤에 추가</label>
@@ -1972,17 +1985,44 @@ abstract"></textarea>
   });
 }
 
+function wbToggleNew() {
+  const isNew = (document.querySelector('input[name=wb_target]:checked') || {}).value === 'new';
+  const box = $('wb_newbox'); if (box) box.style.display = isNew ? '' : 'none';
+}
+window.wbToggleNew = wbToggleNew;
+
 async function runWordBulk(chapterId) {
   const logEl = $('wb_log');
   const log = (m) => { logEl.textContent += m + '\n'; logEl.scrollTop = logEl.scrollHeight; };
   const raw = $('wb_words').value || '';
   const mode = (document.querySelector('input[name=wb_mode]:checked') || {}).value || 'alpha';
+  const target = (document.querySelector('input[name=wb_target]:checked') || {}).value || 'this';
   // 정규화 + 붙여넣기 내부 중복 제거
   const words = [...new Set(raw.split(/\r?\n/)
     .map(l => String(l).split(/[\t,]/)[0].trim().toLowerCase()).filter(Boolean))];
   if (!words.length) { alert('단어를 입력하세요.'); return false; }
   logEl.textContent = '';
   log(`입력 ${words.length}개 (내부 중복 제거됨)`);
+
+  // 0) 새 콘텐츠로 발행이면 새 챕터부터 생성 (비공개)
+  if (target === 'new') {
+    const title = ($('wb_newtitle').value || '').trim();
+    if (!title) { alert('새 콘텐츠 제목을 입력하세요.'); return false; }
+    const base = state.chapters.find(x => x.id === chapterId);
+    try {
+      const r = await api('POST', '/chapters', {
+        subject: base?.subject || '영단어', title,
+        monthly_price: Number($('wb_newprice').value) || 3000,
+        icon: base?.icon || '📘', sort_order: 0,
+        is_all_free: false, is_published: false,   // 비공개(작성중)로 생성
+      });
+      const newId = r?.chapter?.id || r?.id;
+      if (!newId) throw new Error('챕터 id 없음');
+      chapterId = newId;
+      await reloadChapters();
+      log(`✨ 새 콘텐츠 생성: "${title}" (비공개) → 여기에 추가합니다`);
+    } catch (e) { log(`✗ 새 콘텐츠 생성 실패: ${String(e?.message || e)}`); return false; }
+  }
 
   // 1) 이 챕터의 기존 단어 수집 → 중복 제외
   await loadTopics(chapterId);
@@ -2049,6 +2089,64 @@ async function runWordBulk(chapterId) {
   return false;   // 로그 확인용 — 모달 유지 (닫기는 취소/×)
 }
 window.openWordBulk = openWordBulk;
+
+// ── 🚀 발행 점검 — 공개 전 단어풀 상태 확인 후 공개/비공개 전환 ──────────
+async function openPublishCheck(chapterId) {
+  const c = state.chapters.find(x => x.id === chapterId);
+  if (!c) return;
+  showLoading(true);
+  try {
+    if (!poolState.loaded) await loadWordPool();
+    await loadTopics(chapterId);
+    const topics = state.topicsByChapter[chapterId] || [];
+    const words = [];
+    for (const t of topics) {
+      if (!state.subtopicsByTopic[t.id]) await loadSubtopics(t.id);
+      (state.subtopicsByTopic[t.id] || []).forEach(s => words.push(String(s.title || '').trim().toLowerCase()));
+    }
+    const poolMap = {};
+    (poolState.words || []).forEach(w => { poolMap[String(w.word || '').toLowerCase()] = w; });
+    const missing = words.filter(w => !poolMap[w]);
+    const noImg = words.filter(w => poolMap[w] && !poolMap[w].image_url);
+    const isPub = Number(c.is_published) !== 0 && c.is_published != null;
+    const row = (label, val, warn) =>
+      `<div style="display:flex;justify-content:space-between;padding:5px 0;border-bottom:1px solid rgba(255,255,255,0.06);">
+         <span>${label}</span><b style="color:${warn ? '#fbbf24' : '#a7f3d0'}">${val}</b></div>`;
+    showLoading(false);
+    modal({
+      title: `🚀 발행 점검 — ${c.title || ''}`,
+      saveLabel: isPub ? '비공개로 전환' : '공개(발행)하기',
+      body: `
+        ${row('소분류(목차)', `${topics.length}개`, false)}
+        ${row('단어 수', `${words.length}개`, words.length === 0)}
+        ${row('단어풀에 없음 (빈 카드로 보임)', `${missing.length}개`, missing.length > 0)}
+        ${row('이미지 없음', `${noImg.length}개`, noImg.length > 0)}
+        ${row('월 가격', `${Number(c.monthly_price || 0).toLocaleString()}원`, false)}
+        ${row('전체 무료', c.is_all_free ? '예' : '아니오', false)}
+        ${row('현재 상태', isPub ? '🌐 공개중' : '📝 비공개(작성중)', !isPub)}
+        ${missing.length ? `<div style="margin-top:8px;font-size:12px;color:#fbbf24;">⚠ 풀에 없는 단어: ${escapeHtml(missing.slice(0, 10).join(', '))}${missing.length > 10 ? ' …' : ''}<br>→ 단어풀에 먼저 추가(인제스트)해야 내용이 채워집니다.</div>` : ''}
+        <div style="margin-top:10px;font-size:12px;color:rgba(255,255,255,0.55);">
+          뜻·암기법·예문·이미지는 <b>단어풀</b>에서 자동으로 채워집니다. 풀을 수정하면 이 콘텐츠에도 자동 반영됩니다.
+        </div>
+      `,
+      save: async () => {
+        try {
+          await api('PUT', '/chapters/' + chapterId, {
+            subject: c.subject, title: c.title, icon: c.icon || '', description: c.description || '',
+            monthly_price: Number(c.monthly_price) || 3000, sort_order: Number(c.sort_order) || 0,
+            is_all_free: !!c.is_all_free, is_published: !isPub,
+            voice_quiz_enabled: !!c.voice_quiz_enabled, voice_quiz_lang: c.voice_quiz_lang || 'ko-KR',
+            voice_quiz_read_question: c.voice_quiz_read_question == null ? true : !!c.voice_quiz_read_question,
+          });
+          await reloadChapters();
+          toast(isPub ? '비공개로 전환됨' : '🌐 발행(공개)되었습니다');
+          return true;
+        } catch (e) { toast(e.message, true); return false; }
+      },
+    });
+  } catch (e) { showLoading(false); toast(String(e?.message || e), true); }
+}
+window.openPublishCheck = openPublishCheck;
 
 // 🗂️ 단어풀 뷰 (word-pool.json 브라우즈 + 이미지 검수)
 // ============================================================
