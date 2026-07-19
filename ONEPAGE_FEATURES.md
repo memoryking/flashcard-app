@@ -2010,8 +2010,11 @@ node scripts/merge-math.js "C:/Users/memoryking/00_DEV/11_math/<단원폴더>"
   **채택 후기 무한 스크롤 마퀴**(`/reviews/adopted`, 이름 김○○ 마스킹, 10분 엣지캐시, 호버 일시정지)
 - CRM 탭 2개: 🔍 AI 검증 프롬프트 자동 조립·복사 / ✅ 채택 원클릭(포인트 적립+트랜잭션+감사 SMS,
   기본 오류 500P·후기 300P — localStorage로 수정 가능) / 💬 피드백(문자·메일) / 감성 재분류·노출 해제
-- ⚠️ Pabbly 라우터가 신규 template(`admin_alert`,`feedback_notice`)에서 custom_message를
-  그대로 SMS로 보내도록 분기 필요 (password_reset 우회 패턴과 동일)
+- **문자 = 재설정 워크플로 직행**(PABBLY_RESET_WEBHOOK_URL, ChatGPT 변형 없음) / 메일 = 캠페인 워크플로
+- 오류 제보는 **문제형 카드(수학)에만** — 홈은 후기 버튼만. 감성분류 모델 체인+휴리스틱 폴백
+- CRM: 📖 문제·해설 인라인 보기(MathJax·SVG) · 검증 프롬프트에 SVG 코드 동봉 · 🗑 삭제 · 피드백 이력 누적
+- CRM **✅ 오늘 루틴 탭**: 매일 7항목(오류신고·후기 자동 배지)+주간 4항목 체크리스트, 자동 리셋
+- 학생 가이드 6+ "참여하고 포인트 받기" · 대화 전문 기록: math-bank/transcripts (비공개)
 
 ## 22.10 수학 문제은행 — math-bank (v2.4.1)
 
