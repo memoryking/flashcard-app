@@ -2827,7 +2827,6 @@ a { color: #4fc3f7; text-decoration: none; }
   </div>
   <div class="home-content" id="chapterCards"></div>
   <div class="home-feedback">
-    <button class="fb-btn" onclick="openErrorReport()">🐛 오류 제보</button>
     <button class="fb-btn" onclick="openReviewWrite()">⭐ 후기 쓰기</button>
   </div>
   <div class="review-marquee" id="reviewMarquee" style="display:none">
@@ -4742,7 +4741,7 @@ function renderFocusCard(s, remaining, hasAccess) {
         <div class="focus-body${showRevealBtn ? ' blurred' : ''}${hasCardFront ? ' split' : ''}">${body}</div>
         ${showRevealBtn ? `<div class="focus-tap-hint">${hasCardFront ? '풀이 보기' : '카드터치'}</div>` : ''}
       </div>
-      ${reportBtnHtml(s)}
+      ${hasCardFront ? reportBtnHtml(s) : ''}
       ${showAssessBar ? `
         <div class="focus-bottom-bar">
           <button class="recall-btn recall-wrong" onclick="event.stopPropagation();todayStageJudge(${sid}, false)">✗ 더 학습</button>
@@ -5779,7 +5778,7 @@ function renderSubtopic(s, isCurrent) {
                 title="발음 듣기">🔊</button>` : ''}
       </div>
       ${preview}
-      <div class="subtopic-body">${body}${opened ? reportBtnHtml(s) : ''}</div>
+      <div class="subtopic-body">${body}${opened && Array.isArray(state.itemsBySubtopic[s.id]) && state.itemsBySubtopic[s.id].some(it => it && it.caption === '암기카드') ? reportBtnHtml(s) : ''}</div>
     </div>
   `;
 }
@@ -6428,7 +6427,7 @@ function sessionCardHTML() {
       </div>`) : `
       ${coverHtml}
       <div class="ses-body revealed">${body}</div>
-      ${reportBtnHtml(s)}`}
+      ${hasCardFront ? reportBtnHtml(s) : ''}`}
     </div>`;
 }
 
