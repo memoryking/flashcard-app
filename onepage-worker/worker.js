@@ -1693,6 +1693,64 @@ async function handleAdminErrorReportDelete(request, env, id) {
   return json({ ok: true }, 200, request);
 }
 
+// ═══════════════════════════════════════════════════════════
+//  학습 기간 만료 리마인더 — 매일 아침 자동 (Cron) + CRM 수동 실행
+//  D-3 / D-2 / D-1 / 당일 / D+3 에 "학습 완료했는지 묻는" 관심 톤 문자.
+//  연장하면 expires_at 이 미래로 이동 → 대상에서 자동 제외 (해제 로직 불필요)
+// ═══════════════════════════════════════════════════════════
+const REMIND_MSGS = {
+  3:  (n, c) => `[원페이지 학습] ${n}님, '${c}' 학습 기간이 3일 남았어요. 목표하신 부분까지 잘 진행되고 계신가요? 남은 기간도 응원할게요 💪`,
+  2:  (n, c) => `[원페이지 학습] ${n}님, '${c}' 이용 기간이 이틀 남았습니다. 다지기(복습)까지 마무리하면 오래 기억에 남아요!`,
+  1:  (n, c) => `[원페이지 학습] ${n}님, '${c}' 학습이 내일까지예요. 못 본 부분이 있다면 오늘·내일 마무리해 보세요 😊`,
+  0:  (n, c) => `[원페이지 학습] ${n}님, '${c}' 이용이 오늘 만료됩니다. 학습은 잘 마무리되셨나요? 더 필요하시면 앱에서 연장할 수 있어요.`,
+  '-3': (n, c) => `[원페이지 학습] ${n}님, 지난 '${c}' 학습은 잘 마무리되셨나요? 복습이 필요해지면 언제든 다시 열 수 있어요. 공부를 응원합니다 🙏`,
+};
+
+async function runExpiryReminders(env, dry) {
+  const todayKst = new Date(kstNow().toISOString().slice(0, 10) + 'T00:00:00Z');
+  const recs = await atFindAllPaged(env, AT_ACCESS, '', 5000);
+  // 학생·챕터별 최신 만료일만 (연장했으면 이것이 미래 날짜 → 리마인더 대상 아님)
+  const latest = new Map();
+  for (const r of recs) {
+    const f = r.fields || {};
+    if (!f.user_phone || !f.expires_at) continue;
+    const key = f.user_phone + '|' + (f.chapter_id || f.chapter_title || '');
+    const prev = latest.get(key);
+    if (!prev || String(f.expires_at) > String(prev.expires_at)) {
+      latest.set(key, { phone: f.user_phone, chapter: f.chapter_title || ('챕터 ' + f.chapter_id), expires_at: f.expires_at });
+    }
+  }
+  const targets = [];
+  for (const v of latest.values()) {
+    const exp = new Date(String(v.expires_at).slice(0, 10) + 'T00:00:00Z');
+    if (isNaN(exp)) continue;
+    const daysLeft = Math.round((exp - todayKst) / 86400000);
+    if (![3, 2, 1, 0, -3].includes(daysLeft)) continue;
+    targets.push({ ...v, daysLeft });
+  }
+  const nameCache = new Map();
+  const sent = [];
+  for (const t of targets.slice(0, 100)) {   // 안전 상한
+    let name = nameCache.get(t.phone);
+    if (name === undefined) {
+      const u = await atFindOne(env, AT_USERS, `{phone}='${t.phone}'`);
+      name = (u && u.fields.name) || '';
+      nameCache.set(t.phone, name);
+    }
+    const msg = REMIND_MSGS[String(t.daysLeft)](name || '학습자', t.chapter);
+    if (!dry) await fbSend(env, { channel: 'sms', phone: t.phone, name, message: msg, template: 'expiry_reminder' });
+    sent.push({ phone: t.phone, name, chapter: t.chapter, daysLeft: t.daysLeft, message: msg });
+  }
+  if (!dry && sent.length) await fbAdminSms(env, `[원페이지] ⏰ 만료 리마인더 ${sent.length}건 발송 (D-3~D+3)`);
+  return { checked: latest.size, matched: targets.length, sent: dry ? 0 : sent.length, dry: !!dry, list: sent };
+}
+
+async function handleExpiryRemindersRun(request, env) {
+  const b = await request.json().catch(() => ({}));
+  const r = await runExpiryReminders(env, !!b.dry);
+  return json(r, 200, request);
+}
+
 async function handleUnderstoodToggle(request, env) {
   const auth = await verifyAuth(request, env);
   if (!auth) return json({ error: 'unauthenticated' }, 401, request);
@@ -3549,6 +3607,11 @@ async function route(request, env, ctx) {
   }
 
   // ── 관리자: 오류 신고 / 후기 (CRM) ──
+  if (m === 'POST' && path === '/admin/expiry-reminders/run') {
+    const g = teacherGate(); if (g) return g;
+    return handleExpiryRemindersRun(request, env);
+  }
+
   if (path.startsWith('/admin/error-reports') || path.startsWith('/admin/reviews')) {
     const g = teacherGate(); if (g) return g;
     if (m === 'GET' && path === '/admin/error-reports') return handleAdminErrorReports(request, env);
@@ -3690,6 +3753,12 @@ async function route(request, env, ctx) {
 // ============================================================
 
 export default {
+  // 매일 아침 10시(KST, = UTC 01:00) — 만료 리마인더 자동 발송
+  async scheduled(event, env, ctx) {
+    ctx.waitUntil(runExpiryReminders(env, false).then(r =>
+      console.log('expiry_reminders', JSON.stringify({ checked: r.checked, sent: r.sent }))));
+  },
+
   async fetch(request, env, ctx) {
     if (request.method === 'OPTIONS') {
       return new Response(null, { status: 204, headers: corsHeaders(request) });

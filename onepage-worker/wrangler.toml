@@ -29,3 +29,6 @@ binding = "AI"          # Workers AI — 후기 감성 분류 (무료)
 
 [vars]
 ADMIN_PHONE = "01056426775"   # 신고·후기 알림 수신 번호
+
+[triggers]
+crons = ["0 1 * * *"]   # UTC 01:00 = KST 10:00 — 만료 리마인더
