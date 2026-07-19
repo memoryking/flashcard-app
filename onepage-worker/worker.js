@@ -1443,20 +1443,30 @@ function fbNow() { return kstNow().toISOString().slice(0, 19).replace('T', ' ');
 // 이름 마스킹은 기존 maskName(김○○ 스타일, 공부친구 랭킹과 동일) 재사용
 
 // Pabbly 웹훅 발송 (channel: 'sms'|'email'|'both') — 실패해도 본 처리는 계속
+// 문자: 재설정 워크플로(Webhook→SOLAPI 직행, ChatGPT 없음) → 문구가 그대로 전송됨
+// 메일: 캠페인 워크플로(ChatGPT→Router→Gmail) — 문구가 다듬어질 수 있음
 async function fbSend(env, { channel, phone, email, name, message, template }) {
-  const url = env.PABBLY_WEBHOOK_URL || '';
-  if (!url) { console.warn('PABBLY_WEBHOOK_URL not set — msg skipped:', message); return false; }
-  try {
-    await fetch(url, {
-      method: 'POST', headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        template: template || 'feedback_notice', channel: channel || 'sms',
-        name: name || '', phone: phone || '', email: email || '',
-        custom_message: message, sent_at: fbNow(),
-      }),
-    });
-    return true;
-  } catch (e) { console.error('fbSend_failed', e); return false; }
+  const ch = channel || 'sms';
+  const payload = {
+    template: template || 'feedback_notice', name: name || '', phone: phone || '',
+    email: email || '', code: '', custom_message: message, sent_at: fbNow(),
+  };
+  const post = async (url, extra) => {
+    if (!url) return false;
+    try {
+      await fetch(url, {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ ...payload, ...extra }),
+      });
+      return true;
+    } catch (e) { console.error('fbSend_failed', e); return false; }
+  };
+  let ok = false;
+  if (ch === 'sms' || ch === 'both')
+    ok = await post(env.PABBLY_RESET_WEBHOOK_URL || env.PABBLY_WEBHOOK_URL, { channel: 'sms' }) || ok;
+  if (ch === 'email' || ch === 'both')
+    ok = await post(env.PABBLY_WEBHOOK_URL, { channel: 'email' }) || ok;
+  return ok;
 }
 
 async function fbAdminSms(env, message) {
