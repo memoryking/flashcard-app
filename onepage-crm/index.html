@@ -3425,9 +3425,18 @@ async function copyVerifyPrompt(id) {
     try {
       const it = await api('GET', '/items?subtopic_id=' + x.subtopic_id);
       const items = it.items || [];
-      const q = items.filter(i=>i.caption==='암기카드').map(i=>stripHtml(i.text)).join(nl);
-      const e = items.filter(i=>i.caption!=='암기카드').map(i=>stripHtml(i.text)).join(nl);
+      // SVG(그래프)는 텍스트로 뭉개면 "1 2 3 xyO" 같은 파편만 남아 AI가 '그래프 깨짐'으로 오판한다
+      // → 본문에서 자리표시로 바꾸고, SVG 코드를 통째로 동봉해 좌표를 직접 읽게 한다 (math-bank 방식)
+      const svgs = [];
+      const extract = h => String(h||'').replace(/<svg[\s\S]*?<\/svg>/gi, m => {
+        svgs.push(m); return ' [그래프 ' + svgs.length + ' — 아래 SVG 코드로 검증] ';
+      });
+      const q = items.filter(i=>i.caption==='암기카드').map(i=>stripHtml(extract(i.text))).join(nl);
+      const e = items.filter(i=>i.caption!=='암기카드').map(i=>stripHtml(extract(i.text))).join(nl);
       srcBlock = '[문제 원문]' + nl + (q || '(문제 항목 없음)') + nl + nl + '[해설 원문]' + nl + (e || '(해설 항목 없음)');
+      svgs.forEach((v, i) => {
+        srcBlock += nl + nl + '[그래프 ' + (i+1) + ' SVG 코드 — 좌표·열린원(fill=white)·채운점을 직접 읽고 해설과 대조할 것]' + nl + v;
+      });
     } catch(err) { srcBlock = '[문제 원문] 로드 실패: ' + err.message; }
   }
   const t = ['학생이 학습앱 콘텐츠의 오류를 신고했다. 아래 신고가 타당한지 엄격하게 검증해줘.','',
