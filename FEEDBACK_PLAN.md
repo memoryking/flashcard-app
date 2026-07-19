@@ -12,7 +12,7 @@
 - **감성 분석**: Cloudflare Workers AI 바인딩 (wrangler.toml `[ai]` + `env.AI.run('@cf/meta/llama-3.1-8b-instruct', ...)` — 무료, API 키 불필요). 실패 시 'pending'으로 두고 CRM에서 수동 분류 폴백
 - **관리자 번호**: 01056426775 (worker 환경변수 ADMIN_PHONE로)
 
-## ⛔ 선행 작업 — 사용자가 nocodebackend 대시보드에서 테이블 2개 생성 (op_pool 때와 동일)
+## ⛔ 선행 작업 ✅ 완료 (테이블 2개 생성됨, created_at/updated_at=DATETIME) — 사용자가 nocodebackend 대시보드에서 테이블 2개 생성 (op_pool 때와 동일)
 
 ### 테이블 1: `op_error_reports`
 | 컬럼 | 타입 | 비고 |
@@ -44,7 +44,7 @@
 
 ## 구현 단계 (테이블 생성 후)
 
-### P1 — worker (onepage-worker/worker.js + wrangler.toml)
+### P1 — worker ✅ 완료(2026-07-19, 배포 934fea89) — ncbRead는 {data:[…]} 반환·필터에 선행 & 금지 주의 (onepage-worker/worker.js + wrangler.toml)
 - wrangler.toml에 `[ai]` binding = "AI", vars에 ADMIN_PHONE
 - `sendAdminSms(env, text)` / `sendUserMsg(env, phone, email, channel, text)` — Pabbly 웹훅 재사용
 - `POST /error-reports` (인증): 등록 + 관리자 SMS "🐛 오류신고: {단원}/{문제} — {내용 앞 40자}"

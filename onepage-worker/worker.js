@@ -1515,7 +1515,8 @@ async function handleErrorReportCreate(request, env) {
 async function handleErrorReportsMine(request, env) {
   const auth = await verifyAuth(request, env);
   if (!auth) return json({ error: 'unauthenticated' }, 401, request);
-  const rows = await ncbRead(env, NCB_ERRORS, `&user_phone=${encodeURIComponent(auth.phone)}`);
+  const rr = await ncbRead(env, NCB_ERRORS, `user_phone=${encodeURIComponent(auth.phone)}&limit=100`);
+  const rows = rr.data || [];
   const list = (rows || []).map(r => ({
     id: r.id, chapter_title: r.chapter_title, subtopic_title: r.subtopic_title,
     content: r.content, status: r.status, points_awarded: r.points_awarded, created_at: r.created_at,
@@ -1531,8 +1532,9 @@ async function handleReviewCreate(request, env) {
   const content = String(b.content || '').trim();
   if (!content) return json({ error: 'content required' }, 400, request);
   if (content.length > 1000) return json({ error: 'content too long' }, 400, request);
-  const dup = await ncbRead(env, NCB_REVIEWS, `&user_phone=${encodeURIComponent(auth.phone)}`);
-  if (dup && dup.length) return json({ error: 'already_reviewed' }, 409, request);
+  const dupR = await ncbRead(env, NCB_REVIEWS, `user_phone=${encodeURIComponent(auth.phone)}&limit=1`);
+  const dup = dupR.data || [];
+  if (dup.length) return json({ error: 'already_reviewed' }, 409, request);
   const sentiment = await fbSentiment(env, content);
   await ncbCreate(env, NCB_REVIEWS, {
     user_phone: auth.phone, user_name: auth.name || '', content,
@@ -1548,8 +1550,8 @@ async function handleReviewsAdopted(request, env) {
   const ck = new Request('https://cache.op/reviews-adopted');
   const hit = await cache.match(ck);
   if (hit) { const d = await hit.json(); return json(d, 200, request); }
-  const rows = await ncbRead(env, NCB_REVIEWS, '&adopted=1');
-  const data = { reviews: (rows || []).map(r => ({ name: maskName(r.user_name), content: String(r.content || '').slice(0, 200) })) };
+  const rr = await ncbRead(env, NCB_REVIEWS, 'adopted=1&limit=200');
+  const data = { reviews: (rr.data || []).map(r => ({ name: maskName(r.user_name), content: String(r.content || '').slice(0, 200) })) };
   await cache.put(ck, new Response(JSON.stringify(data), { headers: { 'Content-Type': 'application/json', 'Cache-Control': 'max-age=600' } }));
   return json(data, 200, request);
 }
@@ -1558,8 +1560,8 @@ async function handleReviewsAdopted(request, env) {
 async function handleAdminErrorReports(request, env) {
   const u = new URL(request.url);
   const st = u.searchParams.get('status');
-  const rows = await ncbRead(env, NCB_ERRORS, st ? `&status=${encodeURIComponent(st)}` : '');
-  return json({ reports: (rows || []).sort((a, b) => String(b.created_at).localeCompare(String(a.created_at))) }, 200, request);
+  const rr = await ncbRead(env, NCB_ERRORS, (st ? `status=${encodeURIComponent(st)}&` : '') + 'limit=500');
+  return json({ reports: (rr.data || []).sort((a, b) => String(b.created_at).localeCompare(String(a.created_at))) }, 200, request);
 }
 
 async function handleAdminErrorReportUpdate(request, env, id) {
@@ -1606,8 +1608,8 @@ async function handleAdminErrorReportFeedback(request, env, id) {
 async function handleAdminReviews(request, env) {
   const u = new URL(request.url);
   const sn = u.searchParams.get('sentiment');
-  const rows = await ncbRead(env, NCB_REVIEWS, sn ? `&sentiment=${encodeURIComponent(sn)}` : '');
-  return json({ reviews: (rows || []).sort((a, b) => String(b.created_at).localeCompare(String(a.created_at))) }, 200, request);
+  const rr = await ncbRead(env, NCB_REVIEWS, (sn ? `sentiment=${encodeURIComponent(sn)}&` : '') + 'limit=500');
+  return json({ reviews: (rr.data || []).sort((a, b) => String(b.created_at).localeCompare(String(a.created_at))) }, 200, request);
 }
 
 async function handleAdminReviewUpdate(request, env, id) {
