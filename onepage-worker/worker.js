@@ -1475,22 +1475,39 @@ async function fbAwardPoints(env, phone, points, reason, memo) {
   return { ok: true, new_point: newPoint, name: userRec.fields.name || '', email: userRec.fields.email || '' };
 }
 
-// Workers AI 감성 분류 — 실패 시 'pending' (CRM에서 수동 분류)
+// 감성 분류 — 1차 Workers AI, 실패하면 2차 키워드 휴리스틱 (pending 최소화)
+function fbSentimentHeuristic(content) {
+  const t = String(content || '');
+  const pos = ['좋', '도움', '감사', '최고', '추천', '만족', '짱', '재밌', '재미', '효과', '덕분', '쉽', '편해', '열심히'];
+  const neg = ['별로', '불편', '실망', '안 됨', '안됨', '느려', '느림', '어렵', '비싸', '환불', '오류', '취소', '아쉬'];
+  const p = pos.filter(w => t.includes(w)).length;
+  const n = neg.filter(w => t.includes(w)).length;
+  if (p > n) return 'positive';
+  if (n > p) return 'negative';
+  return p ? 'neutral' : 'pending';
+}
+
 async function fbSentiment(env, content) {
-  try {
-    if (!env.AI) return 'pending';
-    const r = await env.AI.run('@cf/meta/llama-3.1-8b-instruct', {
-      messages: [
-        { role: 'system', content: '한국어 학습앱 후기의 감성을 분류한다. positive, negative, neutral 중 한 단어만 출력하라.' },
-        { role: 'user', content: String(content).slice(0, 1000) },
-      ], max_tokens: 8,
-    });
-    const t = String(r.response || '').toLowerCase();
-    if (t.includes('positive')) return 'positive';
-    if (t.includes('negative')) return 'negative';
-    if (t.includes('neutral')) return 'neutral';
-    return 'pending';
-  } catch (e) { console.error('sentiment_failed', e); return 'pending'; }
+  // 모델 체인 — 폐기(deprecated)에 대비해 순서대로 시도 (llama-3.1-8b는 2026-05-30 폐기됨)
+  const FB_AI_MODELS = ['@cf/meta/llama-3.3-70b-instruct-fp8-fast', '@cf/meta/llama-4-scout-17b-16e-instruct', '@cf/openai/gpt-oss-20b'];
+  let aiErr = '';
+  if (!env.AI) aiErr = 'no_ai_binding';
+  else for (const model of FB_AI_MODELS) {
+    try {
+      const r = await env.AI.run(model, {
+        messages: [
+          { role: 'system', content: '한국어 학습앱 후기의 감성을 분류한다. positive, negative, neutral 중 한 단어만 출력하라.' },
+          { role: 'user', content: String(content).slice(0, 1000) },
+        ], max_tokens: 16,
+      });
+      const t = JSON.stringify(r || '').toLowerCase();
+      if (t.includes('positive')) return { sentiment: 'positive', via: 'ai:' + model };
+      if (t.includes('negative')) return { sentiment: 'negative', via: 'ai:' + model };
+      if (t.includes('neutral')) return { sentiment: 'neutral', via: 'ai:' + model };
+      aiErr = 'unclear:' + t.slice(0, 40);
+    } catch (e) { aiErr = model + ' → ' + String(e && e.message || e).slice(0, 80); }
+  }
+  return { sentiment: fbSentimentHeuristic(content), via: 'heuristic', ai_error: aiErr };
 }
 
 // ── 학생: 오류 신고 접수 ──
@@ -1535,7 +1552,8 @@ async function handleReviewCreate(request, env) {
   const dupR = await ncbRead(env, NCB_REVIEWS, `user_phone=${encodeURIComponent(auth.phone)}&limit=1`);
   const dup = dupR.data || [];
   if (dup.length) return json({ error: 'already_reviewed' }, 409, request);
-  const sentiment = await fbSentiment(env, content);
+  const sr = await fbSentiment(env, content);
+  const sentiment = sr.sentiment;
   await ncbCreate(env, NCB_REVIEWS, {
     user_phone: auth.phone, user_name: auth.name || '', content,
     sentiment, adopted: 0, points_awarded: 0, created_at: fbNow(), updated_at: fbNow(),
@@ -1601,7 +1619,11 @@ async function handleAdminErrorReportFeedback(request, env, id) {
     phone: rec.user_phone, email: (userRec && userRec.fields.email) || '', name: rec.user_name,
     message: String(b.message || '').slice(0, 500),
   });
-  await ncbUpdate(env, NCB_ERRORS, id, { status: 'answered', updated_at: fbNow() });
+  const prevNote = String(rec.admin_note || '');
+  const hist = `[피드백 ${fbNow()}] ${String(b.message || '').slice(0, 300)}`;
+  await ncbUpdate(env, NCB_ERRORS, id, {
+    status: 'answered', admin_note: (prevNote ? prevNote + String.fromCharCode(10) : '') + hist, updated_at: fbNow(),
+  });
   return json({ ok: true }, 200, request);
 }
 
@@ -1639,6 +1661,26 @@ async function handleAdminReviewAdopt(request, env, id) {
     message: `[원페이지 학습] ${rec.user_name || ''}님, 따뜻한 후기 감사합니다! 홈 화면에 소개되었고 ${points}포인트를 적립해 드렸습니다 💜`,
   });
   return json({ ok: true, points, new_point: award.new_point }, 200, request);
+}
+
+// 감성 재분류 (AI 재시도 + 휴리스틱 폴백) — CRM 🤖 버튼
+async function handleAdminReviewClassify(request, env, id) {
+  const rec = await ncbReadById(env, NCB_REVIEWS, id);
+  if (!rec) return json({ error: 'not_found' }, 404, request);
+  const sr = await fbSentiment(env, rec.content);
+  await ncbUpdate(env, NCB_REVIEWS, id, { sentiment: sr.sentiment, updated_at: fbNow() });
+  return json({ ok: true, sentiment: sr.sentiment, via: sr.via, ai_error: sr.ai_error || '' }, 200, request);
+}
+
+async function handleAdminReviewDelete(request, env, id) {
+  await ncbDelete(env, NCB_REVIEWS, id);
+  await caches.default.delete(new Request('https://cache.op/reviews-adopted'));
+  return json({ ok: true }, 200, request);
+}
+
+async function handleAdminErrorReportDelete(request, env, id) {
+  await ncbDelete(env, NCB_ERRORS, id);
+  return json({ ok: true }, 200, request);
 }
 
 async function handleUnderstoodToggle(request, env) {
@@ -3509,8 +3551,13 @@ async function route(request, env, ctx) {
     if (m === 'GET' && path === '/admin/reviews') return handleAdminReviews(request, env);
     fp = pathMatch(path, '/admin/reviews/:id/adopt');
     if (fp && m === 'POST') return handleAdminReviewAdopt(request, env, Number(fp.id));
+    fp = pathMatch(path, '/admin/reviews/:id/classify');
+    if (fp && m === 'POST') return handleAdminReviewClassify(request, env, Number(fp.id));
     fp = pathMatch(path, '/admin/reviews/:id');
     if (fp && m === 'PUT') return handleAdminReviewUpdate(request, env, Number(fp.id));
+    if (fp && m === 'DELETE') return handleAdminReviewDelete(request, env, Number(fp.id));
+    fp = pathMatch(path, '/admin/error-reports/:id');
+    if (fp && m === 'DELETE') return handleAdminErrorReportDelete(request, env, Number(fp.id));
   }
 
   // chapters

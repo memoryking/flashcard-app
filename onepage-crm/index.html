@@ -484,9 +484,11 @@ table { border-collapse: collapse; width: 100%; }
 
 /* 오류신고·후기·루틴 탭 버튼 (기본 버튼이 밝게 나오는 문제 보정) */
 #tabReports button, #tabReviews button, #tabRoutine button {
-  background: #334155; color: #e2e8f0; border: none; border-radius: 8px;
-  padding: 7px 11px; font-size: 12.5px; cursor: pointer;
+  background: #334155 !important; color: #e2e8f0 !important; border: none !important;
+  border-radius: 8px; padding: 7px 11px; font-size: 12.5px; cursor: pointer;
 }
+#tabReports button[style*="background:#166534"], #tabReviews button[style*="background:#166534"] { background: #166534 !important; }
+#tabReports button[style*="background:#7f1d1d"], #tabReviews button[style*="background:#7f1d1d"] { background: #7f1d1d !important; }
 #tabReports button:hover, #tabReviews button:hover, #tabRoutine button:hover { filter: brightness(1.2); }
 #tabReports select, #tabReviews select, #tabReports input, #tabReviews input, #tabRoutine input[type=number] {
   background: #0f172a; color: #e2e8f0; border: 1px solid #334155; border-radius: 8px;
@@ -604,6 +606,7 @@ table { border-collapse: collapse; width: 100%; }
         <select id="rvSent" onchange="loadReviews()" style="padding:7px;border-radius:8px;">
           <option value="">전체</option><option value="positive">긍정</option><option value="negative">부정</option>
           <option value="neutral">중립</option><option value="pending">미분류</option>
+          <option value="_adopted">홈 노출중</option>
         </select>
         <label style="font-size:12px;">채택 포인트 기본값
           <input id="rvPts" type="number" style="width:70px;padding:6px;border-radius:6px;" onchange="localStorage.setItem('crm_rev_pts',this.value)"></label>
@@ -3402,6 +3405,7 @@ async function loadReports() {
           <button onclick="feedbackReport(${x.id})">💬 피드백 보내기</button>
           <button onclick="setReportStatus(${x.id},'checking')">확인중</button>
           <button onclick="setReportStatus(${x.id},'rejected')" style="background:#7f1d1d;">반려</button>
+          <button onclick="deleteReport(${x.id})" style="background:#7f1d1d;">🗑 삭제</button>
         </div>
       </div>`).join('') || '<p>신고가 없습니다.</p>';
   } catch(e){ $('rpList').textContent = '오류: '+e.message; }
@@ -3469,8 +3473,8 @@ async function loadReviews() {
   $('rvPts').value = localStorage.getItem('crm_rev_pts') || 300;
   const sn = $('rvSent').value;
   try {
-    const r = await api('GET', '/admin/reviews' + (sn ? '?sentiment='+sn : ''));
-    window._reviews = r.reviews || [];
+    const r = await api('GET', '/admin/reviews' + (sn && sn !== '_adopted' ? '?sentiment='+sn : ''));
+    window._reviews = (r.reviews || []).filter(x => sn !== '_adopted' || Number(x.adopted));
     $('rvList').innerHTML = window._reviews.map(x => { const m=RV_SN[x.sentiment]||[x.sentiment,'#374151']; return `
       <div style="border:1px solid #334155;border-radius:10px;padding:12px;margin-bottom:10px;">
         <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-bottom:6px;">
@@ -3483,8 +3487,10 @@ async function loadReviews() {
           ${Number(x.adopted)
             ? `<button onclick="unadoptReview(${x.id})" style="background:#7f1d1d;">노출 해제</button>`
             : `<button onclick="adoptReview(${x.id})" style="background:#166534;">✅ 채택+포인트 (홈 노출)</button>`}
+          <button onclick="reclassifyReview(${x.id})">🤖 AI 재분류</button>
           <button onclick="setReviewSentiment(${x.id},'positive')">긍정으로</button>
           <button onclick="setReviewSentiment(${x.id},'negative')">부정으로</button>
+          <button onclick="deleteReview(${x.id})" style="background:#7f1d1d;">🗑 삭제</button>
         </div>
       </div>`; }).join('') || '<p>후기가 없습니다.</p>';
   } catch(e){ $('rvList').textContent = '오류: '+e.message; }
@@ -3583,6 +3589,21 @@ function renderRoutine() {
     <h3 style="margin:18px 0 4px;">📅 주간 루틴 <span style="font-size:13px;opacity:.6;">(${wk} · ${wDone}/${ROUTINE_W.length} 완료)</span></h3>
     <p style="font-size:12px;opacity:.55;margin-bottom:10px;">매주 월요일 권장. 주가 바뀌면 자동 리셋.</p>
     ${ROUTINE_W.map(i=>row(i,wk,ws)).join('')}`;
+}
+
+async function reclassifyReview(id) {
+  try { const r = await api('POST', '/admin/reviews/'+id+'/classify');
+    alert('분류 결과: ' + r.sentiment + ' (' + r.via + ')' + (r.ai_error ? ' / AI메모: ' + r.ai_error : ''));
+    loadReviews();
+  } catch(e){ alert('실패: '+e.message); }
+}
+async function deleteReview(id) {
+  if(!confirm('이 후기를 완전히 삭제할까요? (복구 불가)')) return;
+  try { await api('DELETE', '/admin/reviews/'+id); loadReviews(); } catch(e){ alert(e.message); }
+}
+async function deleteReport(id) {
+  if(!confirm('이 신고를 완전히 삭제할까요? (복구 불가 — 테스트 데이터 정리용)')) return;
+  try { await api('DELETE', '/admin/error-reports/'+id); loadReports(); } catch(e){ alert(e.message); }
 }
 
 tryAutoLogin();
