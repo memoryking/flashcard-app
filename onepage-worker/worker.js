@@ -1746,6 +1746,39 @@ async function runExpiryReminders(env, dry) {
   return { checked: latest.size, matched: targets.length, sent: dry ? 0 : sent.length, dry: !!dry, list: sent };
 }
 
+// ── 결제-연장 이중 체크 — 결제 후 10분이 지나도 C1이 기간을 안 늘렸으면 관리자 알림 ──
+//    매시간 Cron: 직전 ~70분 결제만 검사 (결제당 약 1회 검사, 중복 알림 방지)
+async function runPaymentSyncCheck(env, hours, dry) {
+  const now = Date.now();
+  const since = new Date(now - (hours || 1.2) * 3600 * 1000).toISOString();
+  const recs = await atFindAllPaged(env, AT_PAYMENTS, `IS_AFTER(CREATED_TIME(), "${since}")`, 500);
+  const issues = [];
+  for (const r of recs) {
+    const f = r.fields || {};
+    if (String(f.status || '') !== 'paid') continue;
+    const t = new Date(r.createdTime).getTime();
+    if (now - t < 10 * 60 * 1000) continue;   // C1 정상 지연(5초~1분) + 여유 = 10분 유예
+    const acc = await atFindOne(env, AT_ACCESS,
+      `AND({user_phone}="${f.user_phone}", {chapter_id}=${Number(f.chapter_id) || 0})`);
+    const exp = acc && acc.fields.expires_at ? new Date(acc.fields.expires_at).getTime() : 0;
+    // 연장이 반영됐다면 만료일이 최소 결제시점+20일 이후여야 함 (+30일 누적이므로)
+    if (exp < t + 20 * 86400000) {
+      issues.push({ phone: f.user_phone, chapter: f.chapter_title || String(f.chapter_id),
+        paid_at: r.createdTime, expires_at: acc ? (acc.fields.expires_at || '') : '(열람권 레코드 없음)' });
+    }
+  }
+  if (issues.length && !dry) {
+    await fbAdminSms(env, `[원페이지] ⚠️ 결제-연장 불일치 ${issues.length}건! Airtable C1 자동화 확인 필요: `
+      + issues.map(i => i.phone.slice(-4) + '/' + i.chapter).join(', '));
+  }
+  return { checked: recs.length, issues, dry: !!dry };
+}
+
+async function handlePaymentSyncCheck(request, env) {
+  const b = await request.json().catch(() => ({}));
+  return json(await runPaymentSyncCheck(env, Number(b.hours) || 24, !!b.dry), 200, request);
+}
+
 async function handleExpiryRemindersRun(request, env) {
   const b = await request.json().catch(() => ({}));
   const r = await runExpiryReminders(env, !!b.dry);
@@ -3608,6 +3641,10 @@ async function route(request, env, ctx) {
   }
 
   // ── 관리자: 오류 신고 / 후기 (CRM) ──
+  if (m === 'POST' && path === '/admin/payment-sync/check') {
+    const g = teacherGate(); if (g) return g;
+    return handlePaymentSyncCheck(request, env);
+  }
   if (m === 'POST' && path === '/admin/expiry-reminders/run') {
     const g = teacherGate(); if (g) return g;
     return handleExpiryRemindersRun(request, env);
@@ -3756,8 +3793,13 @@ async function route(request, env, ctx) {
 export default {
   // 매일 아침 10시(KST, = UTC 01:00) — 만료 리마인더 자동 발송
   async scheduled(event, env, ctx) {
-    ctx.waitUntil(runExpiryReminders(env, false).then(r =>
-      console.log('expiry_reminders', JSON.stringify({ checked: r.checked, sent: r.sent }))));
+    if (event.cron === '0 1 * * *') {          // KST 10:00 — 만료 리마인더
+      ctx.waitUntil(runExpiryReminders(env, false).then(r =>
+        console.log('expiry_reminders', JSON.stringify({ checked: r.checked, sent: r.sent }))));
+    }
+    // 매시간 — 결제-연장 이중 체크 (C1 자동화 감시)
+    ctx.waitUntil(runPaymentSyncCheck(env, 1.2, false).then(r =>
+      console.log('payment_sync', JSON.stringify({ checked: r.checked, issues: r.issues.length }))));
   },
 
   async fetch(request, env, ctx) {
