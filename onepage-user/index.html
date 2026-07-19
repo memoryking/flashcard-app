@@ -1482,6 +1482,12 @@ a { color: #4fc3f7; text-decoration: none; }
   text-align: center;
 }
 /* ───── 오류 제보 + 후기 (홈 하단) ───── */
+.report-mini {
+  display: block; margin: 10px auto 2px; background: none; border: 1px dashed rgba(255,255,255,0.18);
+  color: rgba(255,255,255,0.45); border-radius: 8px; padding: 5px 12px; font-size: 11.5px; cursor: pointer;
+  pointer-events: auto !important;
+}
+.report-mini:hover { color: #fca5a5; border-color: rgba(252,165,165,0.4); }
 .home-feedback { display: flex; gap: 10px; padding: 4px 16px 10px; max-width: 720px; margin: 0 auto; }
 .fb-btn {
   flex: 1; background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.12);
@@ -4736,6 +4742,7 @@ function renderFocusCard(s, remaining, hasAccess) {
         <div class="focus-body${showRevealBtn ? ' blurred' : ''}${hasCardFront ? ' split' : ''}">${body}</div>
         ${showRevealBtn ? `<div class="focus-tap-hint">${hasCardFront ? '풀이 보기' : '카드터치'}</div>` : ''}
       </div>
+      ${reportBtnHtml(s)}
       ${showAssessBar ? `
         <div class="focus-bottom-bar">
           <button class="recall-btn recall-wrong" onclick="event.stopPropagation();todayStageJudge(${sid}, false)">✗ 더 학습</button>
@@ -5772,7 +5779,7 @@ function renderSubtopic(s, isCurrent) {
                 title="발음 듣기">🔊</button>` : ''}
       </div>
       ${preview}
-      <div class="subtopic-body">${body}</div>
+      <div class="subtopic-body">${body}${opened ? reportBtnHtml(s) : ''}</div>
     </div>
   `;
 }
@@ -6420,7 +6427,8 @@ function sessionCardHTML() {
         <div class="ses-think-hint">카드를 터치하면 정답이 나옵니다</div>
       </div>`) : `
       ${coverHtml}
-      <div class="ses-body revealed">${body}</div>`}
+      <div class="ses-body revealed">${body}</div>
+      ${reportBtnHtml(s)}`}
     </div>`;
 }
 
@@ -7868,7 +7876,14 @@ window.toggleSolution = function (btn) {
 // ═══════════════════════════════════════════════════════════
 //  오류 제보 + 후기 (FEEDBACK_PLAN.md P2)
 // ═══════════════════════════════════════════════════════════
-function openErrorReport() {
+// 문제 카드 안의 미니 신고 버튼 — 챕터·문제가 자동으로 담긴다
+function reportBtnHtml(s) {
+  const t = JSON.stringify(String(s.title || '')).replace(/"/g, '&quot;');
+  return `<button class="report-mini" onclick="event.stopPropagation();openErrorReport(${Number(s.id)}, ${t})"
+    onmousedown="event.stopPropagation()" ontouchstart="event.stopPropagation()">🐛 이 문제 오류 제보</button>`;
+}
+
+function openErrorReport(prefSubId, prefSubTitle) {
   if (!state.user) { toast('로그인 후 이용할 수 있어요', true); return; }
   const opts = (state.chapters || []).map(c =>
     `<option value="${c.id}">${escapeHtml((c.subject ? c.subject + ' · ' : '') + c.title)}</option>`).join('');
@@ -7881,11 +7896,18 @@ function openErrorReport() {
       <select id="er_chapter" style="width:100%;margin:4px 0 10px;padding:9px;background:#0f172a;color:#e5e7eb;border:1px solid rgba(255,255,255,0.15);border-radius:8px;">${opts}</select>
       <label style="font-size:12px;color:#94a3b8;">문제(카드) 제목 — 선택</label>
       <input id="er_sub" type="text" placeholder="예: 03 극한값존재 미정계수" style="width:100%;margin:4px 0 10px;padding:9px;background:#0f172a;color:#e5e7eb;border:1px solid rgba(255,255,255,0.15);border-radius:8px;">
+      <input id="er_subid" type="hidden" value="0">
       <label style="font-size:12px;color:#94a3b8;">내용</label>
       <textarea id="er_content" rows="4" placeholder="어떤 부분이 이상했는지 적어주세요" style="width:100%;margin-top:4px;padding:9px;background:#0f172a;color:#e5e7eb;border:1px solid rgba(255,255,255,0.15);border-radius:8px;resize:vertical;"></textarea>
       <button onclick="openMyReports()" style="margin-top:8px;background:none;border:none;color:#7dd3fc;font-size:12px;cursor:pointer;padding:0;">📋 내 제보 처리 현황 보기</button>`,
     foot: `<button onclick="submitErrorReport()">보내기</button>`,
   });
+  // 카드에서 열었으면 챕터·문제 자동 채움 (CRM이 문제 원문을 가져올 수 있게 id까지)
+  if (prefSubId) {
+    if (state.currentChapter) $('er_chapter').value = String(state.currentChapter.id);
+    $('er_sub').value = String(prefSubTitle || '');
+    $('er_subid').value = String(prefSubId);
+  }
 }
 
 async function submitErrorReport() {
@@ -7896,7 +7918,7 @@ async function submitErrorReport() {
   try {
     await api('POST', '/error-reports', {
       chapter_id: Number(sel.value) || 0, chapter_title: ch.title || '',
-      subtopic_id: 0, subtopic_title: $('er_sub').value.trim(), content,
+      subtopic_id: Number($('er_subid').value) || 0, subtopic_title: $('er_sub').value.trim(), content,
     });
     closeModal();
     toast('제보가 접수되었습니다. 확인 후 알려드릴게요 🙏');

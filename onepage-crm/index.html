@@ -481,6 +481,16 @@ table { border-collapse: collapse; width: 100%; }
   font-size: 11px; line-height: 1; padding: 0;
 }
 .saved-item .del:hover { background: rgba(239,68,68,0.35); }
+
+/* 오류신고·후기·루틴 탭 버튼 (기본 버튼이 밝게 나오는 문제 보정) */
+#tabReports button, #tabReviews button, #tabRoutine button {
+  background: #334155; color: #e2e8f0; border: none; border-radius: 8px;
+  padding: 7px 11px; font-size: 12.5px; cursor: pointer;
+}
+#tabReports button:hover, #tabReviews button:hover, #tabRoutine button:hover { filter: brightness(1.2); }
+#tabReports select, #tabReviews select, #tabReports input, #tabReviews input, #tabRoutine input[type=number] {
+  background: #0f172a; color: #e2e8f0; border: 1px solid #334155; border-radius: 8px;
+}
 </style>
 </head>
 <body>
@@ -3397,12 +3407,29 @@ async function loadReports() {
   } catch(e){ $('rpList').textContent = '오류: '+e.message; }
 }
 
-function copyVerifyPrompt(id) {
+function stripHtml(h) {
+  const d = document.createElement('div'); d.innerHTML = String(h||'');
+  return (d.textContent||'').replace(/\s+\n/g, String.fromCharCode(10)).trim();
+}
+
+async function copyVerifyPrompt(id) {
   const x = (window._reports||[]).find(r=>r.id===id); if(!x) return;
   const nl = String.fromCharCode(10);
+  // 문제 원문 — 신고에 subtopic_id 가 있으면 실제 카드 내용(문제/해설)을 가져와 동봉
+  let srcBlock = '[문제 원문] (신고에 문제가 지정되지 않아 원문 미첨부 — 챕터 전반 신고)';
+  if (Number(x.subtopic_id)) {
+    try {
+      const it = await api('GET', '/items?subtopic_id=' + x.subtopic_id);
+      const items = it.items || [];
+      const q = items.filter(i=>i.caption==='암기카드').map(i=>stripHtml(i.text)).join(nl);
+      const e = items.filter(i=>i.caption!=='암기카드').map(i=>stripHtml(i.text)).join(nl);
+      srcBlock = '[문제 원문]' + nl + (q || '(문제 항목 없음)') + nl + nl + '[해설 원문]' + nl + (e || '(해설 항목 없음)');
+    } catch(err) { srcBlock = '[문제 원문] 로드 실패: ' + err.message; }
+  }
   const t = ['학생이 학습앱 콘텐츠의 오류를 신고했다. 아래 신고가 타당한지 엄격하게 검증해줘.','',
     '[신고 대상] ' + (x.chapter_title||'') + (x.subtopic_title?' › '+x.subtopic_title:''),
     '[신고 내용] ' + (x.content||''),'',
+    srcBlock,'',
     '검증할 것:',
     '1. 신고가 지적하는 오류가 실제로 오류인지 — 관련 개념을 독립적으로 처음부터 풀어 판정',
     '2. 오류가 맞다면: 정확히 무엇이 왜 틀렸고, 올바른 값/문장은 무엇인지',
