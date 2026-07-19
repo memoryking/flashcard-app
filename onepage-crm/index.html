@@ -3400,6 +3400,7 @@ async function loadReports() {
         <div style="white-space:pre-wrap;font-size:13px;margin-bottom:8px;">${escapeHtml(x.content||'')}</div>
         ${x.admin_note?`<div style="font-size:12px;opacity:.6;margin-bottom:6px;">📝 ${escapeHtml(x.admin_note)}</div>`:''}
         <div style="display:flex;gap:6px;flex-wrap:wrap;">
+          ${Number(x.subtopic_id)?`<button onclick="toggleReportView(${x.id},${x.subtopic_id})">📖 문제·해설 보기</button>`:''}
           <button onclick="copyVerifyPrompt(${x.id})">🔍 AI 검증 프롬프트 복사</button>
           <button onclick="adoptReport(${x.id})" style="background:#166534;">✅ 채택+포인트</button>
           <button onclick="feedbackReport(${x.id})">💬 피드백 보내기</button>
@@ -3407,6 +3408,7 @@ async function loadReports() {
           <button onclick="setReportStatus(${x.id},'rejected')" style="background:#7f1d1d;">반려</button>
           <button onclick="deleteReport(${x.id})" style="background:#7f1d1d;">🗑 삭제</button>
         </div>
+        <div id="rpView${x.id}" style="display:none;margin-top:10px;background:#fff;color:#1f2937;border-radius:10px;padding:14px;max-height:520px;overflow-y:auto;line-height:1.7;"></div>
       </div>`).join('') || '<p>신고가 없습니다.</p>';
   } catch(e){ $('rpList').textContent = '오류: '+e.message; }
 }
@@ -3598,6 +3600,40 @@ function renderRoutine() {
     <h3 style="margin:18px 0 4px;">📅 주간 루틴 <span style="font-size:13px;opacity:.6;">(${wk} · ${wDone}/${ROUTINE_W.length} 완료)</span></h3>
     <p style="font-size:12px;opacity:.55;margin-bottom:10px;">매주 월요일 권장. 주가 바뀌면 자동 리셋.</p>
     ${ROUTINE_W.map(i=>row(i,wk,ws)).join('')}`;
+}
+
+let _crmMj = null;
+function crmMathJax() {
+  if (window.MathJax && window.MathJax.typesetPromise) return Promise.resolve();
+  if (_crmMj) return _crmMj;
+  window.MathJax = { tex: { inlineMath: [['$','$'],['\\(','\\)']], displayMath: [['$$','$$'],['\\[','\\]']] }, svg: { fontCache: 'global' }, startup: { typeset: false } };
+  _crmMj = new Promise(res => {
+    const sc = document.createElement('script');
+    sc.src = 'https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js';
+    sc.async = true; sc.onload = () => res(); sc.onerror = () => res();
+    document.head.appendChild(sc);
+  });
+  return _crmMj;
+}
+
+// 리스트에서 문제·해설을 직접 확인 — 학생이 보는 콘텐츠를 그대로 렌더 (수식·그래프 포함)
+async function toggleReportView(id, subId) {
+  const box = document.getElementById('rpView' + id);
+  if (!box) return;
+  if (box.style.display !== 'none') { box.style.display = 'none'; return; }
+  box.style.display = 'block';
+  box.innerHTML = '불러오는 중…';
+  try {
+    const it = await api('GET', '/items?subtopic_id=' + subId);
+    const items = it.items || [];
+    const q = items.filter(i => i.caption === '암기카드').map(i => i.text).join('');
+    const e = items.filter(i => i.caption !== '암기카드').map(i => i.text).join('<hr style="margin:10px 0;border:0;border-top:1px solid #e5e7eb;">');
+    box.innerHTML =
+      '<div style="font-weight:800;color:#2563eb;margin-bottom:6px;">📝 문제 (학생 화면 그대로)</div>' + (q || '(문제 항목 없음)') +
+      '<div style="font-weight:800;color:#16a34a;margin:14px 0 6px;border-top:2px solid #e5e7eb;padding-top:12px;">✅ 해설</div>' + (e || '(해설 항목 없음)');
+    await crmMathJax();
+    if (window.MathJax && window.MathJax.typesetPromise) await MathJax.typesetPromise([box]);
+  } catch (err) { box.innerHTML = '로드 실패: ' + err.message; }
 }
 
 async function reclassifyReview(id) {
