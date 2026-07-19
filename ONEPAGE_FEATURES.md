@@ -2001,6 +2001,18 @@ node scripts/merge-math.js "C:/Users/memoryking/00_DEV/11_math/<단원폴더>"
 
 ---
 
+## 22.10-b 오류 신고 + 후기 게시판 (v2.4.2)
+
+**상세 명세·진행 상태: [FEEDBACK_PLAN.md](FEEDBACK_PLAN.md)** (P1 워커·P2 학생앱·P3 CRM 완료 2026-07-19)
+
+- 학생앱 홈 하단: 🐛 오류 제보(챕터+문제+내용 → NCB `op_error_reports` + 관리자 SMS) ·
+  ⭐ 후기 쓰기(1인 1회, Workers AI 감성 자동분류 → `op_reviews` + 관리자 SMS) ·
+  **채택 후기 무한 스크롤 마퀴**(`/reviews/adopted`, 이름 김○○ 마스킹, 10분 엣지캐시, 호버 일시정지)
+- CRM 탭 2개: 🔍 AI 검증 프롬프트 자동 조립·복사 / ✅ 채택 원클릭(포인트 적립+트랜잭션+감사 SMS,
+  기본 오류 500P·후기 300P — localStorage로 수정 가능) / 💬 피드백(문자·메일) / 감성 재분류·노출 해제
+- ⚠️ Pabbly 라우터가 신규 template(`admin_alert`,`feedback_notice`)에서 custom_message를
+  그대로 SMS로 보내도록 분기 필요 (password_reset 우회 패턴과 동일)
+
 ## 22.10 수학 문제은행 — math-bank (v2.4.1)
 
 **핵심**: §22.8 파일 기반 수학 워크플로를 **DB 기반 문제은행**으로 승격. 단어풀(§22.9)과 같은 구조 —

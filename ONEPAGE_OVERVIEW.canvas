@@ -399,6 +399,16 @@
       "height": 320,
       "color": "4",
       "text": "### 📐 수학 문제은행 (math-bank)\n`00_DEV/math-bank` (형제 폴더·비공개)\n\nSQLite 원천 + 관리콘솔 :8801\n문제 = md 원천 + html 재저작 + SVG\n\n흐름:\n- 클로드가 가이드 형식으로 개발\n- 콘솔: 목록·미리보기·편집·상태\n- 📦 합본 → 교사앱 HTML 일괄 추가\n- 📤 MD 내보내기 (왕복 재수입)\n\n서빙은 기존 방식(내용 저장)\n§22.10 · math-bank/README.md"
+    },
+    {
+      "id": "feedback",
+      "type": "text",
+      "x": 900,
+      "y": 1320,
+      "width": 380,
+      "height": 260,
+      "color": "5",
+      "text": "### 🐛⭐ 오류신고·후기 (v2.4.2)\nFEEDBACK_PLAN.md\n\n학생: 제보·후기(1인1회) → NCB 저장\n+ 관리자 SMS(Pabbly)\nWorkers AI 감성분류(무료)\nCRM: AI검증 프롬프트·채택 원클릭\n(포인트+감사SMS, 기본 500/300P)\n홈: 채택 후기 마퀴(김○○ 마스킹)"
     }
   ],
   "edges": [

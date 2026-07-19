@@ -827,3 +827,10 @@ Worker는 일괄 `sort_order` 갱신을 위한 3종 endpoint 제공. 모두 동�
 - Excel Alt+Enter 멀티라인 셀은 정상 지원
 
 자세한 사용법은 [ONEPAGE_FEATURES.md § 12](ONEPAGE_FEATURES.md#12-일괄-입력-tsv) 참조.
+
+
+## B8. `op_error_reports` — 학생 오류 신고 (v2.4.2)
+`user_phone·user_name·chapter_id·chapter_title·subtopic_id·subtopic_title·content(TEXT)·status(new/checking/adopted/rejected/answered)·points_awarded(INT)·admin_note(TEXT)·created_at·updated_at(DATETIME)`
+
+## B9. `op_reviews` — 후기 (1인 1회, v2.4.2)
+`user_phone(1인1회 키)·user_name·content(TEXT)·sentiment(positive/negative/neutral/pending — Workers AI 자동분류)·adopted(INT 0/1 — 홈 마퀴 노출)·points_awarded(INT)·created_at·updated_at(DATETIME)`
