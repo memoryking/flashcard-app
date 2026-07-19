@@ -1481,6 +1481,29 @@ a { color: #4fc3f7; text-decoration: none; }
   padding: 14px 18px 16px;
   text-align: center;
 }
+/* ───── 오류 제보 + 후기 (홈 하단) ───── */
+.home-feedback { display: flex; gap: 10px; padding: 4px 16px 10px; max-width: 720px; margin: 0 auto; }
+.fb-btn {
+  flex: 1; background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.12);
+  color: #cbd5e1; border-radius: 10px; padding: 10px; font-size: 13px; font-weight: 700; cursor: pointer;
+  transition: background .15s;
+}
+.fb-btn:hover { background: rgba(255,255,255,0.10); }
+.review-marquee { overflow: hidden; padding: 4px 0 20px; }
+.review-track { display: flex; gap: 12px; width: max-content; animation: rvScroll var(--rvdur, 40s) linear infinite; }
+.review-marquee:hover .review-track { animation-play-state: paused; }
+@keyframes rvScroll { from { transform: translateX(0); } to { transform: translateX(-50%); } }
+.review-item {
+  background: rgba(255,255,255,0.045); border: 1px solid rgba(255,255,255,0.10);
+  border-radius: 12px; padding: 10px 14px; font-size: 12.5px; line-height: 1.55;
+  color: #cbd5e1; width: 260px; flex-shrink: 0;
+}
+.review-item b { color: #ffd54f; font-size: 11.5px; display: block; margin-bottom: 3px; }
+.fb-status { font-size: 11px; padding: 2px 8px; border-radius: 10px; font-weight: 700; }
+.fb-st-new { background: #374151; } .fb-st-checking { background: #78350f; }
+.fb-st-adopted { background: #14532d; color: #86efac; } .fb-st-rejected { background: #7f1d1d; }
+.fb-st-answered { background: #1e40af; }
+
 /* ───── 선택 학습(집중 세션) — new 탭 전용 ───── */
 /* 컨트롤 바: 자동선택 + 학습하기 */
 .pick-bar {
@@ -2797,6 +2820,13 @@ a { color: #4fc3f7; text-decoration: none; }
     </div>
   </div>
   <div class="home-content" id="chapterCards"></div>
+  <div class="home-feedback">
+    <button class="fb-btn" onclick="openErrorReport()">🐛 오류 제보</button>
+    <button class="fb-btn" onclick="openReviewWrite()">⭐ 후기 쓰기</button>
+  </div>
+  <div class="review-marquee" id="reviewMarquee" style="display:none">
+    <div class="review-track" id="reviewTrack"></div>
+  </div>
 </div>
 
 <!-- 챕터 상세 (트리) -->
@@ -3324,6 +3354,7 @@ async function enterHome(chaptersP) {
   // 예전엔 이 4개를 Promise.all 로 다 기다려서 홈이 가장 느린 것에 묶여 있었다.
   if (!BOOT_BG) BOOT_BG = Promise.all([loadUnderstood(), loadWordImages()]);
   loadLiveCount();
+  loadReviewMarquee();   // 채택 후기 마퀴 — 홈 렌더를 기다리게 하지 말 것 (부팅 규칙)
   await (chaptersP || loadChapters());
   renderHome();
   // 첫 방문자 환영 모달 — 가이드 안 본 사용자에게 1회만
@@ -7833,6 +7864,101 @@ window.toggleSolution = function (btn) {
     _typesetMathInTree();
   }
 };
+
+// ═══════════════════════════════════════════════════════════
+//  오류 제보 + 후기 (FEEDBACK_PLAN.md P2)
+// ═══════════════════════════════════════════════════════════
+function openErrorReport() {
+  if (!state.user) { toast('로그인 후 이용할 수 있어요', true); return; }
+  const opts = (state.chapters || []).map(c =>
+    `<option value="${c.id}">${escapeHtml((c.subject ? c.subject + ' · ' : '') + c.title)}</option>`).join('');
+  showModal({
+    title: '🐛 오류 제보', klass: 'small',
+    body: `
+      <p style="font-size:12.5px;color:rgba(255,255,255,0.6);margin-bottom:10px;">
+        오타, 틀린 답, 이상한 해설… 무엇이든 알려주세요.<br>확인 후 채택되면 <b style="color:#ffd54f">포인트를 드립니다</b> 🙏</p>
+      <label style="font-size:12px;color:#94a3b8;">어느 콘텐츠인가요?</label>
+      <select id="er_chapter" style="width:100%;margin:4px 0 10px;padding:9px;background:#0f172a;color:#e5e7eb;border:1px solid rgba(255,255,255,0.15);border-radius:8px;">${opts}</select>
+      <label style="font-size:12px;color:#94a3b8;">문제(카드) 제목 — 선택</label>
+      <input id="er_sub" type="text" placeholder="예: 03 극한값존재 미정계수" style="width:100%;margin:4px 0 10px;padding:9px;background:#0f172a;color:#e5e7eb;border:1px solid rgba(255,255,255,0.15);border-radius:8px;">
+      <label style="font-size:12px;color:#94a3b8;">내용</label>
+      <textarea id="er_content" rows="4" placeholder="어떤 부분이 이상했는지 적어주세요" style="width:100%;margin-top:4px;padding:9px;background:#0f172a;color:#e5e7eb;border:1px solid rgba(255,255,255,0.15);border-radius:8px;resize:vertical;"></textarea>
+      <button onclick="openMyReports()" style="margin-top:8px;background:none;border:none;color:#7dd3fc;font-size:12px;cursor:pointer;padding:0;">📋 내 제보 처리 현황 보기</button>`,
+    foot: `<button onclick="submitErrorReport()">보내기</button>`,
+  });
+}
+
+async function submitErrorReport() {
+  const sel = $('er_chapter');
+  const content = $('er_content').value.trim();
+  if (!content) { toast('내용을 입력해 주세요', true); return; }
+  const ch = (state.chapters || []).find(c => String(c.id) === sel.value) || {};
+  try {
+    await api('POST', '/error-reports', {
+      chapter_id: Number(sel.value) || 0, chapter_title: ch.title || '',
+      subtopic_id: 0, subtopic_title: $('er_sub').value.trim(), content,
+    });
+    closeModal();
+    toast('제보가 접수되었습니다. 확인 후 알려드릴게요 🙏');
+  } catch (e) { toast('전송 실패: ' + e.message, true); }
+}
+
+async function openMyReports() {
+  try {
+    const r = await api('GET', '/error-reports/mine');
+    const ST = { new: '접수됨', checking: '확인 중', adopted: '채택 🎉', rejected: '반려', answered: '답변 완료' };
+    const rows = (r.reports || []).map(x => `
+      <div style="border:1px solid rgba(255,255,255,0.1);border-radius:10px;padding:10px;margin-bottom:8px;font-size:12.5px;">
+        <div style="display:flex;justify-content:space-between;gap:8px;margin-bottom:4px;">
+          <b>${escapeHtml(x.chapter_title || '')}${x.subtopic_title ? ' · ' + escapeHtml(x.subtopic_title) : ''}</b>
+          <span class="fb-status fb-st-${escapeHtml(x.status || 'new')}">${ST[x.status] || x.status}${Number(x.points_awarded) ? ' +' + x.points_awarded + 'P' : ''}</span>
+        </div>
+        <div style="color:rgba(255,255,255,0.65);">${escapeHtml(x.content || '')}</div>
+      </div>`).join('') || '<div class="empty-state">아직 제보가 없습니다.</div>';
+    showModal({ title: '📋 내 제보 현황', klass: 'small', body: rows, foot: '' });
+  } catch (e) { toast(e.message, true); }
+}
+
+function openReviewWrite() {
+  if (!state.user) { toast('로그인 후 이용할 수 있어요', true); return; }
+  showModal({
+    title: '⭐ 후기 쓰기', klass: 'small',
+    body: `
+      <p style="font-size:12.5px;color:rgba(255,255,255,0.6);margin-bottom:10px;">
+        원페이지 학습이 어떠셨나요? 솔직한 후기를 남겨주세요.<br>
+        채택되면 홈 화면에 소개되고 <b style="color:#ffd54f">포인트를 드립니다</b> 💜 (1인 1회)</p>
+      <textarea id="rv_content" rows="5" maxlength="1000" placeholder="예: 다지기 반복 덕분에 단어가 진짜 안 잊혀요!" style="width:100%;padding:9px;background:#0f172a;color:#e5e7eb;border:1px solid rgba(255,255,255,0.15);border-radius:8px;resize:vertical;"></textarea>`,
+    foot: `<button onclick="submitReview()">등록</button>`,
+  });
+}
+
+async function submitReview() {
+  const content = $('rv_content').value.trim();
+  if (content.length < 10) { toast('10자 이상 적어주세요', true); return; }
+  try {
+    await api('POST', '/reviews', { content });
+    closeModal();
+    toast('후기가 등록되었습니다. 감사합니다 💜');
+  } catch (e) {
+    if (e.status === 409) { closeModal(); toast('이미 후기를 남겨주셨어요. 감사합니다 💜', true); }
+    else toast('전송 실패: ' + e.message, true);
+  }
+}
+
+// 홈 하단 채택 후기 마퀴 — 부팅을 막지 않는 fire-and-forget
+async function loadReviewMarquee() {
+  try {
+    const r = await fetch(API + '/reviews/adopted').then(x => x.json());
+    const list = (r.reviews || []);
+    if (!list.length) return;
+    const item = v => `<div class="review-item"><b>⭐ ${escapeHtml(v.name)}</b>${escapeHtml(v.content)}</div>`;
+    const half = list.map(item).join('');
+    const track = $('reviewTrack');
+    track.innerHTML = half + half;   // 2배 복제 → translateX(-50%) 무한 루프가 이어짐
+    track.style.setProperty('--rvdur', Math.max(20, list.length * 8) + 's');
+    $('reviewMarquee').style.display = '';
+  } catch {}
+}
 
 tryAutoLogin();
 </script>
