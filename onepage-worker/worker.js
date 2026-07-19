@@ -1430,6 +1430,215 @@ async function handleBulkImport(request, env, chapterId) {
 // 학생 — 이해 표시 (꾹누르기 토글)
 // ============================================================
 
+// ═══════════════════════════════════════════════════════════
+//  오류 신고 + 후기 게시판 (FEEDBACK_PLAN.md)
+//  문자·메일은 기존 Pabbly 웹훅 재사용, 감성분류는 Workers AI(무료)
+// ═══════════════════════════════════════════════════════════
+const NCB_ERRORS = 'op_error_reports';
+const NCB_REVIEWS = 'op_reviews';
+const ADMIN_PHONE_DEFAULT = '01056426775';
+
+function fbNow() { return kstNow().toISOString().slice(0, 19).replace('T', ' '); }
+
+// 이름 마스킹은 기존 maskName(김○○ 스타일, 공부친구 랭킹과 동일) 재사용
+
+// Pabbly 웹훅 발송 (channel: 'sms'|'email'|'both') — 실패해도 본 처리는 계속
+async function fbSend(env, { channel, phone, email, name, message, template }) {
+  const url = env.PABBLY_WEBHOOK_URL || '';
+  if (!url) { console.warn('PABBLY_WEBHOOK_URL not set — msg skipped:', message); return false; }
+  try {
+    await fetch(url, {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        template: template || 'feedback_notice', channel: channel || 'sms',
+        name: name || '', phone: phone || '', email: email || '',
+        custom_message: message, sent_at: fbNow(),
+      }),
+    });
+    return true;
+  } catch (e) { console.error('fbSend_failed', e); return false; }
+}
+
+async function fbAdminSms(env, message) {
+  return fbSend(env, { channel: 'sms', phone: env.ADMIN_PHONE || ADMIN_PHONE_DEFAULT, message, template: 'admin_alert' });
+}
+
+// 포인트 적립 + 트랜잭션 + (선택) 감사 문자
+async function fbAwardPoints(env, phone, points, reason, memo) {
+  const userRec = await atFindOne(env, AT_USERS, `{phone}='${phone}'`);
+  if (!userRec) return { ok: false, error: 'user_not_found' };
+  const newPoint = (Number(userRec.fields.point) || 0) + points;
+  await atUpdate(env, AT_USERS, userRec.id, { point: newPoint });
+  await atCreate(env, AT_POINTTX, {
+    user_phone: phone, delta: points, reason, balance_after: newPoint, memo: memo || '',
+  });
+  return { ok: true, new_point: newPoint, name: userRec.fields.name || '', email: userRec.fields.email || '' };
+}
+
+// Workers AI 감성 분류 — 실패 시 'pending' (CRM에서 수동 분류)
+async function fbSentiment(env, content) {
+  try {
+    if (!env.AI) return 'pending';
+    const r = await env.AI.run('@cf/meta/llama-3.1-8b-instruct', {
+      messages: [
+        { role: 'system', content: '한국어 학습앱 후기의 감성을 분류한다. positive, negative, neutral 중 한 단어만 출력하라.' },
+        { role: 'user', content: String(content).slice(0, 1000) },
+      ], max_tokens: 8,
+    });
+    const t = String(r.response || '').toLowerCase();
+    if (t.includes('positive')) return 'positive';
+    if (t.includes('negative')) return 'negative';
+    if (t.includes('neutral')) return 'neutral';
+    return 'pending';
+  } catch (e) { console.error('sentiment_failed', e); return 'pending'; }
+}
+
+// ── 학생: 오류 신고 접수 ──
+async function handleErrorReportCreate(request, env) {
+  const auth = await verifyAuth(request, env);
+  if (!auth) return json({ error: 'unauthenticated' }, 401, request);
+  const b = await request.json().catch(() => ({}));
+  const content = String(b.content || '').trim();
+  if (!content) return json({ error: 'content required' }, 400, request);
+  if (content.length > 2000) return json({ error: 'content too long' }, 400, request);
+  await ncbCreate(env, NCB_ERRORS, {
+    user_phone: auth.phone, user_name: auth.name || '',
+    chapter_id: Number(b.chapter_id) || 0, chapter_title: String(b.chapter_title || '').slice(0, 200),
+    subtopic_id: Number(b.subtopic_id) || 0, subtopic_title: String(b.subtopic_title || '').slice(0, 200),
+    content, status: 'new', points_awarded: 0, admin_note: '',
+    created_at: fbNow(), updated_at: fbNow(),
+  });
+  await fbAdminSms(env, `[원페이지] 🐛 오류신고 ${auth.name || auth.phone}: ${b.chapter_title || ''}/${b.subtopic_title || '전반'} — ${content.slice(0, 40)}`);
+  return json({ ok: true }, 200, request);
+}
+
+async function handleErrorReportsMine(request, env) {
+  const auth = await verifyAuth(request, env);
+  if (!auth) return json({ error: 'unauthenticated' }, 401, request);
+  const rows = await ncbRead(env, NCB_ERRORS, `&user_phone=${encodeURIComponent(auth.phone)}`);
+  const list = (rows || []).map(r => ({
+    id: r.id, chapter_title: r.chapter_title, subtopic_title: r.subtopic_title,
+    content: r.content, status: r.status, points_awarded: r.points_awarded, created_at: r.created_at,
+  })).sort((a, b2) => String(b2.created_at).localeCompare(String(a.created_at)));
+  return json({ reports: list }, 200, request);
+}
+
+// ── 학생: 후기 (1인 1회) ──
+async function handleReviewCreate(request, env) {
+  const auth = await verifyAuth(request, env);
+  if (!auth) return json({ error: 'unauthenticated' }, 401, request);
+  const b = await request.json().catch(() => ({}));
+  const content = String(b.content || '').trim();
+  if (!content) return json({ error: 'content required' }, 400, request);
+  if (content.length > 1000) return json({ error: 'content too long' }, 400, request);
+  const dup = await ncbRead(env, NCB_REVIEWS, `&user_phone=${encodeURIComponent(auth.phone)}`);
+  if (dup && dup.length) return json({ error: 'already_reviewed' }, 409, request);
+  const sentiment = await fbSentiment(env, content);
+  await ncbCreate(env, NCB_REVIEWS, {
+    user_phone: auth.phone, user_name: auth.name || '', content,
+    sentiment, adopted: 0, points_awarded: 0, created_at: fbNow(), updated_at: fbNow(),
+  });
+  await fbAdminSms(env, `[원페이지] ⭐ 새 후기(${sentiment}) ${auth.name || auth.phone}: ${content.slice(0, 40)}`);
+  return json({ ok: true, sentiment }, 200, request);
+}
+
+// 무인증 — 채택 후기 (홈 마퀴용, 이름 마스킹, 엣지캐시 10분)
+async function handleReviewsAdopted(request, env) {
+  const cache = caches.default;
+  const ck = new Request('https://cache.op/reviews-adopted');
+  const hit = await cache.match(ck);
+  if (hit) { const d = await hit.json(); return json(d, 200, request); }
+  const rows = await ncbRead(env, NCB_REVIEWS, '&adopted=1');
+  const data = { reviews: (rows || []).map(r => ({ name: maskName(r.user_name), content: String(r.content || '').slice(0, 200) })) };
+  await cache.put(ck, new Response(JSON.stringify(data), { headers: { 'Content-Type': 'application/json', 'Cache-Control': 'max-age=600' } }));
+  return json(data, 200, request);
+}
+
+// ── 관리자(CRM/교사) ──
+async function handleAdminErrorReports(request, env) {
+  const u = new URL(request.url);
+  const st = u.searchParams.get('status');
+  const rows = await ncbRead(env, NCB_ERRORS, st ? `&status=${encodeURIComponent(st)}` : '');
+  return json({ reports: (rows || []).sort((a, b) => String(b.created_at).localeCompare(String(a.created_at))) }, 200, request);
+}
+
+async function handleAdminErrorReportUpdate(request, env, id) {
+  const b = await request.json().catch(() => ({}));
+  const data = { updated_at: fbNow() };
+  if (b.status) data.status = String(b.status);
+  if (b.admin_note !== undefined) data.admin_note = String(b.admin_note);
+  await ncbUpdate(env, NCB_ERRORS, id, data);
+  return json({ ok: true }, 200, request);
+}
+
+async function handleAdminErrorReportAdopt(request, env, id) {
+  const b = await request.json().catch(() => ({}));
+  const points = Math.max(0, Number(b.points) || 0);
+  const rec = await ncbReadById(env, NCB_ERRORS, id);
+  if (!rec) return json({ error: 'not_found' }, 404, request);
+  let award = { ok: false };
+  if (points > 0) {
+    award = await fbAwardPoints(env, rec.user_phone, points, 'error_report_adopt', `오류제보 채택 #${id}`);
+    if (!award.ok) return json({ error: award.error }, 400, request);
+  }
+  await ncbUpdate(env, NCB_ERRORS, id, { status: 'adopted', points_awarded: points, updated_at: fbNow() });
+  await fbSend(env, {
+    channel: 'sms', phone: rec.user_phone, name: rec.user_name,
+    message: `[원페이지 학습] ${rec.user_name || ''}님, 소중한 오류 제보 감사합니다! 확인 후 반영했으며 ${points}포인트를 적립해 드렸습니다 🙏`,
+  });
+  return json({ ok: true, points, new_point: award.new_point }, 200, request);
+}
+
+async function handleAdminErrorReportFeedback(request, env, id) {
+  const b = await request.json().catch(() => ({}));
+  const rec = await ncbReadById(env, NCB_ERRORS, id);
+  if (!rec) return json({ error: 'not_found' }, 404, request);
+  const userRec = await atFindOne(env, AT_USERS, `{phone}='${rec.user_phone}'`);
+  await fbSend(env, {
+    channel: b.channel === 'email' ? 'email' : b.channel === 'both' ? 'both' : 'sms',
+    phone: rec.user_phone, email: (userRec && userRec.fields.email) || '', name: rec.user_name,
+    message: String(b.message || '').slice(0, 500),
+  });
+  await ncbUpdate(env, NCB_ERRORS, id, { status: 'answered', updated_at: fbNow() });
+  return json({ ok: true }, 200, request);
+}
+
+async function handleAdminReviews(request, env) {
+  const u = new URL(request.url);
+  const sn = u.searchParams.get('sentiment');
+  const rows = await ncbRead(env, NCB_REVIEWS, sn ? `&sentiment=${encodeURIComponent(sn)}` : '');
+  return json({ reviews: (rows || []).sort((a, b) => String(b.created_at).localeCompare(String(a.created_at))) }, 200, request);
+}
+
+async function handleAdminReviewUpdate(request, env, id) {
+  const b = await request.json().catch(() => ({}));
+  const data = { updated_at: fbNow() };
+  if (b.sentiment) data.sentiment = String(b.sentiment);
+  if (b.adopted !== undefined) data.adopted = Number(b.adopted) ? 1 : 0;
+  await ncbUpdate(env, NCB_REVIEWS, id, data);
+  await caches.default.delete(new Request('https://cache.op/reviews-adopted'));
+  return json({ ok: true }, 200, request);
+}
+
+async function handleAdminReviewAdopt(request, env, id) {
+  const b = await request.json().catch(() => ({}));
+  const points = Math.max(0, Number(b.points) || 0);
+  const rec = await ncbReadById(env, NCB_REVIEWS, id);
+  if (!rec) return json({ error: 'not_found' }, 404, request);
+  let award = { ok: false };
+  if (points > 0) {
+    award = await fbAwardPoints(env, rec.user_phone, points, 'review_adopt', `후기 채택 #${id}`);
+    if (!award.ok) return json({ error: award.error }, 400, request);
+  }
+  await ncbUpdate(env, NCB_REVIEWS, id, { adopted: 1, points_awarded: points, updated_at: fbNow() });
+  await caches.default.delete(new Request('https://cache.op/reviews-adopted'));
+  await fbSend(env, {
+    channel: 'sms', phone: rec.user_phone, name: rec.user_name,
+    message: `[원페이지 학습] ${rec.user_name || ''}님, 따뜻한 후기 감사합니다! 홈 화면에 소개되었고 ${points}포인트를 적립해 드렸습니다 💜`,
+  });
+  return json({ ok: true, points, new_point: award.new_point }, 200, request);
+}
+
 async function handleUnderstoodToggle(request, env) {
   const auth = await verifyAuth(request, env);
   if (!auth) return json({ error: 'unauthenticated' }, 401, request);
@@ -3270,6 +3479,12 @@ async function route(request, env, ctx) {
   if (m === 'POST' && path === '/access/redeem') return handleRedeemPoints(request, env);
   if (m === 'POST' && path === '/payment/request') return handlePaymentRequest(request, env);
 
+  // ── 오류 신고 + 후기 ──
+  if (m === 'POST' && path === '/error-reports') return handleErrorReportCreate(request, env);
+  if (m === 'GET' && path === '/error-reports/mine') return handleErrorReportsMine(request, env);
+  if (m === 'POST' && path === '/reviews') return handleReviewCreate(request, env);
+  if (m === 'GET' && path === '/reviews/adopted') return handleReviewsAdopted(request, env);
+
   // ── 선생님 (role check) ──
   const auth = await verifyAuth(request, env);
   const teacher = auth && auth.role === 'teacher';
@@ -3277,6 +3492,23 @@ async function route(request, env, ctx) {
     if (!auth) return json({ error: 'unauthenticated' }, 401, request);
     if (!teacher) return json({ error: 'teacher_only' }, 403, request);
     return null;
+  }
+
+  // ── 관리자: 오류 신고 / 후기 (CRM) ──
+  if (path.startsWith('/admin/error-reports') || path.startsWith('/admin/reviews')) {
+    const g = teacherGate(); if (g) return g;
+    if (m === 'GET' && path === '/admin/error-reports') return handleAdminErrorReports(request, env);
+    let fp = pathMatch(path, '/admin/error-reports/:id/adopt');
+    if (fp && m === 'POST') return handleAdminErrorReportAdopt(request, env, Number(fp.id));
+    fp = pathMatch(path, '/admin/error-reports/:id/feedback');
+    if (fp && m === 'POST') return handleAdminErrorReportFeedback(request, env, Number(fp.id));
+    fp = pathMatch(path, '/admin/error-reports/:id');
+    if (fp && m === 'PUT') return handleAdminErrorReportUpdate(request, env, Number(fp.id));
+    if (m === 'GET' && path === '/admin/reviews') return handleAdminReviews(request, env);
+    fp = pathMatch(path, '/admin/reviews/:id/adopt');
+    if (fp && m === 'POST') return handleAdminReviewAdopt(request, env, Number(fp.id));
+    fp = pathMatch(path, '/admin/reviews/:id');
+    if (fp && m === 'PUT') return handleAdminReviewUpdate(request, env, Number(fp.id));
   }
 
   // chapters

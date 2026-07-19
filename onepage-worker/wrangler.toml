@@ -22,3 +22,10 @@ compatibility_date = "2024-01-01"
 #   cd onepage-worker
 #   wrangler deploy
 # ─────────────────────────────────────────────────────────────
+
+# 오류신고·후기 기능 (FEEDBACK_PLAN.md)
+[ai]
+binding = "AI"          # Workers AI — 후기 감성 분류 (무료)
+
+[vars]
+ADMIN_PHONE = "01056426775"   # 신고·후기 알림 수신 번호
