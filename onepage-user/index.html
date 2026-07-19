@@ -2916,6 +2916,7 @@ const state = {
   understoodLastMovedAt: {},  // subtopic_id → last_moved_at (v2: 박스 이동 시각, 다지기 박스 안 정렬용)
   normalMode: 'new',          // v2: 'new' | 'star' | 'all' — 일반 모드 탭. 챕터 진입 시 'new' 기본
   picked: new Set(),          // 집중 세션: 체크된 subtopic id (new 탭에서만 사용)
+  pendingChapter: 0,          // 딥링크 ?chapter=ID — 로그인 후 자동 진입 대상
   session: null,              // 집중 세션 진행 상태 { queue, idx, today, tomo, total, busy, revealed }
   memorizedBoxOpen: {1:false, 2:false, 3:false, 4:false, 5:false, 6:false}, // v2: 다지기 6박스 펼침 상태. 모드 버튼으로만 펼침
   todayStatsCleared: 0,       // v2: 오늘 박스에서 내일 박스로 진급한 카드 (분자). 분모는 동적 계산
@@ -3288,6 +3289,8 @@ async function tryAutoLogin() {
     const u = new URL(window.location.href);
     const ref = u.searchParams.get('ref');
     if (ref) localStorage.setItem(REF_KEY, ref);
+    const ch = Number(u.searchParams.get('chapter'));
+    if (ch) state.pendingChapter = ch;   // 리마인더 문자 딥링크 — 로그인 후 해당 챕터 자동 진입
   } catch {}
   // UTM 어트리뷰션 캡쳐 (가입 시 함께 전송)
   captureUtmFromUrl();
@@ -3362,6 +3365,11 @@ async function enterHome(chaptersP) {
   loadReviewMarquee();   // 채택 후기 마퀴 — 홈 렌더를 기다리게 하지 말 것 (부팅 규칙)
   await (chaptersP || loadChapters());
   renderHome();
+  // 딥링크(?chapter=ID) — 문자에서 온 학생을 해당 챕터로 바로 데려간다 (1회성)
+  if (state.pendingChapter) {
+    const cid = state.pendingChapter; state.pendingChapter = null;
+    if ((state.chapters || []).some(c => Number(c.id) === cid)) enterChapter(cid);
+  }
   // 첫 방문자 환영 모달 — 가이드 안 본 사용자에게 1회만
   setTimeout(maybeShowWelcome, 350);
 }

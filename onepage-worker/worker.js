@@ -1699,11 +1699,11 @@ async function handleAdminErrorReportDelete(request, env, id) {
 //  연장하면 expires_at 이 미래로 이동 → 대상에서 자동 제외 (해제 로직 불필요)
 // ═══════════════════════════════════════════════════════════
 const REMIND_MSGS = {
-  3:  (n, c) => `[원페이지 학습] ${n}님, '${c}' 학습 기간이 3일 남았어요. 목표하신 부분까지 잘 진행되고 계신가요? 남은 기간도 응원할게요 💪 계속 학습하시려면 앱의 챕터 카드에서 미리 연장(재등록)할 수 있어요. 👉 https://www.memoryking.kr`,
-  2:  (n, c) => `[원페이지 학습] ${n}님, '${c}' 이용 기간이 이틀 남았습니다. 다지기(복습)까지 마무리하면 오래 기억에 남아요! 이어서 학습하시려면 앱에서 연장(재등록)해 주세요. 👉 https://www.memoryking.kr`,
-  1:  (n, c) => `[원페이지 학습] ${n}님, '${c}' 학습이 내일까지예요. 못 본 부분이 있다면 오늘·내일 마무리해 보세요 😊 계속 보시려면 앱 챕터 카드에서 30일 연장이 가능해요. 👉 https://www.memoryking.kr`,
-  0:  (n, c) => `[원페이지 학습] ${n}님, '${c}' 이용이 오늘 만료됩니다. 학습은 잘 마무리되셨나요? 계속 학습하시려면 앱 챕터 카드의 결제 또는 포인트 사용으로 연장(재등록)해 주세요. 👉 https://www.memoryking.kr`,
-  '-3': (n, c) => `[원페이지 학습] ${n}님, 지난 '${c}' 학습은 잘 마무리되셨나요? 복습이 필요하시면 앱에서 다시 등록해 언제든 이어갈 수 있어요. 공부를 응원합니다 🙏 👉 https://www.memoryking.kr`,
+  3:  (n, c, l) => `[원페이지 학습] ${n}님, '${c}' 학습 기간이 3일 남았어요. 목표하신 부분까지 잘 진행되고 계신가요? 남은 기간도 응원할게요 💪 계속 학습하시려면 앱의 챕터 카드에서 미리 연장(재등록)할 수 있어요. 👉 ${l}`,
+  2:  (n, c, l) => `[원페이지 학습] ${n}님, '${c}' 이용 기간이 이틀 남았습니다. 다지기(복습)까지 마무리하면 오래 기억에 남아요! 이어서 학습하시려면 앱에서 연장(재등록)해 주세요. 👉 ${l}`,
+  1:  (n, c, l) => `[원페이지 학습] ${n}님, '${c}' 학습이 내일까지예요. 못 본 부분이 있다면 오늘·내일 마무리해 보세요 😊 계속 보시려면 앱 챕터 카드에서 30일 연장이 가능해요. 👉 ${l}`,
+  0:  (n, c, l) => `[원페이지 학습] ${n}님, '${c}' 이용이 오늘 만료됩니다. 학습은 잘 마무리되셨나요? 계속 학습하시려면 앱 챕터 카드의 결제 또는 포인트 사용으로 연장(재등록)해 주세요. 👉 ${l}`,
+  '-3': (n, c, l) => `[원페이지 학습] ${n}님, 지난 '${c}' 학습은 잘 마무리되셨나요? 복습이 필요하시면 앱에서 다시 등록해 언제든 이어갈 수 있어요. 공부를 응원합니다 🙏 👉 ${l}`,
 };
 
 async function runExpiryReminders(env, dry) {
@@ -1717,7 +1717,7 @@ async function runExpiryReminders(env, dry) {
     const key = f.user_phone + '|' + (f.chapter_id || f.chapter_title || '');
     const prev = latest.get(key);
     if (!prev || String(f.expires_at) > String(prev.expires_at)) {
-      latest.set(key, { phone: f.user_phone, chapter: f.chapter_title || ('챕터 ' + f.chapter_id), expires_at: f.expires_at });
+      latest.set(key, { phone: f.user_phone, chapter: f.chapter_title || ('챕터 ' + f.chapter_id), chapter_id: f.chapter_id || 0, expires_at: f.expires_at });
     }
   }
   const targets = [];
@@ -1737,7 +1737,8 @@ async function runExpiryReminders(env, dry) {
       name = (u && u.fields.name) || '';
       nameCache.set(t.phone, name);
     }
-    const msg = REMIND_MSGS[String(t.daysLeft)](name || '학습자', t.chapter);
+    const link = 'https://www.memoryking.kr/' + (t.chapter_id ? '?chapter=' + t.chapter_id : '');
+    const msg = REMIND_MSGS[String(t.daysLeft)](name || '학습자', t.chapter, link);
     if (!dry) await fbSend(env, { channel: 'sms', phone: t.phone, name, message: msg, template: 'expiry_reminder' });
     sent.push({ phone: t.phone, name, chapter: t.chapter, daysLeft: t.daysLeft, message: msg });
   }
