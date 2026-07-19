@@ -406,9 +406,9 @@
       "x": 900,
       "y": 1320,
       "width": 380,
-      "height": 260,
+      "height": 320,
       "color": "5",
-      "text": "### 🐛⭐ 오류신고·후기 (v2.4.2)\nFEEDBACK_PLAN.md\n\n학생: 제보·후기(1인1회) → NCB 저장\n+ 관리자 SMS(Pabbly)\nWorkers AI 감성분류(무료)\nCRM: AI검증 프롬프트·채택 원클릭\n(포인트+감사SMS, 기본 500/300P)\n홈: 채택 후기 마퀴(김○○ 마스킹)"
+      "text": "### 🐛⭐ 오류신고·후기 (v2.4.2)\nFEEDBACK_PLAN.md\n\n학생: 제보·후기(1인1회) → NCB 저장\n+ 관리자 SMS(Pabbly)\nWorkers AI 감성분류(무료)\nCRM: AI검증 프롬프트·채택 원클릭\n(포인트+감사SMS, 기본 500/300P)\n홈: 채택 후기 마퀴(김○○ 마스킹)\n⏰ 만료 리마인더 D-3~D+3(딥링크)\n⚙️ 결제-연장 매시 감시(C1)"
     }
   ],
   "edges": [
