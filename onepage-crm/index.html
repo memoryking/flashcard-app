@@ -511,6 +511,7 @@ table { border-collapse: collapse; width: 100%; }
   </header>
   <nav class="tab-bar">
     <button class="tab-btn active" data-tab="dashboard" onclick="switchTab('dashboard')">📊 대시보드</button>
+    <button class="tab-btn" data-tab="routine" onclick="switchTab('routine')">✅ 오늘 루틴</button>
     <button class="tab-btn" data-tab="users" onclick="switchTab('users')">👥 사용자</button>
     <button class="tab-btn" data-tab="revenue" onclick="switchTab('revenue')">💰 매출</button>
     <button class="tab-btn" data-tab="content" onclick="switchTab('content')">📚 콘텐츠</button>
@@ -572,6 +573,9 @@ table { border-collapse: collapse; width: 100%; }
     <!-- 전단지 생성기 -->
     <section class="tab-pane" id="tabFlyer">
       <div id="flyerBody"></div>
+    </section>
+    <section class="tab-pane" id="tabRoutine">
+      <div id="routineBox">로딩…</div>
     </section>
     <section class="tab-pane" id="tabReports">
       <div style="display:flex;gap:8px;align-items:center;margin-bottom:10px;flex-wrap:wrap;">
@@ -778,6 +782,7 @@ function switchTab(tab) {
   else if (tab === 'content') loadContent();
   else if (tab === 'campaigns') renderCampaigns();
   else if (tab === 'attribution') loadAttribution();
+  else if (tab === 'routine') loadRoutine();
   else if (tab === 'reports') loadReports();
   else if (tab === 'reviews') loadReviews();
   else if (tab === 'flyer') initFlyer();
@@ -3472,6 +3477,85 @@ async function unadoptReview(id) {
 }
 async function setReviewSentiment(id, sn) {
   try { await api('PUT', '/admin/reviews/'+id, { sentiment: sn }); loadReviews(); } catch(e){ alert(e.message); }
+}
+
+
+// ═══ ✅ 오늘 루틴 — 매일 리셋되는 운영 체크리스트 ═══
+// 항목 수정은 여기(ROUTINE_D/W)만 고치면 됨
+const ROUTINE_D = [
+  { id:'dash',   icon:'📊', label:'대시보드 숫자 훑기', desc:'어제 신규가입·결제·학습자 — 평소와 다른 급증/급감 없는지', act:"switchTab('dashboard')", actLabel:'대시보드' },
+  { id:'err',    icon:'🐛', label:'새 오류신고 처리', desc:'신규 건 확인 → AI 검증 → 채택/반려/답변 (오답 방치 = 신뢰 사고)', act:"switchTab('reports')", actLabel:'오류신고', badge:'errNew' },
+  { id:'review', icon:'⭐', label:'새 후기 확인·채택', desc:'긍정 후기는 채택해 홈 마퀴에 노출 (사회적 증거 축적)', act:"switchTab('reviews')", actLabel:'후기', badge:'rvPending' },
+  { id:'payapp', icon:'💰', label:'페이앱 정산·잔금 확인', desc:'입금 예정액·정산 상태 + 매출 탭과 건수 대조 (누락 결제 확인)', act:"window.open('https://www.payapp.kr','_blank')", actLabel:'페이앱 열기' },
+  { id:'pabbly', icon:'📱', label:'Pabbly 웹훅 동작 확인', desc:'태스크 소진량·에러 로그 — 여기가 죽으면 결제 알림·문자가 전부 멈춤', act:"window.open('https://connect.pabbly.com','_blank')", actLabel:'Pabbly 열기' },
+  { id:'smoke',  icon:'🎓', label:'학생앱 스모크 테스트', desc:'로그인 → 챕터 1개 열어 카드·이미지·수식 확인 (영단어/한국사/수학 요일 로테이션)', act:"window.open('https://www.memoryking.kr','_blank')", actLabel:'학생앱 열기' },
+  { id:'conv',   icon:'📈', label:'매출·전환 훑기', desc:'무료 체험 → 결제 전환 흐름, 오늘 결제 건 확인', act:"switchTab('revenue')", actLabel:'매출' },
+];
+const ROUTINE_W = [
+  { id:'w_report', icon:'🗒️', label:'주간 4숫자 기록', desc:'신규가입 / 결제 / 이탈(만료 미갱신) / 오류신고 — 지난주와 비교해 한 줄 메모' },
+  { id:'w_backup', icon:'💾', label:'백업 푸시 확인', desc:'word-pool·math-bank 작업분 → Claude Code에 "푸시해 줘" (DB = 사업 자산 전부)' },
+  { id:'w_verify', icon:'🔍', label:'문제은행 재검증 라운드', desc:'오류신고 누적분 반영 + 콘솔 🔍 검증 복사로 외부 AI 교차 검증 1회' },
+  { id:'w_widget', icon:'🔴', label:'실시간 통계·랜딩 확인', desc:'learners-now 위젯, 랜딩페이지·아임웹 iframe 정상 노출' },
+];
+
+function routineKey() {
+  const d = new Date(Date.now() + 9*3600*1000);
+  return d.toISOString().slice(0,10);
+}
+function routineWeekKey() {
+  const d = new Date(Date.now() + 9*3600*1000);
+  const onejan = new Date(d.getFullYear(),0,1);
+  const week = Math.ceil((((d - onejan) / 86400000) + onejan.getDay() + 1) / 7);
+  return d.getFullYear() + '-W' + week;
+}
+function routineGet(scope) { try { return JSON.parse(localStorage.getItem('crm_routine_'+scope)||'{}'); } catch { return {}; } }
+function routineToggle(scope, id) {
+  const st = routineGet(scope); st[id] = !st[id];
+  localStorage.setItem('crm_routine_'+scope, JSON.stringify(st));
+  renderRoutine();
+}
+
+let _routineBadges = {};
+async function loadRoutine() {
+  renderRoutine();
+  // 자동 배지 — 오류신고 신규 / 미채택 긍정 후기
+  try {
+    const [er, rv] = await Promise.all([
+      api('GET','/admin/error-reports?status=new').catch(()=>({reports:[]})),
+      api('GET','/admin/reviews').catch(()=>({reviews:[]})),
+    ]);
+    _routineBadges = {
+      errNew: (er.reports||[]).length,
+      rvPending: (rv.reviews||[]).filter(x=>!Number(x.adopted) && x.sentiment!=='negative').length,
+    };
+  } catch { _routineBadges = {}; }
+  renderRoutine();
+}
+
+function renderRoutine() {
+  const dk = routineKey(), wk = routineWeekKey();
+  const ds = routineGet(dk), ws = routineGet(wk);
+  const dDone = ROUTINE_D.filter(i=>ds[i.id]).length;
+  const wDone = ROUTINE_W.filter(i=>ws[i.id]).length;
+  const row = (i, scope, st) => {
+    const badge = i.badge && _routineBadges[i.badge] ? `<span style="background:#7c2d12;color:#fdba74;font-size:11px;font-weight:800;padding:2px 8px;border-radius:10px;">${_routineBadges[i.badge]}건</span>` : '';
+    return `
+    <div style="display:flex;gap:10px;align-items:flex-start;border:1px solid ${st[i.id]?'#14532d':'#334155'};border-radius:10px;padding:11px 13px;margin-bottom:8px;${st[i.id]?'opacity:.55;':''}">
+      <input type="checkbox" ${st[i.id]?'checked':''} onchange="routineToggle('${scope}','${i.id}')" style="width:18px;height:18px;margin-top:2px;cursor:pointer;">
+      <div style="flex:1;">
+        <div style="font-weight:700;display:flex;gap:8px;align-items:center;">${i.icon} ${i.label} ${badge}</div>
+        <div style="font-size:12px;opacity:.6;margin-top:2px;">${i.desc}</div>
+      </div>
+      ${i.act?`<button onclick="${i.act.replace(/"/g,'&quot;')}" style="white-space:nowrap;">${i.actLabel} →</button>`:''}
+    </div>`;
+  };
+  $('routineBox').innerHTML = `
+    <h3 style="margin-bottom:4px;">☀️ 매일 루틴 <span style="font-size:13px;opacity:.6;">(${dk} · ${dDone}/${ROUTINE_D.length} 완료${dDone===ROUTINE_D.length?' 🎉':''})</span></h3>
+    <p style="font-size:12px;opacity:.55;margin-bottom:10px;">체크는 자정(KST)에 자동 리셋됩니다. 순서대로 5~10분.</p>
+    ${ROUTINE_D.map(i=>row(i,dk,ds)).join('')}
+    <h3 style="margin:18px 0 4px;">📅 주간 루틴 <span style="font-size:13px;opacity:.6;">(${wk} · ${wDone}/${ROUTINE_W.length} 완료)</span></h3>
+    <p style="font-size:12px;opacity:.55;margin-bottom:10px;">매주 월요일 권장. 주가 바뀌면 자동 리셋.</p>
+    ${ROUTINE_W.map(i=>row(i,wk,ws)).join('')}`;
 }
 
 tryAutoLogin();
