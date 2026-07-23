@@ -681,7 +681,7 @@ https://memoryking.kr/?interest=수능&interest=한자
 
 | 동작 | 트리거 | 결과 | 저장 |
 |---|---|---|---|
-| **펼치기/접기** | 학습 카드 짧게 탭 | 내용 표시 (아코디언). 챕터 내 `everExpandedSet`에 기록됨 | — |
+| **펼치기/접기** | 학습 카드 짧게 탭 (★별표·전체 탭) | 내용 표시 (아코디언). 챕터 내 `everExpandedSet`에 기록됨. **new 탭은 탭=선택**(플래그 `NEW_TAP_SELECTS`, `renderSubtopic`) — 펼침 대신 `togglePick`, ▶ 화살표 숨김. 내용·오늘/내일은 학습하기 세션에서. 되돌리려면 `NEW_TAP_SELECTS=false` | — |
 | **오늘 학습** | 본문 하단 빨강 버튼 | 다지기 오늘 박스 즉시 등장. ★ +1 | DB (`op_understood` box=1) |
 | **내일 학습** | 본문 하단 보라 버튼 | 다지기 내일 박스로. ★ 안 늘림 | DB (`op_understood` box=2) |
 
@@ -796,7 +796,7 @@ function withTopicAnchor(topicId, callback) {
 
 | 단계 | 동작 |
 |---|---|
-| ① 선택 | 각 단어 왼쪽 **체크박스**(`.pick-box`) — new 탭의 **미학습 카드**에만 노출 |
+| ① 선택 | **단어 줄을 탭하면 선택**(`NEW_TAP_SELECTS` → `togglePick`) 또는 각 단어 왼쪽 **체크박스**(`.pick-box`) — new 탭의 **미학습 카드**에만 노출. **new 탭에서 펼쳐보기는 숨김**(내용은 세션에서) |
 | ② 자동선택 | 상단 `☑ 자동선택 [10]개` — **위에서부터** N개 자동 체크. 개수는 `localStorage`(`op_autopick_n`)에 저장 |
 | ③ 학습하기 | `▶ 학습하기 (N)` → 리스트가 사라지고 **전체화면 세션**(`.ses-overlay`) 진입 |
 | ④ 진행 | 상단에 `📚 오늘 N ← 남은 N/전체 + 진행바 → 📅 내일 N` |
