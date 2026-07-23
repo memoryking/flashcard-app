@@ -969,11 +969,12 @@ function composeWordCardHTML(r) {
   if (r.meaning)            p.push(`<p class="wp-meaning">${e(r.meaning)}</p>`);
   if (r.sound_association)  p.push(`<p class="wp-sa">${e(r.sound_association)}</p>`);
   if (r.mnemonic_detail)    p.push(`<p class="wp-detail">${e(r.mnemonic_detail)}</p>`);
-  if (r.image_caption)      p.push(`<p class="wp-imgcap">🖼 ${e(r.image_caption)}</p>`);
   if (r.example1_en)        p.push(`<p class="wp-ex">${e(r.example1_en)}${r.example1_ko ? `<br><span class="wp-ex-ko">${e(r.example1_ko)}</span>` : ''}</p>`);
   if (r.example2_en)        p.push(`<p class="wp-ex">${e(r.example2_en)}${r.example2_ko ? `<br><span class="wp-ex-ko">${e(r.example2_ko)}</span>` : ''}</p>`);
   if (r.video_url)          p.push(`<p class="wp-video"><a href="${e(r.video_url)}" target="_blank" rel="noopener">▶ 동영상</a></p>`);
-  return p.join('\n');   // 이미지는 학생 앱이 wordImageFor(subtopic)로 자동 삽입 → 여기 미포함
+  // 이미지 해설은 카드 맨 끝에 → 학생 앱이 바로 뒤에 이미지를 붙이므로 '이미지 바로 위'에 위치. (아이콘 없음 — 일부 폰트에서 🖼가 깨짐)
+  if (r.image_caption)      p.push(`<p class="wp-imgcap">${e(r.image_caption)}</p>`);
+  return p.join('\n');   // 이미지는 학생 앱이 wordImageFor(subtopic)로 자동 삽입 → 여기 미포함 (캡션 바로 아래에 옴)
 }
 function opPoolCacheKey(word) { return new Request(`https://oppool.local/w/${encodeURIComponent(word)}`); }
 async function getPoolRow(env, word) {
