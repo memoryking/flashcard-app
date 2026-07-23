@@ -5659,6 +5659,10 @@ function bumpMissCount(sid) {
 // effective box → 짧은 라벨 (오늘/내일/4일/8일/16일/32일)
 const BOX_SHORT_LABELS = [null, '오늘', '내일', '4일', '8일', '16일', '32일'];
 
+// NEW 탭: 단어 라인 탭 = '펼쳐보기' 대신 '선택'. 펼쳐보기는 임시로 숨김(코드는 그대로 유지).
+// 내용 보기·오늘/내일 분류는 '학습하기' 전체화면 세션에서. 되돌리려면 false 로.
+const NEW_TAP_SELECTS = true;
+
 function renderSubtopic(s, isCurrent) {
   const opened = state.expanded.subtopic.has(s.id);
   // 암기 모음 모드: 스냅샷 기준으로 understood 처리 → 펼친 직후 깜빡임(초록 → 기본) 방지
@@ -5677,6 +5681,7 @@ function renderSubtopic(s, isCurrent) {
   // 집중 세션 선택 체크박스 — new 탭(미학습 카드)에서만
   const canPick = !state.memorizedView && (state.normalMode || 'new') === 'new' && !understood;
   const isPicked = canPick && state.picked.has(Number(s.id));
+  const tapSelects = canPick && NEW_TAP_SELECTS;   // NEW 모드: 라인 탭 = 선택(펼침 숨김)
   const cls = 'subtopic'
     + (opened ? ' opened' : '')
     + (understood ? ' understood' : '')
@@ -5690,7 +5695,7 @@ function renderSubtopic(s, isCurrent) {
   const wordImg = wordImageFor(s);
 
   const preview = ownImg ? `
-    <div class="subtopic-preview" onclick="subClick(event,${s.id})">
+    <div class="subtopic-preview" onclick="${tapSelects ? `togglePick(${s.id})` : `subClick(event,${s.id})`}">
       <img src="${escapeHtml(ownImg)}" alt="" loading="lazy" oncontextmenu="return false">
       ${s.caption ? `<div class="cap">${escapeHtml(s.caption)}</div>` : ''}
     </div>
@@ -5703,9 +5708,9 @@ function renderSubtopic(s, isCurrent) {
       ${s.caption ? `<div class="item-caption">${escapeHtml(s.caption)}</div>` : ''}
     </div>` : '';
 
-  // 펼침 시 본문 (items만)
+  // 펼침 시 본문 (items만). NEW 모드(tapSelects)에서는 펼치지 않음 — 내용은 '학습하기' 세션에서.
   let body = '';
-  if (opened) {
+  if (opened && !tapSelects) {
     const items = state.itemsBySubtopic[s.id];
     if (items === undefined) {
       loadItems(s.id);
@@ -5749,14 +5754,14 @@ function renderSubtopic(s, isCurrent) {
 
   return `
     <div class="${cls}" data-sub="${s.id}">
-      <div class="subtopic-head" onclick="subClick(event,${s.id})">
+      <div class="subtopic-head" onclick="${tapSelects ? `togglePick(${s.id})` : `subClick(event,${s.id})`}">
         ${canPick ? `<div class="pick-box"
              onclick="event.stopPropagation();togglePick(${s.id})"
              onmousedown="event.stopPropagation()"
              ontouchstart="event.stopPropagation()"
              title="학습할 단어 선택">✔</div>` : ''}
         <div class="subtopic-dot"></div>
-        <div class="subtopic-arrow">▶</div>
+        ${tapSelects ? '' : '<div class="subtopic-arrow">▶</div>'}
         ${failedFromMemo ? `<span class="failed-memo-badge" title="다지기에서 다시 보고 싶다고 한 카드">↺</span>` : ''}
         <div class="subtopic-title">${escapeHtml(s.title)}</div>
         ${(() => {
