@@ -969,6 +969,7 @@ function composeWordCardHTML(r) {
   if (r.meaning)            p.push(`<p class="wp-meaning">${e(r.meaning)}</p>`);
   if (r.sound_association)  p.push(`<p class="wp-sa">${e(r.sound_association)}</p>`);
   if (r.mnemonic_detail)    p.push(`<p class="wp-detail">${e(r.mnemonic_detail)}</p>`);
+  if (r.image_caption)      p.push(`<p class="wp-imgcap">🖼 ${e(r.image_caption)}</p>`);
   if (r.example1_en)        p.push(`<p class="wp-ex">${e(r.example1_en)}${r.example1_ko ? `<br><span class="wp-ex-ko">${e(r.example1_ko)}</span>` : ''}</p>`);
   if (r.example2_en)        p.push(`<p class="wp-ex">${e(r.example2_en)}${r.example2_ko ? `<br><span class="wp-ex-ko">${e(r.example2_ko)}</span>` : ''}</p>`);
   if (r.video_url)          p.push(`<p class="wp-video"><a href="${e(r.video_url)}" target="_blank" rel="noopener">▶ 동영상</a></p>`);
@@ -1012,6 +1013,7 @@ async function handleOpPoolSync(request, env) {
       sound_association: r0.sound_association || '', mnemonic_detail: r0.mnemonic_detail || '',
       example1_en: r0.example1_en || '', example1_ko: r0.example1_ko || '',
       example2_en: r0.example2_en || '', example2_ko: r0.example2_ko || '',
+      image_caption: r0.image_caption || '',
       image_url: r0.image_url || '', video_url: r0.video_url || '', subject: r0.subject || 'en',
       updated_at: kstDateTime(),
     };
