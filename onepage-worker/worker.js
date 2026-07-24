@@ -838,10 +838,25 @@ async function handleUpdateChapter(request, env, user, id) {
 }
 
 async function handleDeleteChapter(request, env, user, id) {
-  // FK CASCADE로 자식 자동 정리
-  await ncbDelete(env, 'op_chapters', id);
+  // 깨끗한 삭제 — 콘텐츠가 사라졌는데 사람 쪽 데이터만 남는 '고아' 방지.
+  //   FK CASCADE가 알아서 지우는 것: 토픽 · 학습카드 · 내용 아이템 · 학습진도(op_understood)
+  //   여기서 직접 지우는 것(무FK/타 시스템이라 안 지워짐):
+  //     1) Airtable 접근권한(구독 만료일) — 없는 챕터를 '구독 중'으로 남기면 CRM·만료관리가 오염됨
+  //     2) op_error_reports(오류 신고) — chapter_id 참조, CASCADE 대상 아님
+  //   ※ 결제 원장(OnepagePayments)·포인트 로그(OnepagePointTx)는 재무·감사 기록이라 남긴다.
+  const cid = Number(id);
+  const purged = { access: 0, error_reports: 0 };
+  try {
+    const recs = await atFindAll(env, AT_ACCESS, `{chapter_id}=${cid}`, 200);
+    for (const r of recs) { await atDelete(env, AT_ACCESS, r.id); purged.access++; }
+  } catch (e) { /* 정리 실패해도 챕터 삭제는 진행 */ }
+  try {
+    const r = await ncbRead(env, NCB_ERRORS, `chapter_id=${cid}&limit=200`);
+    for (const row of (r.data || [])) { await ncbDelete(env, NCB_ERRORS, row.id); purged.error_reports++; }
+  } catch (e) {}
+  await ncbDelete(env, 'op_chapters', id);   // FK CASCADE → 토픽·카드·아이템·학습진도 자동 정리
   await purgeChapterCache();
-  return json({ ok: true }, 200, request);
+  return json({ ok: true, purged }, 200, request);
 }
 
 async function handleListTopics(request, env) {
@@ -948,8 +963,15 @@ async function handleUpdateSubtopic(request, env, id) {
 }
 
 async function handleDeleteSubtopic(request, env, id) {
+  // 학습진도(op_understood)·내용 아이템은 FK CASCADE로 자동 정리.
+  // 오류 신고는 CASCADE 대상이 아니라 여기서 함께 정리(카드가 없는 신고가 남지 않게).
+  const purged = { error_reports: 0 };
+  try {
+    const r = await ncbRead(env, NCB_ERRORS, `subtopic_id=${Number(id)}&limit=100`);
+    for (const row of (r.data || [])) { await ncbDelete(env, NCB_ERRORS, row.id); purged.error_reports++; }
+  } catch (e) {}
   await ncbDelete(env, 'op_subtopics', id);
-  return json({ ok: true }, 200, request);
+  return json({ ok: true, purged }, 200, request);
 }
 
 // ============================================================

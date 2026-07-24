@@ -303,6 +303,12 @@ Type 드롭다운에 보이는 옵션: `INT`, `BIGINT`, `VARCHAR(255)`, `DROPDOW
 
 → On delete CASCADE: 챕터 삭제 시 그 아래 모든 행이 자동 정리. 고아 데이터 방지.
 
+> **깨끗한 삭제** — CASCADE가 못 잡는 것(타 시스템·무FK)은 워커가 **직접 지운다**:
+> - **챕터 삭제**(`handleDeleteChapter`) → Airtable **`OnepageChapterAccess`**(구독 만료일. Airtable이라 FK 없음 — 안 지우면 *없는 챕터를 구독 중*인 유령 행이 CRM·만료관리를 오염시킴) + **`op_error_reports`**(chapter_id 참조, CASCADE 대상 아님). 응답에 `purged:{access,error_reports}` 반환.
+> - **학습카드 삭제**(`handleDeleteSubtopic`) → 그 카드의 **`op_error_reports`** 함께 삭제.
+> - **일부러 남기는 것**: `OnepagePayments`·`OnepagePointTx`(재무·감사 기록), `op_pool`(단어 원천 — 챕터와 독립), `op_reviews`(콘텐츠 미참조).
+> - 토픽만 단독 삭제하면 그 아래 카드의 오류신고는 남을 수 있음(신고 행에 chapter_title·subtopic_title이 저장돼 있어 읽기는 가능). **챕터 삭제는 전부 정리됨.**
+
 ---
 
 ### B1. `op_chapters` (챕터)
