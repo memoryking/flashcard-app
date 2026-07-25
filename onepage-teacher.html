@@ -115,6 +115,19 @@ a { color: #4fc3f7; text-decoration: none; }
 .pcard.st-approved .pb-ok { box-shadow: 0 0 0 2px #2e9e5b; }
 .pcard.st-reject .pb-no { box-shadow: 0 0 0 2px #e0556f; }
 .pool-empty { padding: 50px; text-align: center; color: #64748b; grid-column: 1/-1; }
+/* 검토 체크·메모 (신규) */
+.pcard { cursor: pointer; position: relative; transition: border-color .15s; }
+.pcard:hover { border-color: #3a3a66; }
+.pcard.checked { border-color: #eab308; }
+.pcard-ckbadge { position: absolute; top: 8px; right: 8px; background: #eab308; color: #1a1a2e; font-weight: 800; font-size: 11px; padding: 2px 8px; border-radius: 10px; z-index: 2; }
+.pcard-memo { font-size: 11px; color: #fde68a; background: rgba(234,179,8,.12); border-radius: 6px; padding: 4px 7px; margin-top: 6px; line-height: 1.4; max-height: 3em; overflow: hidden; }
+/* 상세 모달 */
+.det-img { width: 100%; border-radius: 10px; margin-bottom: 10px; }
+.det-w { font-size: 22px; font-weight: 800; color: #fff; }
+.det-pron { font-size: 14px; color: #94a3b8; font-weight: 500; }
+.det-m { font-size: 16px; color: #cbd5e1; margin: 4px 0 12px; }
+.det-sec { font-size: 13px; color: #d1d5db; line-height: 1.6; margin: 10px 0; padding: 9px 12px; background: rgba(255,255,255,.04); border-radius: 8px; }
+.det-sec b { color: #93c5fd; }
 .btn-primary {
   background: linear-gradient(135deg, #e94560, #ff6b6b);
   color: #fff; padding: 10px 18px; border-radius: 8px;
@@ -467,15 +480,12 @@ a { color: #4fc3f7; text-decoration: none; }
       <input id="poolSearch" placeholder="🔍 단어·뜻 검색" oninput="renderPool()">
       <select id="poolFilter" onchange="renderPool()">
         <option value="all">전체</option>
-        <option value="generated">검토 대기</option>
-        <option value="approved">승인</option>
-        <option value="reject">재생성</option>
-        <option value="published">배포됨</option>
+        <option value="checked">✓ 체크됨</option>
         <option value="noimg">이미지 없음</option>
       </select>
       <span id="poolCounts" class="pool-counts"></span>
       <span style="flex:1"></span>
-      <button class="btn-secondary" onclick="exportReviews()" title="승인/재생성 결정을 파일로 내려받아 로컬 풀에 반영">⬇ 검수결정 내보내기</button>
+      <span style="font-size:12px;color:#64748b">카드 탭 = 전체 보기 · 메모로 체크</span>
       <button class="btn-secondary" onclick="loadWordPool(true)">↻ 새로고침</button>
     </div>
     <div id="poolGrid" class="pool-grid"></div>
@@ -2150,14 +2160,14 @@ window.openPublishCheck = openPublishCheck;
 
 // 🗂️ 단어풀 뷰 (word-pool.json 브라우즈 + 이미지 검수)
 // ============================================================
-const POOL_REVIEW_KEY = 'op_pool_reviews_v1';   // { word: 'approved' | 'reject' }
-const poolState = { loaded: false, words: [], reviews: {} };
+// 검토 체크·메모는 서버(KV, /admin/word-flags)에 저장 → 웹에서 체크한 걸 집 로컬 콘솔에서도 봄
+const poolState = { loaded: false, words: [], flags: {} };   // flags: {word:{memo,at}}
 
-function loadReviews() {
-  try { poolState.reviews = JSON.parse(localStorage.getItem(POOL_REVIEW_KEY) || '{}'); }
-  catch { poolState.reviews = {}; }
+async function loadFlags() {
+  try { const r = await api('GET', '/admin/word-flags'); poolState.flags = r.flags || {}; }
+  catch (e) { poolState.flags = {}; }
 }
-function saveReviews() { localStorage.setItem(POOL_REVIEW_KEY, JSON.stringify(poolState.reviews)); }
+function isChecked(word) { return !!poolState.flags[word]; }
 
 function showView(v) {
   const isPool = v === 'pool';
@@ -2171,7 +2181,7 @@ function showView(v) {
 async function loadWordPool(force) {
   const grid = document.getElementById('poolGrid');
   grid.innerHTML = '<div class="pool-empty">단어풀 로딩…</div>';
-  loadReviews();
+  await loadFlags();
   try {
     const r = await fetch('word-pool.json' + (force ? '?t=' + Date.now() : ''), { cache: force ? 'no-cache' : 'default' });
     if (!r.ok) throw new Error('word-pool.json 없음 (export 필요)');
@@ -2184,91 +2194,86 @@ async function loadWordPool(force) {
   }
 }
 
-// 단어의 표시 상태 = 로컬 검수 결정 우선, 없으면 풀의 image_status
-function effStatus(w) {
-  const dec = poolState.reviews[w.word];
-  if (dec) return dec;                 // approved / reject
-  return w.image_status || 'none';
-}
-
 function renderPool() {
   if (!poolState.loaded) return;
   const q = (document.getElementById('poolSearch').value || '').trim().toLowerCase();
   const f = document.getElementById('poolFilter').value;
-  const cnt = { generated: 0, approved: 0, reject: 0, published: 0, none: 0 };
   const list = poolState.words.filter(w => {
-    const st = effStatus(w);
-    if (cnt[st] !== undefined) cnt[st]++;
     if (q && !((w.word || '').toLowerCase().includes(q) || (w.meaning || '').toLowerCase().includes(q))) return false;
-    if (f === 'all') return true;
+    if (f === 'checked') return isChecked(w.word);
     if (f === 'noimg') return !w.image_url;
-    return st === f;
+    return true;   // all
   });
+  const checked = poolState.words.filter(w => isChecked(w.word)).length;
   document.getElementById('poolCounts').innerHTML =
-    `총 <b>${poolState.words.length}</b> · 검토대기 <b>${cnt.generated}</b> · 승인 <b>${cnt.approved}</b> · 재생성 <b>${cnt.reject}</b> · 배포됨 <b>${cnt.published}</b>`;
+    `총 <b>${poolState.words.length}</b> · ✓ 체크 <b>${checked}</b>`;
   const grid = document.getElementById('poolGrid');
   if (!list.length) { grid.innerHTML = '<div class="pool-empty">조건에 맞는 단어가 없습니다.</div>'; return; }
-  const badgeLabel = { generated: '검토대기', approved: '승인', reject: '재생성', published: '배포됨', none: '이미지없음' };
   grid.innerHTML = list.slice(0, 600).map(w => {
-    const st = effStatus(w);
+    const ck = isChecked(w.word);
+    const memo = ck ? (poolState.flags[w.word].memo || '') : '';
     const img = w.image_url
       ? `<img class="pcard-img" loading="lazy" src="${escapeHtml(w.image_url)}" alt="">`
       : `<div class="pcard-noimg">이미지 없음</div>`;
-    const acts = w.image_url
-      ? `<div class="pcard-acts">
-           <button class="pb-ok" onclick="poolDecide('${escapeHtml(w.word)}','approved')">✓ 승인</button>
-           <button class="pb-no" onclick="poolDecide('${escapeHtml(w.word)}','reject')">✗ 재생성</button>
-         </div>` : '';
-    return `<div class="pcard st-${st}" data-w="${escapeHtml(w.word)}">
+    return `<div class="pcard ${ck ? 'checked' : ''}" data-w="${escapeHtml(w.word)}" onclick="openPoolDetail('${escapeHtml(w.word)}')">
       ${img}
+      ${ck ? '<span class="pcard-ckbadge">✓ 체크</span>' : ''}
       <div class="pcard-body">
         <div class="pcard-w">${escapeHtml(w.display_word || w.word)}</div>
         <div class="pcard-m">${escapeHtml(w.meaning || '')} · <span style="color:#64748b">${escapeHtml(w.pronunciation || '')}</span></div>
         <div class="pcard-sa">${escapeHtml(w.sound_association || '')}</div>
-        <span class="pcard-badge bg-${st}">${badgeLabel[st] || st}</span>
-        ${acts}
+        ${ck && memo ? `<div class="pcard-memo">📝 ${escapeHtml(memo)}</div>` : ''}
       </div></div>`;
   }).join('') + (list.length > 600 ? `<div class="pool-empty">…앞 600개만 표시 (검색·필터로 좁히세요, 총 ${list.length})</div>` : '');
 }
 
-function poolDecide(word, dec) {
-  // 배포됨(published)은 검수 대상 아님 — 되돌리기 방지
+// 카드 탭 → 전체 상세(예문·이미지 설명 포함) + 검토 체크/메모
+function openPoolDetail(word) {
   const w = poolState.words.find(x => x.word === word);
-  if (w && effStatus(w) === dec) { delete poolState.reviews[word]; }  // 같은 결정 다시 누르면 취소
-  else poolState.reviews[word] = dec;
-  saveReviews();
-  const card = document.querySelector(`.pcard[data-w="${CSS.escape(word)}"]`);
-  if (card) {
-    const st = effStatus(w);
-    card.className = 'pcard st-' + st;
-    const badge = card.querySelector('.pcard-badge');
-    if (badge) { badge.className = 'pcard-badge bg-' + st; badge.textContent = { generated:'검토대기', approved:'승인', reject:'재생성', published:'배포됨', none:'이미지없음' }[st] || st; }
-  }
-  // 카운트 갱신
-  const q = document.getElementById('poolSearch').value, f = document.getElementById('poolFilter').value;
-  if (f !== 'all' && f !== 'noimg') renderPool(); else renderPoolCounts();
-}
-function renderPoolCounts() {
-  const cnt = { generated: 0, approved: 0, reject: 0, published: 0, none: 0 };
-  poolState.words.forEach(w => { const st = effStatus(w); if (cnt[st] !== undefined) cnt[st]++; });
-  document.getElementById('poolCounts').innerHTML =
-    `총 <b>${poolState.words.length}</b> · 검토대기 <b>${cnt.generated}</b> · 승인 <b>${cnt.approved}</b> · 재생성 <b>${cnt.reject}</b> · 배포됨 <b>${cnt.published}</b>`;
+  if (!w) return;
+  const ck = isChecked(word);
+  const memo = ck ? (poolState.flags[word].memo || '') : '';
+  const ex2 = w.example2_en ? `<br><br>${escapeHtml(w.example2_en)}<br><span style="color:#94a3b8">${escapeHtml(w.example2_ko || '')}</span>` : '';
+  const body = `
+    ${w.image_url ? `<img class="det-img" src="${escapeHtml(w.image_url)}" alt="">` : ''}
+    <div class="det-w">${escapeHtml(w.display_word || w.word)} <span class="det-pron">${escapeHtml(w.pronunciation || '')}</span></div>
+    <div class="det-m">${escapeHtml(w.meaning || '')}</div>
+    <div class="det-sec"><b>암기법</b><br>${escapeHtml(w.sound_association || '')}${w.mnemonic_detail ? '<br>' + escapeHtml(w.mnemonic_detail) : ''}</div>
+    ${w.image_caption ? `<div class="det-sec"><b>🖼 이미지 설명</b><br>${escapeHtml(w.image_caption)}</div>` : ''}
+    <div class="det-sec"><b>예문</b><br>${escapeHtml(w.example1_en || '')}<br><span style="color:#94a3b8">${escapeHtml(w.example1_ko || '')}</span>${ex2}</div>
+    <hr style="border:none;border-top:1px solid rgba(255,255,255,.1);margin:14px 0">
+    <label style="font-weight:700;color:#fde68a">📝 검토 메모 <span style="color:#94a3b8;font-weight:400">(수정할 점 — 집 로컬에서 이것만 보고 고칩니다)</span></label>
+    <textarea id="detMemo" rows="3" style="width:100%;margin-top:6px;background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.15);color:#e5e7eb;border-radius:8px;padding:8px" placeholder="예: 암기법이 어색함 / 이미지가 뜻과 안 맞음">${escapeHtml(memo)}</textarea>
+    ${ck ? `<button type="button" class="btn-danger" style="margin-top:8px" onclick="uncheckPool('${escapeHtml(word)}')">✗ 체크 해제</button>` : ''}
+  `;
+  modal({
+    title: '🔎 ' + escapeHtml(w.display_word || w.word),
+    body,
+    saveLabel: ck ? '메모 저장' : '✓ 체크하기',
+    save: async () => {
+      await setFlag(word, document.getElementById('detMemo').value);
+      renderPool();
+      return true;
+    },
+  });
 }
 
-function exportReviews() {
-  const n = Object.keys(poolState.reviews).length;
-  if (!n) { toast('내보낼 검수 결정이 없습니다.', true); return; }
-  const blob = new Blob([JSON.stringify(poolState.reviews, null, 0)], { type: 'application/json' });
-  const a = document.createElement('a');
-  a.href = URL.createObjectURL(blob); a.download = 'reviews.json'; a.click();
-  toast(`검수결정 ${n}건 내보냄 — 로컬에서 python scripts/apply_reviews.py reviews.json`);
+async function setFlag(word, memo) {
+  await api('POST', '/admin/word-flags', { word, memo });
+  poolState.flags[word] = { memo: memo || '', at: new Date().toISOString() };
+}
+async function uncheckPool(word) {
+  try { await api('DELETE', '/admin/word-flags/' + encodeURIComponent(word)); } catch (e) {}
+  delete poolState.flags[word];
+  closeModal();
+  renderPool();
 }
 
 window.showView = showView;
 window.loadWordPool = loadWordPool;
 window.renderPool = renderPool;
-window.poolDecide = poolDecide;
-window.exportReviews = exportReviews;
+window.openPoolDetail = openPoolDetail;
+window.uncheckPool = uncheckPool;
 
 tryAutoLogin();
 </script>

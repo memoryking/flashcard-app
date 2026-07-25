@@ -1021,6 +1021,38 @@ async function derefWordItems(env, items) {
   }
   return out;
 }
+// ── 단어 검토 체크·메모 (WORD_FLAGS KV) ─────────────────────
+//   교사앱(웹)에서 훑어보며 "이 단어 수정 필요"를 체크+메모 → 집 로컬 콘솔에서 체크된 것만 보고 수정.
+//   웹↔로컬 공유가 목적이라 KV(서버)에 저장. 전체를 단일 키 'flags'에 {word:{memo,at}} 로 보관(대상 소수).
+const WF_KEY = 'flags';
+async function wfRead(env) {
+  if (!env.WORD_FLAGS) return {};
+  try { return JSON.parse(await env.WORD_FLAGS.get(WF_KEY) || '{}'); } catch { return {}; }
+}
+async function wfWrite(env, obj) {
+  if (!env.WORD_FLAGS) return;
+  await env.WORD_FLAGS.put(WF_KEY, JSON.stringify(obj));
+}
+async function handleWordFlagsList(request, env) {
+  const flags = await wfRead(env);
+  return json({ flags, count: Object.keys(flags).length }, 200, request);
+}
+async function handleWordFlagsSet(request, env) {
+  const b = await request.json().catch(() => ({}));
+  const word = String(b.word || '').trim().toLowerCase();
+  if (!word) return json({ error: 'word required' }, 400, request);
+  const flags = await wfRead(env);
+  flags[word] = { memo: String(b.memo || ''), at: kstDateTime() };
+  await wfWrite(env, flags);
+  return json({ ok: true, word, count: Object.keys(flags).length }, 200, request);
+}
+async function handleWordFlagsDelete(request, env, word) {
+  const w = String(word || '').trim().toLowerCase();
+  const flags = await wfRead(env);
+  if (w in flags) { delete flags[w]; await wfWrite(env, flags); }
+  return json({ ok: true, word: w, count: Object.keys(flags).length }, 200, request);
+}
+
 // POST /admin/op_pool/sync — 로컬 push_op_pool.py 가 배치(≤20)로 op_pool upsert (word 키). teacherGate 뒤.
 async function handleOpPoolSync(request, env) {
   const b = await request.json().catch(() => ({}));
@@ -3765,6 +3797,11 @@ async function route(request, env, ctx) {
   if (path.startsWith('/admin/')) {
     const g = teacherGate(); if (g) return g;
     if (m === 'POST' && path === '/admin/op_pool/sync') return handleOpPoolSync(request, env);
+    // 단어 검토 체크·메모 (교사앱 웹 ↔ 로컬 콘솔 공유, KV 저장)
+    if (m === 'GET' && path === '/admin/word-flags') return handleWordFlagsList(request, env);
+    if (m === 'POST' && path === '/admin/word-flags') return handleWordFlagsSet(request, env);
+    p = pathMatch(path, '/admin/word-flags/:word');
+    if (p && m === 'DELETE') return handleWordFlagsDelete(request, env, p.word);
     if (m === 'GET' && path === '/admin/overview') return handleAdminOverview(request, env);
     if (m === 'GET' && path === '/admin/users') return handleAdminUsers(request, env);
     p = pathMatch(path, '/admin/user/:phone');

@@ -30,5 +30,10 @@ binding = "AI"          # Workers AI — 후기 감성 분류 (무료)
 [vars]
 ADMIN_PHONE = "01056426775"   # 신고·후기 알림 수신 번호
 
+# 단어 검토 체크·메모 (교사앱 웹 ↔ 로컬 콘솔 공유). word → {memo, at}
+[[kv_namespaces]]
+binding = "WORD_FLAGS"
+id = "fc044caf3e7243f28a61c46905b0ce1b"
+
 [triggers]
 crons = ["0 1 * * *", "0 * * * *"]   # 01:00=만료 리마인더(KST10시) / 매시=결제-연장 이중체크
