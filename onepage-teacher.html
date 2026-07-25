@@ -480,7 +480,8 @@ a { color: #4fc3f7; text-decoration: none; }
       <input id="poolSearch" placeholder="🔍 단어·뜻 검색" oninput="renderPool()">
       <select id="poolFilter" onchange="renderPool()">
         <option value="all">전체</option>
-        <option value="checked">✓ 체크됨</option>
+        <option value="text">📝 텍스트 체크</option>
+        <option value="image">🖼 이미지 체크</option>
         <option value="noimg">이미지 없음</option>
       </select>
       <span id="poolCounts" class="pool-counts"></span>
@@ -2167,7 +2168,8 @@ async function loadFlags() {
   try { const r = await api('GET', '/admin/word-flags'); poolState.flags = r.flags || {}; }
   catch (e) { poolState.flags = {}; }
 }
-function isChecked(word) { return !!poolState.flags[word]; }
+function flagOf(word, type) { const f = poolState.flags[word]; return (f && f[type]) ? f[type] : null; }
+function anyFlag(word) { const f = poolState.flags[word]; return !!(f && (f.text || f.image)); }
 
 function showView(v) {
   const isPool = v === 'pool';
@@ -2200,40 +2202,42 @@ function renderPool() {
   const f = document.getElementById('poolFilter').value;
   const list = poolState.words.filter(w => {
     if (q && !((w.word || '').toLowerCase().includes(q) || (w.meaning || '').toLowerCase().includes(q))) return false;
-    if (f === 'checked') return isChecked(w.word);
+    if (f === 'text') return !!flagOf(w.word, 'text');
+    if (f === 'image') return !!flagOf(w.word, 'image');
     if (f === 'noimg') return !w.image_url;
     return true;   // all
   });
-  const checked = poolState.words.filter(w => isChecked(w.word)).length;
+  const ctext = poolState.words.filter(w => flagOf(w.word, 'text')).length;
+  const cimg = poolState.words.filter(w => flagOf(w.word, 'image')).length;
   document.getElementById('poolCounts').innerHTML =
-    `총 <b>${poolState.words.length}</b> · ✓ 체크 <b>${checked}</b>`;
+    `총 <b>${poolState.words.length}</b> · 📝텍스트 <b>${ctext}</b> · 🖼이미지 <b>${cimg}</b>`;
   const grid = document.getElementById('poolGrid');
   if (!list.length) { grid.innerHTML = '<div class="pool-empty">조건에 맞는 단어가 없습니다.</div>'; return; }
   grid.innerHTML = list.slice(0, 600).map(w => {
-    const ck = isChecked(w.word);
-    const memo = ck ? (poolState.flags[w.word].memo || '') : '';
+    const tf = flagOf(w.word, 'text'), imf = flagOf(w.word, 'image');
     const img = w.image_url
       ? `<img class="pcard-img" loading="lazy" src="${escapeHtml(w.image_url)}" alt="">`
       : `<div class="pcard-noimg">이미지 없음</div>`;
-    return `<div class="pcard ${ck ? 'checked' : ''}" data-w="${escapeHtml(w.word)}" onclick="openPoolDetail('${escapeHtml(w.word)}')">
+    return `<div class="pcard ${(tf || imf) ? 'checked' : ''}" data-w="${escapeHtml(w.word)}" onclick="openPoolDetail('${escapeHtml(w.word)}')">
       ${img}
-      ${ck ? '<span class="pcard-ckbadge">✓ 체크</span>' : ''}
+      ${(tf || imf) ? `<span class="pcard-ckbadge">${tf ? '📝' : ''}${imf ? '🖼' : ''}</span>` : ''}
       <div class="pcard-body">
         <div class="pcard-w">${escapeHtml(w.display_word || w.word)}</div>
         <div class="pcard-m">${escapeHtml(w.meaning || '')} · <span style="color:#64748b">${escapeHtml(w.pronunciation || '')}</span></div>
         <div class="pcard-sa">${escapeHtml(w.sound_association || '')}</div>
-        ${ck && memo ? `<div class="pcard-memo">📝 ${escapeHtml(memo)}</div>` : ''}
+        ${tf && tf.memo ? `<div class="pcard-memo">📝 ${escapeHtml(tf.memo)}</div>` : ''}
+        ${imf && imf.memo ? `<div class="pcard-memo">🖼 ${escapeHtml(imf.memo)}</div>` : ''}
       </div></div>`;
   }).join('') + (list.length > 600 ? `<div class="pool-empty">…앞 600개만 표시 (검색·필터로 좁히세요, 총 ${list.length})</div>` : '');
 }
 
-// 카드 탭 → 전체 상세(예문·이미지 설명 포함) + 검토 체크/메모
+// 카드 탭 → 전체 상세(예문·이미지 설명 포함) + 텍스트/이미지 각각 검토 체크+메모
 function openPoolDetail(word) {
   const w = poolState.words.find(x => x.word === word);
   if (!w) return;
-  const ck = isChecked(word);
-  const memo = ck ? (poolState.flags[word].memo || '') : '';
+  const tf = flagOf(word, 'text'), imf = flagOf(word, 'image');
   const ex2 = w.example2_en ? `<br><br>${escapeHtml(w.example2_en)}<br><span style="color:#94a3b8">${escapeHtml(w.example2_ko || '')}</span>` : '';
+  const ta = (id, val, ph) => `<textarea id="${id}" rows="2" style="width:100%;margin:6px 0;background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.15);color:#e5e7eb;border-radius:8px;padding:8px" placeholder="${ph}">${escapeHtml(val || '')}</textarea>`;
   const body = `
     ${w.image_url ? `<img class="det-img" src="${escapeHtml(w.image_url)}" alt="">` : ''}
     <div class="det-w">${escapeHtml(w.display_word || w.word)} <span class="det-pron">${escapeHtml(w.pronunciation || '')}</span></div>
@@ -2242,38 +2246,46 @@ function openPoolDetail(word) {
     ${w.image_caption ? `<div class="det-sec"><b>🖼 이미지 설명</b><br>${escapeHtml(w.image_caption)}</div>` : ''}
     <div class="det-sec"><b>예문</b><br>${escapeHtml(w.example1_en || '')}<br><span style="color:#94a3b8">${escapeHtml(w.example1_ko || '')}</span>${ex2}</div>
     <hr style="border:none;border-top:1px solid rgba(255,255,255,.1);margin:14px 0">
-    <label style="font-weight:700;color:#fde68a">📝 검토 메모 <span style="color:#94a3b8;font-weight:400">(수정할 점 — 집 로컬에서 이것만 보고 고칩니다)</span></label>
-    <textarea id="detMemo" rows="3" style="width:100%;margin-top:6px;background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.15);color:#e5e7eb;border-radius:8px;padding:8px" placeholder="예: 암기법이 어색함 / 이미지가 뜻과 안 맞음">${escapeHtml(memo)}</textarea>
-    ${ck ? `<button type="button" class="btn-danger" style="margin-top:8px" onclick="uncheckPool('${escapeHtml(word)}')">✗ 체크 해제</button>` : ''}
+    <div class="det-check">
+      <label style="font-weight:700;color:#fde68a">📝 텍스트 수정 <span style="color:#94a3b8;font-weight:400">(뜻·암기법·예문)</span></label>
+      ${ta('memoText', tf ? tf.memo : '', '예: 암기법이 어색함')}
+      <button type="button" class="btn-primary" onclick="poolCheck('${escapeHtml(word)}','text')">${tf ? '메모 저장' : '✓ 텍스트 체크'}</button>
+      ${tf ? `<button type="button" class="btn-danger" style="margin-left:6px" onclick="poolUncheck('${escapeHtml(word)}','text')">해제</button>` : ''}
+    </div>
+    <div class="det-check" style="margin-top:12px">
+      <label style="font-weight:700;color:#93c5fd">🖼 이미지 수정</label>
+      ${ta('memoImage', imf ? imf.memo : '', '예: 이미지가 뜻과 안 맞음')}
+      <button type="button" class="btn-primary" onclick="poolCheck('${escapeHtml(word)}','image')">${imf ? '메모 저장' : '✓ 이미지 체크'}</button>
+      ${imf ? `<button type="button" class="btn-danger" style="margin-left:6px" onclick="poolUncheck('${escapeHtml(word)}','image')">해제</button>` : ''}
+    </div>
   `;
-  modal({
-    title: '🔎 ' + escapeHtml(w.display_word || w.word),
-    body,
-    saveLabel: ck ? '메모 저장' : '✓ 체크하기',
-    save: async () => {
-      await setFlag(word, document.getElementById('detMemo').value);
-      renderPool();
-      return true;
-    },
-  });
+  modal({ title: '🔎 ' + escapeHtml(w.display_word || w.word), body, saveLabel: '닫기', save: async () => true });
 }
-
-async function setFlag(word, memo) {
-  await api('POST', '/admin/word-flags', { word, memo });
-  poolState.flags[word] = { memo: memo || '', at: new Date().toISOString() };
+async function poolCheck(word, type) {
+  const memo = document.getElementById(type === 'image' ? 'memoImage' : 'memoText').value;
+  await setFlag(word, type, memo);
+  closeModal(); renderPool();
 }
-async function uncheckPool(word) {
-  try { await api('DELETE', '/admin/word-flags/' + encodeURIComponent(word)); } catch (e) {}
-  delete poolState.flags[word];
-  closeModal();
-  renderPool();
+async function poolUncheck(word, type) {
+  await delFlag(word, type);
+  closeModal(); renderPool();
+}
+async function setFlag(word, type, memo) {
+  await api('POST', '/admin/word-flags', { word, type, memo });
+  poolState.flags[word] = poolState.flags[word] || {};
+  poolState.flags[word][type] = { memo: memo || '', at: new Date().toISOString() };
+}
+async function delFlag(word, type) {
+  try { await api('DELETE', '/admin/word-flags/' + encodeURIComponent(word) + '?type=' + type); } catch (e) {}
+  if (poolState.flags[word]) { delete poolState.flags[word][type]; if (!poolState.flags[word].text && !poolState.flags[word].image) delete poolState.flags[word]; }
 }
 
 window.showView = showView;
 window.loadWordPool = loadWordPool;
 window.renderPool = renderPool;
 window.openPoolDetail = openPoolDetail;
-window.uncheckPool = uncheckPool;
+window.poolCheck = poolCheck;
+window.poolUncheck = poolUncheck;
 
 tryAutoLogin();
 </script>

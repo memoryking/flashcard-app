@@ -1033,6 +1033,8 @@ async function wfWrite(env, obj) {
   if (!env.WORD_FLAGS) return;
   await env.WORD_FLAGS.put(WF_KEY, JSON.stringify(obj));
 }
+// flags[word] = { text?: {memo,at}, image?: {memo,at} } — 텍스트/이미지 체크 독립
+function wfType(t) { return t === 'image' ? 'image' : 'text'; }
 async function handleWordFlagsList(request, env) {
   const flags = await wfRead(env);
   return json({ flags, count: Object.keys(flags).length }, 200, request);
@@ -1041,16 +1043,27 @@ async function handleWordFlagsSet(request, env) {
   const b = await request.json().catch(() => ({}));
   const word = String(b.word || '').trim().toLowerCase();
   if (!word) return json({ error: 'word required' }, 400, request);
+  const type = wfType(b.type);
   const flags = await wfRead(env);
-  flags[word] = { memo: String(b.memo || ''), at: kstDateTime() };
+  flags[word] = flags[word] || {};
+  flags[word][type] = { memo: String(b.memo || ''), at: kstDateTime() };
   await wfWrite(env, flags);
-  return json({ ok: true, word, count: Object.keys(flags).length }, 200, request);
+  return json({ ok: true, word, type }, 200, request);
 }
 async function handleWordFlagsDelete(request, env, word) {
   const w = String(word || '').trim().toLowerCase();
+  const type = new URL(request.url).searchParams.get('type');   // text|image, 없으면 전체
   const flags = await wfRead(env);
-  if (w in flags) { delete flags[w]; await wfWrite(env, flags); }
-  return json({ ok: true, word: w, count: Object.keys(flags).length }, 200, request);
+  if (w in flags) {
+    if (type === 'text' || type === 'image') {
+      delete flags[w][type];
+      if (!flags[w].text && !flags[w].image) delete flags[w];
+    } else {
+      delete flags[w];
+    }
+    await wfWrite(env, flags);
+  }
+  return json({ ok: true, word: w, type: type || 'all' }, 200, request);
 }
 
 // POST /admin/op_pool/sync — 로컬 push_op_pool.py 가 배치(≤20)로 op_pool upsert (word 키). teacherGate 뒤.
