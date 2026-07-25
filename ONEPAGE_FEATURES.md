@@ -1996,8 +1996,19 @@ node scripts/merge-math.js "C:/Users/memoryking/00_DEV/11_math/<단원폴더>"
 ### 콘텐츠 갱신 (풀 → 서버)
 `word-pool` 관리콘솔 **☁️ 서버 반영** (= `export_op_pool.py` → `push_op_pool.py` → `POST /admin/op_pool/sync`)
 → 발행된 모든 콘텐츠의 카드가 최신 풀 내용으로 갱신. **카드 형식 변경은 워커 배포만으로 전체 적용.**
+op_pool 카드에 **🖼 이미지 해설(`image_caption`)** 포함 — 학생 카드에서 이미지 바로 위에 표시.
 
-> 상세: [WORD_POOL.md](WORD_POOL.md) · `word-pool/SETS_PLAN.md`(아키텍처) · `word-pool/DEVLOG.md`(개발기록)
+### 단어 검토·업그레이드 루프 (2026-07-25, "무한 발전")
+교사앱 단어풀 탭 = **읽기+검토 전용**(편집·이미지 생성은 로컬 콘솔 — 원천이 로컬 word_pool.db·ComfyUI). 검토 결정은 **서버 KV `WORD_FLAGS`**(§ ONEPAGE_SCHEMA)로 웹↔로컬 실시간 공유.
+
+| 단계 | 위치 | 동작 |
+|---|---|---|
+| **검토 체크(2종)** | 교사앱 웹 | 카드 탭→전체 상세 모달 → **📝 텍스트 / 🖼 이미지** 각각 메모+체크(독립). 승인/재생성 없음 |
+| **텍스트 수정** | 로컬 콘솔 | 📝체크 필터 → ✏️편집 또는 **⬆ 업그레이드**(요청서 복사→외부 AI→JSON 붙여넣기→적용) → ☁️서버반영 |
+| **이미지 수정** | 로컬 콘솔 | 🖼체크 필터 → **🖐 외부 교체**(프롬프트 복사→외부 생성→드롭→폴더저장·업로드·배포) 또는 **클로드 채팅**(다른 컨셉 재생성: 프롬프트·설명·캡션 새로→ComfyUI→배포) |
+| **해제** | 양쪽 | 고친 뒤 ✓해제 → 서버 공통 반영 |
+
+> 상세: [WORD_POOL.md](WORD_POOL.md) · `word-pool/README.md`(콘솔 사용법) · `word-pool/SETS_PLAN.md`(아키텍처) · `word-pool/DEVLOG.md`(개발기록)
 
 ---
 

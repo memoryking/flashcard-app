@@ -25,6 +25,7 @@
 | nocodebackend | `op_understood` | 학생 ● 등록 + SRS 진도 |
 | nocodebackend | `op_pings` | 라이브 학습자 카운트 + 실시간 학습 통계(카드 수·피드) |
 | nocodebackend | `op_pool` | **단어풀 콘텐츠**(영단어·한자) — `op_items`가 `@@WORD:단어@@`로 참조 → 워커가 조합 |
+| Cloudflare KV | `WORD_FLAGS` | **단어 검토 체크·메모** (id fc044caf…) — `flags[word]={text?:{memo,at}, image?:{memo,at}}`. 교사앱 웹 체크 ↔ 로컬 콘솔 공유. 워커 `GET/POST/DELETE /admin/word-flags`(POST{type}, DELETE?type=). op_pool엔 `image_caption`(학생용 이미지 해설) 추가됨 |
 
 ---
 
