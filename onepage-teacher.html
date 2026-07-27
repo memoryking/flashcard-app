@@ -120,6 +120,9 @@ a { color: #4fc3f7; text-decoration: none; }
 .pcard:hover { border-color: #3a3a66; }
 .pcard.checked { border-color: #eab308; }
 .pcard-ckbadge { position: absolute; top: 8px; right: 8px; background: #eab308; color: #1a1a2e; font-weight: 800; font-size: 11px; padding: 2px 8px; border-radius: 10px; z-index: 2; }
+.pcard-imgchk { position: absolute; top: 8px; left: 8px; z-index: 3; background: rgba(0,0,0,.6); border: 1px solid rgba(255,255,255,.35); color: #cbd5e1; font-weight: 800; font-size: 12px; padding: 2px 8px; border-radius: 9px; cursor: pointer; user-select: none; }
+.pcard-imgchk:hover { border-color: #93c5fd; }
+.pcard-imgchk.on { background: #2563eb; border-color: #93c5fd; color: #fff; }
 .pcard-memo { font-size: 11px; color: #fde68a; background: rgba(234,179,8,.12); border-radius: 6px; padding: 4px 7px; margin-top: 6px; line-height: 1.4; max-height: 3em; overflow: hidden; }
 /* 상세 모달 */
 .det-img { width: 100%; border-radius: 10px; margin-bottom: 10px; }
@@ -2220,6 +2223,7 @@ function renderPool() {
       : `<div class="pcard-noimg">이미지 없음</div>`;
     return `<div class="pcard ${(tf || imf) ? 'checked' : ''}" data-w="${escapeHtml(w.word)}" onclick="openPoolDetail('${escapeHtml(w.word)}')">
       ${img}
+      <div class="pcard-imgchk ${imf ? 'on' : ''}" title="이미지 수정 체크/해제 (클릭)" onclick="event.stopPropagation();quickImg('${escapeHtml(w.word)}')">🖼${imf ? ' ✓' : ''}</div>
       ${(tf || imf) ? `<span class="pcard-ckbadge">${tf ? '📝' : ''}${imf ? '🖼' : ''}</span>` : ''}
       <div class="pcard-body">
         <div class="pcard-w">${escapeHtml(w.display_word || w.word)}</div>
@@ -2276,6 +2280,13 @@ async function poolUncheck(word, type) {
   await delFlag(word, type);
   closeModal(); renderPool();
 }
+// 목록 카드에서 이미지 수정만 빠르게 체크/해제 (모달 없이)
+async function quickImg(word) {
+  if (flagOf(word, 'image')) await delFlag(word, 'image');
+  else await setFlag(word, 'image', '목록에서 이미지 수정 체크');
+  renderPool();
+}
+window.quickImg = quickImg;
 async function setFlag(word, type, memo) {
   await api('POST', '/admin/word-flags', { word, type, memo });
   poolState.flags[word] = poolState.flags[word] || {};
