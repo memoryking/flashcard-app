@@ -6435,7 +6435,7 @@ function sessionCardHTML() {
       </div>` : `
       <div class="ses-think">
         <div class="ses-think-icon">🤔</div>
-        <div class="ses-think-msg">뜻을 떠올려 보세요</div>
+        <div class="ses-think-msg">${isAlpha ? '뜻을 떠올려 보세요' : '정답을 떠올려 보세요'}</div>
         <div class="ses-think-hint">카드를 터치하면 정답이 나옵니다</div>
       </div>`) : `
       ${coverHtml}
