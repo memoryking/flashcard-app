@@ -2264,6 +2264,12 @@ function openPoolDetail(word) {
 async function poolCheck(word, type) {
   const memo = document.getElementById(type === 'image' ? 'memoImage' : 'memoText').value;
   await setFlag(word, type, memo);
+  // 텍스트를 수정하면 이미지도 새로 만들어야 하므로 이미지 수정도 자동 체크 (로컬 콘솔에 함께 반영)
+  if (type === 'text') {
+    const imEl = document.getElementById('memoImage');
+    const imemo = (imEl && imEl.value.trim()) ? imEl.value : (memo && memo.trim() ? memo : '텍스트 수정 → 이미지 재생성');
+    await setFlag(word, 'image', imemo);
+  }
   closeModal(); renderPool();
 }
 async function poolUncheck(word, type) {
