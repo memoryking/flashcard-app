@@ -996,7 +996,7 @@ function composeWordCardHTML(r) {
   if (r.video_url)          p.push(`<p class="wp-video"><a href="${e(r.video_url)}" target="_blank" rel="noopener">▶ 동영상</a></p>`);
   // 이미지 해설은 카드 맨 끝에 → 학생 앱이 바로 뒤에 이미지를 붙이므로 '이미지 바로 위'에 위치.
   // 구분선 + 라벨로 "이 선 아래(설명+그림)는 그림 설명"임을 강조. (아이콘 없음 — 일부 폰트에서 🖼가 깨짐)
-  if (r.image_caption)      p.push(`<div class="wp-imgcap-box" style="margin-top:16px;padding-top:10px;border-top:1px dashed rgba(150,160,190,.5)"><span class="wp-imgcap-lb" style="display:block;font-size:.78em;color:#8b93a7;letter-spacing:.02em;margin-bottom:5px">아래 그림에 대한 설명</span><p class="wp-imgcap" style="margin:0">${e(r.image_caption)}</p></div>`);
+  if (r.image_caption)      p.push(`<div class="wp-imgcap-box" style="margin-top:16px;padding-top:10px;border-top:1px dashed rgba(150,160,190,.5)"><span class="wp-imgcap-lb" style="display:block;font-size:.78em;color:#8b93a7;letter-spacing:.02em;margin-bottom:5px">이미지</span><p class="wp-imgcap" style="margin:0">${e(r.image_caption)}</p></div>`);
   return p.join('\n');   // 이미지는 학생 앱이 wordImageFor(subtopic)로 자동 삽입 → 여기 미포함 (캡션 바로 아래에 옴)
 }
 function opPoolCacheKey(word) { return new Request(`https://oppool.local/w/${encodeURIComponent(word)}`); }
