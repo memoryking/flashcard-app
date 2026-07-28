@@ -987,8 +987,8 @@ function opHtmlEsc(s) {
 }
 function composeWordCardHTML(r) {
   const e = opHtmlEsc, p = [];
-  if (r.pronunciation)      p.push(`<p class="wp-pron">${e(r.pronunciation)}</p>`);
   if (r.meaning)            p.push(`<p class="wp-meaning">${e(r.meaning)}</p>`);
+  if (r.pronunciation)      p.push(`<p class="wp-pron">${e(r.pronunciation)}</p>`);
   if (r.sound_association)  p.push(`<p class="wp-sa">${e(r.sound_association)}</p>`);
   if (r.mnemonic_detail)    p.push(`<p class="wp-detail">${e(r.mnemonic_detail)}</p>`);
   if (r.example1_en)        p.push(`<p class="wp-ex">${e(r.example1_en)}${r.example1_ko ? `<br><span class="wp-ex-ko">${e(r.example1_ko)}</span>` : ''}</p>`);
