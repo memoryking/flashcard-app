@@ -483,7 +483,7 @@ Type 드롭다운에 보이는 옵션: `INT`, `BIGINT`, `VARCHAR(255)`, `DROPDOW
 | `image_caption` | TEXT | 🖼 학생용 이미지 해설(친근한 1~2문장). 카드에 `<p class="wp-imgcap">`로 표시. ⚠ 제작용 `image_description`과 별개(그건 학생 비노출) |
 | `example1_en` / `example1_ko` | TEXT / TEXT | 예문1 영/한 — **반드시 4개 개별 컬럼** |
 | `example2_en` / `example2_ko` | TEXT / TEXT | 예문2 영/한 |
-| `image_url` | VARCHAR(255) | sharemyimage URL (학생앱은 `word-images.json`으로도 자동 매칭) |
+| `image_url` | VARCHAR(255) | Cloudflare R2 URL — `https://pub-a387e2fb68dd4a0d8bc1ca82b5ede8bc.r2.dev/en/{word}.png[?v=시각]` (2026-08 sharemyimage에서 이전. 학생앱은 `word-images.json`으로도 자동 매칭) |
 | `video_url` | VARCHAR(255) | 동영상 URL (있으면 카드에 ▶동영상 링크) |
 | `subject` | VARCHAR(255) | `'en'`(영단어) / `'hanja'`(한자) |
 | `updated_at` | **DATETIME** | 워커가 `YYYY-MM-DD HH:MM:SS` 로 기록 |

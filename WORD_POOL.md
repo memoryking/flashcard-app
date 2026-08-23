@@ -2,7 +2,8 @@
 
 > **영단어·한자 콘텐츠는 이 저장소에 없습니다.** 별도 프로젝트에서 관리합니다.
 > 📁 **`C:\Users\memoryking\00_DEV\word-pool`** (flashcard-app과 **형제 폴더**)
-> 🔐 백업: **`github.com/memoryking/word-pool` (Private)** — `word_pool.db` 포함
+> 🔐 백업: **`github.com/memoryking/word-pool` (Private)** — 2026-08부터 `word_pool.sql`(텍스트 덤프) 추적, 바이너리 db는 git 제외(복원=`scripts/restore_db.py`)
+> 🖼 이미지 호스팅: **Cloudflare R2** `word-images` 버킷 — `https://pub-a387e2fb68dd4a0d8bc1ca82b5ede8bc.r2.dev/en/{word}.png` (2026-08 sharemyimage에서 전량 이전)
 >
 > 문서: `word-pool/README.md`(사용법) · `SETS_PLAN.md`(아키텍처) · `WORKLOG.md`(주제별·함정) · `DEVLOG.md`(시간순 개발기록)
 
@@ -45,8 +46,8 @@ onepage-user  카드 뒷면 자동 완성 + 이미지 자동 매칭(word-images.
 # 단어 내용을 고쳤다 → 모든 콘텐츠에 반영
 word-pool: 관리콘솔.bat → ✏️편집 → ☁️ 서버 반영
 
-# 새 이미지를 배포했다 → 학생앱 반영
-word-pool: 콘솔 🚀 배포  (word-images.json 갱신 + 이 저장소로 커밋·푸시)
+# 작업 마감(이미지 업로드·배포·서버반영·백업 전부) — 2026-08 원버튼
+word-pool: 콘솔 🚀 발행  (R2 업로드 → word-images.json → git push → op_pool 증분 반영 → 풀 백업)
 
 # 새 단어묶음을 만든다
 onepage-teacher → 📥(✨ 새 콘텐츠로 발행) → 단어 붙여넣기 → 🚀 발행 점검 → 공개
